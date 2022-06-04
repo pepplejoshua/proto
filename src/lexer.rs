@@ -47,10 +47,10 @@ pub enum TokenKind {
     Continue,
     Return,
 
-    // Typei64,
-    // TypeChar,
-    // TypeStr,
-    // TypeBool,
+    Typei64,
+    TypeChar,
+    TypeStr,
+    TypeBool,
     End,
 }
 
@@ -166,6 +166,10 @@ fn find_keyword(ctx: &LexContext, span: Span) -> Option<TokenKind> {
         "return" => Some(TokenKind::Return),
         "break" => Some(TokenKind::Break),
         "continue" => Some(TokenKind::Continue),
+        "char" => Some(TokenKind::TypeChar),
+        "str" => Some(TokenKind::TypeStr),
+        "bool" => Some(TokenKind::TypeBool),
+        "i64" => Some(TokenKind::Typei64),
         "true" | "false" => Some(TokenKind::Boolean(lexeme.parse().unwrap())),
         _ => None,
     }
@@ -265,8 +269,10 @@ fn make_token(ctx: &LexContext, span: Span, kind: TokenKind, column: usize) -> T
 fn identifier(ctx: &mut LexContext) -> Token {
     let start = ctx.current_ip;
     let start_col = ctx.column;
-
-    while !is_at_end(ctx) && is_identifier(current_char(ctx)) {
+    advance(ctx); // advance past the identifier character that got us here
+    while !is_at_end(ctx)
+        && (is_identifier(current_char(ctx)) || char::is_digit(current_char(ctx), 10))
+    {
         advance(ctx);
     }
 
@@ -293,9 +299,7 @@ fn number(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
     let start_col = ctx.column;
     // let mut is_float = false;
 
-    while ctx.current_ip < ctx.source.len()
-        && char::is_digit(ctx.source.as_bytes()[ctx.current_ip] as char, 10)
-    {
+    while ctx.current_ip < ctx.source.len() && char::is_digit(current_char(ctx), 10) {
         advance(ctx);
 
         // useful for when we add in Floats or Doubles

@@ -1,4 +1,6 @@
 some_identifier
+another_identifier_2
+_identifier
 "string"
 12324
 false
@@ -22,4 +24,5 @@ comment
 */
 
 break continue return
-// i64 str char bool
+str char bool
+i64 
