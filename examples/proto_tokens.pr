@@ -1,0 +1,25 @@
+some_identifier
+"string"
+12324
+false
+true
+'c'
+
+let mut 
+= + - * / .
+% , : ; ( ) { }
+[ ] record fn
+
+// single line Comments
+
+> < <= >= && || ?
+for if loop while else
+
+/*
+multi
+line
+comment
+*/
+
+break continue return
+// i64 str char bool
