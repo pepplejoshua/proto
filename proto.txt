@@ -1,0 +1,342 @@
+// ***************===================***************
+// This is the Syntax document for *INSERT-NAME-HERE* language
+// Candidates are Cajo, Jaco, Joca, Petit
+// ***************===================***************
+
+// this is a single line comment
+/*
+This is a multi line comment. Nothing too serious
+*/
+
+// =======================================================================
+// Basic types/literals
+// -----------------------------------------------------------------------
+// boolean values 
+true
+false
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// i64 (can add more later as we see fit)
+10020
+1
+2
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// string literals, allowing both double quoted and single quoted strings
+“some string”
+‘some other string’
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// characters 
+‘a’, ‘e’, ‘i’, ‘o’, ‘u’
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+Unit
+This is the type return by functions with no return value, blocks with
+no return value (or ended with a semi-colon) and regular statements (like assignment statements).
+They are not assignable to variables
+*/
+fn some_fn() {} // returns unit or () by default
+
+// this block also returns unit
+// this allows us to allow blocks that return either a value (like an integer)
+// or no value (which is unit)
+{
+    some_fn() // returns unit as the block's return value
+}
+
+// or if we use a semi-colon to end a block, it also returns unit 
+fn some_other_fn() -> i64 { 1 } // so it returns 1
+// and it is later used in
+{
+    // instead of returning the 1 from the function, it returns unit
+    // since the expression is ended with a ';'
+    some_other_fn(): 
+}
+// -----------------------------------------------------------------------
+// This is the end of the basic types
+// =======================================================================
+
+
+// =======================================================================
+// Complex types
+// -----------------------------------------------------------------------
+// array literal of some type T, type inferred as [T]
+[1, 2, 3, 4, 5] // type inferred is [164]
+
+// values can be indexed as usual, starting at index 0
+[1, 2, 3][1] // returns 2
+
+// we can allow values to also be indexed in reverse using negative indexes starting at -1
+[1, 2, 3, 4, 5][-2] // this returns 4 
+// because array is 5 items long and 5-2 = 3 and 4 is the number in the 3rd index.
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+hash-map literal of some types T and U where T is U’s key.
+The type inferred will be {T: U} where T is the key type and U is the value type
+Variables of the hashmap type will have their type inferred by the compiler removing
+the need for manual annotation
+*/
+{‘name’: ‘Joshua’, ‘age’: ‘23’} // type inferred is {str: str}
+
+// it can be indexed like an array
+{‘name’: ‘Joshua’, ‘age’: ‘23’}["name] // returns 'Joshua'
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+set literal of some type T (which is type tagged {T})
+(This one is more optional but I think they might come in handy)
+*/
+{1, 2, 3, 4, 5, 1, 3} // becomes {1, 2, 3, 4, 5}, type annotated is {i64}
+
+// it can be indexed like an array
+// {'a', 'b', 'c'}[2] // returns 'c'
+
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+Tuples are useful in the case of bundling related data, so they'll be very
+nice to include in the language. Like hash-map and set, they can just be
+created and the type will be inferred at compile time
+*/
+(1, 'a', 'some str', false) // type inferred is (i64, char, str, bool)
+
+// it can be indexed like an array
+('Joshua', 23, 'Male', true)[2] // returns 'Male'
+// -----------------------------------------------------------------------
+// This is the end of the built in complex types
+// =======================================================================
+
+
+// =======================================================================
+// Mutable and immutable variables
+// -----------------------------------------------------------------------
+/* 
+Immutable variable definitions with type inference based on assigned value
+for initialization and without type inference (by specifying type tag)
+*/
+let inferred_unchangeable = 5
+let declared_unchangeable: i64 = 30
+let isLang = false
+let isNotLang: bool = true
+let some_str: str = 'this is a string'
+let ch = 'a' // a character
+let arr: [i64] = [1, 2, 3, 4]
+let map = {1: 'a', 2: 'b'} // type inferred is {i64: char} map
+let tup = (1, false, 'c', 'name') // type inferred is (i64, bool, char, str)
+
+ch = 'c' // is not allowed as ch is not mutable
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/* 
+Immutable variable definition without assigned value for initialization
+requires a type tag
+*/
+let allowed: i64
+let invalid // because it is not initialized or tagged with a type
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Mutable variables follow the same 2 patterns described above
+mut inferred_changeable = 5
+inferred_changeable = 30 // is allowed
+inferred_changeable = "this is not allowed" // as variables are not dynamically typed
+mut some_str: str = 'this is some string'
+some_str += ". attaching a different string"
+mut arr_2 = ['a', 'b', 'c'] // type inferred is [char]
+arr_2[2] = 'd'
+mut mapper: {str: i64} = {"age": 23}
+let set: {str} = {'josh', 'caleb'} // a set of strings
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+Discarding values using '_'. We discard values by assigning them to '_'
+*/
+fn some_fn(a: i64) -> i64 { 
+    _ = a + 1 // a + 1 gets discarded
+    a 
+}
+_ = some_fn(a: 4) // this discards the value by storing it in _
+// -----------------------------------------------------------------------
+// This is the end of Mutable and Immutable variables
+// =======================================================================
+
+// =======================================================================
+// Code blocks and control flow
+// -----------------------------------------------------------------------
+/*
+A block either returns the value of its last expression or it returns Unit
+if its last line is a statement or is terminated with a semi-colon
+*/
+{
+    let a = 5
+} // this block returns Unit as assignment is a statement
+
+{
+    let a = 5
+    a * a
+} // this block returns 25 since its last line is an expression
+
+{
+    let a = 5
+    a * a;
+} // this block equally returns Unit as the expression is turned into a Statement using ;
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Conditionals can be achieved using if statements
+if true {
+    let a = 3
+} else if !false {
+    let b = 4
+} else {
+    mut c = 5
+    c = c * c
+}
+
+// you can also use ternary operators to handle simpler conditional cases
+mut d: char = true ? 'a' : 'b' // like in C++ and Java 
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Looping through an array or a set can be achieved using a for loop
+let arr: [i64] = [1, 2, 3, 4, 5]
+let total: i64
+for i in arr {
+    total += i
+}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Continue keyword can be used to skip to the next iteration of a loop
+let arr = [1, 2, 3, 4, 5]
+let total = 0
+for i in arr {
+    if i == 2 {
+        continue
+    }
+    total += i
+} // total is 13 after the loop completes
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// While loops are also available
+let i = 0
+while i < 5 {
+    i++
+}
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// An infinite loop can be achieved using loop, which can be exited using break keyword
+loop {
+    // do something
+    break
+}
+// -----------------------------------------------------------------------
+//This is the end of Code blocks and control flow
+// =======================================================================
+
+
+// =======================================================================
+// Function definitions and use. Since function parameters are currently passed
+// by copy, we can ignore mutability rules for now since modification to the 
+// parameters don't affect the original copy
+// -----------------------------------------------------------------------
+/*
+As stated earlier, functions that don't return anything have a Unit return
+type by default and Unit cannot be assigned to anything
+*/
+fn unit_fn(a: char) { a; }
+let illegal = unit_fn('c') // this is not allowed as unit_fn is a procedure
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+/*
+Functions that take parameters can be called using the parameter labels or
+without 
+*/
+fn returns_params(a: i64, b: str) -> (i64, str) {
+    (a, b)
+}
+
+let tup_1: (i64, str) = returns_params(3, 'string') 
+mut tup_2 = returns_params(a: 3, b: "string") // type inferred is (i64, str)
+/*
+both tup_1 and tup_2 have the same value. Having the parameter labels,
+in the case of tup_2 makes the code readable without having to go to the
+function definition
+*/
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Returns from function block can be implicit or using return statement
+fn returns(a: i64) -> i64 { a }
+fn returns_(a: i64) -> i64 { return a}
+// both these functions do the same thing
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// Using traits to type a function's parameters 
+// NOTE: THIS IS JUST A PROTOTYPE BASED ON RUST. WILL SIMPLIFY
+trait Addable<T> {
+    fn add(self, other: T) -> T;
+}
+
+type A {
+    a: int
+    b: int
+}
+
+A impls Addable<A> {
+    fn add(self, other: A) -> A {
+        let newA = A{a: .a + other.a, b: .b + other. b}
+        return newA
+    }
+}
+// -----------------------------------------------------------------------
+// This is the end of Function definitions and use
+// =======================================================================
+
+// =======================================================================
+// Enums and Structs
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// =======================================================================
+
+
+// =======================================================================
+// Builtin Functions
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// =======================================================================
+
+
+// =======================================================================
+// Writing a simple program
+// -----------------------------------------------------------------------
+
+// -----------------------------------------------------------------------
+// =======================================================================
+
+TODO:
+* import statements to use other files as code modules
+    - referencing items (constants or functions or other modules) in an imported module
+    - specifying the actual path of the module to be imported vs just using the module name
+* more powerful enums
+* how to define traits or interfaces
+* using traits to implement operators to allow easy overloading
+* using generics on traits, structs and functions

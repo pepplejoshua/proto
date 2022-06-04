@@ -377,7 +377,7 @@ fn character(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
     // current character should be the closing '
     if current_char(ctx) != '\'' {
         return Err(ProtoErr {
-            msg: String::from("A character should be of length 1"),
+            msg: String::from("Unterminated character"),
             token: None,
         });
     }
