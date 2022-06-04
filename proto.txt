@@ -1,8 +1,3 @@
-// ***************===================***************
-// This is the Syntax document for *INSERT-NAME-HERE* language
-// Candidates are Cajo, Jaco, Joca, Petit
-// ***************===================***************
-
 // this is a single line comment
 /*
 This is a multi line comment. Nothing too serious
@@ -24,9 +19,8 @@ false
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
-// string literals, allowing both double quoted and single quoted strings
+// string literals
 “some string”
-‘some other string’
 // -----------------------------------------------------------------------
 
 // -----------------------------------------------------------------------
