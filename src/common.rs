@@ -2,9 +2,14 @@ use crate::lexer::Token;
 // use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
-pub struct ProtoErr {
-    pub msg: String,
-    pub token: Option<Token>,
+pub enum ProtoErr {
+    General(String, Option<Token>),
+
+    // FIXME: This will be used in the tree-walk interpreter, the unit is in place
+    //        of a potential return value. Since we don't have exceptions, we can throw an
+    //        error instead, then catch it in the caller.
+    #[allow(unused)]
+    Return(()),
 }
 
 // Since there is not lexer to hold state,

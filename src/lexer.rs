@@ -340,10 +340,10 @@ fn string(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
 
     // Unterminated string
     if is_at_end(ctx) {
-        return Err(ProtoErr {
-            msg: String::from("Unterminated string"),
-            token: None,
-        });
+        return Err(ProtoErr::General(
+            String::from("Unterminated string"),
+            None,
+        ));
     }
 
     advance(ctx);
@@ -365,10 +365,10 @@ fn character(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
 
     // if advancing once or twice will be in EOF
     if ctx.current_ip + 1 >= ctx.source.len() || ctx.current_ip + 2 >= ctx.source.len() {
-        return Err(ProtoErr {
-            msg: String::from("Unterminated character"),
-            token: None,
-        });
+        return Err(ProtoErr::General(
+            String::from("Unterminated character"),
+            None,
+        ));
     }
     advance(ctx); // advance past ' to actual character
     let ch = current_char(ctx);
@@ -376,10 +376,10 @@ fn character(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
 
     // current character should be the closing '
     if current_char(ctx) != '\'' {
-        return Err(ProtoErr {
-            msg: String::from("Unterminated character"),
-            token: None,
-        });
+        return Err(ProtoErr::General(
+            String::from("Unterminated character"),
+            None,
+        ));
     }
 
     advance(ctx);
@@ -456,11 +456,11 @@ pub fn lex_next(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
     }
 
     // Unknown item found
-    Err(ProtoErr {
-        msg: format!(
+    Err(ProtoErr::General(
+        format!(
             "Unknown character found: '{}'",
             ctx.source.as_bytes()[ctx.current_ip]
         ),
-        token: None,
-    })
+        None,
+    ))
 }
