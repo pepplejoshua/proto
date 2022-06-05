@@ -6,7 +6,7 @@ use std::fs;
 
 #[test]
 fn test_lexer_tokens() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/all_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/all_tokens.pr";
     let mut ctx = LexContext::new(fs::read_to_string(path).unwrap());
 
     loop {
@@ -20,7 +20,7 @@ fn test_lexer_tokens() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_types() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/type_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/type_tokens.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
     let token_kinds = vec![
@@ -41,7 +41,7 @@ fn test_lexing_types() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_grouping_tokens() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/grouping_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/grouping_tokens.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
     let token_kinds = vec![
@@ -64,7 +64,7 @@ fn test_lexing_grouping_tokens() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_keywords() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/keyword_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/keyword_tokens.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
     let token_kinds = vec![
@@ -93,7 +93,7 @@ fn test_lexing_keywords() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_valid_identifiers() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/valid_identifier_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/identifier_tokens.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
 
@@ -118,7 +118,7 @@ fn test_lexing_valid_identifiers() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_valid_string_literals() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/valid_string_literals.pr";
+    let path = "./samples/test_sources/lexer/valid/string_literals.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
 
@@ -143,7 +143,7 @@ fn test_lexing_valid_string_literals() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_single_operators() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/single_operators.pr";
+    let path = "./samples/test_sources/lexer/valid/single_operators.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
     let token_kinds = vec![
@@ -173,7 +173,7 @@ fn test_lexing_single_operators() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_double_operators() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/double_operators.pr";
+    let path = "./samples/test_sources/lexer/valid/double_operators.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
     let token_kinds = vec![
@@ -194,7 +194,7 @@ fn test_lexing_double_operators() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexing_literal_tokens() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/literal_tokens.pr";
+    let path = "./samples/test_sources/lexer/valid/literal_tokens.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
 
@@ -224,7 +224,7 @@ fn test_lexing_literal_tokens() -> Result<(), ProtoErr> {
 
 #[test]
 fn test_lexer_skipping_comments() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/comments.pr";
+    let path = "./samples/test_sources/lexer/valid/comments.pr";
     let src = fs::read_to_string(path).unwrap();
     let mut ctx = LexContext::new(src);
 
