@@ -70,7 +70,7 @@ fn test_lexing_keywords() -> Result<(), ProtoErr> {
     let token_kinds = vec![
         TokenKind::Let,
         TokenKind::Mut,
-        TokenKind::Record,
+        TokenKind::Struct,
         TokenKind::Fn,
         TokenKind::For,
         TokenKind::If,

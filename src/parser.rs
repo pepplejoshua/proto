@@ -41,8 +41,8 @@ fn consume_id(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pr
 }
 
 // FIXME: Rename record to struct
-pub fn record(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<AstNode, ProtoErr> {
-	consume(lex_ctx, ctx, TokenKind::Record)?;
+pub fn parse_struct(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<AstNode, ProtoErr> {
+	consume(lex_ctx, ctx, TokenKind::Struct)?;
 
 	let identifier = ctx.current.clone();
 	consume_id(lex_ctx, ctx)?;
@@ -76,7 +76,7 @@ fn top_level(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pro
 	while ctx.current.kind != TokenKind::End {
 		// FIXME: Handle AstNode and insert it into a block or some context
 		let _ = match ctx.current.kind {
-			TokenKind::Record => record(lex_ctx, ctx)?,
+			TokenKind::Struct => parse_struct(lex_ctx, ctx)?,
 			_ => return Err(ProtoErr::General(format!("Unknown statement in top-level: {:?}", ctx.current.kind), Some(ctx.current.clone()))),
 		};
 	}
