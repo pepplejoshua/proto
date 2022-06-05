@@ -12,7 +12,7 @@ mod lexer;
 // mod parser;
 
 fn main() {
-    let source = match fs::read_to_string("examples/proto_tokens.pr") {
+    let source = match fs::read_to_string("samples/test_sources/all_tokens.pr") {
         Ok(it) => it,
         _ => return,
     };

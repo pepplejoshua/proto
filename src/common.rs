@@ -1,8 +1,14 @@
-use crate::lexer::Token;
+use crate::lexer::{Span, Token};
 // use std::collections::HashMap;
 
 #[derive(Debug, Clone)]
 pub enum ProtoErr {
+    #[allow(unused)]
+    Lexer {
+        msg: String,
+        span: Span,
+        token: Option<Token>,
+    },
     General(String, Option<Token>),
 
     // FIXME: This will be used in the tree-walk interpreter, the unit is in place

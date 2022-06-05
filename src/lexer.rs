@@ -335,15 +335,23 @@ fn string(ctx: &mut LexContext) -> Result<Token, ProtoErr> {
     advance(ctx);
 
     while !is_at_end(ctx) && current_char(ctx) != '"' {
-        advance(ctx);
+        let ch = current_char(ctx);
+
+        match ch {
+            '\\' => match peek(ctx, 1) {
+                '"' => {
+                    advance(ctx);
+                    advance(ctx)
+                }
+                _ => advance(ctx),
+            },
+            _ => advance(ctx),
+        }
     }
 
     // Unterminated string
     if is_at_end(ctx) {
-        return Err(ProtoErr::General(
-            String::from("Unterminated string"),
-            None,
-        ));
+        return Err(ProtoErr::General(String::from("Unterminated string"), None));
     }
 
     advance(ctx);
