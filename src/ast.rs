@@ -18,8 +18,25 @@ pub struct Function {
     pub parameters: Vec<Span>,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
+pub struct BinOp {
+    // Note: Box required for recursive type
+    pub left: Box<AstNode>,
+    pub right: Box<AstNode>,
+    pub operator: Token,
+}
+
+#[derive(Debug, Clone)]
+pub struct UnaryOp {
+    // Note: Box required for recursive type
+    pub operator: Token,
+    pub right: Box<AstNode>,
+}
+
+#[derive(Debug, Clone)]
 pub enum AstNode {
+    BinaryOp(BinOp),
+    UnaryOp(UnaryOp),
     Variable(Var),
     Struct(Record),
     Block(Vec<Box<AstNode>>),
