@@ -42,7 +42,7 @@ fn consume_id(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pr
 
 fn parse_factor(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<AstNode, ProtoErr> {
 	match ctx.current.kind {
-		TokenKind::Integer(_) | TokenKind::Char(_) | TokenKind::Boolean(_) => {
+		TokenKind::Integer(_) | TokenKind::Char(_) | TokenKind::Boolean(_) | TokenKind::String(_) => {
 			let current = ctx.current.clone();
 			consume(lex_ctx, ctx, ctx.current.kind.clone())?;
 			Ok(AstNode::Literal(current))
