@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::lexer::{Span, Token};
 // use std::collections::HashMap;
 
@@ -9,7 +11,7 @@ pub enum ProtoErr {
         span: Span,
         token: Option<Token>,
     },
-    General(String, Option<Token>),
+    General(String, Option<Rc<Token>>),
 
     // FIXME: This will be used in the tree-walk interpreter, the unit is in place
     //        of a potential return value. Since we don't have exceptions, we can throw an
