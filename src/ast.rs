@@ -43,3 +43,32 @@ pub enum AstNode {
     Block(Vec<Box<AstNode>>),
     FunctionDef(Function),
 }
+
+#[derive(Debug, Clone)]
+pub enum Statement {
+    ExpressionStatement(Expression),
+    Struct(Record),
+    FunctionDef(Function),
+    VariableDecl(Var, Expression),
+}
+
+#[derive(Debug, Clone)]
+pub enum Expression {
+    Block(Vec<Box<ProtoNode>>),
+    BinaryOp(BinOp),
+    UnaryOp(UnaryOp),
+    Literal(Token),
+    Variable(Var),
+}
+
+#[derive(Debug, Clone)]
+pub enum ProtoNode {
+    ProtoExpr(Expression),
+    ProtoStatement(Statement),
+}
+
+#[derive(Debug, Clone)]
+pub struct ProtoProgram {
+    #[allow(unused)]
+    program: Vec<ProtoNode>,
+}
