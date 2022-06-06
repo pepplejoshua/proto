@@ -6,6 +6,29 @@ use proto::{
 };
 use std::fs;
 
+
+// Helper functions
+fn is_operator(token: &Token, expected: TokenKind) -> Result<(), ProtoErr> {
+	if token.kind == expected {
+		Ok(())
+	} else {
+		Err(ProtoErr::General(format!("Operators expected {:?} but received {:?}", expected, token.kind), None))
+	}
+}
+
+fn is_numeric_literal(ast: AstNode, expected: i64) -> Result<(), ProtoErr> {
+	if let AstNode::Literal(literal) = ast {
+		if literal.kind == TokenKind::Integer(expected) {
+			Ok(())
+		} else {
+			Err(ProtoErr::General(format!("Literal expected {expected} but received {:?}", literal.kind), None))
+		}
+	} else {
+		Err(ProtoErr::General("Node is not a literal".into(), None))
+	}
+}
+
+
 #[test]
 fn test_parser_struct_id_and_members() -> Result<(), ProtoErr> {
 	let path = "./samples/test_sources/parser/valid/struct_id_and_members.pr";
@@ -48,27 +71,9 @@ fn test_parser_binop_simple() -> Result<(), ProtoErr> {
 	let mut parser_ctx = ParseContext { current: lex_next(&mut lexer_ctx).unwrap() };
 
 	if let AstNode::BinaryOp(binary_op) = parse_expr(&mut lexer_ctx, &mut parser_ctx)? {
-		let expected_operation = [
-			"1", "+", "2"
-		];
-
-		if let AstNode::Literal(left) = *binary_op.left {
-			let lexeme = &lexer_ctx.source[left.span.start..left.span.end];
-			assert_eq!(expected_operation[0], lexeme);
-		} else {
-			return Err(ProtoErr::General("Left is not a literal".into(), None));
-		}
-
-		if let AstNode::Literal(right) = *binary_op.right {
-			let lexeme = &lexer_ctx.source[right.span.start..right.span.end];
-			assert_eq!(expected_operation[2], lexeme);
-		} else {
-			return Err(ProtoErr::General("Right is not a literal".into(), None));
-		}
-
-		let span = binary_op.operator.span;
-		let lexeme = &lexer_ctx.source[span.start..span.end];
-		assert_eq!(expected_operation[1], lexeme);
+		is_numeric_literal(*binary_op.left, 1)?;
+		is_numeric_literal(*binary_op.right, 2)?;
+		is_operator(&binary_op.operator, TokenKind::Plus)?;
 	} else {
 		// For some reason binop returns a new AST
 		return Err(ProtoErr::General("Unknown AST node returned from expression".into(), None));
