@@ -59,7 +59,7 @@ pub fn parse_struct(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<
 		let member_id = ctx.current.clone();
 		consume_id(lex_ctx, ctx)?;
 		
-		consume(lex_ctx, ctx, TokenKind::SemiColon)?;
+		consume(lex_ctx, ctx, TokenKind::Comma)?;
 		
 		members.insert(
 			member_id.span,
