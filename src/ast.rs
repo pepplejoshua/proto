@@ -37,6 +37,7 @@ pub struct UnaryOp {
 pub enum AstNode {
     BinaryOp(BinOp),
     UnaryOp(UnaryOp),
+    Literal(Token),
     Variable(Var),
     Struct(Record),
     Block(Vec<Box<AstNode>>),
