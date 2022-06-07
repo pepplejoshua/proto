@@ -1,7 +1,7 @@
 use std::rc::Rc;
 
 use proto::{
-    ast::Expression,
+    ast::{Expression, Var},
     common::ProtoErr,
     lexer::{Token, TokenKind},
 };
@@ -83,6 +83,24 @@ pub fn is_boolean_literal(ast: Rc<Expression>, expected: bool) -> Result<(), Pro
                 format!(
                     "Literal expected {expected} but received {:?}",
                     literal.kind
+                ),
+                None,
+            ))
+        }
+    } else {
+        Err(ProtoErr::General("Node is not a literal".into(), None))
+    }
+}
+
+pub fn is_identifier(ast: Rc<Expression>, expected: String) -> Result<(), ProtoErr> {
+    if let Expression::Variable(Var { identifier }) = (*ast).clone() {
+        if identifier.kind == TokenKind::Identifier(expected.clone()) {
+            Ok(())
+        } else {
+            Err(ProtoErr::General(
+                format!(
+                    "Literal expected {expected} but received {:?}",
+                    identifier.kind
                 ),
                 None,
             ))

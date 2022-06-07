@@ -4,9 +4,142 @@ use std::{fs, rc::Rc};
 
 mod common;
 use crate::common::{
-    is_boolean_literal, is_char_literal, is_expected_token_kind, is_numeric_literal,
+    is_boolean_literal, is_char_literal, is_expected_token_kind, is_identifier, is_numeric_literal,
     is_string_literal,
 };
+
+#[test]
+fn test_parsing_parenthesized_expr() -> Result<(), ProtoErr> {
+    let path = "./samples/test_sources/parser/valid/parenthesized_expr.pr";
+    let src = fs::read_to_string(path).unwrap();
+
+    let res = parse(src)?;
+    let contents = res.program;
+    assert_eq!(contents.len(), 9);
+
+    // the integer exprs
+    let expr_1 = contents[0].clone();
+    let expr_2 = contents[1].clone();
+    let expr_3 = contents[2].clone();
+
+    if let ProtoNode::ProtoExpr(Expression::BinaryOp(ProtoBinaryOp {
+        left,
+        right,
+        operator,
+    })) = expr_1
+    {
+        is_numeric_literal(left, 1)?;
+        is_numeric_literal(right, 2)?;
+        is_expected_token_kind(operator, TokenKind::Plus)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Binary Expression".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(lit) = expr_2 {
+        is_numeric_literal(Rc::new(lit), 1)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of numeric literal".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(Expression::UnaryOp(ProtoUnaryOp { right, operator })) = expr_3 {
+        is_numeric_literal(right, 2)?;
+        is_expected_token_kind(operator, TokenKind::Minus)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Unary Expression".into(),
+            None,
+        ));
+    }
+
+    // handle boolean, string and character literals
+    let expr_4 = contents[3].clone();
+    let expr_5 = contents[4].clone();
+    let expr_6 = contents[5].clone();
+
+    if let ProtoNode::ProtoExpr(lit) = expr_4 {
+        is_boolean_literal(Rc::new(lit), true)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of boolean literal".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(lit) = expr_5 {
+        is_string_literal(Rc::new(lit), "\"str\"".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of string literal".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(lit) = expr_6 {
+        is_char_literal(Rc::new(lit), 'c')?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of character literal".into(),
+            None,
+        ));
+    }
+
+    // handle equality on identifiers, identifier and unary boolean expressions
+    let expr_7 = contents[6].clone();
+    let expr_8 = contents[7].clone();
+    let expr_9 = contents[8].clone();
+
+    if let ProtoNode::ProtoExpr(Expression::BinaryOp(ProtoBinaryOp {
+        left,
+        right,
+        operator,
+    })) = expr_7
+    {
+        is_identifier(left, "a".into())?;
+        is_identifier(right, "b".into())?;
+        is_expected_token_kind(operator, TokenKind::ComparisonEquals)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Binary Expression".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(expr) = expr_8 {
+        is_identifier(Rc::new(expr), "id".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(Expression::UnaryOp(ProtoUnaryOp { right, operator })) = expr_9 {
+        is_boolean_literal(right, false)?;
+        is_expected_token_kind(operator, TokenKind::Not)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Unary Expression".into(),
+            None,
+        ));
+    }
+
+    Ok(())
+}
 
 #[test]
 fn test_parsing_literals() -> Result<(), ProtoErr> {
@@ -15,7 +148,7 @@ fn test_parsing_literals() -> Result<(), ProtoErr> {
 
     let res = parse(src)?;
     let contents = res.program;
-    assert_eq!(contents.len(), 7);
+    assert_eq!(contents.len(), 9);
 
     // check the 2 integers
     let int_1 = contents[0].clone();
@@ -23,10 +156,22 @@ fn test_parsing_literals() -> Result<(), ProtoErr> {
 
     if let ProtoNode::ProtoExpr(lit) = int_1 {
         is_numeric_literal(Rc::new(lit), 1)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     if let ProtoNode::ProtoExpr(lit) = int_2 {
         is_numeric_literal(Rc::new(lit), 2)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     // checek the 2 strings
@@ -34,16 +179,34 @@ fn test_parsing_literals() -> Result<(), ProtoErr> {
     let string_2 = contents[3].clone();
     if let ProtoNode::ProtoExpr(lit) = string_1 {
         is_string_literal(Rc::new(lit), "\"string\"".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     if let ProtoNode::ProtoExpr(lit) = string_2 {
         is_string_literal(Rc::new(lit), "\"\"".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     // check the character
     let chr = contents[4].clone();
     if let ProtoNode::ProtoExpr(lit) = chr {
         is_char_literal(Rc::new(lit), 'c')?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     // check the 2 boolean values
@@ -51,10 +214,46 @@ fn test_parsing_literals() -> Result<(), ProtoErr> {
     let false_lit = contents[6].clone();
     if let ProtoNode::ProtoExpr(lit) = true_lit {
         is_boolean_literal(Rc::new(lit), true)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     if let ProtoNode::ProtoExpr(lit) = false_lit {
         is_boolean_literal(Rc::new(lit), false)?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
+    }
+
+    // check the 2 identifiers
+    let some_id = contents[7].clone();
+    let another_id = contents[8].clone();
+
+    if let ProtoNode::ProtoExpr(expr) = some_id {
+        is_identifier(Rc::new(expr), "some_identifier".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
+    }
+
+    if let ProtoNode::ProtoExpr(expr) = another_id {
+        is_identifier(Rc::new(expr), "_another_identifier".into())?;
+    } else {
+        // For some reason binop returns a different AST
+        return Err(ProtoErr::General(
+            "Unknown AST node returned instead of Expression".into(),
+            None,
+        ));
     }
 
     Ok(())

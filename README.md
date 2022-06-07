@@ -88,9 +88,9 @@ mutable = 7; // successful
 When a variable is created, the type annotation can be skipped over if it is initialized (as the type can be inferred). When it is not initialized, it is an error to not type annotate it:
 
 ```rs
-let init = 3 // init is inferred to be `i64`
+let init = 3; // init is inferred to be `i64`
 
-mut stuff // this will cause a compile time error
+mut stuff; // this will cause a compile time error
 ```
 
 _Note_: In the future, we can infer the type of a variable without annotation or initialization based on the first value they are assigned.
@@ -98,9 +98,9 @@ _Note_: In the future, we can infer the type of a variable without annotation or
 In every scope, there is a variable named `'_'` which allows you to discard values you don't have need for:
 
 ```rs
-let a = 5
-let b = 10
-_ = 15 - (a + b) // this value is discarded
+let a = 5;
+let b = 10;
+_ = 15 - (a + b); // this value is discarded
 ```
 
 ## Code blocks
@@ -110,47 +110,47 @@ _ = 15 - (a + b) // this value is discarded
 Lines of code can be grouped together using code blocks. These blocks come with their own scope.
 
 ```rs
-{                   // ++++++++ scope a
-    let a = 5       //                +
-                    //                +
-    {               // .... scope b   +
-        mut b = 6   //            .   +
-        b = b + a   //            .   +
-    }               // ............   +
-                    //                +
-}                   // ++++++++++++++++
+{                    // ++++++++ scope a
+    let a = 5;       //                +
+                     //                +
+    {                // .... scope b   +
+        mut b = 6;   //            .   +
+        b = b + a;   //            .   +
+    }                // ............   +
+                     //                +
+}                    // ++++++++++++++++
 ```
 
 Since a new scope is created for each code block, shadowing variables (defining a variable with a name existing in an outer scope) can occur. At all times, the nearest variable will be referenced:
 
 ```rs
-{                         // ++++++++++ scope a
-    let a: i64 = 5        //                  +
-                          //                  +
-    {                     // ...... scope b   +
-        let a: char = 'e' //              .   +
-        mut b = a + 1     // type error!  .   +
-    }                     // ..............   +
-                          //                  +
-}                         // ++++++++++++++++++
+{                          // ++++++++++ scope a
+    let a: i64 = 5;        //                  +
+                           //                  +
+    {                      // ...... scope b   +
+        let a: char = 'e'; //              .   +
+        mut b = a + 1;     // type error!  .   +
+    }                      // ..............   +
+                           //                  +
+}                          // ++++++++++++++++++
 ```
 
 Trying to reference the outer a, which is an `i64` in a scope where a is a `char` leads to a type error in the example above.
 
-Blocks also return values. They return the value of evaluating the last line of the block. If the final line is a statement or results in the `unit` type, then it returns `unit`, else it returns the value of the expression.
+Blocks also return values. They return the value of evaluating the last line of the block. If the final line is a statement or results in the `unit` type, then it returns `unit`, else it returns the value of the terminating expression.
 
 ```rs
 {
-    let a = 5
+    let a = 5;
     a * 5
 } // returns 25 which is an i64 value
 
 {
-    let b = "12345abcde"
+    let b = "12345abcde";
 } // returns unit since variable declarations are statements
 ```
 
-Expressions can also be turned into statements by terminating them with a `;`.
+Terminating expressions can also be turned into statements by terminating them with a `;`.
 
 ```rs
 {
@@ -164,8 +164,8 @@ Expressions can also be turned into statements by terminating them with a `;`.
 Pieces of code can be conditionally executed using `if ... else` expressions.
 
 ```rs
-let a = 3
-let b = 2
+let a = 3;
+let b = 2;
 
 if a > b {
     println("a is greater"); // block returns unit
@@ -184,7 +184,7 @@ let c = if a > b {
     a * a // returns i64
 } else {
     b * b // returns i64
-}
+};
 ```
 
 The variable `c` in the above example is inferred to be i64 since that is the type of the `if ... else` expression.
@@ -201,5 +201,5 @@ let c = if a > b {
     "b is greater" // returns str
 } else {
     "they are equal" // returns str
-}
+};
 ```

@@ -70,6 +70,20 @@ fn parse_primary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Exp
             consume(lex_ctx, ctx, ctx.current.kind.clone())?;
             Ok(Expression::Literal(current))
         }
+        TokenKind::Identifier(_) => {
+            let current = ctx.current.clone();
+            consume(lex_ctx, ctx, current.kind.clone())?;
+            Ok(Expression::Variable(Var {
+                identifier: current,
+            }))
+        }
+        TokenKind::OpenParen => {
+            // Grouped expression
+            consume(lex_ctx, ctx, ctx.current.kind.clone())?;
+            let expr = parse_expr(lex_ctx, ctx)?;
+            consume(lex_ctx, ctx, TokenKind::CloseParen)?;
+            Ok(expr)
+        }
         _ => {
             let span = ctx.current.span;
             let lexeme = &lex_ctx.source[span.start..span.end];
@@ -197,7 +211,7 @@ pub fn parse_and(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Exp
     Ok(and)
 }
 
-pub fn parse_or(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoNode, ProtoErr> {
+pub fn parse_or(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
     let mut or = parse_and(lex_ctx, ctx)?;
 
     while ctx.current.kind == TokenKind::Or {
@@ -210,17 +224,14 @@ pub fn parse_or(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Prot
         })
     }
 
-    if ctx.current.kind == TokenKind::SemiColon {
-        Ok(ProtoNode::ProtoStatement(Statement::ExpressionStatement(
-            or,
-        )))
-    } else {
-        Ok(ProtoNode::ProtoExpr(or))
-    }
+    Ok(or)
 }
 
 // top level expression parse function call
-pub fn parse_expr(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoNode, ProtoErr> {
+pub fn parse_expr(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<Expression, ProtoErr> {
     parse_or(lex_ctx, ctx)
 }
 
@@ -285,7 +296,15 @@ fn top_level(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoPr
         let line = match ctx.current.kind {
             TokenKind::Struct => parse_struct(lex_ctx, ctx)?, // will fix this later
             // TokenKind::Let | TokenKind::Mut => parse_var_declaration(lex_ctx, ctx)?,
-            _ => parse_expr(lex_ctx, ctx)?,
+            _ => {
+                let expr = parse_expr(lex_ctx, ctx)?;
+                if ctx.current.kind == TokenKind::SemiColon {
+                    consume(lex_ctx, ctx, ctx.current.kind.clone())?;
+                    ProtoNode::ProtoStatement(Statement::ExpressionStatement(expr))
+                } else {
+                    ProtoNode::ProtoExpr(expr)
+                }
+            }
         };
         code.program.push(line);
     }
