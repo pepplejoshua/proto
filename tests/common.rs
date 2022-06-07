@@ -93,7 +93,11 @@ pub fn is_boolean_literal(ast: Rc<Expression>, expected: bool) -> Result<(), Pro
 }
 
 pub fn is_identifier(ast: Rc<Expression>, expected: String) -> Result<(), ProtoErr> {
-    if let Expression::Variable(Var { identifier }) = (*ast).clone() {
+    if let Expression::Variable(Var {
+        identifier,
+        var_type: _,
+    }) = (*ast).clone()
+    {
         if identifier.kind == TokenKind::Identifier(expected.clone()) {
             Ok(())
         } else {

@@ -1,9 +1,20 @@
-use crate::lexer::{Span, Token};
+use crate::lexer::{Span, Token, TokenKind};
 use std::{collections::HashMap, rc::Rc};
+
+#[derive(Debug, Clone)]
+pub enum ProtoType {
+    I64,
+    String,
+    Char,
+    Bool,
+    ArrayOf(Rc<ProtoType>),
+    TupleOf(Vec<Rc<ProtoType>>),
+}
 
 #[derive(Debug, Clone)]
 pub struct Var {
     pub identifier: Rc<Token>,
+    pub var_type: Option<TokenKind>,
 }
 
 #[derive(Debug, Clone)]
@@ -16,7 +27,7 @@ pub struct ProtoStruct {
 #[derive(Debug, Clone)]
 pub struct Function {
     pub identifier: Rc<Token>,
-    pub parameters: Vec<Span>,
+    pub parameters: Vec<Var>,
 }
 
 #[derive(Debug, Clone)]
@@ -34,10 +45,10 @@ pub struct ProtoUnaryOp {
 
 #[derive(Debug, Clone)]
 pub enum Statement {
-    ExpressionStatement(Expression),
-    Struct(ProtoStruct),
-    FunctionDef(Function),
-    VariableDecl(Var, Expression),
+    ExpressionStatement(Rc<Expression>),
+    Struct(Rc<ProtoStruct>),
+    FunctionDef(Rc<Function>),
+    VariableDecl(Rc<Var>, Rc<Expression>),
 }
 
 #[derive(Debug, Clone)]

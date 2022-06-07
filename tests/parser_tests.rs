@@ -1,4 +1,4 @@
-use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoStruct, ProtoUnaryOp, Statement};
+use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoUnaryOp, Statement};
 use proto::{common::ProtoErr, lexer::TokenKind, parser::parse};
 use std::{fs, rc::Rc};
 
@@ -394,11 +394,10 @@ fn test_parsing_struct() -> Result<(), ProtoErr> {
     assert_eq!(contents.len(), 1);
     let proto_struct = contents[0].clone();
 
-    if let ProtoNode::ProtoStatement(Statement::Struct(ProtoStruct {
-        identifier,
-        members,
-    })) = proto_struct
-    {
+    if let ProtoNode::ProtoStatement(Statement::Struct(proto_struct)) = proto_struct {
+        let proto_struct = (*proto_struct).clone();
+        let identifier = proto_struct.identifier;
+        let members = proto_struct.members;
         let id_span = identifier.span;
         let identifier: &str = src[id_span.start..id_span.end].as_ref();
         assert_eq!(identifier, "Person");

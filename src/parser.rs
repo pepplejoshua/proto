@@ -2,8 +2,8 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     ast::{
-        Expression, ProtoBinaryOp, ProtoNode, ProtoProgram, ProtoStruct, ProtoUnaryOp, Statement,
-        Var,
+        Expression, ProtoBinaryOp, ProtoNode, ProtoProgram, ProtoStruct, ProtoType, ProtoUnaryOp,
+        Statement, Var,
     },
     common::{LexContext, ProtoErr},
     lexer::{lex_next, Span, Token, TokenKind},
@@ -59,6 +59,56 @@ fn consume_id(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pr
     }
 }
 
+fn parse_type(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoType, ProtoErr> {
+    match ctx.current.kind {
+        TokenKind::TypeBool => {
+            consume(lex_ctx, ctx, TokenKind::TypeBool)?;
+            Ok(ProtoType::Bool)
+        }
+        TokenKind::TypeChar => {
+            consume(lex_ctx, ctx, TokenKind::TypeChar)?;
+            Ok(ProtoType::Char)
+        }
+        TokenKind::TypeStr => {
+            consume(lex_ctx, ctx, TokenKind::TypeStr)?;
+            Ok(ProtoType::String)
+        }
+        TokenKind::Typei64 => Ok(ProtoType::I64),
+        TokenKind::OpenBracket => {
+            // trying to parse an array type
+            consume(lex_ctx, ctx, TokenKind::OpenBracket)?;
+            let actual = parse_type(lex_ctx, ctx)?;
+            consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
+            Ok(ProtoType::ArrayOf(Rc::new(actual)))
+        }
+        TokenKind::OpenParen => {
+            // trying to parse a tuple type
+            consume(lex_ctx, ctx, TokenKind::OpenBracket)?;
+            let mut types: Vec<Rc<ProtoType>> = vec![];
+            while ctx.current.kind != TokenKind::CloseParen {
+                let actual = parse_type(lex_ctx, ctx)?;
+
+                types.push(Rc::new(actual));
+                // contains more types to be parsed
+                if ctx.current.kind == TokenKind::Comma {
+                    consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
+                    continue;
+                }
+            }
+            consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
+            Ok(ProtoType::TupleOf(types))
+        }
+        _ => {
+            let span = ctx.current.span;
+            let lexeme = &lex_ctx.source[span.start..span.end];
+            Err(ProtoErr::General(
+                format!("Unknown type signature found: {}", lexeme),
+                Some(ctx.current.clone()),
+            ))
+        }
+    }
+}
+
 // handles literals, identifiers, parenthesized expressions
 fn parse_primary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
     match ctx.current.kind {
@@ -75,6 +125,7 @@ fn parse_primary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Exp
             consume(lex_ctx, ctx, current.kind.clone())?;
             Ok(Expression::Variable(Var {
                 identifier: current,
+                var_type: None,
             }))
         }
         TokenKind::OpenParen => {
@@ -262,16 +313,19 @@ pub fn parse_struct(
             member_id.span,
             Var {
                 identifier: member_id.clone(),
+                var_type: None,
             },
         );
     }
 
     consume(lex_ctx, ctx, TokenKind::CloseCurly)?;
 
-    Ok(ProtoNode::ProtoStatement(Statement::Struct(ProtoStruct {
-        identifier,
-        members,
-    })))
+    Ok(ProtoNode::ProtoStatement(Statement::Struct(Rc::new(
+        ProtoStruct {
+            identifier,
+            members,
+        },
+    ))))
 }
 
 // TODO
@@ -300,7 +354,7 @@ fn top_level(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoPr
                 let expr = parse_expr(lex_ctx, ctx)?;
                 if ctx.current.kind == TokenKind::SemiColon {
                     consume(lex_ctx, ctx, ctx.current.kind.clone())?;
-                    ProtoNode::ProtoStatement(Statement::ExpressionStatement(expr))
+                    ProtoNode::ProtoStatement(Statement::ExpressionStatement(Rc::new(expr)))
                 } else {
                     ProtoNode::ProtoExpr(expr)
                 }
