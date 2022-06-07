@@ -80,6 +80,7 @@ fn test_lexing_keywords() -> Result<(), ProtoErr> {
         TokenKind::Break,
         TokenKind::Continue,
         TokenKind::Return,
+        TokenKind::Not,
     ];
 
     for expected in token_kinds {
@@ -160,6 +161,7 @@ fn test_lexing_single_operators() -> Result<(), ProtoErr> {
         TokenKind::GreaterThan,
         TokenKind::LessThan,
         TokenKind::QuestionMark,
+        TokenKind::Not,
     ];
 
     for expected in token_kinds {
@@ -181,6 +183,8 @@ fn test_lexing_double_operators() -> Result<(), ProtoErr> {
         TokenKind::GreaterThanOrEqual,
         TokenKind::And,
         TokenKind::Or,
+        TokenKind::ComparisonEquals,
+        TokenKind::ComparisonNotEquals,
     ];
 
     for expected in token_kinds {

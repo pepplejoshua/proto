@@ -1,14 +1,15 @@
-use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoStruct, Statement};
+use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoStruct, ProtoUnaryOp, Statement};
 use proto::{common::ProtoErr, lexer::TokenKind, parser::parse};
 use std::{fs, rc::Rc};
 
 mod common;
 use crate::common::{
-    is_boolean_literal, is_char_literal, is_numeric_literal, is_operator, is_string_literal,
+    is_boolean_literal, is_char_literal, is_expected_token_kind, is_numeric_literal,
+    is_string_literal,
 };
 
 #[test]
-fn tsest_parsing_literals() -> Result<(), ProtoErr> {
+fn test_parsing_literals() -> Result<(), ProtoErr> {
     let path = "./samples/test_sources/parser/valid/literals.pr";
     let src = fs::read_to_string(path).unwrap();
 
@@ -60,39 +61,133 @@ fn tsest_parsing_literals() -> Result<(), ProtoErr> {
 }
 
 #[test]
-fn test_parser_binop_simple() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/parser/valid/binary_operation.pr";
+fn test_parsing_unary_operations() -> Result<(), ProtoErr> {
+    let path = "./samples/test_sources/parser/valid/unary_operations.pr";
     let src = fs::read_to_string(path).unwrap();
 
     let res = parse(src)?;
     let contents = res.program;
-    assert_eq!(contents.len(), 1);
-    let bin_op = contents[0].clone();
+    assert_eq!(contents.len(), 3);
+    let mut iter = contents.iter();
 
-    // peel back the nesting
-    if let ProtoNode::ProtoExpr(Expression::BinaryOp(ProtoBinaryOp {
-        left,
-        right,
-        operator,
-    })) = bin_op
-    {
-        is_numeric_literal(left, 1)?;
-        is_numeric_literal(right, 2)?;
-        is_operator(
-            operator, TokenKind::Plus)?;
-    } else {
-        // For some reason binop returns a different AST
-        return Err(ProtoErr::General(
-            "Unknown AST node returned from expression".into(),
-            None,
-        ));
+    // check integer unary operations
+    let expected = vec![(300, TokenKind::Minus)];
+
+    for (exp_operand, exp_operator) in expected {
+        let un_op = (*iter.next().unwrap()).clone();
+
+        if let ProtoNode::ProtoExpr(Expression::UnaryOp(ProtoUnaryOp { right, operator })) = un_op {
+            is_numeric_literal(right, exp_operand)?;
+            is_expected_token_kind(operator, exp_operator)?;
+        } else {
+            // For some reason binop returns a different AST
+            return Err(ProtoErr::General(
+                "Unknown AST node returned instead of Unary Expression".into(),
+                None,
+            ));
+        }
     }
+    // check boolean unary operations
+    let expected = vec![(true, TokenKind::Not), (false, TokenKind::Not)];
+
+    for (exp_operand, exp_operator) in expected {
+        let un_op = (*iter.next().unwrap()).clone();
+
+        if let ProtoNode::ProtoExpr(Expression::UnaryOp(ProtoUnaryOp { right, operator })) = un_op {
+            is_boolean_literal(right, exp_operand)?;
+            is_expected_token_kind(operator, exp_operator)?;
+        } else {
+            // For some reason binop returns a different AST
+            return Err(ProtoErr::General(
+                "Unknown AST node returned instead of Unary Expression".into(),
+                None,
+            ));
+        }
+    }
+
     Ok(())
 }
 
 #[test]
-fn test_parser_struct_id_and_members() -> Result<(), ProtoErr> {
-    let path = "./samples/test_sources/parser/valid/struct_id_and_members.pr";
+fn test_parsing_binary_operations() -> Result<(), ProtoErr> {
+    let path = "./samples/test_sources/parser/valid/binary_operations.pr";
+    let src = fs::read_to_string(path).unwrap();
+
+    let res = parse(src)?;
+    let contents = res.program;
+    assert_eq!(contents.len(), 15);
+    let mut iter = contents.iter();
+
+    // check integer binary operations
+    let expected = vec![
+        (1, 2, TokenKind::Plus),
+        (3, 1, TokenKind::Minus),
+        (3, 2, TokenKind::Star),
+        (3, 4, TokenKind::Slash),
+        (4, 2, TokenKind::Modulo),
+        (1, 2, TokenKind::LessThan),
+        (3, 1, TokenKind::GreaterThan),
+        (3, 3, TokenKind::GreaterThanOrEqual),
+        (2, 3, TokenKind::LessThanOrEqual),
+        (2, 3, TokenKind::ComparisonNotEquals),
+        (1, 2, TokenKind::ComparisonEquals),
+    ];
+
+    for (exp_l, exp_r, exp_op) in expected {
+        let bin_op = (*iter.next().unwrap()).clone();
+        // peel back the nesting
+        if let ProtoNode::ProtoExpr(Expression::BinaryOp(ProtoBinaryOp {
+            left,
+            right,
+            operator,
+        })) = bin_op
+        {
+            is_numeric_literal(left, exp_l)?;
+            is_numeric_literal(right, exp_r)?;
+            is_expected_token_kind(operator, exp_op)?;
+        } else {
+            // For some reason binop returns a different AST
+            return Err(ProtoErr::General(
+                "Unknown AST node returned instead of Binary Expression".into(),
+                None,
+            ));
+        }
+    }
+
+    // check boolean binary operations
+    let expected = vec![
+        (true, false, TokenKind::Or),
+        (false, true, TokenKind::And),
+        (true, true, TokenKind::ComparisonEquals),
+        (false, true, TokenKind::ComparisonNotEquals),
+    ];
+
+    for (exp_l, exp_r, exp_op) in expected {
+        let bin_op = (*iter.next().unwrap()).clone();
+        if let ProtoNode::ProtoExpr(Expression::BinaryOp(ProtoBinaryOp {
+            left,
+            right,
+            operator,
+        })) = bin_op
+        {
+            is_boolean_literal(left, exp_l)?;
+            is_boolean_literal(right, exp_r)?;
+            is_expected_token_kind(operator, exp_op)?;
+        } else {
+            // For some reason binop returns a different AST
+            return Err(ProtoErr::General(
+                "Unknown AST node returned from expression".into(),
+                None,
+            ));
+        }
+    }
+
+    Ok(())
+}
+
+#[test]
+fn test_parsing_struct() -> Result<(), ProtoErr> {
+    let path = "./samples/test_sources/parser/valid/structs.pr";
     let src = fs::read_to_string(path).unwrap();
 
     let res = parse(src.clone())?;

@@ -1,7 +1,10 @@
 use std::{collections::HashMap, rc::Rc};
 
 use crate::{
-    ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoProgram, ProtoStruct, Statement, Var},
+    ast::{
+        Expression, ProtoBinaryOp, ProtoNode, ProtoProgram, ProtoStruct, ProtoUnaryOp, Statement,
+        Var,
+    },
     common::{LexContext, ProtoErr},
     lexer::{lex_next, Span, Token, TokenKind},
 };
@@ -56,8 +59,8 @@ fn consume_id(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pr
     }
 }
 
-// handles literals
-fn parse_factor(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
+// handles literals, identifiers, parenthesized expressions
+fn parse_primary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
     match ctx.current.kind {
         TokenKind::Integer(_)
         | TokenKind::Char(_)
@@ -78,10 +81,25 @@ fn parse_factor(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expr
     }
 }
 
-// handles highest level of precedence
-// * / %
-fn parse_term(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
-    let mut factor = parse_factor(lex_ctx, ctx)?;
+// handles unary operators not and -
+fn parse_unary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
+    match ctx.current.kind {
+        TokenKind::Not | TokenKind::Minus => {
+            let current = ctx.current.clone();
+            consume(lex_ctx, ctx, current.kind.clone())?;
+            let operand = parse_unary(lex_ctx, ctx)?;
+            Ok(Expression::UnaryOp(ProtoUnaryOp {
+                right: Rc::new(operand),
+                operator: current,
+            }))
+        }
+        _ => parse_primary(lex_ctx, ctx),
+    }
+}
+
+// handles * / %
+fn parse_factor(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
+    let mut factor = parse_unary(lex_ctx, ctx)?;
 
     while ctx.current.kind == TokenKind::Star
         || ctx.current.kind == TokenKind::Slash
@@ -91,36 +109,119 @@ fn parse_term(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expres
         consume(lex_ctx, ctx, operator.kind.clone())?;
         factor = Expression::BinaryOp(ProtoBinaryOp {
             left: Rc::new(factor),
-            right: Rc::new(parse_factor(lex_ctx, ctx)?),
-            operator: operator.clone(),
+            right: Rc::new(parse_unary(lex_ctx, ctx)?),
+            operator,
         });
     }
 
     Ok(factor)
 }
 
-// handles second level of prcedence
-// + -
-pub fn parse_expr(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoNode, ProtoErr> {
-    let mut term = parse_term(lex_ctx, ctx)?;
+// handles + -
+pub fn parse_term(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<Expression, ProtoErr> {
+    let mut term = parse_factor(lex_ctx, ctx)?;
 
     while ctx.current.kind == TokenKind::Plus || ctx.current.kind == TokenKind::Minus {
         let operator = ctx.current.clone();
         consume(lex_ctx, ctx, operator.kind.clone())?;
         term = Expression::BinaryOp(ProtoBinaryOp {
             left: Rc::new(term),
-            right: Rc::new(parse_term(lex_ctx, ctx)?),
-            operator: operator.clone(),
+            right: Rc::new(parse_factor(lex_ctx, ctx)?),
+            operator,
         });
+    }
+    Ok(term)
+}
+
+// handles >, <, >=, <=
+pub fn parse_comparison(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<Expression, ProtoErr> {
+    let mut comp = parse_term(lex_ctx, ctx)?;
+
+    while ctx.current.kind == TokenKind::GreaterThan
+        || ctx.current.kind == TokenKind::GreaterThanOrEqual
+        || ctx.current.kind == TokenKind::LessThan
+        || ctx.current.kind == TokenKind::LessThanOrEqual
+    {
+        let operator = ctx.current.clone();
+        consume(lex_ctx, ctx, operator.kind.clone())?;
+        comp = Expression::BinaryOp(ProtoBinaryOp {
+            left: Rc::new(comp),
+            right: Rc::new(parse_term(lex_ctx, ctx)?),
+            operator,
+        })
+    }
+
+    Ok(comp)
+}
+
+// handles !=, ==
+pub fn parse_equality(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<Expression, ProtoErr> {
+    let mut eq = parse_comparison(lex_ctx, ctx)?;
+
+    while ctx.current.kind == TokenKind::ComparisonEquals
+        || ctx.current.kind == TokenKind::ComparisonNotEquals
+    {
+        let operator = ctx.current.clone();
+        consume(lex_ctx, ctx, operator.kind.clone())?;
+        eq = Expression::BinaryOp(ProtoBinaryOp {
+            left: Rc::new(eq),
+            right: Rc::new(parse_term(lex_ctx, ctx)?),
+            operator,
+        })
+    }
+
+    Ok(eq)
+}
+
+pub fn parse_and(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Expression, ProtoErr> {
+    let mut and = parse_equality(lex_ctx, ctx)?;
+
+    while ctx.current.kind == TokenKind::And {
+        let operator = ctx.current.clone();
+        consume(lex_ctx, ctx, operator.kind.clone())?;
+        and = Expression::BinaryOp(ProtoBinaryOp {
+            left: Rc::new(and),
+            right: Rc::new(parse_comparison(lex_ctx, ctx)?),
+            operator,
+        })
+    }
+    Ok(and)
+}
+
+pub fn parse_or(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoNode, ProtoErr> {
+    let mut or = parse_and(lex_ctx, ctx)?;
+
+    while ctx.current.kind == TokenKind::Or {
+        let operator = ctx.current.clone();
+        consume(lex_ctx, ctx, operator.kind.clone())?;
+        or = Expression::BinaryOp(ProtoBinaryOp {
+            left: Rc::new(or),
+            right: Rc::new(parse_comparison(lex_ctx, ctx)?),
+            operator,
+        })
     }
 
     if ctx.current.kind == TokenKind::SemiColon {
         Ok(ProtoNode::ProtoStatement(Statement::ExpressionStatement(
-            term,
+            or,
         )))
     } else {
-        Ok(ProtoNode::ProtoExpr(term))
+        Ok(ProtoNode::ProtoExpr(or))
     }
+}
+
+// top level expression parse function call
+pub fn parse_expr(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoNode, ProtoErr> {
+    parse_or(lex_ctx, ctx)
 }
 
 pub fn parse_struct(

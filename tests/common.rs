@@ -6,7 +6,7 @@ use proto::{
     lexer::{Token, TokenKind},
 };
 
-pub fn is_operator(token: Rc<Token>, expected: TokenKind) -> Result<(), ProtoErr> {
+pub fn is_expected_token_kind(token: Rc<Token>, expected: TokenKind) -> Result<(), ProtoErr> {
     if token.kind == expected {
         Ok(())
     } else {

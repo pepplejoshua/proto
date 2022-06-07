@@ -14,11 +14,13 @@ pub enum TokenKind {
     Let,
     Mut,
     Equals,
+    ComparisonEquals,
     Plus,
     Minus,
     Star,
     Slash,
     Dot,
+    Not,
     Modulo,
     Comma,
     Colon,
@@ -52,6 +54,7 @@ pub enum TokenKind {
     TypeStr,
     TypeBool,
     End,
+    ComparisonNotEquals,
 }
 
 // Instead of cloning/copying the source to create
@@ -159,6 +162,7 @@ fn find_keyword(ctx: &LexContext, span: Span) -> Option<TokenKind> {
         "fn" => Some(TokenKind::Fn),
         "struct" => Some(TokenKind::Struct),
         "for" => Some(TokenKind::For),
+        "not" => Some(TokenKind::Not),
         "if" => Some(TokenKind::If),
         "else" => Some(TokenKind::Else),
         "while" => Some(TokenKind::While),
@@ -183,7 +187,13 @@ fn find_single(ctx: &mut LexContext) -> Option<TokenKind> {
         '-' => Some(TokenKind::Minus),
         '*' => Some(TokenKind::Star),
         '/' => Some(TokenKind::Slash),
-        '=' => Some(TokenKind::Equals),
+        '=' => {
+            if peek(ctx, 1) != '=' {
+                Some(TokenKind::Equals)
+            } else {
+                None
+            }
+        }
         '%' => Some(TokenKind::Modulo),
 
         '.' => Some(TokenKind::Dot),
@@ -250,6 +260,22 @@ fn find_double(ctx: &mut LexContext) -> Option<TokenKind> {
             if peek(ctx, 1) == '|' {
                 advance(ctx);
                 Some(TokenKind::Or)
+            } else {
+                None
+            }
+        }
+        '=' => {
+            if peek(ctx, 1) == '=' {
+                advance(ctx);
+                Some(TokenKind::ComparisonEquals)
+            } else {
+                None
+            }
+        }
+        '!' => {
+            if peek(ctx, 1) == '=' {
+                advance(ctx);
+                Some(TokenKind::ComparisonNotEquals)
             } else {
                 None
             }
