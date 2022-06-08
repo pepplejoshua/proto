@@ -59,50 +59,24 @@ fn consume_id(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<(), Pr
     }
 }
 
-fn parse_type(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoType, ProtoErr> {
+fn parse_identifier(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<Expression, ProtoErr> {
     match ctx.current.kind {
-        TokenKind::TypeBool => {
-            consume(lex_ctx, ctx, TokenKind::TypeBool)?;
-            Ok(ProtoType::Bool)
-        }
-        TokenKind::TypeChar => {
-            consume(lex_ctx, ctx, TokenKind::TypeChar)?;
-            Ok(ProtoType::Char)
-        }
-        TokenKind::TypeStr => {
-            consume(lex_ctx, ctx, TokenKind::TypeStr)?;
-            Ok(ProtoType::String)
-        }
-        TokenKind::Typei64 => Ok(ProtoType::I64),
-        TokenKind::OpenBracket => {
-            // trying to parse an array type
-            consume(lex_ctx, ctx, TokenKind::OpenBracket)?;
-            let actual = parse_type(lex_ctx, ctx)?;
-            consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
-            Ok(ProtoType::ArrayOf(Rc::new(actual)))
-        }
-        TokenKind::OpenParen => {
-            // trying to parse a tuple type
-            consume(lex_ctx, ctx, TokenKind::OpenBracket)?;
-            let mut types: Vec<Rc<ProtoType>> = vec![];
-            while ctx.current.kind != TokenKind::CloseParen {
-                let actual = parse_type(lex_ctx, ctx)?;
-
-                types.push(Rc::new(actual));
-                // contains more types to be parsed
-                if ctx.current.kind == TokenKind::Comma {
-                    consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
-                    continue;
-                }
-            }
-            consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
-            Ok(ProtoType::TupleOf(types))
+        TokenKind::Identifier(_) => {
+            let current = ctx.current.clone();
+            consume(lex_ctx, ctx, current.kind.clone())?;
+            Ok(Expression::Variable(Var {
+                identifier: current,
+                var_type: None,
+            }))
         }
         _ => {
             let span = ctx.current.span;
             let lexeme = &lex_ctx.source[span.start..span.end];
             Err(ProtoErr::General(
-                format!("Unknown type signature found: {}", lexeme),
+                format!("Expected an identifer but found '{}'", lexeme),
                 Some(ctx.current.clone()),
             ))
         }
@@ -120,14 +94,7 @@ fn parse_primary(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<Exp
             consume(lex_ctx, ctx, ctx.current.kind.clone())?;
             Ok(Expression::Literal(current))
         }
-        TokenKind::Identifier(_) => {
-            let current = ctx.current.clone();
-            consume(lex_ctx, ctx, current.kind.clone())?;
-            Ok(Expression::Variable(Var {
-                identifier: current,
-                var_type: None,
-            }))
-        }
+        TokenKind::Identifier(_) => parse_identifier(lex_ctx, ctx),
         TokenKind::OpenParen => {
             // Grouped expression
             consume(lex_ctx, ctx, ctx.current.kind.clone())?;
@@ -328,19 +295,131 @@ pub fn parse_struct(
     ))))
 }
 
+fn parse_type(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoType, ProtoErr> {
+    match ctx.current.kind {
+        TokenKind::TypeBool => {
+            consume(lex_ctx, ctx, TokenKind::TypeBool)?;
+            Ok(ProtoType::Bool)
+        }
+        TokenKind::TypeChar => {
+            consume(lex_ctx, ctx, TokenKind::TypeChar)?;
+            Ok(ProtoType::Char)
+        }
+        TokenKind::TypeStr => {
+            consume(lex_ctx, ctx, TokenKind::TypeStr)?;
+            Ok(ProtoType::String)
+        }
+        TokenKind::Typei64 => {
+            consume(lex_ctx, ctx, TokenKind::Typei64)?;
+            Ok(ProtoType::I64)
+        }
+        TokenKind::OpenBracket => {
+            // trying to parse an array type
+            consume(lex_ctx, ctx, TokenKind::OpenBracket)?;
+            let actual = parse_type(lex_ctx, ctx)?;
+            consume(lex_ctx, ctx, TokenKind::CloseBracket)?;
+            Ok(ProtoType::ArrayOf(Rc::new(actual)))
+        }
+        TokenKind::OpenParen => {
+            // trying to parse a tuple type
+            consume(lex_ctx, ctx, TokenKind::OpenParen)?;
+            let mut types: Vec<Rc<ProtoType>> = vec![];
+            while ctx.current.kind != TokenKind::CloseParen {
+                let actual = parse_type(lex_ctx, ctx)?;
+
+                types.push(Rc::new(actual));
+                // contains more types to be parsed
+                if ctx.current.kind == TokenKind::Comma {
+                    consume(lex_ctx, ctx, TokenKind::Comma)?;
+                    continue;
+                }
+            }
+            consume(lex_ctx, ctx, TokenKind::CloseParen)?;
+            Ok(ProtoType::TupleOf(types))
+        }
+        _ => {
+            let span = ctx.current.span;
+            let lexeme = &lex_ctx.source[span.start..span.end];
+            Err(ProtoErr::General(
+                format!("Unknown type signature found: {}", lexeme),
+                Some(ctx.current.clone()),
+            ))
+        }
+    }
+}
+
 // TODO
 // handles the forms (with optional semicolons):
 // let identifier: type = expr;
 // mut identifier: type = expr;
 // let identifier: type;
 // mut identifier: type;
+fn parse_var_declaration(
+    lex_ctx: &mut LexContext,
+    ctx: &mut ParseContext,
+) -> Result<ProtoNode, ProtoErr> {
+    let current = ctx.current.clone();
+    consume(lex_ctx, ctx, current.kind.clone())?; // consume let/mut keyword
+    let ident = parse_identifier(lex_ctx, ctx); // collect the identifier for the variable
 
-// fn parse_var_declaration(
-//     lex_ctx: &mut LexContext,
-//     ctx: &mut ParseContext,
-// ) -> Result<ProtoNode, ProtoErr> {
-//     // Ok(())
-// }
+    match ident {
+        Ok(ident) => {
+            if let Expression::Variable(var) = ident {
+                let mut var_type: Option<Rc<ProtoType>> = None;
+                // then check if there is a type annotation
+                if ctx.current.kind == TokenKind::Colon {
+                    consume(lex_ctx, ctx, TokenKind::Colon)?;
+                    // parse the type
+                    var_type = Some(Rc::new(parse_type(lex_ctx, ctx)?));
+                }
+
+                let mut assigned: Option<Rc<Expression>> = None;
+                // then check if there is something assigned to the variable
+                if ctx.current.kind == TokenKind::Equals {
+                    consume(lex_ctx, ctx, ctx.current.kind.clone())?;
+                    assigned = Some(Rc::new(parse_expr(lex_ctx, ctx)?));
+                }
+
+                // consume the semi-colon from the binding
+                consume(lex_ctx, ctx, TokenKind::SemiColon)?;
+
+                if matches!(var_type, None) && matches!(assigned, None) {
+                    let span = var.identifier.span;
+                    let lexeme = &lex_ctx.source[span.start..span.end];
+                    Err(ProtoErr::General(
+                        format!("Untyped and unassigned variable: {}", lexeme),
+                        Some(ctx.current.clone()),
+                    ))
+                } else {
+                    let mut variable = var;
+                    variable.var_type = var_type.clone();
+                    // let mut is_mut: bool = false;
+                    // if current.kind == TokenKind::Mut {
+                    //     is_mut = true;
+                    // } else {
+                    //     is_mut = false;
+                    // }
+                    let statement = Statement::VariableDecl {
+                        variable: Rc::new(variable),
+                        annotated_type: var_type,
+                        right: assigned,
+                        is_mutable: TokenKind::Mut == current.kind,
+                    };
+
+                    Ok(ProtoNode::ProtoStatement(statement))
+                }
+            } else {
+                let span = current.span;
+                let lexeme = &lex_ctx.source[span.start..span.end];
+                Err(ProtoErr::General(
+                    format!("Untyped and unassigned variable: {}", lexeme),
+                    Some(ctx.current.clone()),
+                ))
+            }
+        }
+        Err(e) => Err(e),
+    }
+}
 
 fn top_level(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoProgram, ProtoErr> {
     let mut code = ProtoProgram { program: vec![] };
@@ -349,7 +428,7 @@ fn top_level(lex_ctx: &mut LexContext, ctx: &mut ParseContext) -> Result<ProtoPr
     while ctx.current.kind != TokenKind::End {
         let line = match ctx.current.kind {
             TokenKind::Struct => parse_struct(lex_ctx, ctx)?, // will fix this later
-            // TokenKind::Let | TokenKind::Mut => parse_var_declaration(lex_ctx, ctx)?,
+            TokenKind::Let | TokenKind::Mut => parse_var_declaration(lex_ctx, ctx)?,
             _ => {
                 let expr = parse_expr(lex_ctx, ctx)?;
                 if ctx.current.kind == TokenKind::SemiColon {

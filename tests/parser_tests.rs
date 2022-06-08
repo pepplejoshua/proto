@@ -1,4 +1,4 @@
-use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoUnaryOp, Statement};
+use proto::ast::{Expression, ProtoBinaryOp, ProtoNode, ProtoType, ProtoUnaryOp, Statement};
 use proto::{common::ProtoErr, lexer::TokenKind, parser::parse};
 use std::{fs, rc::Rc};
 
@@ -419,6 +419,79 @@ fn test_parsing_struct() -> Result<(), ProtoErr> {
             None,
         ));
     }
+
+    Ok(())
+}
+
+#[test]
+fn test_parsing_variable_decl() -> Result<(), ProtoErr> {
+    let path = "./samples/test_sources/parser/valid/variable_declarations.pr";
+    let src = fs::read_to_string(path).unwrap();
+
+    let res = parse(src)?;
+    let contents = res.program;
+    assert_eq!(contents.len(), 6);
+
+    let a = ("a".to_string(), Some(ProtoType::I64), 3);
+    // let b: (String, Option<ProtoType>, String) = ("b".into(), None, "\"string\"".into());
+    // let c = ("c".to_string(), Some(ProtoType::Char), 'c');
+    // let d = (
+    //     "d".to_string(),
+    //     Some(ProtoType::ArrayOf(Rc::new(ProtoType::I64))),
+    //     vec![1, 2, 3, 4],
+    // );
+    // let e = (
+    //     "e",
+    //     Some(ProtoType::TupleOf(vec![
+    //         Rc::new(ProtoType::I64),
+    //         Rc::new(ProtoType::Char),
+    //         Rc::new(ProtoType::Bool),
+    //     ])),
+    //     (1, '2', false),
+    // );
+    // let f: (String, Option<ProtoType>, bool) = ("f".into(), None, true);
+
+    // handle a
+    let first = contents[0].clone();
+    if let ProtoNode::ProtoStatement(Statement::VariableDecl {
+        variable,
+        annotated_type,
+        right,
+        is_mutable,
+    }) = first
+    {
+        assert!(!is_mutable);
+        // check that variable name is a
+        if !(variable.identifier.kind == TokenKind::Identifier(a.0)) {
+            return Err(ProtoErr::General(
+                "Expected a variable but got something else".into(),
+                None,
+            ));
+        }
+
+        // make sure annotated type is correct
+        match annotated_type {
+            Some(a_type) => assert_eq!(*a_type, a.1.unwrap()),
+            None => {
+                return Err(ProtoErr::General(
+                    "Expected an annotated type but got None".into(),
+                    None,
+                ))
+            }
+        }
+
+        // check expression
+        match right {
+            Some(expr) => is_numeric_literal(expr, a.2)?,
+            None => {
+                return Err(ProtoErr::General(
+                    "Expected an expression but got None".into(),
+                    None,
+                ))
+            }
+        }
+    }
+    // handle b
 
     Ok(())
 }

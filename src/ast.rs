@@ -1,7 +1,7 @@
-use crate::lexer::{Span, Token, TokenKind};
+use crate::lexer::{Span, Token};
 use std::{collections::HashMap, rc::Rc};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum ProtoType {
     I64,
     String,
@@ -14,7 +14,7 @@ pub enum ProtoType {
 #[derive(Debug, Clone)]
 pub struct Var {
     pub identifier: Rc<Token>,
-    pub var_type: Option<TokenKind>,
+    pub var_type: Option<Rc<ProtoType>>,
 }
 
 #[derive(Debug, Clone)]
@@ -48,7 +48,12 @@ pub enum Statement {
     ExpressionStatement(Rc<Expression>),
     Struct(Rc<ProtoStruct>),
     FunctionDef(Rc<Function>),
-    VariableDecl(Rc<Var>, Rc<Expression>),
+    VariableDecl {
+        variable: Rc<Var>,
+        annotated_type: Option<Rc<ProtoType>>,
+        right: Option<Rc<Expression>>,
+        is_mutable: bool,
+    },
 }
 
 #[derive(Debug, Clone)]

@@ -177,8 +177,8 @@ if a > b {
 Since the `if ... else` construct is an expression, it can be used in variable definitions (provided the branch blocks don't return unit like they do in the above example).
 
 ```rs
-let a = 3
-let b = 2
+let a = 3;
+let b = 2;
 
 let c = if a > b {
     a * a // returns i64
@@ -192,8 +192,8 @@ The variable `c` in the above example is inferred to be i64 since that is the ty
 The `else` part of the construct allows further `if` expressions to check more conditional cases:
 
 ```rs
-let a = 3
-let b = 2
+let a = 3;
+let b = 2;
 
 let c = if a > b {
     "a is greater" // returns str
