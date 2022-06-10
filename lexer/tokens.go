@@ -6,14 +6,20 @@ type TokenType string
 type ProtoToken struct {
 	Type    TokenType
 	Literal string
+	Span    Span
+}
+
+type Span struct {
+	line  int
+	col   int
+	start int
+	end   int
 }
 
 // all lexable tokens
 const (
-	ERROR        = "ERROR"
-	INVALID_I64  = "INVALID_I64"
-	UNTERMINATED = "UNTERMINATEDs"
-	END          = "EOF"
+	ERROR = "ERROR"
+	END   = "EOF"
 
 	IDENT  = "IDENT"
 	I64    = "I64"
@@ -37,7 +43,7 @@ const (
 	OR  = "||"
 	NOT = "not"
 
-	EQUAL_TO     = "=="
+	IS_EQUAL_TO  = "=="
 	NOT_EQUAL_TO = "!="
 
 	COMMA         = ","
@@ -53,26 +59,41 @@ const (
 	OPEN_CURLY    = "{"
 	CLOSE_CURLY   = "}"
 
-	FN     = "fn"
-	LET    = "let"
-	MUT    = "mut"
-	TRUE   = "true"
-	FALSE  = "FALSE"
-	IF     = "IF"
-	ELSE   = "ELSE"
-	RETURN = "RETURN"
+	FN       = "fn"
+	LET      = "let"
+	MUT      = "mut"
+	TRUE     = "TRUE"
+	FALSE    = "FALSE"
+	IF       = "IF"
+	ELSE     = "ELSE"
+	RETURN   = "RETURN"
+	STRUCT   = "STRUCT"
+	BREAK    = "BREAK"
+	CONTINUE = "CONTINUE"
+
+	STR_TYPE  = "STRING_TYPE"
+	CHAR_TYPE = "CHAR_TYPE"
+	BOOL_TYPE = "BOOL_TYPE"
+	I64_TYPE  = "I64_TYPE"
 )
 
 var keywords = map[string]TokenType{
-	"fn":     FN,
-	"let":    LET,
-	"mut":    MUT,
-	"true":   TRUE,
-	"false":  FALSE,
-	"if":     IF,
-	"else":   ELSE,
-	"return": RETURN,
-	"not":    NOT,
+	"fn":       FN,
+	"let":      LET,
+	"mut":      MUT,
+	"true":     TRUE,
+	"false":    FALSE,
+	"if":       IF,
+	"else":     ELSE,
+	"return":   RETURN,
+	"not":      NOT,
+	"struct":   STRUCT,
+	"break":    BREAK,
+	"continue": CONTINUE,
+	"str":      STR_TYPE,
+	"char":     CHAR_TYPE,
+	"bool":     BOOL_TYPE,
+	"i64":      I64_TYPE,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {

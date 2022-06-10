@@ -5,12 +5,12 @@ _identifier
 12324
 false
 true
-'c'
+'' 'c' a
 
 let mut 
 = + - * / .
 % , : ; ( ) { }
-[ ] record fn
+[ ] struct fn
 
 // single line Comments
 
@@ -26,4 +26,4 @@ comment
 
 break continue return
 str char bool
-i64 
+i64
