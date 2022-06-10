@@ -131,7 +131,7 @@ func (l *Lexer) Next_Token() ProtoToken {
 			token = make_singlechar_token(ASSIGN, '=')
 			token.Span = Span{
 				line:  l.line,
-				col:   l.column,
+				col:   l.column - 1,
 				start: l.pos - 1,
 				end:   l.pos,
 			}
