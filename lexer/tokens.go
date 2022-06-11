@@ -74,10 +74,10 @@ const (
 	LOOP     = "LOOP"
 	WHILE    = "WHILE"
 
-	STR_TYPE  = "STRING_TYPE"
-	CHAR_TYPE = "CHAR_TYPE"
-	BOOL_TYPE = "BOOL_TYPE"
-	I64_TYPE  = "I64_TYPE"
+	STRING_TYPE = "STRING_TYPE"
+	CHAR_TYPE   = "CHAR_TYPE"
+	BOOL_TYPE   = "BOOL_TYPE"
+	I64_TYPE    = "I64_TYPE"
 )
 
 var keywords = map[string]TokenType{
@@ -96,7 +96,7 @@ var keywords = map[string]TokenType{
 	"for":      FOR,
 	"while":    WHILE,
 	"loop":     LOOP,
-	"str":      STR_TYPE,
+	"str":      STRING_TYPE,
 	"char":     CHAR_TYPE,
 	"bool":     BOOL_TYPE,
 	"i64":      I64_TYPE,

@@ -4,4 +4,4 @@
 
 - [x] replace make_token() with lexer.make_token()
 
-- [ ] write remaining tests for lexer
+- [x] write remaining tests for lexer

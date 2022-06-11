@@ -101,6 +101,7 @@ func (l *Lexer) skip_comments_and_whitespace() {
 }
 
 func (l *Lexer) Next_Token() ProtoToken {
+	l.skip_comments_and_whitespace()
 	var token ProtoToken
 	if l.is_at_end() {
 		token = l.make_token(END, "EOF")
@@ -113,7 +114,6 @@ func (l *Lexer) Next_Token() ProtoToken {
 		return token
 	}
 
-	l.skip_comments_and_whitespace()
 	cur_char := l.cur_byte
 	switch cur_char {
 	case '=':
@@ -166,7 +166,7 @@ func (l *Lexer) Next_Token() ProtoToken {
 		if l.peek_char() == '=' {
 			l.next_char() // go to =
 			l.next_char() // skip past =
-			token = l.make_token(GREATER_OR_EQUAL, "<=")
+			token = l.make_token(GREATER_OR_EQUAL, ">=")
 		} else {
 			l.next_char() // skip past the =
 			token = l.make_singlechar_token(GREATER_THAN, cur_char)
@@ -292,6 +292,7 @@ func (l *Lexer) read_string() ProtoToken {
 	}
 	l.next_char()
 	slice := l.source[start:l.pos]
+	println(slice)
 	return ProtoToken{
 		Type:    STRING,
 		Literal: slice,
