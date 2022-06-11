@@ -103,106 +103,52 @@ func (l *Lexer) skip_comments_and_whitespace() {
 func (l *Lexer) Next_Token() ProtoToken {
 	var token ProtoToken
 	if l.is_at_end() {
-		token = make_token(END, "EOF")
+		token = l.make_token(END, "EOF")
 		token.Span = Span{
 			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
+			col:   l.column,
+			start: l.pos,
 			end:   l.pos,
 		}
 		return token
 	}
 
 	l.skip_comments_and_whitespace()
-
-	switch l.cur_byte {
+	cur_char := l.cur_byte
+	switch cur_char {
 	case '=':
 		if l.peek_char() == '=' {
 			l.next_char() // go to second =
 			l.next_char() // skip past second =
-			token = make_token(IS_EQUAL_TO, "==")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(IS_EQUAL_TO, "==")
 		} else {
-			token = make_singlechar_token(ASSIGN, '=')
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
 			l.next_char() // skip past the =
+			token = l.make_singlechar_token(ASSIGN, cur_char)
 		}
 	case '!':
 		if l.peek_char() == '=' {
 			l.next_char()
 			l.next_char()
-			token = make_token(NOT_EQUAL_TO, "!=")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(NOT_EQUAL_TO, "!=")
 		} else { // erroneous
 			l.next_char()
-			token = make_singlechar_token(ERROR, l.cur_byte)
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
+			token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	case '+':
-		token = make_singlechar_token(PLUS, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(PLUS, cur_char)
 	case '-': // TODO: allow negative number creation
-		token = make_singlechar_token(MINUS, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(MINUS, cur_char)
 	case '*':
-		token = make_singlechar_token(STAR, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(STAR, cur_char)
 	case '/':
-		token = make_singlechar_token(SLASH, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(SLASH, cur_char)
 	case '%':
-		token = make_singlechar_token(MODULO, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(MODULO, cur_char)
 	case '\'': // read character and handle errors
 		token = l.read_character()
 	case '"': // read string and handle errors
@@ -211,204 +157,110 @@ func (l *Lexer) Next_Token() ProtoToken {
 		if l.peek_char() == '=' {
 			l.next_char() // go to =
 			l.next_char() // skip past =
-			token = make_token(LESS_OR_EQUAL, "<=")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(LESS_OR_EQUAL, "<=")
 		} else {
-			token = make_singlechar_token(LESS_THAN, l.cur_byte)
 			l.next_char() // skip past the =
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
+			token = l.make_singlechar_token(LESS_THAN, cur_char)
 		}
 	case '>':
 		if l.peek_char() == '=' {
 			l.next_char() // go to =
 			l.next_char() // skip past =
-			token = make_token(GREATER_OR_EQUAL, "<=")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(GREATER_OR_EQUAL, "<=")
 		} else {
-			token = make_singlechar_token(GREATER_THAN, l.cur_byte)
 			l.next_char() // skip past the =
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
+			token = l.make_singlechar_token(GREATER_THAN, cur_char)
 		}
 	case '&':
 		if l.peek_char() == '&' {
 			l.next_char()
 			l.next_char()
-			token = make_token(AND, "&&")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(AND, "&&")
 		} else { // erroneous
-			token = make_singlechar_token(ERROR, l.cur_byte)
 			l.next_char() // skip past |
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
+			token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	case '|':
 		if l.peek_char() == '|' {
 			l.next_char()
 			l.next_char()
-			token = make_token(OR, "||")
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 2,
-				start: l.pos - 2,
-				end:   l.pos,
-			}
+			token = l.make_token(OR, "||")
 		} else { // erroneous
-			token = make_singlechar_token(ERROR, l.cur_byte)
 			l.next_char() // skip past |
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.pos,
-			}
+			token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	case ',':
-		token = make_singlechar_token(COMMA, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(COMMA, cur_char)
 	case '.':
-		token = make_singlechar_token(DOT, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(DOT, cur_char)
 	case ';':
-		token = make_singlechar_token(SEMI_COLON, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(SEMI_COLON, cur_char)
 	case ':':
-		token = make_singlechar_token(COLON, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(COLON, cur_char)
 	case '?':
-		token = make_singlechar_token(QUESTION_MARK, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(QUESTION_MARK, cur_char)
 	case '(':
-		token = make_singlechar_token(OPEN_PAREN, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(OPEN_PAREN, cur_char)
 	case ')':
-		token = make_singlechar_token(CLOSE_PAREN, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(CLOSE_PAREN, cur_char)
 	case '[':
-		token = make_singlechar_token(OPEN_BRACKET, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(OPEN_BRACKET, cur_char)
 	case ']':
-		token = make_singlechar_token(CLOSE_BRACKET, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(CLOSE_BRACKET, cur_char)
 	case '{':
-		token = make_singlechar_token(OPEN_CURLY, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(OPEN_CURLY, cur_char)
 	case '}':
-		token = make_singlechar_token(CLOSE_CURLY, l.cur_byte)
 		l.next_char()
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.pos,
-		}
+		token = l.make_singlechar_token(CLOSE_CURLY, cur_char)
 	default: // handle digits, keywords and identifiers
-		if is_alphabet(l.cur_byte) || l.cur_byte == '_' { // check for identifier/keywords
+		if is_alphabet(cur_char) || cur_char == '_' { // check for identifier/keywords
 			token = l.read_identifier()
-		} else if is_digit(l.cur_byte) {
+		} else if is_digit(cur_char) {
 			// handle _ error later
 			token = l.read_number()
 		} else {
-			token = make_singlechar_token(ERROR, l.cur_byte)
 			l.next_char()
-			token.Span = Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: l.pos - 1,
-				end:   l.peek_pos,
-			}
+			token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	}
 
 	return token
+}
+
+func (l *Lexer) make_token(tokentype TokenType, literal string) ProtoToken {
+	return ProtoToken{
+		Type:    tokentype,
+		Literal: literal,
+		Span: Span{
+			line:  l.line,
+			col:   l.column - 2,
+			start: l.pos - 2,
+			end:   l.peek_pos,
+		},
+	}
+}
+
+func (l *Lexer) make_singlechar_token(tokentype TokenType, char byte) ProtoToken {
+	return ProtoToken{
+		Type:    tokentype,
+		Literal: string(char),
+		Span: Span{
+			line:  l.line,
+			col:   l.column - 1,
+			start: l.pos - 1,
+			end:   l.peek_pos,
+		},
+	}
 }
 
 func (l *Lexer) read_string() ProtoToken {

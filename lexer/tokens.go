@@ -41,7 +41,7 @@ const (
 
 	AND = "&&"
 	OR  = "||"
-	NOT = "not"
+	NOT = "NOT"
 
 	IS_EQUAL_TO  = "=="
 	NOT_EQUAL_TO = "!="
@@ -70,6 +70,9 @@ const (
 	STRUCT   = "STRUCT"
 	BREAK    = "BREAK"
 	CONTINUE = "CONTINUE"
+	FOR      = "FOR"
+	LOOP     = "LOOP"
+	WHILE    = "WHILE"
 
 	STR_TYPE  = "STRING_TYPE"
 	CHAR_TYPE = "CHAR_TYPE"
@@ -90,6 +93,9 @@ var keywords = map[string]TokenType{
 	"struct":   STRUCT,
 	"break":    BREAK,
 	"continue": CONTINUE,
+	"for":      FOR,
+	"while":    WHILE,
+	"loop":     LOOP,
 	"str":      STR_TYPE,
 	"char":     CHAR_TYPE,
 	"bool":     BOOL_TYPE,
@@ -101,20 +107,6 @@ func CheckPotentialKeyword(candidate string) TokenType {
 		return tok
 	}
 	return IDENT
-}
-
-func make_singlechar_token(tokentype TokenType, char byte) ProtoToken {
-	return ProtoToken{
-		Type:    tokentype,
-		Literal: string(char),
-	}
-}
-
-func make_token(tokentype TokenType, literal string) ProtoToken {
-	return ProtoToken{
-		Type:    tokentype,
-		Literal: literal,
-	}
 }
 
 func is_digit(char byte) bool {

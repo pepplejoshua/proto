@@ -3,8 +3,7 @@ another_identifier_2
 _identifier
 "string"
 12324
-false
-true
+false true
 '' 'c' a
 
 let mut 

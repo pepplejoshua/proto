@@ -2,9 +2,6 @@
 
 ---
 
-- [ ] replace make_token() with l.make_token()
-
-  - [ ] allow a flag to show either single char token or double char token
-        e.g: `+` will be single char and `!=` is double char. So Token's Span is accurate
+- [x] replace make_token() with lexer.make_token()
 
 - [ ] write remaining tests for lexer

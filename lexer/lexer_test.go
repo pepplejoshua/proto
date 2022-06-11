@@ -27,13 +27,14 @@ func TestAllTokens(t *testing.T) {
 			msg := "Ran into an error: " + token.Literal
 			msg = msg + " {" + fmt.Sprint(token.Span.line) + ":" + fmt.Sprint(token.Span.col) + "}"
 			log.Fatal(msg)
-		} else if token.Type == END {
-			println("EOF")
-			break
 		} else {
 			msg := string(token.Type) + " {" + token.Literal + "}"
 			msg = msg + " at " + fmt.Sprint(token.Span.line) + ":" + fmt.Sprint(token.Span.col)
 			println(msg)
+
+			if token.Type == END {
+				break
+			}
 		}
 	}
 }
