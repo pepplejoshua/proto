@@ -4,16 +4,16 @@ type TokenType string
 
 // TODO: Add span to Tokens
 type ProtoToken struct {
-	Type    TokenType
-	Literal string
-	Span    Span
+	Type      TokenType
+	Literal   string
+	TokenSpan Span
 }
 
 type Span struct {
-	line  int
-	col   int
-	start int
-	end   int
+	Line  int
+	Col   int
+	Start int
+	End   int
 }
 
 // all lexable tokens

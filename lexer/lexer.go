@@ -105,11 +105,11 @@ func (l *Lexer) Next_Token() ProtoToken {
 	var token ProtoToken
 	if l.is_at_end() {
 		token = l.make_token(END, "EOF")
-		token.Span = Span{
-			line:  l.line,
-			col:   l.column,
-			start: l.pos,
-			end:   l.pos,
+		token.TokenSpan = Span{
+			Line:  l.line,
+			Col:   l.column,
+			Start: l.pos,
+			End:   l.pos,
 		}
 		return token
 	}
@@ -241,11 +241,11 @@ func (l *Lexer) make_token(tokentype TokenType, literal string) ProtoToken {
 	return ProtoToken{
 		Type:    tokentype,
 		Literal: literal,
-		Span: Span{
-			line:  l.line,
-			col:   l.column - 2,
-			start: l.pos - 2,
-			end:   l.peek_pos,
+		TokenSpan: Span{
+			Line:  l.line,
+			Col:   l.column - 2,
+			Start: l.pos - 2,
+			End:   l.peek_pos,
 		},
 	}
 }
@@ -254,11 +254,11 @@ func (l *Lexer) make_singlechar_token(tokentype TokenType, char byte) ProtoToken
 	return ProtoToken{
 		Type:    tokentype,
 		Literal: string(char),
-		Span: Span{
-			line:  l.line,
-			col:   l.column - 1,
-			start: l.pos - 1,
-			end:   l.peek_pos,
+		TokenSpan: Span{
+			Line:  l.line,
+			Col:   l.column - 1,
+			Start: l.pos - 1,
+			End:   l.peek_pos,
 		},
 	}
 }
@@ -282,11 +282,11 @@ func (l *Lexer) read_string() ProtoToken {
 		return ProtoToken{
 			Type:    ERROR,
 			Literal: "Unterminated string literal",
-			Span: Span{
-				line:  l.line,
-				col:   l.column - 1,
-				start: start,
-				end:   l.pos,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   l.column - 1,
+				Start: start,
+				End:   l.pos,
 			},
 		}
 	}
@@ -296,11 +296,11 @@ func (l *Lexer) read_string() ProtoToken {
 	return ProtoToken{
 		Type:    STRING,
 		Literal: slice,
-		Span: Span{
-			line:  l.line,
-			col:   col,
-			start: start,
-			end:   l.pos,
+		TokenSpan: Span{
+			Line:  l.line,
+			Col:   col,
+			Start: start,
+			End:   l.pos,
 		},
 	}
 }
@@ -315,11 +315,11 @@ func (l *Lexer) read_character() ProtoToken {
 		return ProtoToken{
 			Type:    CHAR,
 			Literal: "",
-			Span: Span{
-				line:  l.line,
-				col:   col,
-				start: start,
-				end:   l.pos,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   col,
+				Start: start,
+				End:   l.pos,
 			},
 		}
 	} else { // contains some character
@@ -329,11 +329,11 @@ func (l *Lexer) read_character() ProtoToken {
 			return ProtoToken{
 				Type:    ERROR,
 				Literal: "Character literal unterminated (or contains more than 1 character)",
-				Span: Span{
-					line:  l.line,
-					col:   col,
-					start: start,
-					end:   l.pos,
+				TokenSpan: Span{
+					Line:  l.line,
+					Col:   col,
+					Start: start,
+					End:   l.pos,
 				},
 			}
 		} else {
@@ -341,11 +341,11 @@ func (l *Lexer) read_character() ProtoToken {
 			return ProtoToken{
 				Type:    CHAR,
 				Literal: string(char),
-				Span: Span{
-					line:  l.line,
-					col:   col,
-					start: start,
-					end:   l.pos,
+				TokenSpan: Span{
+					Line:  l.line,
+					Col:   col,
+					Start: start,
+					End:   l.pos,
 				},
 			}
 		}
@@ -367,11 +367,11 @@ func (l *Lexer) read_identifier() ProtoToken {
 	return ProtoToken{
 		Type:    tokentype,
 		Literal: slice,
-		Span: Span{
-			line:  l.line,
-			col:   col,
-			start: start,
-			end:   l.pos,
+		TokenSpan: Span{
+			Line:  l.line,
+			Col:   col,
+			Start: start,
+			End:   l.pos,
 		},
 	}
 }
@@ -390,22 +390,22 @@ func (l *Lexer) read_number() ProtoToken {
 		return ProtoToken{
 			Type:    I64,
 			Literal: slice,
-			Span: Span{
-				line:  l.line,
-				col:   col,
-				start: start,
-				end:   l.pos,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   col,
+				Start: start,
+				End:   l.pos,
 			},
 		}
 	} else {
 		return ProtoToken{
 			Type:    ERROR,
 			Literal: slice + " isn't i64",
-			Span: Span{
-				line:  l.line,
-				col:   col,
-				start: start,
-				end:   l.pos,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   col,
+				Start: start,
+				End:   l.pos,
 			},
 		}
 	}

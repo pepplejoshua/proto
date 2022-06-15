@@ -2,8 +2,8 @@ package lexer
 
 import (
 	"fmt"
-	"io/ioutil"
 	"log"
+	"proto/shared"
 	"testing"
 )
 
@@ -11,17 +11,9 @@ type Pair struct {
 	a, b interface{}
 }
 
-func ReadFile(path string) string {
-	src, err := ioutil.ReadFile(path)
-	if err != nil {
-		log.Fatal(err)
-	}
-	return string(src)
-}
-
 func TestLexingAllTokens(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/all_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -29,11 +21,11 @@ func TestLexingAllTokens(t *testing.T) {
 		token := lexer.Next_Token()
 		if token.Type == ERROR {
 			msg := "Ran into an error: " + token.Literal
-			msg = msg + " {" + fmt.Sprint(token.Span.line) + ":" + fmt.Sprint(token.Span.col) + "}"
+			msg = msg + " {" + fmt.Sprint(token.TokenSpan.Line) + ":" + fmt.Sprint(token.TokenSpan.Col) + "}"
 			log.Fatal(msg)
 		} else {
 			msg := string(token.Type) + " {" + token.Literal + "}"
-			msg = msg + " at " + fmt.Sprint(token.Span.line) + ":" + fmt.Sprint(token.Span.col)
+			msg = msg + " at " + fmt.Sprint(token.TokenSpan.Line) + ":" + fmt.Sprint(token.TokenSpan.Col)
 			println(msg)
 
 			if token.Type == END {
@@ -45,7 +37,7 @@ func TestLexingAllTokens(t *testing.T) {
 
 func TestLexingComments(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/comments.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -54,14 +46,14 @@ func TestLexingComments(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingDoubleOperators(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/double_operators.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -91,14 +83,14 @@ func TestLexingDoubleOperators(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingSingleOperators(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/single_operators.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -136,14 +128,14 @@ func TestLexingSingleOperators(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingTypeTokens(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/type_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -171,14 +163,14 @@ func TestLexingTypeTokens(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingGroupingTokens(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/grouping_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -208,14 +200,14 @@ func TestLexingGroupingTokens(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingIdentifiers(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/identifier_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -246,14 +238,14 @@ func TestLexingIdentifiers(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingKeywords(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/keyword_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -290,14 +282,14 @@ func TestLexingKeywords(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingLiteralTokens(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/literal_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -333,14 +325,14 @@ func TestLexingLiteralTokens(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingNumberTokens(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/number_tokens.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -367,14 +359,14 @@ func TestLexingNumberTokens(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
 
 func TestLexingStringLiterals(t *testing.T) {
 	path := "../samples/test_sources/lexer/valid/string_literals.pr"
-	source := ReadFile(path)
+	source := shared.ReadFile(path)
 
 	lexer := New(source)
 
@@ -405,7 +397,7 @@ func TestLexingStringLiterals(t *testing.T) {
 	if token.Type != END {
 		log.Fatal("Expected EOF token but got ",
 			token.Type, " {",
-			token.Span.line, ":",
-			token.Span.col, "}")
+			token.TokenSpan.Line, ":",
+			token.TokenSpan.Col, "}")
 	}
 }
