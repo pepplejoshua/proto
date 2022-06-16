@@ -14,4 +14,4 @@
   - [ ] work on parsing types
 
 - [ ] write parser tests
-  - [ ] use s-exprs to make testing parsing easier
+  - [x] use s-exprs to make testing parsing easier

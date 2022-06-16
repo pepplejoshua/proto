@@ -48,7 +48,7 @@ func TestParsingLiterals(t *testing.T) {
 		"2",
 		"\"string\"",
 		"\"\"",
-		"c",
+		"'c'",
 		"true",
 		"false",
 		"some_identifier",
@@ -66,7 +66,7 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 
 }
 
-func TestParsingParentehsizedExpressions(t *testing.T) {
+func TestParsingParenthesizedExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/parenthesized_expr.pr"
 	source := shared.ReadFile(path)
 
@@ -78,7 +78,7 @@ func TestParsingParentehsizedExpressions(t *testing.T) {
 		"(- 2)",
 		"true",
 		"\"str\"",
-		"c",
+		"'c'",
 		"(== a b)",
 		"id",
 		"(not false)",
@@ -119,5 +119,25 @@ func TestParsingMixedBinaryAndUnaryOperations(t *testing.T) {
 }
 
 func TestParsingVariableDeclarations(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/variable_declarations.pr"
+	source := shared.ReadFile(path)
 
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(let a: i64 3)",
+		"(let b: str \"string\")",
+		"(let c: char 'c')",
+		"(mut d: [i64])",
+		"(mut e: (i64, char, bool))",
+		"(let f: bool true)",
+		"(mut g: [i64] [1, 2, 3, 4])",
+		"(let h: (i64, char, bool) (1, '2', false))",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
 }

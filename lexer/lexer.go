@@ -292,7 +292,6 @@ func (l *Lexer) read_string() ProtoToken {
 	}
 	l.next_char()
 	slice := l.source[start:l.pos]
-	println(slice)
 	return ProtoToken{
 		Type:    STRING,
 		Literal: slice,

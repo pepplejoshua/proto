@@ -4,6 +4,5 @@ let c: char = 'c';
 mut d: [i64];
 mut e: (i64, char, bool);
 let f = true;
-
-// let d: [i64] = [1, 2, 3, 4];
-// let e: (i64, char, bool) = (1, '2', false);
+mut g: [i64] = [1, 2, 3, 4];
+let h: (i64, char, bool) = (1, '2', false);
