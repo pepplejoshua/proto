@@ -8,10 +8,11 @@
 
 - [x] begin work on parser
 
-  - [ ] finish variable declaration
+  - [x] finish variable declaration
+  - [ ] work on parsing hashmaps
   - [ ] work on parsing function calls
   - [ ] work on parsing . expressions (e.g a.b, struct.member)
-  - [ ] work on parsing types
+  - [x] work on parsing types
 
 - [ ] write parser tests
   - [x] use s-exprs to make testing parsing easier

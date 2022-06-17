@@ -54,12 +54,6 @@ The **unit** type is the return type of statements (like variable definitions) a
   {'a': true, 'b': false, 'c': false} is inferred to be or annotated {char: bool}
   ```
 
-- Sets. written as `{I}`, where `I` is the type of the items to be contained in the set. For example:
-
-  ```rs
-  {"proto", "is", "a", "fun", "language"} is inferred to be or annotated {str}
-  ```
-
 - Tuples are the only heterogenous complex type (i.e they allow the mixing of different types). Once created, new elements cannot be added to extend a tuple. They are type annotated `(T`<sub>`1`</sub>, `T`<sub>`2`</sub>, `...`, `T`<sub>`n`</sub>`)` where each `T` from `1` to `n` can be a different type. For example:
   ```rs
   (1, 'c', "some string", false) is inferred to be or annotated (i64, char, str, bool)

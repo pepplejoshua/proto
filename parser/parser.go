@@ -132,21 +132,38 @@ func (p *Parser) parse_primary() ast.Expression {
 		start := p.cur
 		p.consume(p.cur.Type)
 		var items []ast.Expression
+		var arr_type ast.ProtoType = nil
 		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_BRACKET {
 			expr := p.parse_expr()
 			items = append(items, expr)
+
+			if arr_type == nil {
+				// first pass
+				arr_type = expr.Type()
+			} else if arr_type.TypeSignature() != "untyped" &&
+				expr.Type().TypeSignature() != "untyped" &&
+				expr.Type().TypeSignature() != arr_type.TypeSignature() {
+				// an array with inconsistent typing
+				arr_type = &ast.Proto_Untyped{}
+			}
+
 			if p.cur.Type == lexer.COMMA {
 				p.consume(p.cur.Type)
 			}
 		}
 		p.consume(lexer.CLOSE_BRACKET)
-		val = &ast.Array{
+
+		arr := &ast.Array{
 			Items: items,
 			Token: start,
 			ArrayType: &ast.Proto_Array{
 				InternalType: &ast.Proto_Untyped{},
 			},
 		}
+		if arr_type != nil {
+			arr.ArrayType.InternalType = arr_type
+		}
+		val = arr
 	default:
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))

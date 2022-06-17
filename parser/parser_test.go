@@ -133,6 +133,11 @@ func TestParsingVariableDeclarations(t *testing.T) {
 		"(let f: bool true)",
 		"(mut g: [i64] [1, 2, 3, 4])",
 		"(let h: (i64, char, bool) (1, '2', false))",
+		"(mut i: (char, str, i64, bool, [i64]) ('c', \"str\", 24, true, [1, 2, 3, 4]))",
+		"(let j: [i64] [1, 2, 3, 4])",
+		"(mut k: untyped [1, '2', true])",
+		"(let l: untyped (+ 1 2))",
+		"(mut m: [(i64, i64, char)] [(1, 2, 'a'), (2, 3, 'b')])",
 	}
 
 	for index, node := range contents {
