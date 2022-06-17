@@ -1,1 +1,18 @@
-struct Person { let name, let age, }
+struct Person { 
+    name: str 
+    age: i64 
+}
+
+struct Token { 
+    literal: str
+    line: i64
+    col: i64 
+}
+
+struct BasketBall { 
+    HomePoints: i64
+    AwayPoints: i64
+    HomePlayers: [Person]
+    AwayPlayers: [Person]
+    MVP: Person
+}

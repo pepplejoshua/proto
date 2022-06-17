@@ -55,3 +55,11 @@ func (t *Proto_Tuple) TypeSignature() string {
 
 	return str.String()
 }
+
+type Proto_UserDef struct {
+	Ident Identifier
+}
+
+func (u *Proto_UserDef) TypeSignature() string {
+	return u.Ident.LiteralRepr()
+}

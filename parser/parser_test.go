@@ -92,7 +92,22 @@ func TestParsingParenthesizedExpressions(t *testing.T) {
 }
 
 func TestParsingStructs(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/structs.pr"
+	source := shared.ReadFile(path)
 
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(struct Person { name: str, age: i64 })",
+		"(struct Token { literal: str, line: i64, col: i64 })",
+		"(struct BasketBall { HomePoints: i64, AwayPoints: i64, HomePlayers: [Person], AwayPlayers: [Person], MVP: Person })",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
 }
 
 func TestParsingUnaryOperations(t *testing.T) {
@@ -138,6 +153,28 @@ func TestParsingVariableDeclarations(t *testing.T) {
 		"(mut k: untyped [1, '2', true])",
 		"(let l: untyped (+ 1 2))",
 		"(mut m: [(i64, i64, char)] [(1, 2, 'a'), (2, 3, 'b')])",
+		"(let n: UserDefined)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingAssignment(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/assignment.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(a = 3)",
+		"(some_ident = true)",
+		"(array = [1, 2, 3])",
+		"(tuple = (1, true, 'c'))",
+		"(string = \"str\")",
 	}
 
 	for index, node := range contents {

@@ -189,3 +189,23 @@ func (t *Tuple) LiteralRepr() string {
 func (t *Tuple) Type() ProtoType {
 	return t.TupleType
 }
+
+type AssignExpr struct {
+	Target   Expression
+	Assigned Expression
+}
+
+func (a *AssignExpr) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("(")
+	str.WriteString(a.Target.LiteralRepr())
+	str.WriteString(" = ")
+	str.WriteString(a.Assigned.LiteralRepr())
+	str.WriteString(")")
+	return str.String()
+}
+
+func (a *AssignExpr) Type() ProtoType {
+	return a.Assigned.Type()
+}

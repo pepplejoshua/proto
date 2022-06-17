@@ -11,3 +11,4 @@ let j = [1, 2, 3, 4];
 mut k = [1, '2', true];
 let l = 1 + 2;
 mut m = [(1, 2, 'a'), (2, 3, 'b')];
+let n: UserDefined;

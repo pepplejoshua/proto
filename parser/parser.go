@@ -290,8 +290,23 @@ func (p *Parser) parse_or() ast.Expression {
 	return or
 }
 
+func (p *Parser) parse_assignment() ast.Expression {
+	target := p.parse_or()
+
+	if p.cur.Type == lexer.ASSIGN {
+		p.consume(p.cur.Type)
+		assigned := p.parse_or()
+		target = &ast.AssignExpr{
+			Target:   target,
+			Assigned: assigned,
+		}
+	}
+
+	return target
+}
+
 func (p *Parser) parse_expr() ast.Expression {
-	return p.parse_or()
+	return p.parse_assignment()
 }
 
 func (p *Parser) parse_type() ast.ProtoType {
@@ -323,6 +338,11 @@ func (p *Parser) parse_type() ast.ProtoType {
 		p.consume(p.cur.Type)
 		proto_type = &ast.Proto_Tuple{
 			InternalTypes: contained,
+		}
+	case lexer.IDENT:
+		token := p.parse_identifier()
+		proto_type = &ast.Proto_UserDef{
+			Ident: *token,
 		}
 	default:
 		var msg strings.Builder
@@ -382,6 +402,33 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	return declaration
 }
 
+func (p *Parser) parse_struct() *ast.Struct {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	struct_name := p.parse_identifier()
+	p.consume(lexer.OPEN_CURLY)
+
+	var members []*ast.Identifier
+
+	for p.cur.Type == lexer.IDENT {
+		mem := p.parse_identifier()
+		p.consume(lexer.COLON)
+		mem_type := p.parse_type()
+		mem.Id_Type = mem_type
+		members = append(members, mem)
+	}
+
+	p.consume(p.cur.Type)
+
+	proto_struct := &ast.Struct{
+		Start:   start,
+		Name:    *struct_name,
+		Members: members,
+	}
+	return proto_struct
+}
+
 func Parse(src string) *ast.ProtoProgram {
 	parser := New(src)
 	prog := top_level(parser)
@@ -398,6 +445,8 @@ func top_level(p *Parser) *ast.ProtoProgram {
 		switch p.cur.Type {
 		case lexer.LET, lexer.MUT:
 			node = p.parse_let_mut()
+		case lexer.STRUCT:
+			node = p.parse_struct()
 		default:
 			node = p.parse_expr()
 			if p.cur.Type == lexer.SEMI_COLON { // allow conditional semi-colon
