@@ -176,7 +176,7 @@ func TestParsingAssignment(t *testing.T) {
 	}
 }
 
-func TestParsingBlocks(t *testing.T) {
+func TestParsingBlockExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/blocks.pr"
 	source := shared.ReadFile(path)
 
@@ -190,6 +190,32 @@ func TestParsingBlocks(t *testing.T) {
 		"{ (let a: i64 2) }: ()",
 		"{ (mut c: bool) }: ()",
 		"{ (+ 1 2); (let a: bool true) (a = (* a 2)) \"string\" }: str",
+		"{ (let a: i64 3) (mut b: i64 5) (* a b) }: untyped",
+		"{  }: ()",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingIfExpressions(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/if_expressions.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(if true { 1 }: i64 else { 3 }: i64): i64",
+		"(if (== a b) { \"same\" }: str else { \"different\" }: str): str",
+		"(let a: char (if (== (- 200 1) 199) { 'a' }: char else { 'b' }: char): char)",
+		"(if true {  }: ()): ()",
+		"(if stuff { 'a' }: char else { 400 }: i64): untyped",
+		"(let b: i64 (if true { 1 }: i64 else (if (not false) { 2 }: i64 else { 3 }: i64): i64): i64)",
+		"(if true { (+ 1 2) }: untyped else { 1 }: i64): untyped",
+		"(if false { (+ 1 2) }: untyped else { (* 3 4) }: untyped): untyped",
 	}
 
 	for index, node := range contents {

@@ -1,0 +1,45 @@
+if true {
+    1
+} else {
+    3
+}
+
+if a == b {
+    "same"
+} else {
+    "different"
+}
+
+let a = if 200 - 1 == 199 {
+    'a'
+} else {
+    'b'
+};
+
+if true { }
+
+if stuff {
+    'a'
+} else {
+    400
+}
+
+let b = if true {
+    1
+} else if not false {
+    2
+} else {
+    3
+};
+
+if true {
+    1 + 2
+} else {
+    1
+}
+
+if false {
+    1 + 2
+} else {
+    3 * 4
+}

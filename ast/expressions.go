@@ -217,3 +217,31 @@ func (b *Block) LiteralRepr() string {
 func (b *Block) Type() ProtoType {
 	return b.BlockType
 }
+
+type IfConditional struct {
+	Start     lexer.ProtoToken
+	Condition Expression
+	ThenBody  *Block
+	ElseBody  Expression
+	IfType    ProtoType
+}
+
+func (i *IfConditional) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("(if ")
+	str.WriteString(i.Condition.LiteralRepr() + " ")
+	str.WriteString(i.ThenBody.LiteralRepr())
+
+	if i.ElseBody != nil {
+		str.WriteString(" else " + i.ElseBody.LiteralRepr())
+	}
+
+	str.WriteString("): " + i.IfType.TypeSignature())
+
+	return str.String()
+}
+
+func (i *IfConditional) Type() ProtoType {
+	return i.IfType
+}

@@ -63,6 +63,75 @@ func (p *Parser) parse_identifier() *ast.Identifier {
 	return ident
 }
 
+func (p *Parser) parse_block() *ast.Block {
+	start := p.cur
+	p.consume(lexer.OPEN_CURLY)
+	var contents []ast.ProtoNode
+	for p.cur.Type != lexer.CLOSE_CURLY {
+		node := p.parse_protonode()
+		contents = append(contents, node)
+	}
+	p.consume(lexer.CLOSE_CURLY)
+
+	var block_type ast.ProtoType
+	if len(contents) > 0 {
+		last := contents[len(contents)-1]
+
+		switch actual := last.(type) {
+		case ast.Expression:
+			block_type = actual.Type()
+		default:
+			block_type = &ast.Proto_Unit{}
+		}
+	} else {
+		block_type = &ast.Proto_Unit{}
+	}
+
+	return &ast.Block{
+		Start:     start,
+		Contents:  contents,
+		BlockType: block_type,
+	}
+}
+
+func (p *Parser) parse_if_conditional() *ast.IfConditional {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	condition := p.parse_expr()
+
+	thenbody := p.parse_block()
+
+	var elsebody ast.Expression = nil
+	if p.cur.Type == lexer.ELSE {
+		p.consume(p.cur.Type)
+
+		if p.cur.Type == lexer.IF {
+			elsebody = p.parse_if_conditional()
+		} else {
+			elsebody = p.parse_block()
+		}
+	}
+
+	var if_type ast.ProtoType
+	if (elsebody != nil &&
+		thenbody.Type().TypeSignature() == elsebody.Type().TypeSignature()) ||
+		elsebody == nil {
+		// if we can infer 2 matching types for the blocks, then use it
+		if_type = thenbody.Type()
+	} else {
+		if_type = &ast.Proto_Untyped{}
+	}
+
+	return &ast.IfConditional{
+		Start:     start,
+		Condition: condition,
+		ThenBody:  thenbody,
+		ElseBody:  elsebody,
+		IfType:    if_type,
+	}
+}
+
 func (p *Parser) parse_primary() ast.Expression {
 	var val ast.Expression
 	switch p.cur.Type {
@@ -165,31 +234,9 @@ func (p *Parser) parse_primary() ast.Expression {
 		}
 		val = arr
 	case lexer.OPEN_CURLY:
-		start := p.cur
-		p.consume(p.cur.Type)
-		var contents []ast.ProtoNode
-		for p.cur.Type != lexer.CLOSE_CURLY {
-			node := p.parse_protonode()
-			contents = append(contents, node)
-		}
-		p.consume(p.cur.Type)
-		var block_type ast.ProtoType
-		if len(contents) > 0 {
-			last := contents[len(contents)-1]
-
-			switch actual := last.(type) {
-			case ast.Expression:
-				block_type = actual.Type()
-			default:
-				block_type = &ast.Proto_Unit{}
-			}
-		}
-
-		val = &ast.Block{
-			Start:     start,
-			Contents:  contents,
-			BlockType: block_type,
-		}
+		val = p.parse_block()
+	case lexer.IF:
+		val = p.parse_if_conditional()
 	default:
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
@@ -324,15 +371,16 @@ func (p *Parser) parse_assignment() ast.ProtoNode {
 	target := p.parse_expr()
 
 	if p.cur.Type == lexer.ASSIGN {
-		assignment := p.cur
+		operator := p.cur
 		p.consume(p.cur.Type)
 		assigned := p.parse_expr()
-		target = &ast.Assignment{
+		assignment := &ast.Assignment{
 			Target:          target,
-			AssignmentToken: assignment,
+			AssignmentToken: operator,
 			Assigned:        assigned,
 		}
 		p.consume(lexer.SEMI_COLON)
+		return assignment
 	}
 
 	return target
@@ -481,7 +529,6 @@ func (p *Parser) parse_protonode() ast.ProtoNode {
 		default:
 			node = actual
 		}
-
 	}
 
 	return node

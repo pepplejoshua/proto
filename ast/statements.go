@@ -74,10 +74,6 @@ func (a *Assignment) LiteralRepr() string {
 	return str.String()
 }
 
-func (a *Assignment) Type() ProtoType {
-	return a.Assigned.Type()
-}
-
 type PromotedExpr struct {
 	Start lexer.ProtoToken
 	Expr  Expression
