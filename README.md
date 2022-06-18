@@ -48,12 +48,6 @@ The **unit** type is the return type of statements (like variable definitions) a
   [1, 2, 3, 4, 5] is inferred to be or annotated [i64]
   ```
 
-- Hashmaps are written as `{K: V}`, where `K` is the type of the keys and `V` is the type of the values. For example:
-
-  ```rs
-  {'a': true, 'b': false, 'c': false} is inferred to be or annotated {char: bool}
-  ```
-
 - Tuples are the only heterogenous complex type (i.e they allow the mixing of different types). Once created, new elements cannot be added to extend a tuple. They are type annotated `(T`<sub>`1`</sub>, `T`<sub>`2`</sub>, `...`, `T`<sub>`n`</sub>`)` where each `T` from `1` to `n` can be a different type. For example:
   ```rs
   (1, 'c', "some string", false) is inferred to be or annotated (i64, char, str, bool)
@@ -148,7 +142,7 @@ Terminating expressions can also be turned into statements by terminating them w
 
 ```rs
 {
-    let a = 5
+    let a = 5;
     a * 5;
 } // returns unit, since i64 expression was terminated with ;
 ```

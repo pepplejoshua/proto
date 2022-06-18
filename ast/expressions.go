@@ -190,22 +190,30 @@ func (t *Tuple) Type() ProtoType {
 	return t.TupleType
 }
 
-type AssignExpr struct {
-	Target   Expression
-	Assigned Expression
+type Block struct {
+	Start     lexer.ProtoToken
+	Contents  []ProtoNode
+	BlockType ProtoType
 }
 
-func (a *AssignExpr) LiteralRepr() string {
+func (b *Block) LiteralRepr() string {
 	var str strings.Builder
 
-	str.WriteString("(")
-	str.WriteString(a.Target.LiteralRepr())
-	str.WriteString(" = ")
-	str.WriteString(a.Assigned.LiteralRepr())
-	str.WriteString(")")
+	str.WriteString("{ ")
+	for index, node := range b.Contents {
+		str.WriteString(node.LiteralRepr())
+
+		if index+1 < len(b.Contents) {
+			str.WriteString(" ")
+		}
+	}
+
+	str.WriteString(" }: ")
+	str.WriteString(b.Type().TypeSignature())
+
 	return str.String()
 }
 
-func (a *AssignExpr) Type() ProtoType {
-	return a.Assigned.Type()
+func (b *Block) Type() ProtoType {
+	return b.BlockType
 }

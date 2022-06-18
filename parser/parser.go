@@ -164,6 +164,32 @@ func (p *Parser) parse_primary() ast.Expression {
 			arr.ArrayType.InternalType = arr_type
 		}
 		val = arr
+	case lexer.OPEN_CURLY:
+		start := p.cur
+		p.consume(p.cur.Type)
+		var contents []ast.ProtoNode
+		for p.cur.Type != lexer.CLOSE_CURLY {
+			node := p.parse_protonode()
+			contents = append(contents, node)
+		}
+		p.consume(p.cur.Type)
+		var block_type ast.ProtoType
+		if len(contents) > 0 {
+			last := contents[len(contents)-1]
+
+			switch actual := last.(type) {
+			case ast.Expression:
+				block_type = actual.Type()
+			default:
+				block_type = &ast.Proto_Unit{}
+			}
+		}
+
+		val = &ast.Block{
+			Start:     start,
+			Contents:  contents,
+			BlockType: block_type,
+		}
 	default:
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
@@ -290,23 +316,26 @@ func (p *Parser) parse_or() ast.Expression {
 	return or
 }
 
-func (p *Parser) parse_assignment() ast.Expression {
-	target := p.parse_or()
+func (p *Parser) parse_expr() ast.Expression {
+	return p.parse_or()
+}
+
+func (p *Parser) parse_assignment() ast.ProtoNode {
+	target := p.parse_expr()
 
 	if p.cur.Type == lexer.ASSIGN {
+		assignment := p.cur
 		p.consume(p.cur.Type)
-		assigned := p.parse_or()
-		target = &ast.AssignExpr{
-			Target:   target,
-			Assigned: assigned,
+		assigned := p.parse_expr()
+		target = &ast.Assignment{
+			Target:          target,
+			AssignmentToken: assignment,
+			Assigned:        assigned,
 		}
+		p.consume(lexer.SEMI_COLON)
 	}
 
 	return target
-}
-
-func (p *Parser) parse_expr() ast.Expression {
-	return p.parse_assignment()
 }
 
 func (p *Parser) parse_type() ast.ProtoType {
@@ -429,10 +458,38 @@ func (p *Parser) parse_struct() *ast.Struct {
 	return proto_struct
 }
 
+func (p *Parser) parse_protonode() ast.ProtoNode {
+	var node ast.ProtoNode
+	switch p.cur.Type {
+	case lexer.LET, lexer.MUT:
+		node = p.parse_let_mut()
+	case lexer.STRUCT:
+		node = p.parse_struct()
+	default:
+		potential_expr := p.parse_assignment()
+
+		switch actual := potential_expr.(type) {
+		case ast.Expression:
+			if p.cur.Type == lexer.SEMI_COLON { // allow semi-colon to promote expr to statement
+				p.consume(p.cur.Type)
+				node = &ast.PromotedExpr{
+					Expr: actual,
+				}
+			} else {
+				node = actual
+			}
+		default:
+			node = actual
+		}
+
+	}
+
+	return node
+}
+
 func Parse(src string) *ast.ProtoProgram {
 	parser := New(src)
-	prog := top_level(parser)
-	return prog
+	return top_level(parser)
 }
 
 func top_level(p *Parser) *ast.ProtoProgram {
@@ -441,19 +498,7 @@ func top_level(p *Parser) *ast.ProtoProgram {
 	}
 
 	for p.cur.Type != lexer.END {
-		var node ast.ProtoNode
-		switch p.cur.Type {
-		case lexer.LET, lexer.MUT:
-			node = p.parse_let_mut()
-		case lexer.STRUCT:
-			node = p.parse_struct()
-		default:
-			node = p.parse_expr()
-			if p.cur.Type == lexer.SEMI_COLON { // allow conditional semi-colon
-				p.consume(p.cur.Type)
-			}
-		}
-		code.Contents = append(code.Contents, node)
+		code.Contents = append(code.Contents, p.parse_protonode())
 	}
 
 	return code

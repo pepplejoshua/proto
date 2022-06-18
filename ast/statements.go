@@ -56,3 +56,33 @@ func (s *Struct) LiteralRepr() string {
 
 	return repr.String()
 }
+
+type Assignment struct {
+	Target          Expression
+	AssignmentToken lexer.ProtoToken
+	Assigned        Expression
+}
+
+func (a *Assignment) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("(")
+	str.WriteString(a.Target.LiteralRepr())
+	str.WriteString(" = ")
+	str.WriteString(a.Assigned.LiteralRepr())
+	str.WriteString(")")
+	return str.String()
+}
+
+func (a *Assignment) Type() ProtoType {
+	return a.Assigned.Type()
+}
+
+type PromotedExpr struct {
+	Start lexer.ProtoToken
+	Expr  Expression
+}
+
+func (p *PromotedExpr) LiteralRepr() string {
+	return p.Expr.LiteralRepr() + ";"
+}

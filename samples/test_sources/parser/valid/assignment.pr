@@ -1,5 +1,5 @@
-a = 3
-some_ident = true
-array = [1, 2, 3]
-tuple = (1, true, 'c')
-string = "str"
+a = 3;
+some_ident = true;
+array = [1, 2, 3];
+tuple = (1, true, 'c');
+string = "str";
