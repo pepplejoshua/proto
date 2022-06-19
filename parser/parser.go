@@ -182,8 +182,8 @@ func (p *Parser) parse_primary() ast.Expression {
 				expr := p.parse_expr()
 				items = append(items, expr)
 				types = append(types, expr.Type())
-				if p.cur.Type == lexer.COMMA {
-					p.consume(p.cur.Type)
+				if p.cur.Type != lexer.CLOSE_PAREN {
+					p.consume(lexer.COMMA)
 				}
 			}
 			p.consume(lexer.CLOSE_PAREN)

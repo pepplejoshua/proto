@@ -1,6 +1,6 @@
 # proto
 
-A language compiler exploring as many parts of compiler theory as we (the writers) can muster
+A language compiler exploring as many parts of compiler theory as we (the writers) can muster.
 
 <br>
 
@@ -49,11 +49,19 @@ The **unit** type is the return type of statements (like variable definitions) a
   ```
 
 - Tuples are the only heterogenous complex type (i.e they allow the mixing of different types). Once created, new elements cannot be added to extend a tuple. They are type annotated `(T`<sub>`1`</sub>, `T`<sub>`2`</sub>, `...`, `T`<sub>`n`</sub>`)` where each `T` from `1` to `n` can be a different type. For example:
+
   ```rs
   (1, 'c', "some string", false) is inferred to be or annotated (i64, char, str, bool)
   ```
 
-<br>
+- Ranges are another complex type. They are annotated as `Range<T>`, where `T` is an ordinal type (i.e can be counted and put in a one-to-one correspondence with positive integers). Both `char` and `i64` types are ordinal by this definition. The elements in each of these sets of types can be compared to one another to attain some form of 'order'. In this way, they are similar to Pascal's subrange type. A range literal can be specified with a `start..end`, where the range terminates at 1 before the `end` provided. You can also specify an end-inclusive range literal using `start..=end`, where the range terminates exactly at the end. For example:
+
+  ```rs
+    let a: Range<i64> = 1..10 // runs from 1 to 9
+    let b: Range<char> = 'a'..='z' // runs from 'a' to 'z'
+  ```
+
+  <br>
 
 ## Variables (Mutable and Immutable)
 
@@ -147,7 +155,7 @@ Terminating expressions can also be turned into statements by terminating them w
 } // returns unit, since i64 expression was terminated with ;
 ```
 
-## Control flow
+## Conditionals
 
 Pieces of code can be conditionally executed using `if ... else` expressions.
 
@@ -177,7 +185,7 @@ let c = if a > b {
 
 The variable `c` in the above example is inferred to be i64 since that is the type of the `if ... else` expression.
 
-The `else` part of the construct allows further `if` expressions to check more conditional cases:
+The `else` part of the construct also allows further `if` expressions to check more conditional cases:
 
 ```rs
 let a = 3;
@@ -191,3 +199,88 @@ let c = if a > b {
     "they are equal" // returns str
 };
 ```
+
+## Loops
+
+Sometimes, code needs to repeat a number of times, or infinitely until a termination condition is reached.
+
+For example, you can find the sum of an `i64` array in Proto by:
+
+```rs
+let arr = [1, 2, 3, 4, 5]
+mut sum: i64
+for indx = 0; indx < arr.len(); indx += 1 {
+    let num = arr[indx]
+    sum += num;
+}
+println(sum); // prints 15
+```
+
+To make it more tidy for the case of collections (like arrays, hashmaps, ranges and others), we will have a collection-centric `for` loop:
+
+```rs
+let arr = [1, 2, 3, 4, 5]
+mut sum: i64
+for num in arr {
+    sum += num;
+}
+println(sum); // prints 15
+```
+
+or a range-based `for` loop:
+
+```rs
+let arr = [1, 2, 3, 4, 5]
+mut sum: i64
+for index in 0..arr.len() {
+    sum += arr[index];
+}
+println(sum); // prints 15
+```
+
+To loop a piece of code infinitely until a code is met (or not), you can also use `for`:
+
+```rs
+mut num: i64 = 0
+for {
+    println(num);
+    num += 1;
+}
+```
+
+The above loop will run infinitely. To terminate an infinite loop, you use the `break` keyword:
+
+```rs
+mut num: i64 = 0
+for {
+    if num >= 5000 {
+        break;
+    }
+    println(num);
+    num += 1
+}
+```
+
+Another keyword for use in a loop is the `continue` keyword. It allows skipping the rest of the body of a loop and jumping to the next iteration of the loop:
+
+```rs
+fn is_even(n: i64) -> bool {
+
+}
+
+mut num: i64 = 0
+
+for {
+    if num >= 5000 {
+        break;
+    }
+
+    num += 1;
+    if is_even(num-1) {
+        continue;
+    }
+    println(num-1);
+}
+```
+
+The above code snippet will print all the odd numbers between 0 and 4999.

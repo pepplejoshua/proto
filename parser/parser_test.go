@@ -2,9 +2,14 @@ package parser
 
 import (
 	"log"
+	"proto/ast"
 	"proto/shared"
 	"testing"
 )
+
+type Pair struct {
+	a, b string
+}
 
 func TestParsingBinaryOperations(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/binary_operations.pr"
@@ -222,6 +227,38 @@ func TestParsingIfExpressions(t *testing.T) {
 		if expected[index] != node.LiteralRepr() {
 			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
 		}
+	}
+}
+
+func TestParsingComplexTypes(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/complex_types.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []Pair{
+		{"[1, 2, 3, 4, 5]", "[i64]"},
+		{"(3, )", "(i64)"},
+		{"(1, 2, 'c', false)", "(i64, i64, char, bool)"},
+		{"[]", "[untyped]"},
+		{"([1, 2], (1, 'b'), false)", "([i64], (i64, char), bool)"},
+	}
+
+	for index, node := range contents {
+		literal := expected[index].a
+		node_type := expected[index].b
+
+		if literal != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+
+		switch v := node.(type) {
+		case ast.Expression:
+			if v.Type().TypeSignature() != node_type {
+				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Type().TypeSignature())
+			}
+		}
+		// if node_type != node.
 	}
 }
 

@@ -178,7 +178,7 @@ func (t *Tuple) LiteralRepr() string {
 	for index, item := range t.Items {
 		str.WriteString(item.LiteralRepr())
 
-		if index+1 < len(t.Items) {
+		if index+1 < len(t.Items) || len(t.Items) == 1 {
 			str.WriteString(", ")
 		}
 	}

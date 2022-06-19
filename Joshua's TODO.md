@@ -15,4 +15,23 @@
   - [x] work on parsing types
 
 - [ ] write parser tests
+
   - [x] use s-exprs to make testing parsing easier
+
+- [ ] implement traits/interface
+
+  - [ ] implement range using `..` and `..=` after adding in traits/interfaces. Will require comparison trait
+  - [ ] implement collections based loops. e.g:
+
+  ```rust
+    let a = [1, 2, 3, 4]
+    for item in a {
+
+    }
+
+    // or
+
+    for index, item in a.enumerate() {
+
+    }
+  ```
