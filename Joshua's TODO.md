@@ -14,6 +14,8 @@
   - [ ] work on parsing . expressions (e.g a.b, struct.member)
   - [x] work on parsing types
 
+- [ ] add double arithmetic operators like +=, -=, \*=, /= and others
+
 - [ ] write parser tests
 
   - [x] use s-exprs to make testing parsing easier

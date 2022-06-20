@@ -72,6 +72,7 @@ const (
 	CONTINUE = "CONTINUE"
 	FOR      = "FOR"
 	LOOP     = "LOOP"
+	IN       = "IN"
 	WHILE    = "WHILE"
 
 	STRING_TYPE = "STRING_TYPE"
@@ -94,6 +95,7 @@ var keywords = map[string]TokenType{
 	"break":    BREAK,
 	"continue": CONTINUE,
 	"for":      FOR,
+	"in":       IN,
 	"while":    WHILE,
 	"loop":     LOOP,
 	"str":      STRING_TYPE,

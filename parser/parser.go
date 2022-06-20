@@ -367,7 +367,7 @@ func (p *Parser) parse_expr() ast.Expression {
 	return p.parse_or()
 }
 
-func (p *Parser) parse_assignment() ast.ProtoNode {
+func (p *Parser) parse_assignment(check_for_semi bool) ast.ProtoNode {
 	target := p.parse_expr()
 
 	if p.cur.Type == lexer.ASSIGN {
@@ -379,7 +379,10 @@ func (p *Parser) parse_assignment() ast.ProtoNode {
 			AssignmentToken: operator,
 			Assigned:        assigned,
 		}
-		p.consume(lexer.SEMI_COLON)
+
+		if check_for_semi {
+			p.consume(lexer.SEMI_COLON)
+		}
 		return assignment
 	}
 
@@ -506,6 +509,57 @@ func (p *Parser) parse_struct() *ast.Struct {
 	return proto_struct
 }
 
+func (p *Parser) parse_for_loop() ast.ProtoNode {
+	var node ast.ProtoNode
+
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	if p.cur.Type == lexer.MUT {
+		// we have a Generic for loop
+		init := p.parse_let_mut()
+		if init.Assigned == nil {
+			// if loop variable is not initialized, throw error
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(init.Assignee.Token.TokenSpan.Line) + ":" + fmt.Sprint(init.Assignee.Token.TokenSpan.Col))
+			msg.WriteString(fmt.Sprintf(" Expected '%s' to be initialized.", init.Assignee.LiteralRepr()))
+			shared.ReportErrorAndExit("Parser", msg.String())
+		}
+
+		loop_condition := p.parse_expr()
+		p.consume(lexer.SEMI_COLON)
+		update := p.parse_assignment(false)
+		body := p.parse_block()
+
+		node = &ast.GenericForLoop{
+			Start:         start,
+			Init:          init,
+			LoopCondition: loop_condition,
+			Update:        update,
+			Body:          body,
+		}
+	} else if p.cur.Type == lexer.IDENT && p.peek.Type == lexer.IN {
+		// we have a collections for loop
+		loop_var := p.parse_identifier()
+		p.consume(lexer.IN)
+		collection := p.parse_expr()
+		body := p.parse_block()
+
+		node = &ast.CollectionsForLoop{
+			Start:      start,
+			LoopVar:    *loop_var,
+			Collection: collection,
+			Body:       body,
+		}
+	} else {
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+		msg.WriteString(" Incorrectly formatted for loop.")
+		shared.ReportErrorAndExit("Parser", msg.String())
+	}
+	return node
+}
+
 func (p *Parser) parse_protonode() ast.ProtoNode {
 	var node ast.ProtoNode
 	switch p.cur.Type {
@@ -513,8 +567,10 @@ func (p *Parser) parse_protonode() ast.ProtoNode {
 		node = p.parse_let_mut()
 	case lexer.STRUCT:
 		node = p.parse_struct()
+	case lexer.FOR:
+		node = p.parse_for_loop()
 	default:
-		potential_expr := p.parse_assignment()
+		potential_expr := p.parse_assignment(true)
 
 		switch actual := potential_expr.(type) {
 		case ast.Expression:

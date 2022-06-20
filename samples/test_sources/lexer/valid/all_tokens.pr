@@ -14,7 +14,7 @@ let mut
 // single line Comments
 
 > < <= >= && || == ? !=
-for if loop while else
+for in if loop while else
 not
 
 /*

@@ -258,7 +258,43 @@ func TestParsingComplexTypes(t *testing.T) {
 				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Type().TypeSignature())
 			}
 		}
-		// if node_type != node.
+	}
+}
+
+func TestParsingGenericForLoops(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/generic_for_loops.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(for (mut a: i64 0) (< a 5) (a = (+ a 1)) {  }: ())",
+		"(for (mut b: bool true) b (!= b false) {  }: ())",
+		"(for (mut c: i64 3) (== (% c 3) 0) (c = (+ c 3)) { 300 }: i64)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingCollectionsForLoops(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/collections_for_loops.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(for a in [1, 2, 3, 4, 5] {  }: ())",
+		"(for chr in ('c', 'd', 'e') {  }: ())",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
 	}
 }
 

@@ -1,0 +1,11 @@
+for mut a = 0; a < 5; a = a + 1 {
+    // do stuff
+}
+
+for mut b: bool = true; b; b != false {
+    // do stuff
+}
+
+for mut c = 3; c % 3 == 0; c = c + 3 {
+    300
+}

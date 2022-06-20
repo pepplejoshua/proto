@@ -61,6 +61,14 @@ The **unit** type is the return type of statements (like variable definitions) a
     let b: Range<char> = 'a'..='z' // runs from 'a' to 'z'
   ```
 
+  It is an error to specify the start of a range to be bigger than its end. For example:
+
+  ```rs
+    let a = 5;
+    mut b = 2;
+    let c = a..=b; // this will result in an error
+  ```
+
   <br>
 
 ## Variables (Mutable and Immutable)
@@ -204,30 +212,34 @@ let c = if a > b {
 
 Sometimes, code needs to repeat a number of times, or infinitely until a termination condition is reached.
 
-For example, you can find the sum of an `i64` array in Proto by:
+`For` loops come in 2 kinds: a generic (C++ like `for` loop) kind and a collection iteration (Python like `for` loop) kind.
+
+Finding the sum of an `i64` array in Proto using the generic kind might look like:
 
 ```rs
-let arr = [1, 2, 3, 4, 5]
-mut sum: i64
-for indx = 0; indx < arr.len(); indx += 1 {
+let arr = [1, 2, 3, 4, 5];
+mut sum: i64;
+for mut indx = 0; indx < arr.len(); indx += 1 {
     let num = arr[indx]
     sum += num;
 }
 println(sum); // prints 15
 ```
 
+It takes an initialized variable (`mut indx = 0;` in the above example), a condition for continuing the looping (`indx < arr.len();` in the above example) and a statement for updating the state of the loop variant (the loop variant in this case is `indx` and the update statement is `indx += 1`).
+
 To make it more tidy for the case of collections (like arrays, hashmaps, ranges and others), we will have a collection-centric `for` loop:
 
 ```rs
-let arr = [1, 2, 3, 4, 5]
-mut sum: i64
+let arr = [1, 2, 3, 4, 5];
+mut sum: i64;
 for num in arr {
     sum += num;
 }
 println(sum); // prints 15
 ```
 
-or a range-based `for` loop:
+Using a range in a `for` loop would look like:
 
 ```rs
 let arr = [1, 2, 3, 4, 5]
@@ -238,11 +250,11 @@ for index in 0..arr.len() {
 println(sum); // prints 15
 ```
 
-To loop a piece of code infinitely until a code is met (or not), you can also use `for`:
+To loop a piece of code infinitely until a code is met (or not), you use `loop` construct:
 
 ```rs
-mut num: i64 = 0
-for {
+mut num: i64 = 0;
+loop {
     println(num);
     num += 1;
 }
@@ -251,8 +263,8 @@ for {
 The above loop will run infinitely. To terminate an infinite loop, you use the `break` keyword:
 
 ```rs
-mut num: i64 = 0
-for {
+mut num: i64 = 0;
+loop {
     if num >= 5000 {
         break;
     }
@@ -265,12 +277,11 @@ Another keyword for use in a loop is the `continue` keyword. It allows skipping 
 
 ```rs
 fn is_even(n: i64) -> bool {
-
+    n % 2 == 0
 }
 
-mut num: i64 = 0
-
-for {
+mut num: i64 = 0;
+loop {
     if num >= 5000 {
         break;
     }
@@ -284,3 +295,46 @@ for {
 ```
 
 The above code snippet will print all the odd numbers between 0 and 4999.
+
+There is also a `while` loop construct. These three looping constructs allow you write a loop however you see fit. A `while` loop takes a boolean condition and a code block. To print all the odd numbers from 0 to 5000 using all 3 loop constructs for example:
+
+```rs
+fn is_even(n: i64) -> bool {
+    n % 2 == 0
+}
+
+// using a generic for loop
+for mut i = 0; i < 5000; i += 1 {
+    if is_even(i) {
+        println(i);
+    }
+}
+
+// using collections for loop + range
+for i in 0..5000 {
+    if is_even(i) {
+        println(i);
+    }
+}
+
+// using an infinite loop
+mut num: i64 = 0;
+loop {
+    if num >= 5000 {
+        break;
+    }
+    if is_even(num) {
+        println(num);
+    }
+    num += 1;
+}
+
+// using a while loop
+num = 0;
+while num < 5000 {
+    if is_even(num) {
+        println(num)
+    }
+    num += 1
+}
+```

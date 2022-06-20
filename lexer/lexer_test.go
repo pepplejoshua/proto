@@ -213,6 +213,7 @@ func TestLexingIdentifiers(t *testing.T) {
 
 	expected := []Pair{
 		{IDENT, "someidentifier"},
+		{IDENT, "testing"},
 		{IDENT, "another_identifier"},
 		{IDENT, "a"},
 		{IDENT, "c"},
@@ -223,6 +224,8 @@ func TestLexingIdentifiers(t *testing.T) {
 
 	for _, checkable := range expected {
 		token := lexer.Next_Token()
+
+		println(token.TokenSpan.Line, ":", token.TokenSpan.Col)
 
 		if token.Type != TokenType(fmt.Sprint(checkable.a)) {
 			log.Fatalf("Expected Type [%s] but got [%s]", checkable.a, token.Type)
@@ -255,6 +258,7 @@ func TestLexingKeywords(t *testing.T) {
 		{STRUCT, "struct"},
 		{FN, "fn"},
 		{FOR, "for"},
+		{IN, "in"},
 		{IF, "if"},
 		{LOOP, "loop"},
 		{WHILE, "while"},

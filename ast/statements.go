@@ -82,3 +82,41 @@ type PromotedExpr struct {
 func (p *PromotedExpr) LiteralRepr() string {
 	return p.Expr.LiteralRepr() + ";"
 }
+
+type GenericForLoop struct {
+	Start         lexer.ProtoToken
+	Init          ProtoNode
+	LoopCondition Expression
+	Update        ProtoNode
+	Body          *Block
+}
+
+func (g *GenericForLoop) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString("(for ")
+	repr.WriteString(g.Init.LiteralRepr() + " ")
+	repr.WriteString(g.LoopCondition.LiteralRepr() + " ")
+	repr.WriteString(g.Update.LiteralRepr() + " ")
+	repr.WriteString(g.Body.LiteralRepr() + ")")
+
+	return repr.String()
+}
+
+type CollectionsForLoop struct {
+	Start      lexer.ProtoToken
+	LoopVar    Identifier
+	Collection Expression
+	Body       *Block
+}
+
+func (c *CollectionsForLoop) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString("(for ")
+	repr.WriteString(c.LoopVar.LiteralRepr() + " in ")
+	repr.WriteString(c.Collection.LiteralRepr() + " ")
+	repr.WriteString(c.Body.LiteralRepr() + ")")
+
+	return repr.String()
+}
