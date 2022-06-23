@@ -172,6 +172,11 @@ func TestParsingAssignment(t *testing.T) {
 		"(array = [1, 2, 3])",
 		"(tuple = (1, true, 'c'))",
 		"(string = \"str\")",
+		"(a += 3)",
+		"(b -= 2)",
+		"(c *= 4)",
+		"(d /= 2)",
+		"(e %= 2)",
 	}
 
 	for index, node := range contents {
@@ -289,6 +294,26 @@ func TestParsingCollectionsForLoops(t *testing.T) {
 	expected := []string{
 		"(for a in [1, 2, 3, 4, 5] {  }: ())",
 		"(for chr in ('c', 'd', 'e') {  }: ())",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingInfiniteLoops(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/infinite_loops.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(loop { (let a: i64 5) (+ a a) }: untyped)",
+		"(loop {  }: ())",
+		"(loop { (if (< 3 2) { (break) }: ()): () }: ())",
+		"(loop { 300 }: i64)",
 	}
 
 	for index, node := range contents {

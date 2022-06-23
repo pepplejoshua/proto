@@ -135,20 +135,50 @@ func (l *Lexer) Next_Token() ProtoToken {
 			token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	case '+':
-		l.next_char()
-		token = l.make_singlechar_token(PLUS, cur_char)
+		if l.peek_char() == '=' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(PLUS_EQUAL, "+=")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(PLUS, cur_char)
+		}
 	case '-': // TODO: allow negative number creation
-		l.next_char()
-		token = l.make_singlechar_token(MINUS, cur_char)
+		if l.peek_char() == '=' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(MINUS_EQUAL, "-=")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(MINUS, cur_char)
+		}
 	case '*':
-		l.next_char()
-		token = l.make_singlechar_token(STAR, cur_char)
+		if l.peek_char() == '=' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(STAR_EQUAL, "*=")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(STAR, cur_char)
+		}
 	case '/':
-		l.next_char()
-		token = l.make_singlechar_token(SLASH, cur_char)
+		if l.peek_char() == '=' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(SLASH_EQUAL, "/=")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(SLASH, cur_char)
+		}
 	case '%':
-		l.next_char()
-		token = l.make_singlechar_token(MODULO, cur_char)
+		if l.peek_char() == '=' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(MODULO_EQUAL, "%=")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(MODULO, cur_char)
+		}
 	case '\'': // read character and handle errors
 		token = l.read_character()
 	case '"': // read string and handle errors
@@ -185,9 +215,9 @@ func (l *Lexer) Next_Token() ProtoToken {
 			l.next_char()
 			l.next_char()
 			token = l.make_token(OR, "||")
-		} else { // erroneous
+		} else {
 			l.next_char() // skip past |
-			token = l.make_singlechar_token(ERROR, cur_char)
+			token = l.make_singlechar_token(PIPE, cur_char)
 		}
 	case ',':
 		l.next_char()

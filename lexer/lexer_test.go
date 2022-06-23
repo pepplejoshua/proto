@@ -64,6 +64,11 @@ func TestLexingDoubleOperators(t *testing.T) {
 		{OR, "||"},
 		{IS_EQUAL_TO, "=="},
 		{NOT_EQUAL_TO, "!="},
+		{PLUS_EQUAL, "+="},
+		{MINUS_EQUAL, "-="},
+		{STAR_EQUAL, "*="},
+		{SLASH_EQUAL, "/="},
+		{MODULO_EQUAL, "%="},
 	}
 
 	for _, checkable := range expected {
@@ -109,6 +114,7 @@ func TestLexingSingleOperators(t *testing.T) {
 		{LESS_THAN, "<"},
 		{QUESTION_MARK, "?"},
 		{NOT, "not"},
+		{PIPE, "|"},
 	}
 
 	for _, checkable := range expected {

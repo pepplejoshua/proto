@@ -1,0 +1,16 @@
+loop {
+    let a = 5;
+    a + a
+}
+
+loop { }
+
+loop {
+    if 3 < 2 {
+        break;
+    }
+}
+
+loop {
+    300
+}

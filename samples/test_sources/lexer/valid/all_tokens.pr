@@ -7,13 +7,13 @@ false true
 '' 'c' a
 
 let mut 
-= + - * / .
-% , : ; ( ) { }
+= + += - -= * *= / /= .
+% %= , : ; ( ) { }
 [ ] struct fn
 
-// single line Comments
+// single line comments
 
-> < <= >= && || == ? !=
+> < <= >= && || | == ? !=
 for in if loop while else
 not
 

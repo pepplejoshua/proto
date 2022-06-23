@@ -370,7 +370,12 @@ func (p *Parser) parse_expr() ast.Expression {
 func (p *Parser) parse_assignment(check_for_semi bool) ast.ProtoNode {
 	target := p.parse_expr()
 
-	if p.cur.Type == lexer.ASSIGN {
+	if p.cur.Type == lexer.ASSIGN ||
+		p.cur.Type == lexer.PLUS_EQUAL ||
+		p.cur.Type == lexer.MINUS_EQUAL ||
+		p.cur.Type == lexer.STAR_EQUAL ||
+		p.cur.Type == lexer.SLASH_EQUAL ||
+		p.cur.Type == lexer.MODULO_EQUAL {
 		operator := p.cur
 		p.consume(p.cur.Type)
 		assigned := p.parse_expr()
@@ -560,6 +565,32 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 	return node
 }
 
+func (p *Parser) parse_infinite_loop() *ast.InfiniteLoop {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	body := p.parse_block()
+
+	return &ast.InfiniteLoop{
+		Start: start,
+		Body:  body,
+	}
+}
+
+func (p *Parser) parse_while_loop() *ast.WhileLoop {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	loop_condition := p.parse_expr()
+	body := p.parse_block()
+
+	return &ast.WhileLoop{
+		Start:         start,
+		LoopCondition: loop_condition,
+		Body:          body,
+	}
+}
+
 func (p *Parser) parse_protonode() ast.ProtoNode {
 	var node ast.ProtoNode
 	switch p.cur.Type {
@@ -569,6 +600,32 @@ func (p *Parser) parse_protonode() ast.ProtoNode {
 		node = p.parse_struct()
 	case lexer.FOR:
 		node = p.parse_for_loop()
+	case lexer.LOOP:
+		node = p.parse_infinite_loop()
+	case lexer.WHILE:
+		node = p.parse_while_loop()
+	case lexer.BREAK:
+		node = &ast.Break{
+			Token: p.cur,
+		}
+		p.consume(p.cur.Type)
+		p.consume(lexer.SEMI_COLON)
+	case lexer.RETURN:
+		return_statement := &ast.Return{
+			Token: p.cur,
+		}
+		p.consume(p.cur.Type)
+		if p.cur.Type != lexer.SEMI_COLON {
+			return_statement.Value = p.parse_expr()
+		}
+		p.consume(lexer.SEMI_COLON)
+		node = return_statement
+	case lexer.CONTINUE:
+		node = &ast.Continue{
+			Token: p.cur,
+		}
+		p.consume(p.cur.Type)
+		p.consume(lexer.SEMI_COLON)
 	default:
 		potential_expr := p.parse_assignment(true)
 
