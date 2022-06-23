@@ -69,6 +69,7 @@ func TestLexingDoubleOperators(t *testing.T) {
 		{STAR_EQUAL, "*="},
 		{SLASH_EQUAL, "/="},
 		{MODULO_EQUAL, "%="},
+		{ARROW, "->"},
 	}
 
 	for _, checkable := range expected {

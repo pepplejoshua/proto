@@ -44,6 +44,7 @@ const (
 	GREATER_THAN     = ">"
 	LESS_OR_EQUAL    = "<="
 	GREATER_OR_EQUAL = ">="
+	ARROW            = "->"
 
 	AND = "&&"
 	OR  = "||"

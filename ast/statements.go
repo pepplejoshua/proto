@@ -142,8 +142,8 @@ func (w *WhileLoop) LiteralRepr() string {
 
 type FunctionDef struct {
 	Start         lexer.ProtoToken
-	Name          Identifier
-	ParameterList []Identifier
+	Name          *Identifier
+	ParameterList []*Identifier
 	ReturnType    ProtoType
 	Body          *Block
 }
@@ -151,7 +151,7 @@ type FunctionDef struct {
 func (fn *FunctionDef) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(fn " + fn.Name.LiteralRepr() + " (")
+	repr.WriteString("(fn " + fn.Name.LiteralRepr() + "(")
 
 	for indx, id := range fn.ParameterList {
 		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())

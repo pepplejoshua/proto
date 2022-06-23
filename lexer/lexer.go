@@ -148,6 +148,10 @@ func (l *Lexer) Next_Token() ProtoToken {
 			l.next_char()
 			l.next_char()
 			token = l.make_token(MINUS_EQUAL, "-=")
+		} else if l.peek_char() == '>' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(ARROW, "->")
 		} else {
 			l.next_char()
 			token = l.make_singlechar_token(MINUS, cur_char)

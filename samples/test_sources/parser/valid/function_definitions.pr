@@ -1,0 +1,13 @@
+fn is_even(n: i64) -> bool {
+    n % 2 == 0
+}
+
+fn negate(value: bool) -> bool {
+    not value
+}
+
+fn do_nothing() { }
+
+fn no_params() -> char {
+    'a'
+}

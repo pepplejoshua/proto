@@ -247,6 +247,10 @@ func (p *Parser) parse_primary() ast.Expression {
 	return val
 }
 
+func (p *Parser) parse_call_expression() ast.Expression {
+	return p.parse_primary()
+}
+
 func (p *Parser) parse_unary() ast.Expression {
 	var val ast.Expression
 	switch p.cur.Type {
@@ -260,7 +264,7 @@ func (p *Parser) parse_unary() ast.Expression {
 			Op_Type:  &ast.Proto_Untyped{},
 		}
 	default:
-		val = p.parse_primary()
+		val = p.parse_call_expression()
 	}
 	return val
 }
@@ -591,6 +595,45 @@ func (p *Parser) parse_while_loop() *ast.WhileLoop {
 	}
 }
 
+func (p *Parser) parse_function_definition() *ast.FunctionDef {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	name := p.parse_identifier()
+	var paramslist []*ast.Identifier
+
+	p.consume(lexer.OPEN_PAREN)
+	for p.cur.Type != lexer.CLOSE_PAREN {
+		if len(paramslist) > 255 {
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+			msg.WriteString(" Function Definitions only allows 255 parameters.")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		}
+		ident := p.parse_identifier()
+		p.consume(lexer.COLON)
+		ident.Id_Type = p.parse_type()
+		paramslist = append(paramslist, ident)
+	}
+	p.consume(lexer.CLOSE_PAREN)
+
+	var return_type ast.ProtoType = &ast.Proto_Unit{}
+	if p.cur.Type == lexer.ARROW {
+		p.consume(p.cur.Type)
+		return_type = p.parse_type()
+	}
+
+	body := p.parse_block()
+
+	return &ast.FunctionDef{
+		Start:         start,
+		Name:          name,
+		ParameterList: paramslist,
+		ReturnType:    return_type,
+		Body:          body,
+	}
+}
+
 func (p *Parser) parse_protonode() ast.ProtoNode {
 	var node ast.ProtoNode
 	switch p.cur.Type {
@@ -604,6 +647,8 @@ func (p *Parser) parse_protonode() ast.ProtoNode {
 		node = p.parse_infinite_loop()
 	case lexer.WHILE:
 		node = p.parse_while_loop()
+	case lexer.FN:
+		node = p.parse_function_definition()
 	case lexer.BREAK:
 		node = &ast.Break{
 			Token: p.cur,

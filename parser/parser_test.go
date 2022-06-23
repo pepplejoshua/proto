@@ -323,6 +323,26 @@ func TestParsingInfiniteLoops(t *testing.T) {
 	}
 }
 
+func TestParsingFunctionDefinitions(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/function_definitions.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(fn is_even(n: i64) -> bool { (== (% n 2) 0) }: untyped)",
+		"(fn negate(value: bool) -> bool { (not value) }: untyped)",
+		"(fn do_nothing() {  }: ())",
+		"(fn no_params() -> char { 'a' }: char)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
 // func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 
 // }

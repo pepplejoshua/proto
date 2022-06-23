@@ -13,7 +13,7 @@ let mut
 
 // single line comments
 
-> < <= >= && || | == ? !=
+> < <= >= && || | == ? != ->
 for in if loop while else
 not
 
