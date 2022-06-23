@@ -1,0 +1,5 @@
+mut global = 2;
+
+fn main(args: [str]) {
+    
+}

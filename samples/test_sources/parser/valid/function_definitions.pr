@@ -11,3 +11,7 @@ fn do_nothing() { }
 fn no_params() -> char {
     'a'
 }
+
+fn three_params(m: i64, n: bool, o: [str]) {
+    m
+}

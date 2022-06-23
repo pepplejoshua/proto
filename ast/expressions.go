@@ -245,3 +245,50 @@ func (i *IfConditional) LiteralRepr() string {
 func (i *IfConditional) Type() ProtoType {
 	return i.IfType
 }
+
+type CallExpression struct {
+	Start      lexer.ProtoToken
+	Callable   Expression
+	Arguments  []Expression
+	ReturnType ProtoType
+}
+
+func (c *CallExpression) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString(c.Callable.LiteralRepr() + "(")
+
+	for index, arg := range c.Arguments {
+		repr.WriteString(arg.LiteralRepr())
+		if index+1 < len(c.Arguments) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString(")")
+	return repr.String()
+}
+
+func (c *CallExpression) Type() ProtoType {
+	return c.ReturnType
+}
+
+type IndexExpression struct {
+	Start     lexer.ProtoToken
+	Indexable Expression
+	Index     Expression
+	ValueType ProtoType
+}
+
+func (i *IndexExpression) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString(i.Indexable.LiteralRepr() + "[")
+	repr.WriteString(i.Index.LiteralRepr() + "]")
+
+	return repr.String()
+}
+
+func (i *IndexExpression) Type() ProtoType {
+	return i.ValueType
+}

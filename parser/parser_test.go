@@ -334,6 +334,50 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 		"(fn negate(value: bool) -> bool { (not value) }: untyped)",
 		"(fn do_nothing() {  }: ())",
 		"(fn no_params() -> char { 'a' }: char)",
+		"(fn three_params(m: i64, n: bool, o: [str]) { m }: untyped)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingFunctionCalls(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/function_calls.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"is_even(2)",
+		"do_stuff([1, 2, 3, 4])",
+		"no_params()",
+		"(let a: untyped is_even(3))",
+		"closure(1)(2)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingIndexingExpressions(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/indexing_expressions.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"[1, 2, 3, 4][0]",
+		"some_arr[2]",
+		"function_call([1, 2, 3, 4])[3]",
+		"(let a: untyped (1, 'b', true, \"stringed\")[3])",
+		"[[1, 2, 3], [3, 4, 5], [5, 6, 7]][1][2];",
+		"[1, 2, 3][get_index()]",
 	}
 
 	for index, node := range contents {

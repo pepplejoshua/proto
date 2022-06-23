@@ -216,8 +216,8 @@ func (p *Parser) parse_primary() ast.Expression {
 				arr_type = &ast.Proto_Untyped{}
 			}
 
-			if p.cur.Type == lexer.COMMA {
-				p.consume(p.cur.Type)
+			if p.cur.Type != lexer.CLOSE_BRACKET {
+				p.consume(lexer.COMMA)
 			}
 		}
 		p.consume(lexer.CLOSE_BRACKET)
@@ -248,7 +248,53 @@ func (p *Parser) parse_primary() ast.Expression {
 }
 
 func (p *Parser) parse_call_expression() ast.Expression {
-	return p.parse_primary()
+	call := p.parse_primary()
+
+	for {
+		if p.cur.Type == lexer.OPEN_PAREN {
+			start := p.cur
+			p.consume(p.cur.Type)
+			var args []ast.Expression
+			for p.cur.Type != lexer.CLOSE_PAREN {
+				if len(args) > 255 {
+					var msg strings.Builder
+					msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+					msg.WriteString(" Function Calls only allows 255 arguments.")
+					shared.ReportErrorAndExit("Parser", msg.String())
+				}
+				args = append(args, p.parse_expr())
+				if p.cur.Type != lexer.CLOSE_PAREN {
+					p.consume(lexer.COMMA)
+				}
+			}
+
+			p.consume(lexer.CLOSE_PAREN)
+			call = &ast.CallExpression{
+				Start:      start,
+				Callable:   call,
+				Arguments:  args,
+				ReturnType: &ast.Proto_Untyped{},
+			}
+		} else if p.cur.Type == lexer.OPEN_BRACKET {
+			start := p.cur
+			p.consume(p.cur.Type)
+
+			index := p.parse_expr()
+			p.consume(lexer.CLOSE_BRACKET)
+
+			call = &ast.IndexExpression{
+				Start:     start,
+				Indexable: call,
+				Index:     index,
+				ValueType: &ast.Proto_Untyped{},
+			}
+		} else {
+			break
+		}
+		// handle dot expressions here
+	}
+
+	return call
 }
 
 func (p *Parser) parse_unary() ast.Expression {
@@ -614,6 +660,9 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		p.consume(lexer.COLON)
 		ident.Id_Type = p.parse_type()
 		paramslist = append(paramslist, ident)
+		if p.cur.Type != lexer.CLOSE_PAREN {
+			p.consume(lexer.COMMA)
+		}
 	}
 	p.consume(lexer.CLOSE_PAREN)
 
