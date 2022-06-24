@@ -74,15 +74,15 @@ func TestParsingParenthesizedExpressions(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 2)",
-		"1",
-		"(- 2)",
-		"true",
-		"\"str\"",
-		"'c'",
-		"(== a b)",
-		"id",
-		"(not false)",
+		"(+ 1 2);",
+		"1;",
+		"(- 2);",
+		"true;",
+		"\"str\";",
+		"'c';",
+		"(== a b);",
+		"id;",
+		"(not false);",
 	}
 
 	for index, node := range contents {
@@ -242,11 +242,11 @@ func TestParsingComplexTypes(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []Pair{
-		{"[1, 2, 3, 4, 5]", "[i64]"},
-		{"(3, )", "(i64)"},
-		{"(1, 2, 'c', false)", "(i64, i64, char, bool)"},
-		{"[]", "[untyped]"},
-		{"([1, 2], (1, 'b'), false)", "([i64], (i64, char), bool)"},
+		{"[1, 2, 3, 4, 5];", "[i64]"},
+		{"(3, );", "(i64)"},
+		{"(1, 2, 'c', false);", "(i64, i64, char, bool)"},
+		{"[];", "[untyped]"},
+		{"([1, 2], (1, 'b'), false);", "([i64], (i64, char), bool)"},
 	}
 
 	for index, node := range contents {
@@ -261,6 +261,10 @@ func TestParsingComplexTypes(t *testing.T) {
 		case ast.Expression:
 			if v.Type().TypeSignature() != node_type {
 				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Type().TypeSignature())
+			}
+		case *ast.PromotedExpr:
+			if v.Expr.Type().TypeSignature() != node_type {
+				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Expr.Type().TypeSignature())
 			}
 		}
 	}
@@ -312,7 +316,7 @@ func TestParsingInfiniteLoops(t *testing.T) {
 	expected := []string{
 		"(loop { (let a: i64 5) (+ a a) }: untyped)",
 		"(loop {  }: ())",
-		"(loop { (if (< 3 2) { (break) }: ()): () }: ())",
+		"(loop { (if (< 3 2) { (break) }: ()): () (continue) }: ())",
 		"(loop { 300 }: i64)",
 	}
 
@@ -332,7 +336,7 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 	expected := []string{
 		"(fn is_even(n: i64) -> bool { (== (% n 2) 0) }: untyped)",
 		"(fn negate(value: bool) -> bool { (not value) }: untyped)",
-		"(fn do_nothing() -> () {  }: ())",
+		"(fn do_nothing() -> () { (return) }: ())",
 		"(fn no_params() -> char { 'a' }: char)",
 		"(fn three_params(m: i64, n: bool, o: [str]) -> () { m }: untyped)",
 	}
@@ -449,6 +453,24 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 		"(* 1 (- 3))",
 		"(== true (not false))",
 		"(&& some_boolean() some_boolean())",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingStructFunctionInits(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/struct_inits.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(struct Person { name: str, age: i64, hobbies: [str], sex: char })",
+		"(let joshua: untyped Person(\"Joshua\", 23, [\"programming\", \"cooking\", \"gaming\"], 'M'))",
 	}
 
 	for index, node := range contents {

@@ -344,3 +344,37 @@ func (m *Membership) LiteralRepr() string {
 func (m *Membership) Type() ProtoType {
 	return m.MembershipType
 }
+
+type StructInitialization struct {
+	Start      lexer.ProtoToken
+	StructName *Identifier
+	Fields     map[*Identifier]Expression
+	StructType ProtoType
+}
+
+func (s *StructInitialization) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString(s.StructName.LiteralRepr() + " { ")
+
+	var fieldsAndInit []string
+	for field, init := range s.Fields {
+		fieldsAndInit = append(fieldsAndInit, field.LiteralRepr()+": "+init.LiteralRepr())
+	}
+
+	for index, str := range fieldsAndInit {
+		repr.WriteString(str)
+
+		if index+1 < len(fieldsAndInit) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString(" }")
+
+	return repr.String()
+}
+
+func (s *StructInitialization) Type() ProtoType {
+	return s.StructType
+}

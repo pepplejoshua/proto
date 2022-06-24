@@ -1,0 +1,8 @@
+struct Person {
+    name: str
+    age: i64
+    hobbies: [str]
+    sex: char
+}
+
+let joshua = Person("Joshua", 23, ["programming", "cooking", "gaming"], 'M');

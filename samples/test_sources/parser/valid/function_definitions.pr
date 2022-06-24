@@ -6,7 +6,9 @@ fn negate(value: bool) -> bool {
     not value
 }
 
-fn do_nothing() { }
+fn do_nothing() { 
+    return;
+}
 
 fn no_params() -> char {
     'a'

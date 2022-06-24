@@ -9,6 +9,7 @@ loop {
     if 3 < 2 {
         break;
     }
+    continue;
 }
 
 loop {

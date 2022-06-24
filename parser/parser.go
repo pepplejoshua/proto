@@ -255,7 +255,7 @@ func (p *Parser) parse_call_expression() ast.Expression {
 			start := p.cur
 			p.consume(p.cur.Type)
 			var args []ast.Expression
-			for p.cur.Type != lexer.CLOSE_PAREN {
+			for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_PAREN {
 				if len(args) > 255 {
 					var msg strings.Builder
 					msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
