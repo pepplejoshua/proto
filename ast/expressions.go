@@ -292,3 +292,55 @@ func (i *IndexExpression) LiteralRepr() string {
 func (i *IndexExpression) Type() ProtoType {
 	return i.ValueType
 }
+
+type Range struct {
+	Start     Expression
+	PastEnd   Expression
+	Operator  lexer.ProtoToken
+	RangeType ProtoType
+}
+
+func (r *Range) LiteralRepr() string {
+	return r.Start.LiteralRepr() + ".." + r.PastEnd.LiteralRepr() +
+		": Range<" + r.RangeType.TypeSignature() + ">"
+}
+
+func (r *Range) Type() ProtoType {
+	return r.RangeType
+}
+
+type InclusiveRange struct {
+	Start     Expression
+	End       Expression
+	Operator  lexer.ProtoToken
+	RangeType ProtoType
+}
+
+func (i *InclusiveRange) LiteralRepr() string {
+	return i.Start.LiteralRepr() + "..=" + i.End.LiteralRepr() +
+		": Range<" + i.RangeType.TypeSignature() + ">"
+}
+
+func (i *InclusiveRange) Type() ProtoType {
+	return i.RangeType
+}
+
+type Membership struct {
+	Start          lexer.ProtoToken
+	Object         Expression
+	Member         Expression
+	MembershipType ProtoType
+}
+
+func (m *Membership) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString(m.Object.LiteralRepr() + ".")
+	repr.WriteString(m.Member.LiteralRepr())
+
+	return repr.String()
+}
+
+func (m *Membership) Type() ProtoType {
+	return m.MembershipType
+}

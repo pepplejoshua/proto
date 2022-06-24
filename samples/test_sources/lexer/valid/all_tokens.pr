@@ -8,7 +8,7 @@ false true
 
 let mut 
 = + += - -= * *= / /= .
-% %= , : ; ( ) { }
+% %= , : ; ( ) { } .. ..=
 [ ] struct fn
 
 // single line comments

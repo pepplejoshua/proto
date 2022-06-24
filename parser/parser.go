@@ -288,10 +288,30 @@ func (p *Parser) parse_call_expression() ast.Expression {
 				Index:     index,
 				ValueType: &ast.Proto_Untyped{},
 			}
+		} else if p.cur.Type == lexer.DOT {
+			start := p.cur
+			p.consume(p.cur.Type)
+
+			if p.cur.Type == lexer.IDENT || p.cur.Type == lexer.I64 {
+				member := p.parse_primary()
+
+				call = &ast.Membership{
+					Start:          start,
+					Object:         call,
+					Member:         member,
+					MembershipType: &ast.Proto_Untyped{},
+				}
+			} else {
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+				msg.WriteString(" Expected token of type ")
+				msg.WriteString(string(lexer.IDENT) + " or " + string(lexer.I64) + " but found ")
+				msg.WriteString(string(p.cur.Type) + ".")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			}
 		} else {
 			break
 		}
-		// handle dot expressions here
 	}
 
 	return call
@@ -413,8 +433,44 @@ func (p *Parser) parse_or() ast.Expression {
 	return or
 }
 
+func (p *Parser) parse_range() ast.Expression {
+	range_start := p.parse_or()
+
+	if p.cur.Type == lexer.RANGE ||
+		p.cur.Type == lexer.INCLUSIVE_RANGE {
+		operator := p.cur
+		p.consume(p.cur.Type)
+
+		end := p.parse_or()
+
+		var range_type ast.ProtoType = &ast.Proto_Untyped{}
+		if range_start.Type().TypeSignature() == end.Type().TypeSignature() &&
+			!strings.Contains(range_start.Type().TypeSignature(), "untyped") {
+			range_type = range_start.Type()
+		}
+
+		if operator.Type == lexer.RANGE {
+			range_start = &ast.Range{
+				Start:     range_start,
+				PastEnd:   end,
+				Operator:  operator,
+				RangeType: range_type,
+			}
+		} else {
+			range_start = &ast.InclusiveRange{
+				Start:     range_start,
+				End:       end,
+				Operator:  operator,
+				RangeType: range_type,
+			}
+		}
+	}
+
+	return range_start
+}
+
 func (p *Parser) parse_expr() ast.Expression {
-	return p.parse_or()
+	return p.parse_range()
 }
 
 func (p *Parser) parse_assignment(check_for_semi bool) ast.ProtoNode {

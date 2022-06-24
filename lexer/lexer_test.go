@@ -70,6 +70,8 @@ func TestLexingDoubleOperators(t *testing.T) {
 		{SLASH_EQUAL, "/="},
 		{MODULO_EQUAL, "%="},
 		{ARROW, "->"},
+		{RANGE, ".."},
+		{INCLUSIVE_RANGE, "..="},
 	}
 
 	for _, checkable := range expected {
@@ -231,8 +233,6 @@ func TestLexingIdentifiers(t *testing.T) {
 
 	for _, checkable := range expected {
 		token := lexer.Next_Token()
-
-		println(token.TokenSpan.Line, ":", token.TokenSpan.Col)
 
 		if token.Type != TokenType(fmt.Sprint(checkable.a)) {
 			log.Fatalf("Expected Type [%s] but got [%s]", checkable.a, token.Type)

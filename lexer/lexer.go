@@ -227,8 +227,29 @@ func (l *Lexer) Next_Token() ProtoToken {
 		l.next_char()
 		token = l.make_singlechar_token(COMMA, cur_char)
 	case '.':
-		l.next_char()
-		token = l.make_singlechar_token(DOT, cur_char)
+		if l.peek_char() == '.' {
+			l.next_char()
+			l.next_char()
+
+			if l.cur_byte == '=' {
+				l.next_char()
+				token = ProtoToken{
+					Type:    INCLUSIVE_RANGE,
+					Literal: "..=",
+					TokenSpan: Span{
+						Line:  l.line,
+						Col:   l.column - 3,
+						Start: l.pos - 3,
+						End:   l.peek_pos,
+					},
+				}
+			} else {
+				token = l.make_token(RANGE, "..")
+			}
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(DOT, cur_char)
+		}
 	case ';':
 		l.next_char()
 		token = l.make_singlechar_token(SEMI_COLON, cur_char)

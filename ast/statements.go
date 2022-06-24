@@ -160,11 +160,8 @@ func (fn *FunctionDef) LiteralRepr() string {
 		}
 	}
 
-	repr.WriteString(") ")
-	if fn.ReturnType.TypeSignature() != "()" {
-		repr.WriteString("-> ")
-		repr.WriteString(fn.ReturnType.TypeSignature() + " ")
-	}
+	repr.WriteString(") -> ")
+	repr.WriteString(fn.ReturnType.TypeSignature() + " ")
 
 	repr.WriteString(fn.Body.LiteralRepr() + ")")
 

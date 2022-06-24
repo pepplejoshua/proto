@@ -53,11 +53,13 @@ const (
 	IS_EQUAL_TO  = "=="
 	NOT_EQUAL_TO = "!="
 
-	COMMA         = ","
-	DOT           = "."
-	SEMI_COLON    = ";"
-	COLON         = ":"
-	QUESTION_MARK = "?"
+	COMMA           = ","
+	DOT             = "."
+	RANGE           = ".."
+	INCLUSIVE_RANGE = "..="
+	SEMI_COLON      = ";"
+	COLON           = ":"
+	QUESTION_MARK   = "?"
 
 	OPEN_PAREN    = "("
 	CLOSE_PAREN   = ")"

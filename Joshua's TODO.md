@@ -9,19 +9,20 @@
 - [x] begin work on parser
 
   - [x] finish variable declaration
-  - [ ] work on parsing function calls
-  - [ ] work on parsing . expressions (e.g a.b, struct.member)
+  - [x] work on parsing function calls
+  - [x] work on parsing . expressions (e.g a.b, struct.member)
   - [x] work on parsing types
 
 - [x] add double arithmetic operators like +=, -=, \*=, /= and others
 
-- [ ] write parser tests
+- [x] write parser tests
 
   - [x] use s-exprs to make testing parsing easier
 
+- [x] implement range using `..` and `..=`.
+
 - [ ] implement traits/interface
 
-  - [ ] implement range using `..` and `..=` after adding in traits/interfaces. Will require comparison trait
   - [x] implement collections based loops. e.g:
 
   ```rust

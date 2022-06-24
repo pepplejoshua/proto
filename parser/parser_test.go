@@ -332,9 +332,9 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 	expected := []string{
 		"(fn is_even(n: i64) -> bool { (== (% n 2) 0) }: untyped)",
 		"(fn negate(value: bool) -> bool { (not value) }: untyped)",
-		"(fn do_nothing() {  }: ())",
+		"(fn do_nothing() -> () {  }: ())",
 		"(fn no_params() -> char { 'a' }: char)",
-		"(fn three_params(m: i64, n: bool, o: [str]) { m }: untyped)",
+		"(fn three_params(m: i64, n: bool, o: [str]) -> () { m }: untyped)",
 	}
 
 	for index, node := range contents {
@@ -378,6 +378,52 @@ func TestParsingIndexingExpressions(t *testing.T) {
 		"(let a: untyped (1, 'b', true, \"stringed\")[3])",
 		"[[1, 2, 3], [3, 4, 5], [5, 6, 7]][1][2];",
 		"[1, 2, 3][get_index()]",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingRanges(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/ranges.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"a..b: Range<untyped>",
+		"1..=2: Range<i64>",
+		"3..5: Range<i64>",
+		"'a'..'z': Range<char>",
+		"'a'..='e': Range<char>",
+		"300..end: Range<untyped>",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingMembershipExpressions(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/dot_expressions.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"[1, 2, 3, 4, 5].length()",
+		"some_object.member",
+		"object.function_call()",
+		"object.member.function_call()",
+		"tuple.1",
+		"another_tuple.0",
+		"function_call().member",
+		"arr[3].function().member",
 	}
 
 	for index, node := range contents {
