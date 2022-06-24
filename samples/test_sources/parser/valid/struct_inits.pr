@@ -5,4 +5,16 @@ struct Person {
     sex: char
 }
 
-let joshua = Person("Joshua", 23, ["programming", "cooking", "gaming"], 'M');
+let joshua = Person {
+    name: "Joshua",
+    age: 23,
+    hobbies: ["programming", "cooking", "gaming"],
+    sex: 'M'
+};
+
+let adult = 18;
+let msg = if joshua.age >= adult {
+    "you are old enough"
+} else {
+    "you are underage"
+}

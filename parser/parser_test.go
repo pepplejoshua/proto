@@ -470,7 +470,9 @@ func TestParsingStructFunctionInits(t *testing.T) {
 	contents := program.Contents
 	expected := []string{
 		"(struct Person { name: str, age: i64, hobbies: [str], sex: char })",
-		"(let joshua: untyped Person(\"Joshua\", 23, [\"programming\", \"cooking\", \"gaming\"], 'M'))",
+		"(let joshua: Person Person { name: \"Joshua\", age: 23, hobbies: [\"programming\", \"cooking\", \"gaming\"], sex: 'M' })",
+		"(let adult: i64 18)",
+		"(if (>= joshua.age adult) { println(\"you are old enough\"); }: ()): ()",
 	}
 
 	for index, node := range contents {
