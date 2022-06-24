@@ -6,6 +6,10 @@
 
 - [x] write remaining tests for lexer
 
+- [ ] work on structs
+  - [ ] struct initialization expression
+  - [ ] struct member function definition
+
 - [x] begin work on parser
 
   - [x] finish variable declaration

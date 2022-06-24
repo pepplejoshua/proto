@@ -1,5 +1,20 @@
 mut global = 2;
 
+// handle creating structs and add struct members
+struct Number {
+    actual: i64
+}
+
+fn is_even(num: Number) -> bool {
+    num.actual % 2 == 0
+}
+
 fn main(args: [str]) {
-    
+    global += 2;
+
+    let num = Number { actual: global };
+
+    if is_even(num) {
+        println("even")
+    }
 }

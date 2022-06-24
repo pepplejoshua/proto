@@ -433,10 +433,27 @@ func TestParsingMembershipExpressions(t *testing.T) {
 	}
 }
 
-// func TestParsingBinaryOperationsPrecedences(t *testing.T) {
+func TestParsingBinaryOperationsPrecedences(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/binary_precedence.pr"
+	source := shared.ReadFile(path)
 
-// }
+	program := Parse(source)
+	contents := program.Contents
+	expected := []string{
+		"(+ 1 (* 2 3))",
+		"(|| 1 2)..(&& 3 4): Range<untyped>",
+		"(|| (&& 1 2) (&& 3 4));",
+		"(* (+ 1 2) 3)",
+		"(|| (&& (== 1 2) (!= 3 3)) false)",
+		"(>= (+ 1 2) 3)",
+		"(* 1 (- 3))",
+		"(== true (not false))",
+		"(&& some_boolean() some_boolean())",
+	}
 
-// func TestParsingMixedBinaryAndUnaryOperations(t *testing.T) {
-
-// }
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
