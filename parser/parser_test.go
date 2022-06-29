@@ -151,6 +151,8 @@ func TestParsingVariableDeclarations(t *testing.T) {
 		"(let l: untyped (+ 1 2))",
 		"(mut m: [(i64, i64, char)] [(1, 2, 'a'), (2, 3, 'b')])",
 		"(let n: UserDefined)",
+		"(mut o: ())",
+		"(mut p: () ())",
 	}
 
 	for index, node := range contents {
@@ -472,7 +474,7 @@ func TestParsingStructFunctionInits(t *testing.T) {
 		"(struct Person { name: str, age: i64, hobbies: [str], sex: char })",
 		"(let joshua: Person Person { name: \"Joshua\", age: 23, hobbies: [\"programming\", \"cooking\", \"gaming\"], sex: 'M' })",
 		"(let adult: i64 18)",
-		"(if (>= joshua.age adult) { println(\"you are old enough\"); }: ()): ()",
+		"(let msg: str (if (>= joshua.age adult) { \"you are old enough\" }: str else { \"you are underage\" }: str): str)",
 	}
 
 	for index, node := range contents {

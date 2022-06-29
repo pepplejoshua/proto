@@ -178,7 +178,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 				if p.cur.Type != lexer.COLON {
 					fields[field] = field
 				} else {
-					// if we have colon, zconsume it
+					// if we have colon, consume it
 					p.consume(p.cur.Type)
 					init := p.parse_expr(false)
 					fields[field] = init
@@ -203,31 +203,38 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 	case lexer.OPEN_PAREN:
 		start := p.cur
 		p.consume(p.cur.Type)
-		val = p.parse_expr(false)
-		if p.cur.Type == lexer.COMMA { // we will parse a tuple instead
+		if p.cur.Type == lexer.CLOSE_PAREN { // parse a unit expression
 			p.consume(p.cur.Type)
-			var items []ast.Expression
-			var types []ast.ProtoType
-			items = append(items, val)
-			types = append(types, val.Type())
-			for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_PAREN {
-				expr := p.parse_expr(false)
-				items = append(items, expr)
-				types = append(types, expr.Type())
-				if p.cur.Type != lexer.CLOSE_PAREN {
-					p.consume(lexer.COMMA)
-				}
-			}
-			p.consume(lexer.CLOSE_PAREN)
-			val = &ast.Tuple{
-				Items: items,
+			val = &ast.Unit{
 				Token: start,
-				TupleType: &ast.Proto_Tuple{
-					InternalTypes: types,
-				},
 			}
 		} else {
-			p.consume(lexer.CLOSE_PAREN)
+			val = p.parse_expr(false)
+			if p.cur.Type == lexer.COMMA { // we will parse a tuple instead
+				p.consume(p.cur.Type)
+				var items []ast.Expression
+				var types []ast.ProtoType
+				items = append(items, val)
+				types = append(types, val.Type())
+				for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_PAREN {
+					expr := p.parse_expr(false)
+					items = append(items, expr)
+					types = append(types, expr.Type())
+					if p.cur.Type != lexer.CLOSE_PAREN {
+						p.consume(lexer.COMMA)
+					}
+				}
+				p.consume(lexer.CLOSE_PAREN)
+				val = &ast.Tuple{
+					Items: items,
+					Token: start,
+					TupleType: &ast.Proto_Tuple{
+						InternalTypes: types,
+					},
+				}
+			} else {
+				p.consume(lexer.CLOSE_PAREN)
+			}
 		}
 	case lexer.OPEN_BRACKET:
 		start := p.cur
@@ -559,8 +566,12 @@ func (p *Parser) parse_type() ast.ProtoType {
 			}
 		}
 		p.consume(p.cur.Type)
-		proto_type = &ast.Proto_Tuple{
-			InternalTypes: contained,
+		if len(contained) == 0 {
+			proto_type = &ast.Proto_Unit{}
+		} else {
+			proto_type = &ast.Proto_Tuple{
+				InternalTypes: contained,
+			}
 		}
 	case lexer.IDENT:
 		token := p.parse_identifier()
@@ -603,7 +614,6 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(ident.Token.TokenSpan.Line) + ":" + fmt.Sprint(ident.Token.TokenSpan.Col))
 		msg.WriteString(fmt.Sprintf(" Expected '%s' to be typed or initialized.", ident.LiteralRepr()))
-		msg.WriteString(string(p.cur.Type) + ".")
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
 
@@ -681,6 +691,11 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 			Update:        update,
 			Body:          body,
 		}
+	} else if p.cur.Type == lexer.LET {
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+		msg.WriteString(" Loop Variables have to be mutable (change let to mut).")
+		shared.ReportErrorAndExit("Parser", msg.String())
 	} else if p.cur.Type == lexer.IDENT && p.peek.Type == lexer.IN {
 		// we have a collections for loop
 		loop_var := p.parse_identifier()
@@ -840,7 +855,17 @@ func top_level(p *Parser) *ast.ProtoProgram {
 	}
 
 	for p.cur.Type != lexer.END {
-		code.Contents = append(code.Contents, p.parse_protonode())
+		node := p.parse_protonode()
+		switch actual := node.(type) {
+		case *ast.FunctionDef:
+			code.FunctionDefs = append(code.FunctionDefs, actual)
+			code.Contents = append(code.Contents, node)
+		case *ast.Struct:
+			code.Structs = append(code.Structs, actual)
+			code.Contents = append(code.Contents, node)
+		default:
+			code.Contents = append(code.Contents, node)
+		}
 	}
 
 	return code

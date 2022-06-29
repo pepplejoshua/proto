@@ -69,3 +69,12 @@ type Proto_Unit struct{}
 func (u *Proto_Unit) TypeSignature() string {
 	return "()"
 }
+
+type Proto_Function struct {
+	Params *Proto_Tuple
+	Return ProtoType
+}
+
+func (f *Proto_Function) TypeSignature() string {
+	return f.Params.TypeSignature() + " -> " + f.Return.TypeSignature()
+}

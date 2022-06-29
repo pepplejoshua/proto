@@ -85,7 +85,7 @@ func (p *PromotedExpr) LiteralRepr() string {
 
 type GenericForLoop struct {
 	Start         lexer.ProtoToken
-	Init          ProtoNode
+	Init          *VariableDecl
 	LoopCondition Expression
 	Update        ProtoNode
 	Body          *Block
@@ -141,11 +141,12 @@ func (w *WhileLoop) LiteralRepr() string {
 }
 
 type FunctionDef struct {
-	Start         lexer.ProtoToken
-	Name          *Identifier
-	ParameterList []*Identifier
-	ReturnType    ProtoType
-	Body          *Block
+	Start                 lexer.ProtoToken
+	Name                  *Identifier
+	ParameterList         []*Identifier
+	ReturnType            ProtoType
+	Body                  *Block
+	FunctionTypeSignature *Proto_Function
 }
 
 func (fn *FunctionDef) LiteralRepr() string {

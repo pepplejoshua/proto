@@ -6,8 +6,9 @@
 
 - [x] write remaining tests for lexer
 
-- [ ] work on structs
-  - [ ] struct initialization expression
+- [x] work on structs
+
+  - [x] struct initialization expression
   - [ ] struct member function definition
 
 - [x] begin work on parser
@@ -24,6 +25,8 @@
   - [x] use s-exprs to make testing parsing easier
 
 - [x] implement range using `..` and `..=`.
+
+- [ ] make sure all block contents are ; terminated (in Parser) except for the last line (which is allowed to not be terminated)
 
 - [ ] implement traits/interface
 

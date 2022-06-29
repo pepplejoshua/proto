@@ -6,5 +6,7 @@ type ProtoNode interface {
 
 // a proto program just contains a bunch of ProtoNodes
 type ProtoProgram struct {
-	Contents []ProtoNode
+	Contents     []ProtoNode
+	FunctionDefs []*FunctionDef
+	Structs      []*Struct
 }

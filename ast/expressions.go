@@ -5,6 +5,11 @@ import (
 	"strings"
 )
 
+type Proto_Callable interface {
+	Call([]Expression) Expression
+	Arity() int
+}
+
 type Expression interface { // anything that doesn't implement this is a statement
 	ProtoNode
 	Type() ProtoType
@@ -63,6 +68,18 @@ func (u *UnaryOp) LiteralRepr() string {
 
 func (u *UnaryOp) Type() ProtoType {
 	return u.Op_Type
+}
+
+type Unit struct {
+	Token lexer.ProtoToken
+}
+
+func (u *Unit) LiteralRepr() string {
+	return "()"
+}
+
+func (u *Unit) Type() ProtoType {
+	return &Proto_Unit{}
 }
 
 type I64 struct {

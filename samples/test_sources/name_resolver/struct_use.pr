@@ -1,0 +1,14 @@
+struct Result {
+    a: i64
+    b: bool
+}
+
+let a = 5;
+let c = false;
+
+let b = Result {
+    a,
+    b: c
+};
+
+let b = 5;

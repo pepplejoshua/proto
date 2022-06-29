@@ -1,0 +1,11 @@
+let a: bool;
+fn main() {
+    a = is_even();
+    return false;
+}
+
+fn is_even(a: i64) -> bool {
+    fn some_other_function() {}
+    some_other_function();
+    return true;
+}

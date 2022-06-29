@@ -1,0 +1,18 @@
+let a = true;
+let b = 5;
+let c = 3;
+
+if a {
+    b
+} else {
+    c
+}
+
+if a {
+    let d = c;
+    d
+} else if not a {
+    c
+} {
+    b - c
+}
