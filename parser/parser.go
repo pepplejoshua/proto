@@ -863,6 +863,17 @@ func top_level(p *Parser) *ast.ProtoProgram {
 		case *ast.Struct:
 			code.Structs = append(code.Structs, actual)
 			code.Contents = append(code.Contents, node)
+		case ast.Expression:
+			switch actual.(type) {
+			case *ast.Block, *ast.IfConditional:
+				code.Contents = append(code.Contents, node)
+				// allow these
+			default:
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+				msg.WriteString(" Expressions are not allowed in the global scope of the program.")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			}
 		default:
 			code.Contents = append(code.Contents, node)
 		}

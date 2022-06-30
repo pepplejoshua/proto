@@ -197,14 +197,18 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			shared.ReportError("NameResolver", msg.String())
 			nr.FoundError = true
 		}
-	// case *ast.Membership:
-	// 	nr.ResolveMembership(actual)
+	case *ast.Membership:
+		nr.ResolveMembership(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
 		// do nothing
 	default:
 		shared.ReportError("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 	}
+}
+
+func (nr *NameResolver) ResolveMembership(mem *ast.Membership) {
+	nr.Resolve(mem.Object)
 }
 
 func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {

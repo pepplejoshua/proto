@@ -18,21 +18,21 @@ func TestParsingBinaryOperations(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 2)",
-		"(- 3 1)",
-		"(* 3 2)",
-		"(/ 3 4)",
-		"(% 4 2)",
-		"(< 1 2)",
-		"(> 3 1)",
-		"(>= 3 3)",
-		"(<= 2 3)",
-		"(!= 2 3)",
-		"(== 1 2)",
-		"(|| true false)",
-		"(&& false true)",
-		"(== true true)",
-		"(!= false true)",
+		"(+ 1 2);",
+		"(- 3 1);",
+		"(* 3 2);",
+		"(/ 3 4);",
+		"(% 4 2);",
+		"(< 1 2);",
+		"(> 3 1);",
+		"(>= 3 3);",
+		"(<= 2 3);",
+		"(!= 2 3);",
+		"(== 1 2);",
+		"(|| true false);",
+		"(&& false true);",
+		"(== true true);",
+		"(!= false true);",
 	}
 
 	for index, node := range contents {
@@ -49,15 +49,15 @@ func TestParsingLiterals(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"1",
-		"2",
-		"\"string\"",
-		"\"\"",
-		"'c'",
-		"true",
-		"false",
-		"some_identifier",
-		"_another_identifier",
+		"1;",
+		"2;",
+		"\"string\";",
+		"\"\";",
+		"'c';",
+		"true;",
+		"false;",
+		"some_identifier;",
+		"_another_identifier;",
 	}
 
 	for index, node := range contents {
@@ -118,9 +118,9 @@ func TestParsingUnaryOperations(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"(- 300)",
-		"(not true)",
-		"(not false)",
+		"(- 300);",
+		"(not true);",
+		"(not false);",
 	}
 
 	for index, node := range contents {
@@ -357,11 +357,11 @@ func TestParsingFunctionCalls(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"is_even(2)",
-		"do_stuff([1, 2, 3, 4])",
-		"no_params()",
+		"is_even(2);",
+		"do_stuff([1, 2, 3, 4]);",
+		"no_params();",
 		"(let a: untyped is_even(3))",
-		"closure(1)(2)",
+		"closure(1)(2);",
 	}
 
 	for index, node := range contents {
@@ -378,12 +378,12 @@ func TestParsingIndexingExpressions(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"[1, 2, 3, 4][0]",
-		"some_arr[2]",
-		"function_call([1, 2, 3, 4])[3]",
+		"[1, 2, 3, 4][0];",
+		"some_arr[2];",
+		"function_call([1, 2, 3, 4])[3];",
 		"(let a: untyped (1, 'b', true, \"stringed\")[3])",
 		"[[1, 2, 3], [3, 4, 5], [5, 6, 7]][1][2];",
-		"[1, 2, 3][get_index()]",
+		"[1, 2, 3][get_index()];",
 	}
 
 	for index, node := range contents {
@@ -400,12 +400,12 @@ func TestParsingRanges(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"a..b: Range<untyped>",
-		"1..=2: Range<i64>",
-		"3..5: Range<i64>",
-		"'a'..'z': Range<char>",
-		"'a'..='e': Range<char>",
-		"300..end: Range<untyped>",
+		"a..b: Range<untyped>;",
+		"1..=2: Range<i64>;",
+		"3..5: Range<i64>;",
+		"'a'..'z': Range<char>;",
+		"'a'..='e': Range<char>;",
+		"300..end: Range<untyped>;",
 	}
 
 	for index, node := range contents {
@@ -422,14 +422,14 @@ func TestParsingMembershipExpressions(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"[1, 2, 3, 4, 5].length()",
-		"some_object.member",
-		"object.function_call()",
-		"object.member.function_call()",
-		"tuple.1",
-		"another_tuple.0",
-		"function_call().member",
-		"arr[3].function().member",
+		"[1, 2, 3, 4, 5].length();",
+		"some_object.member;",
+		"object.function_call();",
+		"object.member.function_call();",
+		"tuple.1;",
+		"another_tuple.0;",
+		"function_call().member;",
+		"arr[3].function().member;",
 	}
 
 	for index, node := range contents {
@@ -446,15 +446,15 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 (* 2 3))",
-		"(|| 1 2)..(&& 3 4): Range<untyped>",
+		"(+ 1 (* 2 3));",
+		"(|| 1 2)..(&& 3 4): Range<untyped>;",
 		"(|| (&& 1 2) (&& 3 4));",
-		"(* (+ 1 2) 3)",
-		"(|| (&& (== 1 2) (!= 3 3)) false)",
-		"(>= (+ 1 2) 3)",
-		"(* 1 (- 3))",
-		"(== true (not false))",
-		"(&& some_boolean() some_boolean())",
+		"(* (+ 1 2) 3);",
+		"(|| (&& (== 1 2) (!= 3 3)) false);",
+		"(>= (+ 1 2) 3);",
+		"(* 1 (- 3));",
+		"(== true (not false));",
+		"(&& some_boolean() some_boolean());",
 	}
 
 	for index, node := range contents {

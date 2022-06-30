@@ -10,3 +10,14 @@ if a - b == c {
 } else {
     print(d)
 }
+
+struct Struct {
+    a: i64
+    b: bool
+}
+
+let e = Struct {
+    a, b: false
+};
+
+e.a;
