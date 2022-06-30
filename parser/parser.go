@@ -69,7 +69,25 @@ func (p *Parser) parse_block() *ast.Block {
 	var contents []ast.ProtoNode
 	for p.cur.Type != lexer.CLOSE_CURLY {
 		node := p.parse_protonode()
-		contents = append(contents, node)
+		switch actual := node.(type) {
+		case ast.Expression:
+			switch actual.(type) {
+			case *ast.Block, *ast.IfConditional:
+				contents = append(contents, node)
+			default:
+				if p.cur.Type != lexer.CLOSE_CURLY {
+					// if this is not the last portion of the block, disallow an expression
+					var msg strings.Builder
+					msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+					msg.WriteString(" Expressions are only allowed as the last line of the block.")
+					shared.ReportErrorAndExit("Parser", msg.String())
+				} else {
+					contents = append(contents, node)
+				}
+			}
+		default:
+			contents = append(contents, node)
+		}
 	}
 	p.consume(lexer.CLOSE_CURLY)
 
