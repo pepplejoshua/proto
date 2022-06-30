@@ -1,0 +1,10 @@
+let a = 5;
+let b: i64 = a;
+let c: bool = false;
+let d = 'c';
+let e: char = d;
+let f: str = "some string";
+let g = f;
+let h = [1, 2, 3, a, b];
+let i: [char] = ['a', 'b', 'c'];
+let h: (i64, char, bool, str, [i64]) = (1, 'c', true, "some string", i);

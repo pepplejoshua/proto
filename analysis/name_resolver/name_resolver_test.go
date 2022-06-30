@@ -8,7 +8,7 @@ import (
 )
 
 func TestResolvingVariableDeclaration(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/variable_decl.pr"
+	path := "../../samples/test_sources/name_resolver/variable_decl.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -22,7 +22,7 @@ func TestResolvingVariableDeclaration(t *testing.T) {
 }
 
 func TestResolvingBlocks(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/blocks.pr"
+	path := "../../samples/test_sources/name_resolver/blocks.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -36,7 +36,7 @@ func TestResolvingBlocks(t *testing.T) {
 }
 
 func TestResolvingTuplesAndArrays(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/tuples_and_arrays.pr"
+	path := "../../samples/test_sources/name_resolver/tuples_and_arrays.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -50,7 +50,7 @@ func TestResolvingTuplesAndArrays(t *testing.T) {
 }
 
 func TestResolvingFunctionUse(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/function_use.pr"
+	path := "../../samples/test_sources/name_resolver/function_use.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -64,7 +64,7 @@ func TestResolvingFunctionUse(t *testing.T) {
 }
 
 func TestResolvingIfConditional(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/if.pr"
+	path := "../../samples/test_sources/name_resolver/if.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -78,7 +78,7 @@ func TestResolvingIfConditional(t *testing.T) {
 }
 
 func TestResolvingBinaryAndUnaryOps(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/binary_and_unary_ops.pr"
+	path := "../../samples/test_sources/name_resolver/binary_and_unary_ops.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -92,7 +92,7 @@ func TestResolvingBinaryAndUnaryOps(t *testing.T) {
 }
 
 func TestResolvingLoops(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/loops.pr"
+	path := "../../samples/test_sources/name_resolver/loops.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -106,7 +106,7 @@ func TestResolvingLoops(t *testing.T) {
 }
 
 func TestResolvingRanges(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/ranges.pr"
+	path := "../../samples/test_sources/name_resolver/ranges.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -120,7 +120,7 @@ func TestResolvingRanges(t *testing.T) {
 }
 
 func TestResolvingIndexExpr(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/index_expr.pr"
+	path := "../../samples/test_sources/name_resolver/index_expr.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
@@ -134,7 +134,7 @@ func TestResolvingIndexExpr(t *testing.T) {
 }
 
 func TestResolvingStructUse(t *testing.T) {
-	path := "../samples/test_sources/name_resolver/struct_use.pr"
+	path := "../../samples/test_sources/name_resolver/struct_use.pr"
 	src := shared.ReadFile(path)
 
 	program := parser.Parse(src)
