@@ -12,3 +12,15 @@ let b = Result {
 };
 
 let b = 5;
+
+let d = {
+    struct Inner {}
+    Inner {}
+};
+
+let e = {
+    fn return_i64() -> i64 {
+        return 1;
+    }
+    return_i64()
+};

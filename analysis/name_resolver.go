@@ -170,6 +170,9 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveRange(actual)
 	case *ast.IndexExpression:
 		nr.ResolveIndexExpr(actual)
+	case *ast.Struct:
+		nr.DeclareName(actual.Name.Token)
+		nr.DefineName(actual.Name.Token)
 	case *ast.StructInitialization:
 		nr.ResolveStructInit(actual)
 	case *ast.Break:
@@ -197,7 +200,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	// case *ast.Membership:
 	// 	nr.ResolveMembership(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit, *ast.Struct:
+		*ast.Unit:
 		// do nothing
 	default:
 		shared.ReportError("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
