@@ -1,0 +1,17 @@
+let a = 5;
+let b = 2;
+let c: i64 = if a * b > 8 {
+    a * b
+} else {
+    8
+};
+
+let d: char = if a > 8 || 0 < a {
+    { 'a' }
+} else if b > a {
+    'b'
+} else if c > b {
+    'c'
+} else {
+    'd'
+};

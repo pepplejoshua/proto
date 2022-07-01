@@ -341,7 +341,7 @@ func (nr *NameResolver) ResolveWhileLoop(while *ast.WhileLoop) {
 
 func (nr *NameResolver) ResolveIfConditional(if_ *ast.IfConditional) {
 	nr.Resolve(if_.Condition)
-	nr.Resolve(if_.ThenBody)
+	nr.ResolveBlockExpr(if_.ThenBody)
 
 	if if_.ElseBody != nil {
 		nr.Resolve(if_.ElseBody)

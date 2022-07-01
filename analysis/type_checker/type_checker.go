@@ -102,6 +102,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckBinaryOp(actual)
 	case *ast.UnaryOp:
 		tc.TypeCheckUnaryOp(actual)
+	case *ast.IfConditional:
+		tc.TypeCheckIfExpr(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
 		// do nothing
@@ -109,6 +111,44 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		shared.ReportError("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 		tc.FoundError = true
 	}
+}
+
+func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
+	tc.TypeCheck(cond.Condition)
+
+	if cond.Condition.Type().TypeSignature() != "bool" {
+		// unexpected return type
+		var msg strings.Builder
+		line := cond.Start.TokenSpan.Line
+		col := cond.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Condition for If expression should be typed boolean")
+		msg.WriteString(" but got " + cond.Condition.Type().TypeSignature() + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+
+	tc.TypeCheckBlock(cond.ThenBody)
+
+	if cond.ElseBody != nil {
+		tc.TypeCheck(cond.ElseBody)
+
+		if cond.ThenBody.Type().TypeSignature() != cond.ElseBody.Type().TypeSignature() {
+			// unexpected return type
+			var msg strings.Builder
+			line := cond.Start.TokenSpan.Line
+			col := cond.Start.TokenSpan.Col
+			then := cond.ThenBody.BlockType.TypeSignature()
+			else_ := cond.ElseBody.Type().TypeSignature()
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ".")
+			msg.WriteString("Please fix inconsistent types.")
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+	}
+	cond.IfType = cond.ThenBody.BlockType
 }
 
 func (tc *TypeChecker) TypeCheckUnaryOp(uop *ast.UnaryOp) {
@@ -320,7 +360,7 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 			arr_type = &ast.Proto_Array{
 				InternalType: item.Type(),
 			}
-		} else if arr_type.TypeSignature() != item.Type().TypeSignature() {
+		} else if arr_type.InternalType.TypeSignature() != item.Type().TypeSignature() {
 			var msg strings.Builder
 			line := arr.Token.TokenSpan.Line
 			col := arr.Token.TokenSpan.Col
