@@ -91,6 +91,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckTuple(actual)
 	case *ast.Array:
 		tc.TypeCheckArray(actual)
+	case *ast.Block:
+		tc.TypeCheckBlock(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
 	default:
@@ -98,10 +100,45 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckBlock(block *ast.Block) {
+	var block_type ast.ProtoType = block.BlockType
+	if !strings.Contains(block_type.TypeSignature(), "untyped") {
+		return
+	}
+
+	for index, node := range block.Contents {
+		tc.TypeCheck(node)
+
+		if index+1 == len(block.Contents) {
+			// we have typechecked the last node in the block
+			// so we can set block_type to its type
+			switch actual := node.(type) {
+			case ast.Expression:
+				block_type = actual.Type()
+			default:
+				block_type = &ast.Proto_Unit{}
+			}
+		}
+	}
+	block.BlockType = block_type
+}
+
 func (tc *TypeChecker) TypeCheckTuple(tuple *ast.Tuple) {
 	for index, item := range tuple.Items {
 		tc.TypeCheck(item)
-		tuple.TupleType.InternalTypes[index] = item.Type()
+
+		if index >= len(tuple.TupleType.InternalTypes) {
+			var msg strings.Builder
+			line := tuple.Token.TokenSpan.Line
+			col := tuple.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("assigned tuple has more items than annotated type.")
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			break
+		} else {
+			tuple.TupleType.InternalTypes[index] = item.Type()
+		}
 	}
 }
 
@@ -110,12 +147,14 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 		return
 	}
 
-	var arr_type ast.ProtoType = nil
+	var arr_type *ast.Proto_Array = nil
 	for _, item := range arr.Items {
 		tc.TypeCheck(item)
 
 		if arr_type == nil { // first time
-			arr_type = item.Type()
+			arr_type = &ast.Proto_Array{
+				InternalType: item.Type(),
+			}
 		} else if arr_type.TypeSignature() != item.Type().TypeSignature() {
 			var msg strings.Builder
 			line := arr.Token.TokenSpan.Line
@@ -130,6 +169,13 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 			break
 		}
 	}
+
+	if arr_type == nil {
+		arr_type = &ast.Proto_Array{
+			InternalType: &ast.Proto_Unit{},
+		}
+	}
+	arr.ArrayType = arr_type
 }
 
 func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {

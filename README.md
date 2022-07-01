@@ -31,7 +31,7 @@ i64: 1, 2, 3, 4
 str: "some string"
 char: 'a', 'e', 'i', 'o', 'u'
 bool: true, false
-unit
+unit: ()
 ```
 
 The **unit** type is the return type of statements (like variable definitions) and functions that return no values (procedures). It cannot be assigned to a variable.

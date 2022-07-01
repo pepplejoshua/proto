@@ -16,8 +16,13 @@ const (
 	Loop
 )
 
+type Pair struct {
+	Value   ast.ProtoNode
+	Defined bool
+}
+
 type NameResolver struct {
-	Scopes     []map[string]bool
+	Scopes     []map[string]*Pair
 	ScopeTag   EnclosingScopeTag
 	LoopTag    EnclosingScopeTag
 	FoundError bool
@@ -25,7 +30,7 @@ type NameResolver struct {
 
 func NewNameResolver() *NameResolver {
 	return &NameResolver{
-		Scopes:     []map[string]bool{},
+		Scopes:     []map[string]*Pair{},
 		ScopeTag:   None,
 		LoopTag:    None,
 		FoundError: false,
@@ -33,7 +38,7 @@ func NewNameResolver() *NameResolver {
 }
 
 func (nr *NameResolver) EnterScope() {
-	newScope := make(map[string]bool)
+	newScope := make(map[string]*Pair)
 	nr.Scopes = append(nr.Scopes, newScope)
 }
 
@@ -41,38 +46,60 @@ func (nr *NameResolver) ExitScope() {
 	nr.Scopes = nr.Scopes[:len(nr.Scopes)-1]
 }
 
-func (nr *NameResolver) topscope() map[string]bool {
+func (nr *NameResolver) topscope() map[string]*Pair {
 	return nr.Scopes[len(nr.Scopes)-1]
 }
 
-func (nr *NameResolver) DeclareName(name lexer.ProtoToken) {
+func (nr *NameResolver) DeclareName(name lexer.ProtoToken, value ast.ProtoNode) {
 	if len(nr.Scopes) == 0 {
 		return
 	}
 
 	scope := nr.topscope()
-	scope[name.Literal] = false
-}
-
-func (nr *NameResolver) GetBoolAtName(name lexer.ProtoToken) bool {
-	for i := len(nr.Scopes) - 1; i >= 0; i-- {
-		cur_scope := nr.Scopes[i]
-		if val, ok := cur_scope[name.Literal]; ok {
-			if !val {
-				continue
-			} else {
-				return val
-			}
-		}
+	scope[name.Literal] = &Pair{
+		Value:   value,
+		Defined: false,
 	}
-	return false
 }
 
 func (nr *NameResolver) DefineName(name lexer.ProtoToken) {
 	if len(nr.Scopes) == 0 {
 		return
 	}
-	nr.topscope()[name.Literal] = true
+
+	if pair, ok := nr.topscope()[name.Literal]; ok {
+		pair.Defined = true
+	} else {
+		var msg strings.Builder
+		line := name.TokenSpan.Line
+		col := name.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Undeclared variable.")
+		shared.ReportError("NameResolver", msg.String())
+		nr.FoundError = true
+	}
+}
+
+func (nr *NameResolver) GetBoolAtName(name lexer.ProtoToken) bool {
+	for i := len(nr.Scopes) - 1; i >= 0; i-- {
+		cur_scope := nr.Scopes[i]
+		if val, ok := cur_scope[name.Literal]; ok {
+			if val.Defined {
+				return val.Defined
+			}
+		}
+	}
+	return false
+}
+
+func (nr *NameResolver) GetValueAtName(name lexer.ProtoToken) ast.ProtoNode {
+	for i := len(nr.Scopes) - 1; i >= 0; i-- {
+		cur_scope := nr.Scopes[i]
+		if val, ok := cur_scope[name.Literal]; ok {
+			return val.Value
+		}
+	}
+	return nil
 }
 
 func (nr *NameResolver) ContainsIdent(ident string) bool {
@@ -88,12 +115,12 @@ func (nr *NameResolver) ContainsIdent(ident string) bool {
 func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 	nr.EnterScope()
 	for _, fn := range prog.FunctionDefs {
-		nr.DeclareName(fn.Name.Token)
+		nr.DeclareName(fn.Name.Token, fn)
 		nr.DefineName(fn.Name.Token)
 	}
 
 	for _, struct_node := range prog.Structs {
-		nr.DeclareName(struct_node.Name.Token)
+		nr.DeclareName(struct_node.Name.Token, struct_node)
 		nr.DefineName(struct_node.Name.Token)
 	}
 
@@ -171,8 +198,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.IndexExpression:
 		nr.ResolveIndexExpr(actual)
 	case *ast.Struct:
-		nr.DeclareName(actual.Name.Token)
-		nr.DefineName(actual.Name.Token)
+		nr.ResolveStruct(actual)
 	case *ast.StructInitialization:
 		nr.ResolveStructInit(actual)
 	case *ast.Break:
@@ -207,15 +233,68 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	}
 }
 
-func (nr *NameResolver) ResolveMembership(mem *ast.Membership) {
-	nr.Resolve(mem.Object)
+func (nr *NameResolver) ResolveStruct(str *ast.Struct) {
+	nr.DeclareName(str.Name.Token, str)
+	nr.DefineName(str.Name.Token)
 }
 
 func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 	nr.Resolve(init.StructName)
-	for _, expr := range init.Fields {
-		nr.Resolve(expr)
+	actual := nr.GetValueAtName(init.StructName.Token)
+	switch val := actual.(type) {
+	case *ast.Struct:
+		if len(val.Members) != len(init.Fields) {
+			var msg strings.Builder
+			line := init.Start.TokenSpan.Line
+			col := init.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d Expected %d ", line, col, len(val.Members)))
+			msg.WriteString(fmt.Sprintf("members but got %d.", len(init.Fields)))
+			if len(val.Members) > 1 {
+				msg.WriteString("\n" + init.StructName.LiteralRepr() + " members include: \n")
+				for index, mem := range val.Members {
+					msg.WriteString(fmt.Sprintf("%d. %s\n", index+1, mem.LiteralRepr()))
+				}
+			}
+			shared.ReportError("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+
+		for field, expr := range init.Fields {
+			// make sure field exists in the struct
+			found := false
+			for _, mem := range val.Members {
+				if mem.LiteralRepr() == field.LiteralRepr() {
+					found = true
+					break
+				}
+			}
+
+			if !found {
+				var msg strings.Builder
+				line := field.Token.TokenSpan.Line
+				col := field.Token.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(field.LiteralRepr() + " is not a Struct member.")
+				shared.ReportError("NameResolver", msg.String())
+				nr.FoundError = true
+				break
+			}
+			nr.Resolve(expr)
+		}
+	default:
+		var msg strings.Builder
+		line := init.StructName.Token.TokenSpan.Line
+		col := init.StructName.Token.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(init.StructName.LiteralRepr() + " is not a Struct.")
+		shared.ReportError("NameResolver", msg.String())
+		nr.FoundError = true
 	}
+
+}
+
+func (nr *NameResolver) ResolveMembership(mem *ast.Membership) {
+	nr.Resolve(mem.Object)
 }
 
 func (nr *NameResolver) ResolveIndexExpr(index *ast.IndexExpression) {
@@ -239,7 +318,7 @@ func (nr *NameResolver) ResolveInfiniteLoop(inf *ast.InfiniteLoop) {
 
 func (nr *NameResolver) ResolveCollectionsForLoop(cfor *ast.CollectionsForLoop) {
 	nr.EnterScope()
-	nr.DeclareName(cfor.LoopVar.Token)
+	nr.DeclareName(cfor.LoopVar.Token, &cfor.LoopVar)
 	nr.Resolve(cfor.Collection)
 	nr.DefineName(cfor.LoopVar.Token)
 	nr.ResolveBlockExpr(cfor.Body)
@@ -281,13 +360,13 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 	enclosing := nr.ScopeTag
 	nr.ScopeTag = fnScope
 	if !nr.ContainsIdent(fn.Name.LiteralRepr()) {
-		nr.DeclareName(fn.Name.Token)
+		nr.DeclareName(fn.Name.Token, fn)
 		nr.DefineName(fn.Name.Token)
 	}
 
 	nr.EnterScope()
 	for _, param := range fn.ParameterList {
-		nr.DeclareName(param.Token)
+		nr.DeclareName(param.Token, param)
 		nr.DefineName(param.Token)
 	}
 	nr.ResolveBlockExpr(fn.Body)
@@ -322,7 +401,7 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.Block) {
 }
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
-	nr.DeclareName(var_def.Assignee.Token)
+	nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee)
 	if var_def.Assigned != nil {
 		nr.Resolve(var_def.Assigned)
 	}

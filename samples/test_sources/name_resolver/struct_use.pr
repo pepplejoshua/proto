@@ -24,3 +24,8 @@ let e = {
     }
     return_i64()
 };
+
+let f = Result {
+    a: 1,
+    b: false
+};
