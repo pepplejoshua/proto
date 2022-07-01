@@ -133,7 +133,7 @@ func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.Block:
-		nr.ResolveBlockExpr(actual)
+		nr.ResolveBlockExpr(actual, false)
 	case *ast.VariableDecl:
 		nr.ResolveVariableDecl(actual)
 	case *ast.Identifier:
@@ -175,7 +175,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.InfiniteLoop:
 		enclosing := nr.LoopTag
 		nr.LoopTag = Loop
-		nr.ResolveInfiniteLoop(actual)
+		nr.ResolveBlockExpr(actual.Body, true)
 		nr.LoopTag = enclosing
 	case *ast.Return:
 		if nr.ScopeTag != RegularFunction {
@@ -312,16 +312,12 @@ func (nr *NameResolver) ResolveRange(range_ *ast.Range) {
 	nr.Resolve(range_.PastEnd)
 }
 
-func (nr *NameResolver) ResolveInfiniteLoop(inf *ast.InfiniteLoop) {
-	nr.ResolveBlockExpr(inf.Body)
-}
-
 func (nr *NameResolver) ResolveCollectionsForLoop(cfor *ast.CollectionsForLoop) {
 	nr.EnterScope()
 	nr.DeclareName(cfor.LoopVar.Token, &cfor.LoopVar)
 	nr.Resolve(cfor.Collection)
 	nr.DefineName(cfor.LoopVar.Token)
-	nr.ResolveBlockExpr(cfor.Body)
+	nr.ResolveBlockExpr(cfor.Body, false)
 	nr.ExitScope()
 }
 
@@ -330,18 +326,22 @@ func (nr *NameResolver) ResolveGenericForLoop(gfor *ast.GenericForLoop) {
 	nr.ResolveVariableDecl(gfor.Init)
 	nr.Resolve(gfor.LoopCondition)
 	nr.Resolve(gfor.Update)
-	nr.ResolveBlockExpr(gfor.Body)
+	nr.ResolveBlockExpr(gfor.Body, false)
 	nr.ExitScope()
 }
 
 func (nr *NameResolver) ResolveWhileLoop(while *ast.WhileLoop) {
 	nr.Resolve(while.LoopCondition)
-	nr.ResolveBlockExpr(while.Body)
+	nr.EnterScope()
+	nr.ResolveBlockExpr(while.Body, false)
+	nr.ExitScope()
 }
 
 func (nr *NameResolver) ResolveIfConditional(if_ *ast.IfConditional) {
 	nr.Resolve(if_.Condition)
-	nr.ResolveBlockExpr(if_.ThenBody)
+	nr.EnterScope()
+	nr.ResolveBlockExpr(if_.ThenBody, false)
+	nr.ExitScope()
 
 	if if_.ElseBody != nil {
 		nr.Resolve(if_.ElseBody)
@@ -369,7 +369,7 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 		nr.DeclareName(param.Token, param)
 		nr.DefineName(param.Token)
 	}
-	nr.ResolveBlockExpr(fn.Body)
+	nr.ResolveBlockExpr(fn.Body, false)
 	nr.ExitScope()
 	nr.ScopeTag = enclosing
 }
@@ -391,13 +391,18 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 	nr.Resolve(assignment.Target)
 }
 
-func (nr *NameResolver) ResolveBlockExpr(block *ast.Block) {
-	nr.EnterScope()
+func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
+	if new_scope {
+		nr.EnterScope()
+	}
 
 	for _, node := range block.Contents {
 		nr.Resolve(node)
 	}
-	nr.ExitScope()
+
+	if new_scope {
+		nr.ExitScope()
+	}
 }
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {

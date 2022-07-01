@@ -855,7 +855,7 @@ func (p *Parser) parse_protonode() ast.ProtoNode {
 				node = actual
 			}
 		default:
-			node = actual
+			node = potential_expr
 		}
 	}
 

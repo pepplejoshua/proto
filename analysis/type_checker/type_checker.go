@@ -97,15 +97,27 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	case *ast.PromotedExpr:
 		tc.TypeCheck(actual.Expr)
 	case *ast.Block:
-		tc.TypeCheckBlock(actual)
+		tc.TypeCheckBlock(actual, true)
 	case *ast.BinaryOp:
 		tc.TypeCheckBinaryOp(actual)
 	case *ast.UnaryOp:
 		tc.TypeCheckUnaryOp(actual)
 	case *ast.IfConditional:
 		tc.TypeCheckIfExpr(actual)
+	case *ast.WhileLoop:
+		tc.TypeCheckWhileLoop(actual)
+	case *ast.InfiniteLoop:
+		tc.TypeCheck(actual.Body)
+	case *ast.GenericForLoop:
+		tc.TypeCheckGenericFor(actual)
+	case *ast.CollectionsForLoop:
+		tc.TypeCheckCollectionsFor(actual)
+	case *ast.Return:
+		if actual.Value != nil {
+			tc.TypeCheck(actual.Value)
+		}
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit:
+		*ast.Unit, *ast.Break, *ast.Continue:
 		// do nothing
 	default:
 		shared.ReportError("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
@@ -113,22 +125,92 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) {
+	tc.TypeCheck(col_for.Collection)
+
+	switch actual := col_for.Collection.Type().(type) {
+	case *ast.Proto_Array:
+		tc.EnterTypeEnv()
+		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
+		tc.TypeCheckBlock(col_for.Body, false)
+		tc.ExitTypeEnv()
+	case *ast.Proto_Tuple:
+		var msg strings.Builder
+		line := col_for.Start.TokenSpan.Line
+		col := col_for.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Collections looping through a Tuple is not allowed ")
+		msg.WriteString("as types may not be consistent. Try an array if types are consistent.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	default:
+		var msg strings.Builder
+		line := col_for.Start.TokenSpan.Line
+		col := col_for.Start.TokenSpan.Col
+		type_ := col_for.Collection.Type().TypeSignature()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Collections looping through a %s is not allowed. ", type_))
+		msg.WriteString("Only arrays can be (for now).")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+}
+
+func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
+	tc.EnterTypeEnv()
+	tc.TypeCheckVariableDecl(loop.Init)
+	tc.TypeCheck(loop.LoopCondition)
+	if loop.LoopCondition.Type().TypeSignature() != "bool" {
+		var msg strings.Builder
+		line := loop.Start.TokenSpan.Line
+		col := loop.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Loop Condition for while loop should be of type boolean")
+		msg.WriteString(" but got " + loop.LoopCondition.Type().TypeSignature() + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+	tc.TypeCheck(loop.Update)
+	tc.TypeCheckBlock(loop.Body, false)
+	tc.ExitTypeEnv()
+}
+
+func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
+	tc.TypeCheck(loop.LoopCondition)
+
+	if loop.LoopCondition.Type().TypeSignature() != "bool" {
+		var msg strings.Builder
+		line := loop.Start.TokenSpan.Line
+		col := loop.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Loop Condition for while loop should be of type boolean")
+		msg.WriteString(" but got " + loop.LoopCondition.Type().TypeSignature() + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+
+	tc.TypeCheckBlock(loop.Body, true)
+}
+
 func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 	tc.TypeCheck(cond.Condition)
 
 	if cond.Condition.Type().TypeSignature() != "bool" {
-		// unexpected return type
 		var msg strings.Builder
 		line := cond.Start.TokenSpan.Line
 		col := cond.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString("Condition for If expression should be typed boolean")
+		msg.WriteString("Condition for If expression should be of type boolean")
 		msg.WriteString(" but got " + cond.Condition.Type().TypeSignature() + ".")
 		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
 	}
 
-	tc.TypeCheckBlock(cond.ThenBody)
+	tc.EnterTypeEnv()
+	tc.TypeCheckBlock(cond.ThenBody, false)
+	tc.ExitTypeEnv()
 
 	if cond.ElseBody != nil {
 		tc.TypeCheck(cond.ElseBody)
@@ -197,6 +279,7 @@ Loop:
 				break Loop
 			}
 			found_op = true
+			break
 		}
 	}
 
@@ -287,6 +370,7 @@ Loop:
 				break Loop
 			}
 			found_op = true
+			break
 		}
 	}
 
@@ -305,10 +389,10 @@ Loop:
 	}
 }
 
-func (tc *TypeChecker) TypeCheckBlock(block *ast.Block) {
+func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 	var block_type ast.ProtoType = block.BlockType
-	if !strings.Contains(block_type.TypeSignature(), "untyped") {
-		return
+	if new_env {
+		tc.EnterTypeEnv()
 	}
 
 	for index, node := range block.Contents {
@@ -326,6 +410,9 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block) {
 		}
 	}
 	block.BlockType = block_type
+	if new_env {
+		tc.ExitTypeEnv()
+	}
 }
 
 func (tc *TypeChecker) TypeCheckTuple(tuple *ast.Tuple) {

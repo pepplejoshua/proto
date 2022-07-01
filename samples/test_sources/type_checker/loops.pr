@@ -1,0 +1,29 @@
+let a = 1 > 0;
+
+while a {
+    // a = not a;
+}
+
+let b = 0;
+while b < 10 {
+    b;
+}
+
+loop {
+    if not a {
+        break;
+    } else {
+        continue;
+    }
+}
+
+for mut a = 0; a < 3; a {
+    // do stuff
+    a + 1;
+    a
+}
+
+let d = [1, 2, 3, 4, 5, 6];
+for i in d {
+    i + 1;
+}
