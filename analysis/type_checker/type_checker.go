@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+var BinaryOps = GetBuiltinBinaryOperators()
+var UnaryOps = GetBuiltinUnaryOperators()
+
 type TypeChecker struct {
 	TypeEnvs   []map[string]ast.ProtoType
 	FoundError bool
@@ -91,12 +94,174 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckTuple(actual)
 	case *ast.Array:
 		tc.TypeCheckArray(actual)
+	case *ast.PromotedExpr:
+		tc.TypeCheck(actual.Expr)
 	case *ast.Block:
 		tc.TypeCheckBlock(actual)
+	case *ast.BinaryOp:
+		tc.TypeCheckBinaryOp(actual)
+	case *ast.UnaryOp:
+		tc.TypeCheckUnaryOp(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
+		// do nothing
 	default:
 		shared.ReportError("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
+		tc.FoundError = true
+	}
+}
+
+func (tc *TypeChecker) TypeCheckUnaryOp(uop *ast.UnaryOp) {
+	tc.TypeCheck(uop.Operand)
+	found_op := false
+Loop:
+	for _, allowed := range UnaryOps {
+		returns, ok := allowed.AllowsBinding(uop.Operator.Literal, uop.Operand.Type())
+		if ok {
+			switch returns {
+			case "i64":
+				uop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.I64_TYPE,
+						Literal: "i64",
+						TokenSpan: lexer.Span{
+							Line:  uop.Operator.TokenSpan.Line,
+							Col:   uop.Operator.TokenSpan.Col,
+							Start: uop.Operator.TokenSpan.Start,
+							End:   uop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			case "bool":
+				uop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.BOOL_TYPE,
+						Literal: "bool",
+						TokenSpan: lexer.Span{
+							Line:  uop.Operator.TokenSpan.Line,
+							Col:   uop.Operator.TokenSpan.Col,
+							Start: uop.Operator.TokenSpan.Start,
+							End:   uop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			default:
+				// unexpected return type
+				var msg strings.Builder
+				line := uop.Operator.TokenSpan.Line
+				col := uop.Operator.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Unexpected return type: " + returns)
+				shared.ReportError("TypeChecker", msg.String())
+				tc.FoundError = true
+				break Loop
+			}
+			found_op = true
+		}
+	}
+
+	if !found_op {
+		// incorrect unary operation
+		var msg strings.Builder
+		line := uop.Operator.TokenSpan.Line
+		col := uop.Operator.TokenSpan.Col
+		oprator := uop.Operand.Type().TypeSignature()
+		op := uop.Operator.Literal
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s %s is not an allowed unary expression.", op, oprator))
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+}
+
+func (tc *TypeChecker) TypeCheckBinaryOp(binop *ast.BinaryOp) {
+	tc.TypeCheck(binop.Left)
+	tc.TypeCheck(binop.Right)
+	found_op := false
+Loop:
+	for _, allowed := range BinaryOps {
+		returns, ok := allowed.AllowsBinding(binop.Operator.Literal, binop.Left.Type(), binop.Right.Type())
+		if ok {
+			switch returns {
+			case "i64":
+				binop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.I64_TYPE,
+						Literal: "i64",
+						TokenSpan: lexer.Span{
+							Line:  binop.Operator.TokenSpan.Line,
+							Col:   binop.Operator.TokenSpan.Col,
+							Start: binop.Operator.TokenSpan.Start,
+							End:   binop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			case "char":
+				binop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.CHAR_TYPE,
+						Literal: "char",
+						TokenSpan: lexer.Span{
+							Line:  binop.Operator.TokenSpan.Line,
+							Col:   binop.Operator.TokenSpan.Col,
+							Start: binop.Operator.TokenSpan.Start,
+							End:   binop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			case "bool":
+				binop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.BOOL_TYPE,
+						Literal: "bool",
+						TokenSpan: lexer.Span{
+							Line:  binop.Operator.TokenSpan.Line,
+							Col:   binop.Operator.TokenSpan.Col,
+							Start: binop.Operator.TokenSpan.Start,
+							End:   binop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			case "str":
+				binop.Op_Type = &ast.Proto_Builtin{
+					TypeToken: lexer.ProtoToken{
+						Type:    lexer.STRING_TYPE,
+						Literal: "str",
+						TokenSpan: lexer.Span{
+							Line:  binop.Operator.TokenSpan.Line,
+							Col:   binop.Operator.TokenSpan.Col,
+							Start: binop.Operator.TokenSpan.Start,
+							End:   binop.Operator.TokenSpan.End,
+						},
+					},
+				}
+			default:
+				// unexpected return type
+				var msg strings.Builder
+				line := binop.Operator.TokenSpan.Line
+				col := binop.Operator.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Unexpected return type: " + returns)
+				shared.ReportError("TypeChecker", msg.String())
+				tc.FoundError = true
+				break Loop
+			}
+			found_op = true
+		}
+	}
+
+	if !found_op {
+		// incorrect binary operation
+		var msg strings.Builder
+		line := binop.Operator.TokenSpan.Line
+		col := binop.Operator.TokenSpan.Col
+		left := binop.Left.Type().TypeSignature()
+		right := binop.Right.Type().TypeSignature()
+		op := binop.Operator.Literal
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s %s %s is not an allowed binary expression.", left, op, right))
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
 	}
 }
 
