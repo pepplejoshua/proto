@@ -9,6 +9,12 @@ type ProtoType interface {
 	TypeSignature() string
 }
 
+type Proto_EmptyArray struct{}
+
+func (t *Proto_EmptyArray) TypeSignature() string {
+	return "empty_array"
+}
+
 type Proto_Untyped struct{}
 
 func (t *Proto_Untyped) TypeSignature() string {

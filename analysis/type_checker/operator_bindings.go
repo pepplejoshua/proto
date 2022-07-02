@@ -91,6 +91,13 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 			operator: op,
 			returns:  "bool",
 		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "char",
+			right:    "char",
+			operator: op,
+			returns:  "bool",
+		})
 	}
 
 	bool_ops := []string{"&&", "||"}

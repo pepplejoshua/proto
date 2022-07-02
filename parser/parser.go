@@ -8,26 +8,42 @@ import (
 	"strings"
 )
 
+type Parser struct {
+	lex    *lexer.Lexer
+	cur    lexer.ProtoToken
+	peek   lexer.ProtoToken
+	index  int
+	tokens []lexer.ProtoToken
+}
+
 func New(src string) *Parser {
 	l := lexer.New(src)
 	p := &Parser{
-		lex: l,
+		lex:    l,
+		index:  0,
+		tokens: []lexer.ProtoToken{},
 	}
 
+	token := l.Next_Token()
+	for token.Type != lexer.END {
+		p.tokens = append(p.tokens, token)
+		token = l.Next_Token()
+	}
+	p.tokens = append(p.tokens, token)
 	p.nextToken() // initialize p.peek
 	p.nextToken() // initialize p.cur and update p.peek
 	return p
 }
 
-type Parser struct {
-	lex  *lexer.Lexer
-	cur  lexer.ProtoToken
-	peek lexer.ProtoToken
-}
-
 func (p *Parser) nextToken() {
-	p.cur = p.peek
-	p.peek = p.lex.Next_Token()
+	if p.index < len(p.tokens) {
+		p.cur = p.peek
+		p.peek = p.tokens[p.index]
+		p.index++
+	} else {
+		p.cur = p.peek
+		p.peek = p.tokens[len(p.tokens)-1]
+	}
 }
 
 func (p *Parser) consume(expected lexer.TokenType) {
@@ -259,7 +275,23 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		p.consume(p.cur.Type)
 		var items []ast.Expression
 		var arr_type ast.ProtoType = nil
+		tried_annotation := false
+		index := p.index - 2 // track current token for later use
 		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_BRACKET {
+			if arr_type == nil && !tried_annotation {
+				// 	// see if array is type annotated
+				potential := p.parse_type(true)
+				tried_annotation = true
+				if potential != nil {
+					arr_type = potential
+					p.consume(lexer.SEMI_COLON)
+				} else {
+					p.cur = p.tokens[index]
+					p.peek = p.tokens[index+1]
+					p.index = index + 2
+				}
+			}
+
 			expr := p.parse_expr(false)
 			items = append(items, expr)
 
@@ -283,7 +315,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 			Items: items,
 			Token: start,
 			ArrayType: &ast.Proto_Array{
-				InternalType: &ast.Proto_Untyped{},
+				InternalType: &ast.Proto_EmptyArray{},
 			},
 		}
 		if arr_type != nil {
@@ -557,7 +589,7 @@ func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool) as
 	return target
 }
 
-func (p *Parser) parse_type() ast.ProtoType {
+func (p *Parser) parse_type(try bool) ast.ProtoType {
 	var proto_type ast.ProtoType
 
 	switch p.cur.Type {
@@ -568,7 +600,10 @@ func (p *Parser) parse_type() ast.ProtoType {
 		p.consume(p.cur.Type)
 	case lexer.OPEN_BRACKET: // we are dealing with an array
 		p.consume(p.cur.Type)
-		internal := p.parse_type()
+		internal := p.parse_type(try)
+		if internal == nil {
+			return internal
+		}
 		p.consume(lexer.CLOSE_BRACKET)
 		proto_type = &ast.Proto_Array{
 			InternalType: internal,
@@ -577,13 +612,16 @@ func (p *Parser) parse_type() ast.ProtoType {
 		p.consume(p.cur.Type)
 		var contained []ast.ProtoType
 		for p.cur.Type != lexer.CLOSE_PAREN && p.cur.Type != lexer.END {
-			item := p.parse_type()
+			item := p.parse_type(try)
+			if item == nil {
+				return item
+			}
 			contained = append(contained, item)
-			if p.cur.Type == lexer.COMMA {
-				p.consume(p.cur.Type)
+			if p.cur.Type != lexer.CLOSE_PAREN {
+				p.consume(lexer.COMMA)
 			}
 		}
-		p.consume(p.cur.Type)
+		p.consume(lexer.CLOSE_PAREN)
 		if len(contained) == 0 {
 			proto_type = &ast.Proto_Unit{}
 		} else {
@@ -597,11 +635,15 @@ func (p *Parser) parse_type() ast.ProtoType {
 			Ident: *token,
 		}
 	default:
-		var msg strings.Builder
-		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
-		msg.WriteString(" Expected type signature but found ")
-		msg.WriteString(string(p.cur.Type) + ".")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		if !try {
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+			msg.WriteString(" Expected type signature but found ")
+			msg.WriteString(string(p.cur.Type) + ".")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		} else {
+			return nil
+		}
 	}
 	return proto_type
 }
@@ -616,12 +658,12 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	if p.cur.Type == lexer.COLON {
 		p.consume(p.cur.Type)
 		// handle parsing type
-		var_type = p.parse_type()
+		var_type = p.parse_type(false)
 	}
 
 	var assigned_expr ast.Expression = nil
 	if p.cur.Type == lexer.ASSIGN {
-		p.consume(p.cur.Type)
+		p.consume(lexer.ASSIGN)
 		assigned_expr = p.parse_expr(false)
 	}
 
@@ -635,7 +677,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
 
-	if assigned_expr != nil && !strings.Contains(assigned_expr.Type().TypeSignature(), "untyped") {
+	if strings.Contains(var_type.TypeSignature(), "untyped") && assigned_expr != nil && !strings.Contains(assigned_expr.Type().TypeSignature(), "untyped") {
 		var_type = assigned_expr.Type()
 	}
 
@@ -665,7 +707,7 @@ func (p *Parser) parse_struct() *ast.Struct {
 	for p.cur.Type == lexer.IDENT {
 		mem := p.parse_identifier()
 		p.consume(lexer.COLON)
-		mem_type := p.parse_type()
+		mem_type := p.parse_type(false)
 		mem.Id_Type = mem_type
 		members = append(members, mem)
 	}
@@ -779,7 +821,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		}
 		ident := p.parse_identifier()
 		p.consume(lexer.COLON)
-		ident.Id_Type = p.parse_type()
+		ident.Id_Type = p.parse_type(false)
 		paramslist = append(paramslist, ident)
 		if p.cur.Type != lexer.CLOSE_PAREN {
 			p.consume(lexer.COMMA)
@@ -790,7 +832,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	var return_type ast.ProtoType = &ast.Proto_Unit{}
 	if p.cur.Type == lexer.ARROW {
 		p.consume(p.cur.Type)
-		return_type = p.parse_type()
+		return_type = p.parse_type(false)
 	}
 
 	body := p.parse_block()

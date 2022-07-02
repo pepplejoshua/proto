@@ -8,8 +8,9 @@ let g = f;
 let h = [1, 2, 3, a, b];
 let i: [char] = ['a', 'b', 'c'];
 let h: (i64, char, bool, str, [i64]) = (1, 'c', true, "some string", h);
-let i = (i, [], []); // what even does this syntax even mean? ([char], [()], [()])
-let j = [[1], [3]];
+let i: [char] = ['1', '2']; 
+let i: [i64] = [i64;];
+let j = [i, [3]];
 let i: i64 = {
     a + b;
     b

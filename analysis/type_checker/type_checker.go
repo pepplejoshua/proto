@@ -464,8 +464,15 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 
 	if arr_type == nil {
 		arr_type = &ast.Proto_Array{
-			InternalType: &ast.Proto_Unit{},
+			InternalType: &ast.Proto_EmptyArray{},
 		}
+		var msg strings.Builder
+		line := arr.Token.TokenSpan.Line
+		col := arr.Token.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("empty array cannot be type checked. Consider annotating with [_type_;]")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
 	}
 	arr.ArrayType = arr_type
 }
@@ -487,10 +494,25 @@ func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {
 func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 	tc.TypeCheck(var_def.Assigned)
 
-	if strings.Contains(var_def.VarType.TypeSignature(), "untyped") {
+	if strings.Contains(var_def.VarType.TypeSignature(), "untyped") &&
+		!strings.Contains(var_def.Assigned.Type().TypeSignature(), "untyped") {
 		// not already inferred
 		var_def.VarType = var_def.Assigned.Type()
-	} else if var_def.VarType.TypeSignature() != var_def.Assigned.Type().TypeSignature() {
+	} else if strings.Contains(var_def.VarType.TypeSignature(), "untyped") &&
+		strings.Contains(var_def.Assigned.Type().TypeSignature(), "untyped") {
+		var msg strings.Builder
+		line := var_def.Assignee.Token.TokenSpan.Line
+		col := var_def.Assignee.Token.TokenSpan.Col
+		literal := var_def.Assignee.LiteralRepr()
+		actual := var_def.Assigned.Type().TypeSignature()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(literal + " is not annotated and cannot infer type for " + actual + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
+	if var_def.VarType.TypeSignature() != var_def.Assigned.Type().TypeSignature() {
 		var msg strings.Builder
 		line := var_def.Assignee.Token.TokenSpan.Line
 		col := var_def.Assignee.Token.TokenSpan.Col
@@ -502,6 +524,7 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 		msg.WriteString("but is assigned value of type " + actual + ".")
 		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
+		return
 	}
 	tc.SetTypeForName(var_def.Assignee.Token, var_def.VarType)
 }

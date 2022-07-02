@@ -48,6 +48,21 @@ The **unit** type is the return type of statements (like variable definitions) a
   [1, 2, 3, 4, 5] is inferred to be or annotated [i64]
   ```
 
+  When an empty array is used, it is necessary to type annotate the expected type. Without the annotation, the typechecker will throw an error. For example, these will work:
+
+  ```rust
+  let a = [i64;]
+  let b: [[i64]] = [a, a, [1, 2, 3, 4]];
+  ```
+
+  with `a` being set to an array of `i64`.
+  These will not work:
+
+  ```rust
+  let a = [];
+  let b: [char] = [];
+  ```
+
 - Tuples are the only heterogenous complex type (i.e they allow the mixing of different types). Once created, new elements cannot be added to extend a tuple. They are type annotated `(T`<sub>`1`</sub>, `T`<sub>`2`</sub>, `...`, `T`<sub>`n`</sub>`)` where each `T` from `1` to `n` can be a different type. For example:
 
   ```rs
@@ -338,3 +353,103 @@ while num < 5000 {
     num += 1
 }
 ```
+
+## Builtin Operators
+
+There are builtin operators (some of which we have already seen). Below are their type signatures. Operator overloading will be implemented in future updates. Upscaling of types to handle overflow will also be allowed in future updates (like `*: (i64, i64) -> i128`).
+
+They take the form: `operator: (inputs) -> output`.
+Binary operators are:
+
+```rust
+    // for + operator
+    +: (i64, i64) -> i64
+    +: (char, char) -> str
+    +: (str, str) -> str
+    +: (str, char) -> char
+
+    // for -, *, / and % operators
+    -: (i64, i64) -> i64
+    *: (i64, i64) -> i64
+    /: (i64, i64) -> i64 // will allow float output in future updates
+    %: (i64, i64) -> i64
+
+    // for >, >=, < and <= operators
+    >: (i64, i64) -> bool
+    >: (char, char) -> bool
+    >=: (i64, i64) -> bool
+    >=: (char, char) -> bool
+    <: (i64, i64) -> bool
+    <: (char, char) -> bool
+    <=: (i64, i64) -> bool
+    <=: (char, char) -> bool
+
+    // for && and || operators
+    &&: (bool, bool) -> bool
+    ||: (bool, bool) -> bool
+
+    // for == and != operators
+    ==: (i64, i64) -> bool
+    ==: (char, char) -> bool
+    ==: (str, str) -> bool
+    ==: (bool, bool) -> bool
+    !=: (i64, i64) -> bool
+    !=: (char, char) -> bool
+    !=: (str, str) -> bool
+    !=: (bool, bool) -> bool
+```
+
+Unary operators are:
+
+```rust
+    // for - and not operator
+    not: (bool) -> bool
+    -: (i64) -> i64
+```
+
+## Function Definition and Use
+
+Proto allows the definition of functions to encapsulate behaviour. An example of a function that checks if a number is even might look like:
+
+```rust
+fn is_even(num: i64) -> bool {
+    return num % 2 == 0;
+}
+
+fn main() {
+    let a = 5;
+    if is_even(a) {
+        println("even");
+    } else {
+        println("odd");
+    }
+}
+```
+
+The `is_even` function captures what is germaine about function definitions in proto. It has a single parameter `num` which is of `i64` type and it has a return value of `bool` specified after the arrow (`->`). Function calls in proto are not any different from regular function calls, so its form is `callable`(`arguments`);
+
+Since the body of functions are block expressions, functions that return values can forgo a return statement, as there is an explicit return at the end of the block (if it is an expression). So `is_even` can be rewritten as:
+
+```rust
+fn is_even(num: i64) -> bool {
+    num % 2 == 0
+}
+```
+
+This allows using `return` statements for early returns and explicit block returns for late returns. For example:
+
+```rust
+fn even_or_odd_msg(num: i64) -> (str, bool) {
+    if num % 2 == 0 {
+        return ("it is even", true);
+    }
+    ("it is odd", false)
+}
+
+fn main() {
+    let tuple = even_or_odd(4); // tuple restructuring will be a future update
+    println(tuple.0); // will preint "it is even"
+}
+```
+
+## Structs
