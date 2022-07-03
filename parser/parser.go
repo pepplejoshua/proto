@@ -229,7 +229,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 				Fields:     fields,
 				StructType: &ast.Proto_UserDef{
 					Name: struct_name,
-					Definition: ast.Struct{
+					Definition: &ast.Struct{
 						Start:   start,
 						Name:    *struct_name,
 						Members: []*ast.Identifier{},
@@ -288,17 +288,21 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 				// 	// see if array is type annotated
 				potential := p.parse_type(true)
 				tried_annotation = true
+				is_expr := false
 				if potential != nil {
 					switch actual := potential.(type) {
 					case *ast.Proto_UserDef:
 						if p.cur.Type != lexer.SEMI_COLON {
 							expr = actual.Name
-							continue
+							is_expr = true
+							break
 						}
 					}
-					arr_type = potential
-					p.consume(lexer.SEMI_COLON)
-					continue
+					if !is_expr {
+						arr_type = potential
+						p.consume(lexer.SEMI_COLON)
+						continue
+					}
 				} else {
 					p.cur = p.tokens[index]
 					p.peek = p.tokens[index+1]
@@ -655,7 +659,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		token := p.parse_identifier()
 		proto_type = &ast.Proto_UserDef{
 			Name:       token,
-			Definition: ast.Struct{},
+			Definition: &ast.Struct{},
 		}
 	default:
 		if !try {

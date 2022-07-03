@@ -2,3 +2,5 @@ let a = 5;
 let b: [i64] = [a, 4, 3, 2, 1];
 let c = (b, a);
 let d: ([i64], i64) = c;
+let e: [i64] = [i64;];
+let f = [e];

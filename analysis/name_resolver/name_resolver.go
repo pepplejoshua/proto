@@ -252,7 +252,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 			if len(val.Members) > 1 {
 				msg.WriteString("\n" + init.StructName.LiteralRepr() + " members include: \n")
 				for index, mem := range val.Members {
-					msg.WriteString(fmt.Sprintf("%d. %s\n", index+1, mem.LiteralRepr()))
+					msg.WriteString(fmt.Sprintf("%d. %s: %s\n", index+1, mem.LiteralRepr(), mem.Id_Type.TypeSignature()))
 				}
 			}
 			shared.ReportError("NameResolver", msg.String())
@@ -290,7 +290,6 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 		shared.ReportError("NameResolver", msg.String())
 		nr.FoundError = true
 	}
-
 }
 
 func (nr *NameResolver) ResolveMembership(mem *ast.Membership) {
@@ -391,7 +390,7 @@ func (nr *NameResolver) ResolveArray(array *ast.Array) {
 			line := array.Token.TokenSpan.Line
 			col := array.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct Identifier '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
+			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
 			shared.ReportError("TypeChecker", msg.String())
 			nr.FoundError = true
 			return

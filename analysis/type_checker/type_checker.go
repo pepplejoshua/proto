@@ -78,6 +78,14 @@ func (tc *TypeChecker) ContainsIdent(ident string) bool {
 
 func (tc *TypeChecker) TypeCheckProgram(prog *ast.ProtoProgram) {
 	tc.EnterTypeEnv()
+
+	for _, s := range prog.Structs {
+		tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
+			Name:       &s.Name,
+			Definition: s,
+		})
+	}
+
 	for _, node := range prog.Contents {
 		tc.TypeCheck(node)
 	}
@@ -90,6 +98,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckVariableDecl(actual)
 	case *ast.Struct:
 		tc.TypeCheckStruct(actual)
+	case *ast.StructInitialization:
+		tc.TypeCheckStructInit(actual)
 	case *ast.Identifier:
 		tc.TypeCheckIdentifier(actual)
 	case *ast.Tuple:
@@ -135,8 +145,38 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
+	actual := tc.GetTypeForName(i.StructName.Token)
+
+	switch sdef := actual.(type) {
+	case *ast.Proto_UserDef:
+		def := sdef.Definition
+		for _, mem := range def.Members {
+			for id, expr := range i.Fields {
+				if id.LiteralRepr() == mem.LiteralRepr() {
+					tc.TypeCheck(expr)
+					if mem.Id_Type.TypeSignature() != expr.Type().TypeSignature() {
+						var msg strings.Builder
+						line := id.Token.TokenSpan.Line
+						col := id.Token.TokenSpan.Col
+						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+						msg.WriteString(fmt.Sprintf("%s.%s is defined as %s type but was initialized with value of type %s.",
+							i.StructName.LiteralRepr(), mem.LiteralRepr(), mem.Id_Type.TypeSignature(),
+							expr.Type().TypeSignature()))
+						shared.ReportError("TypeChecker", msg.String())
+						tc.FoundError = true
+					}
+				}
+			}
+		}
+	}
+}
+
 func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
-	tc.SetTypeForName(s.Name.Token, s.Name.Id_Type)
+	tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
+		Name:       &s.Name,
+		Definition: s,
+	})
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
@@ -639,10 +679,16 @@ func (tc *TypeChecker) TypeCheckTuple(tuple *ast.Tuple) {
 }
 
 func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
-	var arr_type *ast.Proto_Array = nil
+	var arr_type *ast.Proto_Array
+	if !strings.Contains(arr.ArrayType.TypeSignature(), "empty_array") &&
+		!strings.Contains(arr.ArrayType.TypeSignature(), "untyped") {
+		arr_type = arr.ArrayType
+	} else {
+		arr_type = nil
+	}
+
 	for _, item := range arr.Items {
 		tc.TypeCheck(item)
-
 		if arr_type == nil { // first time
 			arr_type = &ast.Proto_Array{
 				InternalType: item.Type(),

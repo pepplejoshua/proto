@@ -64,7 +64,7 @@ func (t *Proto_Tuple) TypeSignature() string {
 
 type Proto_UserDef struct {
 	Name       *Identifier
-	Definition Struct
+	Definition *Struct
 }
 
 func (u *Proto_UserDef) TypeSignature() string {

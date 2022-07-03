@@ -146,3 +146,17 @@ func TestTypeCheckingAssignments(t *testing.T) {
 		log.Fatal("Found errors during type checking")
 	}
 }
+
+func TestTypeCheckingStructUses(t *testing.T) {
+	path := "../../samples/test_sources/type_checker/struct_use.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src)
+
+	tc := NewTypeChecker()
+	tc.TypeCheckProgram(program)
+
+	if tc.FoundError {
+		log.Fatal("Found errors during type checking")
+	}
+}

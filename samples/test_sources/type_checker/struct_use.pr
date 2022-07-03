@@ -1,0 +1,20 @@
+struct StructTest {
+    a: [i64],
+    b: bool,
+    c: char,
+}
+
+let a = 300;
+let c = 'c';
+
+let test: StructTest = StructTest {
+    a: [a],
+    b: true,
+    c
+};
+
+let other_test = StructTest {
+    a: [i64;],
+    b: false,
+    c: 'd'
+};

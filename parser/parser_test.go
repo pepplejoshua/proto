@@ -253,6 +253,7 @@ func TestParsingComplexTypes(t *testing.T) {
 		{"[1, 2, 3];", "[i64]"},
 		{"[];", "[Person]"},
 		{"[a, b, c];", "[untyped]"},
+		{"[1];", "[i64]"},
 	}
 
 	for index, node := range contents {
