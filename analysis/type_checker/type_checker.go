@@ -135,6 +135,10 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
+	tc.SetTypeForName(s.Name.Token, s.Name.Id_Type)
+}
+
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 	tc.TypeCheck(assign.Assigned)
 	tc.TypeCheck(assign.Target)
@@ -635,10 +639,6 @@ func (tc *TypeChecker) TypeCheckTuple(tuple *ast.Tuple) {
 }
 
 func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
-	if !strings.Contains(arr.Type().TypeSignature(), "untyped") {
-		return
-	}
-
 	var arr_type *ast.Proto_Array = nil
 	for _, item := range arr.Items {
 		tc.TypeCheck(item)

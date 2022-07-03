@@ -144,7 +144,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.Resolve(actual.Expr)
 	case *ast.Tuple:
 		nr.ResolveTuple(actual)
-	case *ast.Array: 
+	case *ast.Array:
 		nr.ResolveArray(actual)
 	case *ast.FunctionDef:
 		nr.ResolveFunctionDef(actual, RegularFunction)
@@ -381,6 +381,22 @@ func (nr *NameResolver) ResolveTuple(tuple *ast.Tuple) {
 }
 
 func (nr *NameResolver) ResolveArray(array *ast.Array) {
+	switch actual := array.ArrayType.InternalType.(type) {
+	case *ast.Proto_UserDef:
+		val := nr.GetValueAtName(actual.Name.Token)
+		switch val.(type) {
+		case *ast.Struct:
+		default:
+			var msg strings.Builder
+			line := array.Token.TokenSpan.Line
+			col := array.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct Identifier '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
+			shared.ReportError("TypeChecker", msg.String())
+			nr.FoundError = true
+			return
+		}
+	}
 	for _, item := range array.Items {
 		nr.Resolve(item)
 	}

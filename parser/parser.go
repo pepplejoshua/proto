@@ -228,7 +228,12 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 				StructName: struct_name,
 				Fields:     fields,
 				StructType: &ast.Proto_UserDef{
-					Ident: *struct_name,
+					Name: struct_name,
+					Definition: ast.Struct{
+						Start:   start,
+						Name:    *struct_name,
+						Members: []*ast.Identifier{},
+					},
 				},
 			}
 		} else {
@@ -277,22 +282,34 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		var arr_type ast.ProtoType = nil
 		tried_annotation := false
 		index := p.index - 2 // track current token for later use
+		var expr ast.Expression = nil
 		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_BRACKET {
 			if arr_type == nil && !tried_annotation {
 				// 	// see if array is type annotated
 				potential := p.parse_type(true)
 				tried_annotation = true
 				if potential != nil {
+					switch actual := potential.(type) {
+					case *ast.Proto_UserDef:
+						if p.cur.Type != lexer.SEMI_COLON {
+							expr = actual.Name
+							continue
+						}
+					}
 					arr_type = potential
 					p.consume(lexer.SEMI_COLON)
+					continue
 				} else {
 					p.cur = p.tokens[index]
 					p.peek = p.tokens[index+1]
 					p.index = index + 2
+					continue
 				}
 			}
 
-			expr := p.parse_expr(false)
+			if expr == nil {
+				expr = p.parse_expr(false)
+			}
 			items = append(items, expr)
 
 			if arr_type == nil {
@@ -308,6 +325,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 			if p.cur.Type != lexer.CLOSE_BRACKET {
 				p.consume(lexer.COMMA)
 			}
+			expr = nil
 		}
 		p.consume(lexer.CLOSE_BRACKET)
 
@@ -636,7 +654,8 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 	case lexer.IDENT:
 		token := p.parse_identifier()
 		proto_type = &ast.Proto_UserDef{
-			Ident: *token,
+			Name:       token,
+			Definition: ast.Struct{},
 		}
 	default:
 		if !try {
@@ -726,6 +745,7 @@ func (p *Parser) parse_struct() *ast.Struct {
 		Name:    *struct_name,
 		Members: members,
 	}
+
 	return proto_struct
 }
 

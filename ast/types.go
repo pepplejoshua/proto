@@ -63,11 +63,12 @@ func (t *Proto_Tuple) TypeSignature() string {
 }
 
 type Proto_UserDef struct {
-	Ident Identifier
+	Name       *Identifier
+	Definition Struct
 }
 
 func (u *Proto_UserDef) TypeSignature() string {
-	return u.Ident.LiteralRepr()
+	return u.Name.LiteralRepr()
 }
 
 type Proto_Range struct {

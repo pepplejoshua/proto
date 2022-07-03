@@ -12,7 +12,7 @@ if a - b == c {
 }
 
 struct Struct {
-    a: i64
+    a: i64,
     b: bool
 }
 

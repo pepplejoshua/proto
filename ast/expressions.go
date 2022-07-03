@@ -366,7 +366,7 @@ type StructInitialization struct {
 	Start      lexer.ProtoToken
 	StructName *Identifier
 	Fields     map[*Identifier]Expression
-	StructType ProtoType
+	StructType *Proto_UserDef
 }
 
 func (s *StructInitialization) LiteralRepr() string {

@@ -9,3 +9,13 @@ let g: (i64, i64, i64, i64, [i64]);
     g = f;
 }
 g;
+
+struct Test {
+    a: i64
+}
+
+let b = Test {
+    a
+};
+
+let a = [Test;];
