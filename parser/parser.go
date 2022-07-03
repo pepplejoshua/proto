@@ -285,24 +285,19 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		var expr ast.Expression = nil
 		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_BRACKET {
 			if arr_type == nil && !tried_annotation {
-				// 	// see if array is type annotated
+				// see if array is type annotated
 				potential := p.parse_type(true)
 				tried_annotation = true
-				is_expr := false
 				if potential != nil {
-					switch actual := potential.(type) {
-					case *ast.Proto_UserDef:
-						if p.cur.Type != lexer.SEMI_COLON {
-							expr = actual.Name
-							is_expr = true
-							break
-						}
-					}
-					if !is_expr {
-						arr_type = potential
-						p.consume(lexer.SEMI_COLON)
+					if p.cur.Type != lexer.SEMI_COLON {
+						p.cur = p.tokens[index]
+						p.peek = p.tokens[index+1]
+						p.index = index + 2
 						continue
 					}
+					arr_type = potential
+					p.consume(lexer.SEMI_COLON)
+					continue
 				} else {
 					p.cur = p.tokens[index]
 					p.peek = p.tokens[index+1]

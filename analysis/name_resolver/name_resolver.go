@@ -395,9 +395,32 @@ func (nr *NameResolver) ResolveArray(array *ast.Array) {
 			nr.FoundError = true
 			return
 		}
+	case *ast.Proto_Array:
+		nr.ResolveArrayType(actual.InternalType, array.Token.TokenSpan)
 	}
 	for _, item := range array.Items {
 		nr.Resolve(item)
+	}
+}
+
+func (nr *NameResolver) ResolveArrayType(t ast.ProtoType, span lexer.Span) {
+	switch actual := t.(type) {
+	case *ast.Proto_UserDef:
+		val := nr.GetValueAtName(actual.Name.Token)
+		switch val.(type) {
+		case *ast.Struct:
+		default:
+			var msg strings.Builder
+			line := span.Line
+			col := span.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
+			shared.ReportError("TypeChecker", msg.String())
+			nr.FoundError = true
+			return
+		}
+	case *ast.Proto_Array:
+		nr.ResolveArrayType(actual.InternalType, span)
 	}
 }
 

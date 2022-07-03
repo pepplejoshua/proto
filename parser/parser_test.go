@@ -254,6 +254,8 @@ func TestParsingComplexTypes(t *testing.T) {
 		{"[];", "[Person]"},
 		{"[a, b, c];", "[untyped]"},
 		{"[1];", "[i64]"},
+		{"[[a], 1, 2];", "[untyped]"},
+		{"[1, 2];", "[untyped]"},
 	}
 
 	for index, node := range contents {
@@ -435,6 +437,7 @@ func TestParsingMembershipExpressions(t *testing.T) {
 		"another_tuple.0;",
 		"function_call().member;",
 		"arr[3].function().member;",
+		"arr[1].member[1];",
 	}
 
 	for index, node := range contents {

@@ -17,5 +17,3 @@ struct Test {
 let b = Test {
     a
 };
-
-let a = [Test;];

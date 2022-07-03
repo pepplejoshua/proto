@@ -1,0 +1,24 @@
+struct MembershipTest {
+    a: i64,
+    b: bool,
+    c: char,
+    d: [i64]
+}
+
+let a = MembershipTest {
+    a: 1,
+    b: true,
+    c: 'c',
+    d: [i64;]
+};
+
+a.c;
+// let c: char = a.c;
+// let c = a.d[0];
+
+let d: [[MembershipTest]] = [[a], [a]];
+d[0][0].c;
+let e: char = d[0][0].c;
+
+// let f = (1, 2, 3, a);
+// let g = f.3;

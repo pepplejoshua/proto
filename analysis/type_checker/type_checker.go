@@ -132,6 +132,12 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckIndexExpression(actual)
 	case *ast.Assignment:
 		tc.TypeCheckAssignment(actual)
+	// case *ast.FunctionDef:
+	// 	tc.TypeCheckFunctionDef(actual)
+	// case *ast.CallExpression:
+	// 	tc.TypeCheckCallExpr(actual)
+	case *ast.Membership:
+		tc.TypeCheckMembership(actual)
 	case *ast.Return:
 		if actual.Value != nil {
 			tc.TypeCheck(actual.Value)
@@ -141,6 +147,59 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		// do nothing
 	default:
 		shared.ReportError("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
+		tc.FoundError = true
+	}
+}
+
+func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
+	tc.TypeCheck(mem.Object)
+
+	member := mem.Member
+	switch actual := mem.Object.Type().(type) {
+	case *ast.Proto_UserDef:
+		switch ref := member.(type) {
+		case *ast.Identifier:
+			found := false
+			// println()
+			for _, actual_mem := range actual.Definition.Members {
+				// println(ref.LiteralRepr(), " == ", actual_mem.LiteralRepr())
+				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
+					mem.MembershipType = actual_mem.Type()
+					found = true
+					return
+				}
+			}
+			// println()
+			if !found {
+				var msg strings.Builder
+				line := mem.Start.TokenSpan.Line
+				col := mem.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("%s is not a member of %s Struct.",
+					ref.LiteralRepr(), actual.Name.LiteralRepr()))
+				shared.ReportError("TypeChecker", msg.String())
+				tc.FoundError = true
+			}
+		default:
+			var msg strings.Builder
+			line := mem.Start.TokenSpan.Line
+			col := mem.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Expected an identifier as member of Struct got %s, which is of type %s.",
+				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+	case *ast.Proto_Tuple:
+		// println(actual.TypeSignature())
+	default:
+		var msg strings.Builder
+		line := mem.Start.TokenSpan.Line
+		col := mem.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Expected a Struct type as target for membership operation but got %s, which is of type %s.",
+			mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
+		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
 	}
 }
@@ -166,9 +225,11 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 						shared.ReportError("TypeChecker", msg.String())
 						tc.FoundError = true
 					}
+
 				}
 			}
 		}
+		i.StructType.Definition = sdef.Definition
 	}
 }
 
@@ -228,7 +289,6 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 
 func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 	tc.TypeCheck(index.Indexable)
-
 	switch actual := index.Indexable.Type().(type) {
 	case *ast.Proto_Array:
 		tc.TypeCheck(index.Index)
@@ -244,6 +304,14 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 			return
 		}
 		index.ValueType = actual.InternalType
+		switch a := actual.InternalType.(type) {
+		case *ast.Proto_UserDef:
+			for _, mem := range a.Definition.Members {
+				println(mem.LiteralRepr())
+			}
+			val := tc.GetTypeForName(a.Name.Token)
+			index.ValueType = val
+		}
 	case *ast.Proto_Tuple:
 		var msg strings.Builder
 		line := index.Start.TokenSpan.Line

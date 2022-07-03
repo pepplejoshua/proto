@@ -6,3 +6,4 @@ tuple.1;
 another_tuple.0;
 function_call().member;
 arr[3].function().member;
+arr[1].member[1];
