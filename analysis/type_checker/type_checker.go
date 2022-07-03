@@ -88,6 +88,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.VariableDecl:
 		tc.TypeCheckVariableDecl(actual)
+	case *ast.Struct:
+		tc.TypeCheckStruct(actual)
 	case *ast.Identifier:
 		tc.TypeCheckIdentifier(actual)
 	case *ast.Tuple:
@@ -118,6 +120,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckInclusiveRange(actual)
 	case *ast.IndexExpression:
 		tc.TypeCheckIndexExpression(actual)
+	case *ast.Assignment:
+		tc.TypeCheckAssignment(actual)
 	case *ast.Return:
 		if actual.Value != nil {
 			tc.TypeCheck(actual.Value)
@@ -128,6 +132,53 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	default:
 		shared.ReportError("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 		tc.FoundError = true
+	}
+}
+
+func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
+	tc.TypeCheck(assign.Assigned)
+	tc.TypeCheck(assign.Target)
+	assigned := assign.Assigned
+	target := assign.Target
+
+	switch assign.AssignmentToken.Literal {
+	case lexer.ASSIGN:
+		if target.Type().TypeSignature() != assigned.Type().TypeSignature() {
+			var msg strings.Builder
+			line := assign.AssignmentToken.TokenSpan.Line
+			col := assign.AssignmentToken.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s but was assigned value of type %s.",
+				target.LiteralRepr(), target.Type().TypeSignature(), assigned.Type().TypeSignature()))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+	case lexer.PLUS_EQUAL, lexer.MINUS_EQUAL, lexer.STAR_EQUAL,
+		lexer.SLASH_EQUAL, lexer.MODULO_EQUAL:
+		if target.Type().TypeSignature() != "i64" {
+			var msg strings.Builder
+			line := assign.AssignmentToken.TokenSpan.Line
+			col := assign.AssignmentToken.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s and cannot use the %s operator reserved for i64 values.",
+				target.LiteralRepr(), target.Type().TypeSignature(), assign.AssignmentToken.Literal))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+
+		if assigned.Type().TypeSignature() != "i64" {
+			var msg strings.Builder
+			line := assign.AssignmentToken.TokenSpan.Line
+			col := assign.AssignmentToken.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator reserved for i64  values.",
+				assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
 	}
 }
 

@@ -144,7 +144,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.Resolve(actual.Expr)
 	case *ast.Tuple:
 		nr.ResolveTuple(actual)
-	case *ast.Array:
+	case *ast.Array: 
 		nr.ResolveArray(actual)
 	case *ast.FunctionDef:
 		nr.ResolveFunctionDef(actual, RegularFunction)
