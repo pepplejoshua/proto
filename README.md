@@ -453,3 +453,69 @@ fn main() {
 ```
 
 ## Structs
+
+Proto also allows structs. They're defined with a Rust-like syntax:
+
+```rust
+struct Span {
+    line: i64,
+    col: i64,
+    start: i64,
+    end: i64
+}
+
+struct Token {
+    Literal: str,
+    TokenSpan: Span,
+    TokenType: str
+}
+```
+
+Initialization of structs are also done with a Rust-like syntax:
+
+```rust
+let EOF_TOKEN: Token = Token {
+    Literal: "EOF",
+    TokenSpan: Span {
+        line: 20,
+        col: 1,
+        start: 15,
+        end: 15
+    },
+    TokenType: "EOF"
+}
+```
+
+Struct initializations are expression literals and can be used as such:
+
+```rust
+let tokens = [Token; Token {
+  Literal: "300",
+    TokenSpan: Span {
+        line: 19,
+        col: 1,
+        start: 13,
+        end: 15
+    },
+    TokenType: "I64"
+}, EOF_TOKEN];
+```
+
+When a struct is being initialized with a variable with the same name as a member of the struct, there is a short-hand inherited from Rust to make it easier:
+
+```rust
+struct Name {
+    first_name: str,
+    last_name: str
+}
+
+let first_name = "joshua";
+let last_name = "pepple";
+
+let name = Name {
+    first_name,
+    last_name
+};
+```
+
+Proto allows forgoing the `member: initializer` syntax for a `member` syntax when the `member` and `initializer` have the same name.

@@ -1,5 +1,5 @@
 struct Result {
-    a: i64
+    a: i64,
     b: bool
 }
 

@@ -704,12 +704,15 @@ func (p *Parser) parse_struct() *ast.Struct {
 
 	var members []*ast.Identifier
 
-	for p.cur.Type == lexer.IDENT {
+	for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_CURLY {
 		mem := p.parse_identifier()
 		p.consume(lexer.COLON)
 		mem_type := p.parse_type(false)
 		mem.Id_Type = mem_type
 		members = append(members, mem)
+		if p.cur.Type != lexer.CLOSE_CURLY {
+			p.consume(lexer.COMMA)
+		}
 	}
 
 	p.consume(p.cur.Type)
