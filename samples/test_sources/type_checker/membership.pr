@@ -13,12 +13,13 @@ let a = MembershipTest {
 };
 
 a.c;
-// let c: char = a.c;
-// let c = a.d[0];
+let c: char = a.c;
+let c: i64 = a.d[0];
 
 let d: [[MembershipTest]] = [[a], [a]];
 d[0][0].c;
 let e: char = d[0][0].c;
 
-// let f = (1, 2, 3, a);
-// let g = f.3;
+let f = (1, 2, 3, a);
+let g: MembershipTest = f.3;
+g.a;

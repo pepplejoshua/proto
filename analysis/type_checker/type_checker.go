@@ -5,6 +5,7 @@ import (
 	"proto/ast"
 	"proto/lexer"
 	"proto/shared"
+	"strconv"
 	"strings"
 )
 
@@ -161,8 +162,8 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		case *ast.Identifier:
 			found := false
 			// println()
-			for _, actual_mem := range actual.Definition.Members {
-				// println(ref.LiteralRepr(), " == ", actual_mem.LiteralRepr())
+			fetched := tc.GetTypeForName(actual.Name.Token).(*ast.Proto_UserDef)
+			for _, actual_mem := range fetched.Definition.Members {
 				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
 					mem.MembershipType = actual_mem.Type()
 					found = true
@@ -185,13 +186,37 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 			line := mem.Start.TokenSpan.Line
 			col := mem.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("Expected an identifier as member of Struct got %s, which is of type %s.",
+			msg.WriteString(fmt.Sprintf("Expected an identifier to access member of Struct but got %s, which is of type %s.",
 				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
 			shared.ReportError("TypeChecker", msg.String())
 			tc.FoundError = true
 		}
 	case *ast.Proto_Tuple:
-		// println(actual.TypeSignature())
+		switch ref := member.(type) {
+		case *ast.I64:
+			num, _ := strconv.ParseInt(ref.LiteralRepr(), 10, 64)
+			tup_len := len(actual.InternalTypes)
+			if num >= int64(tup_len) {
+				var msg strings.Builder
+				line := mem.Start.TokenSpan.Line
+				col := mem.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("Tuple has %d item (indexed from 0 to %d), so provided index(%d) is out of range.",
+					tup_len, tup_len-1, num))
+				tc.FoundError = true
+			}
+			mem.MembershipType = actual.InternalTypes[num]
+		default:
+			var msg strings.Builder
+			line := mem.Start.TokenSpan.Line
+			col := mem.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Expected an i64 to access slot in Tuple but got %s, which is of type %s.",
+				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+
 	default:
 		var msg strings.Builder
 		line := mem.Start.TokenSpan.Line
@@ -303,12 +328,12 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 			tc.FoundError = true
 			return
 		}
+		// for some reason, it hold on to the struct without its
+		// necessary contents so I have to do this to provide
+		// the necessary items
 		index.ValueType = actual.InternalType
 		switch a := actual.InternalType.(type) {
 		case *ast.Proto_UserDef:
-			for _, mem := range a.Definition.Members {
-				println(mem.LiteralRepr())
-			}
 			val := tc.GetTypeForName(a.Name.Token)
 			index.ValueType = val
 		}
