@@ -112,6 +112,12 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckGenericFor(actual)
 	case *ast.CollectionsForLoop:
 		tc.TypeCheckCollectionsFor(actual)
+	case *ast.Range:
+		tc.TypeCheckRange(actual)
+	case *ast.InclusiveRange:
+		tc.TypeCheckInclusiveRange(actual)
+	case *ast.IndexExpression:
+		tc.TypeCheckIndexExpression(actual)
 	case *ast.Return:
 		if actual.Value != nil {
 			tc.TypeCheck(actual.Value)
@@ -125,11 +131,154 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
+	tc.TypeCheck(index.Indexable)
+
+	switch actual := index.Indexable.Type().(type) {
+	case *ast.Proto_Array:
+		tc.TypeCheck(index.Index)
+		if index.Index.Type().TypeSignature() != "i64" {
+			// can only index with i64
+			var msg strings.Builder
+			line := index.Start.TokenSpan.Line
+			col := index.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("Arrays take index of type i64, got " + index.Indexable.Type().TypeSignature() + " instead.")
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+		index.ValueType = actual.InternalType
+	case *ast.Proto_Tuple:
+		var msg strings.Builder
+		line := index.Start.TokenSpan.Line
+		col := index.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Indexing a Tuple is not allowed. Use membership indexing instead (e.g tuple.0).")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	case *ast.Proto_Range:
+		var msg strings.Builder
+		line := index.Start.TokenSpan.Line
+		col := index.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Indexing a Range is not allowed.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	default:
+		var msg strings.Builder
+		line := index.Start.TokenSpan.Line
+		col := index.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Indexing is not allowed for the %s type.", actual.TypeSignature()))
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+}
+
+func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
+	tc.TypeCheck(ir.Start)
+	tc.TypeCheck(ir.End)
+
+	// ranges can currently only be i64 or characters
+	if ir.Start.Type().TypeSignature() != "i64" && ir.Start.Type().TypeSignature() != "char" {
+		var msg strings.Builder
+		line := ir.Operator.TokenSpan.Line
+		col := ir.Operator.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
+		msg.WriteString(ir.Start.Type().TypeSignature() + " type as start value of range.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+
+	// ranges can currently only be i64 or characters
+	if ir.End.Type().TypeSignature() != "i64" && ir.End.Type().TypeSignature() != "char" {
+		var msg strings.Builder
+		line := ir.Operator.TokenSpan.Line
+		col := ir.Operator.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
+		msg.WriteString(ir.Start.Type().TypeSignature() + " type as past end value of range.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
+	if ir.Start.Type().TypeSignature() != ir.End.Type().TypeSignature() {
+		var msg strings.Builder
+		line := ir.Operator.TokenSpan.Line
+		col := ir.Operator.TokenSpan.Col
+		start := ir.Start.Type().TypeSignature()
+		past_end := ir.End.Type().TypeSignature()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Expected both types in Range to be the same, but got " + start + ".." + past_end + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
+	ir.RangeType.InternalType = ir.Start.Type()
+}
+
+func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
+	tc.TypeCheck(r.Start)
+	tc.TypeCheck(r.PastEnd)
+
+	// ranges can currently only be i64 or characters
+	if r.Start.Type().TypeSignature() != "i64" && r.Start.Type().TypeSignature() != "char" {
+		var msg strings.Builder
+		line := r.Operator.TokenSpan.Line
+		col := r.Operator.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
+		msg.WriteString(r.Start.Type().TypeSignature() + " type as start value of range.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+
+	// ranges can currently only be i64 or characters
+	if r.PastEnd.Type().TypeSignature() != "i64" && r.PastEnd.Type().TypeSignature() != "char" {
+		var msg strings.Builder
+		line := r.Operator.TokenSpan.Line
+		col := r.Operator.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
+		msg.WriteString(r.Start.Type().TypeSignature() + " type as past end value of range.")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
+	if r.Start.Type().TypeSignature() != r.PastEnd.Type().TypeSignature() {
+		var msg strings.Builder
+		line := r.Operator.TokenSpan.Line
+		col := r.Operator.TokenSpan.Col
+		start := r.Start.Type().TypeSignature()
+		past_end := r.PastEnd.Type().TypeSignature()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Expected both types in Range to be the same, but got " + start + ".." + past_end + ".")
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
+	r.RangeType.InternalType = r.Start.Type()
+}
+
 func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) {
 	tc.TypeCheck(col_for.Collection)
 
 	switch actual := col_for.Collection.Type().(type) {
 	case *ast.Proto_Array:
+		tc.EnterTypeEnv()
+		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
+		tc.TypeCheckBlock(col_for.Body, false)
+		tc.ExitTypeEnv()
+	case *ast.Proto_Range:
 		tc.EnterTypeEnv()
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
 		tc.TypeCheckBlock(col_for.Body, false)

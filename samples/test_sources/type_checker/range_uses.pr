@@ -1,0 +1,7 @@
+let a = 1;
+let b = 5;
+let c = a..b;
+
+let d = 'a';
+let e = 'z';
+let f = d..=e;

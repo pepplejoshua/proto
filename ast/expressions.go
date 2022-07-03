@@ -314,12 +314,12 @@ type Range struct {
 	Start     Expression
 	PastEnd   Expression
 	Operator  lexer.ProtoToken
-	RangeType ProtoType
+	RangeType *Proto_Range
 }
 
 func (r *Range) LiteralRepr() string {
 	return r.Start.LiteralRepr() + ".." + r.PastEnd.LiteralRepr() +
-		": Range<" + r.RangeType.TypeSignature() + ">"
+		": " + r.RangeType.TypeSignature()
 }
 
 func (r *Range) Type() ProtoType {
@@ -330,12 +330,12 @@ type InclusiveRange struct {
 	Start     Expression
 	End       Expression
 	Operator  lexer.ProtoToken
-	RangeType ProtoType
+	RangeType *Proto_Range
 }
 
 func (i *InclusiveRange) LiteralRepr() string {
 	return i.Start.LiteralRepr() + "..=" + i.End.LiteralRepr() +
-		": Range<" + i.RangeType.TypeSignature() + ">"
+		": " + i.RangeType.TypeSignature()
 }
 
 func (i *InclusiveRange) Type() ProtoType {

@@ -27,3 +27,13 @@ let d = [1, 2, 3, 4, 5, 6];
 for i in d {
     i + 1;
 }
+
+for num in 1..=10 {
+    num + 1;
+}
+
+let c = 1..=20;
+
+for n in c {
+    n * 0;
+}

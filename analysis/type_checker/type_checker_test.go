@@ -104,3 +104,31 @@ func TestTypeCheckingLoops(t *testing.T) {
 		log.Fatal("Found errors during type checking")
 	}
 }
+
+func TestTypeCheckingRanges(t *testing.T) {
+	path := "../../samples/test_sources/type_checker/range_uses.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src)
+
+	tc := NewTypeChecker()
+	tc.TypeCheckProgram(program)
+
+	if tc.FoundError {
+		log.Fatal("Found errors during type checking")
+	}
+}
+
+func TestTypeCheckingIndexExpressions(t *testing.T) {
+	path := "../../samples/test_sources/type_checker/index_expr.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src)
+
+	tc := NewTypeChecker()
+	tc.TypeCheckProgram(program)
+
+	if tc.FoundError {
+		log.Fatal("Found errors during type checking")
+	}
+}

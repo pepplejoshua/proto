@@ -70,6 +70,14 @@ func (u *Proto_UserDef) TypeSignature() string {
 	return u.Ident.LiteralRepr()
 }
 
+type Proto_Range struct {
+	InternalType ProtoType
+}
+
+func (r *Proto_Range) TypeSignature() string {
+	return "Range<" + r.InternalType.TypeSignature() + ">"
+}
+
 type Proto_Unit struct{}
 
 func (u *Proto_Unit) TypeSignature() string {

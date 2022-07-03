@@ -540,17 +540,21 @@ func (p *Parser) parse_range(skip_struct_expr bool) ast.Expression {
 
 		if operator.Type == lexer.RANGE {
 			range_start = &ast.Range{
-				Start:     range_start,
-				PastEnd:   end,
-				Operator:  operator,
-				RangeType: range_type,
+				Start:    range_start,
+				PastEnd:  end,
+				Operator: operator,
+				RangeType: &ast.Proto_Range{
+					InternalType: range_type,
+				},
 			}
 		} else {
 			range_start = &ast.InclusiveRange{
-				Start:     range_start,
-				End:       end,
-				Operator:  operator,
-				RangeType: range_type,
+				Start:    range_start,
+				End:      end,
+				Operator: operator,
+				RangeType: &ast.Proto_Range{
+					InternalType: range_type,
+				},
 			}
 		}
 	}
