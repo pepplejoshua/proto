@@ -635,7 +635,7 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 			then := cond.ThenBody.BlockType.TypeSignature()
 			else_ := cond.ElseBody.Type().TypeSignature()
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ".")
+			msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ". ")
 			msg.WriteString("Please fix inconsistent types.")
 			shared.ReportError("TypeChecker", msg.String())
 			tc.FoundError = true

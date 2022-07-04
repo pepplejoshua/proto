@@ -62,3 +62,8 @@ let e: str = nested_return();
 let f: fn(i64, char) -> bool = returns_fn();
 let use_closure: bool = returns_fn()(1, 'c');
 let g: bool = f(1, 'c');
+let h: str = if f(1, 'c') {
+    "it works"
+} else {
+    "it also works"
+};
