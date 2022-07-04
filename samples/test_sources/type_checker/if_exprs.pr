@@ -15,3 +15,9 @@ let d: char = if a > 8 || 0 < a {
 } else {
     'd'
 };
+
+let e: bool = if d == 'a' {
+    true
+} else {
+    false
+};

@@ -43,3 +43,19 @@ if false {
 } else {
     3 * 4
 }
+
+let f = if true {
+    1
+} else {
+    2
+};
+
+while if true { true } else { false } {
+    
+}
+
+a = if b {
+    1
+} else {
+    2
+};

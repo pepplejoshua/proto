@@ -230,6 +230,9 @@ func TestParsingIfExpressions(t *testing.T) {
 		"(let b: i64 (if true { 1 }: i64 else (if (not false) { 2 }: i64 else { 3 }: i64): i64): i64)",
 		"(if true { (+ 1 2) }: untyped else { 1 }: i64): untyped",
 		"(if false { (+ 1 2) }: untyped else { (* 3 4) }: untyped): untyped",
+		"(let f: i64 (if true { 1 }: i64 else { 2 }: i64): i64)",
+		"(while (if true { true }: bool else { false }: bool): bool {  }: ())",
+		"(a = (if b { 1 }: i64 else { 2 }: i64): i64)",
 	}
 
 	for index, node := range contents {

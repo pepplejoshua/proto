@@ -150,9 +150,7 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	case *ast.Membership:
 		tc.TypeCheckMembership(actual)
 	case *ast.Return:
-		if actual.Value != nil {
-			tc.TypeCheck(actual.Value)
-		}
+		tc.TypeCheckReturn(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit, *ast.Break, *ast.Continue:
 		// do nothing
@@ -162,14 +160,69 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
+	if ret.Value != nil {
+		tc.TypeCheck(ret.Value)
+
+		if ret.Value.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
+			var msg strings.Builder
+			line := tc.FnDefSpan.Line
+			col := tc.FnDefSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("return value type %s does not match function return type, which is %s.",
+				ret.Value.Type().TypeSignature(), tc.CurReturnType.TypeSignature()))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+	} else {
+		if tc.CurReturnType.TypeSignature() != "()" {
+			// check if function return type is unit
+			var msg strings.Builder
+			line := ret.Token.TokenSpan.Line
+			col := ret.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("returning () does not match function return type, which is %s.",
+				tc.CurReturnType.TypeSignature()))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+	}
+}
+
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	tc.TypeCheck(call.Callable)
+
+	switch actual := call.Callable.Type().(type) {
+	case *ast.Proto_Function:
+		println(actual.Fn.Name.LiteralRepr())
+	default:
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s type cannot be called.", actual.TypeSignature()))
+		shared.ReportError("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
 }
 
 func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	if !tc.ContainsIdent(fn.Name.LiteralRepr()) {
 		tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
 	}
+	tc.EnterTypeEnv()
+	for _, param := range fn.ParameterList {
+		tc.SetTypeForName(param.Token, param.Id_Type)
+	}
+	prevFnDefSpan := tc.FnDefSpan
+	prevCurReturnType := tc.CurReturnType
+	tc.FnDefSpan = &fn.Start.TokenSpan
+	tc.CurReturnType = fn.ReturnType
+	tc.TypeCheckBlock(fn.Body, false)
+	tc.FnDefSpan = prevFnDefSpan
+	tc.CurReturnType = prevCurReturnType
+	tc.ExitTypeEnv()
 }
 
 func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
@@ -761,7 +814,22 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 			// so we can set block_type to its type
 			switch actual := node.(type) {
 			case ast.Expression:
+				if tc.CurReturnType != nil {
+					// we are in a function
+					if actual.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
+						var msg strings.Builder
+						line := tc.FnDefSpan.Line
+						col := tc.FnDefSpan.Col
+						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+						msg.WriteString(fmt.Sprintf("implicit return type %s does not match function return type, which is %s.",
+							actual.Type().TypeSignature(), tc.CurReturnType.TypeSignature()))
+						shared.ReportError("TypeChecker", msg.String())
+						tc.FoundError = true
+					}
+				}
 				block_type = actual.Type()
+			case *ast.Return:
+				// do nothing, since it has been checked
 			default:
 				block_type = &ast.Proto_Unit{}
 			}

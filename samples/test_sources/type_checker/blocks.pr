@@ -6,3 +6,5 @@ let d: bool = {
     let c = not true;
     not c
 };
+
+let e: () = {};
