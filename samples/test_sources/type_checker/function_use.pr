@@ -3,62 +3,62 @@ fn add_1_to(num: i64) -> i64 {
     num
 }
 
-// fn explicit_return() -> bool {
-//     if true {
-//         return true;
-//     }
-//     false
-// }
+fn explicit_return() -> bool {
+    if true {
+        return true;
+    }
+    false
+}
 
-// fn another_explicit_return(c: char) -> str {
-//     let res = c + 'a';
+fn another_explicit_return(c: char) -> str {
+    let res = c + 'a';
+    {
+        return "123";
+    }
+    return res;
+}
 
-//     {
-//         return "123";
-//     }
+fn returns() -> (char, i64) {
+    while true {
+        return ('a', 1);
+    }
 
-//     return res;
-// }
+    loop {
+        return ('b', 2);
+    }
 
-// fn returns() -> (char, i64) {
-//     while true {
-//         return ('a', 1);
-//     }
+    for i in 1..=10 {
+        return ('c', 3);
+    }
 
-//     loop {
-//         return ('b', 2);
-//     }
+    for mut i = 0; i <= 10; i += 1 {
+        return ('d', 4);
+    }
+    return ('e', 5);
+}
 
-//     for i in 1..=10 {
-//         return ('c', 3);
-//     }
+fn nested_return() -> str {
+    fn inner() -> char {
+        return 'a';
+    }
 
-//     for mut i = 0; i <= 10; i += 1 {
-//         return ('d', 4);
-//     }
-// }
+    return 'z' + inner();
+}
 
-// fn nested_return() -> str {
-//     fn inner() -> char {
-//         return 'a';
-//     }
+fn returns_fn() -> fn(i64, char) -> bool {
+    fn inner(num: i64, c: char) -> bool {
+        num += 1;
+        let string = c + 'c';
+        return false;
+    }
+    return inner;
+}
 
-//     return 'z' + inner();
-// }
-
-// fn returns_fn() -> fn(i64, char) -> bool {
-//     fn inner(num: i64, c: char) -> bool {
-//         num += 1;
-//         c += 'c';
-//         return false;
-//     }
-//     return inner;
-// }
-
-// let a: i64 = add_1_to(1);
-// let b: bool = explicit_return();
-// let c: str = another_explicit_return('a');
-// let d: (char, i64) = return();
-// let e: str = nested_return();
-// let f: fn(i64, char) -> bool = returns_fn();
-// let use_closure: bool = returns_fn()(1, 'c');
+let a: i64 = add_1_to(1);
+let b: bool = explicit_return();
+let c: str = another_explicit_return('a');
+let d: (char, i64) = returns();
+let e: str = nested_return();
+let f: fn(i64, char) -> bool = returns_fn();
+let use_closure: bool = returns_fn()(1, 'c');
+let g: bool = f(1, 'c');
