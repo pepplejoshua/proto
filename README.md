@@ -69,11 +69,11 @@ The **unit** type is the return type of statements (like variable definitions) a
   (1, 'c', "some string", false) is inferred to be or annotated (i64, char, str, bool)
   ```
 
-- Ranges are another complex type. They are annotated as `Range<T>`, where `T` is an ordinal type (i.e can be counted and put in a one-to-one correspondence with positive integers). Both `char` and `i64` types are ordinal by this definition. The elements in each of these sets of types can be compared to one another to attain some form of 'order'. In this way, they are similar to Pascal's subrange type. A range literal can be specified with a `start..end`, where the range terminates at 1 before the `end` provided. You can also specify an end-inclusive range literal using `start..=end`, where the range terminates exactly at the end. For example:
+- Ranges are another complex type. They don't need to be type annotated as their type will be inferred. Range types which are inferred as Range<`T`>, where `T` is an ordinal type (i.e can be counted and put in a one-to-one correspondence with positive integers). Both `char` and `i64` types are ordinal by this definition. The elements in each of these sets of types can be compared to one another to attain some form of 'order'. In this way, they are similar to Pascal's subrange type. A range literal can be specified with a `start..end`, where the range terminates at 1 before the `end` provided. You can also specify an end-inclusive range literal using `start..=end`, where the range terminates exactly at the end. For example:
 
   ```rs
-    let a: Range<i64> = 1..10 // runs from 1 to 9
-    let b: Range<char> = 'a'..='z' // runs from 'a' to 'z'
+    let a = 1..10 // runs from 1 to 9, and inferred as Range<i64>
+    let b = 'a'..='z' // runs from 'a' to 'z', and inferred as Range<char>
   ```
 
   It is an error to specify the start of a range to be bigger than its end. For example:
@@ -81,7 +81,7 @@ The **unit** type is the return type of statements (like variable definitions) a
   ```rs
     let a = 5;
     mut b = 2;
-    let c = a..=b; // this will result in an error
+    let c = a..=b; // this will result in a runtime error
   ```
 
   <br>
@@ -451,6 +451,50 @@ fn main() {
     println(tuple.0); // will preint "it is even"
 }
 ```
+
+Proto also allows passing functions as arguments to other functions and returning functions from other functions. Functions are treated as first class type:
+
+```rust
+fn combines_funcs(lhs: fn(i64, char) -> bool, rhs: fn(str, bool)-> char) -> fn(char, bool) -> bool {
+    let a = 1;
+    let b = 'a';
+    let c = "abc";
+    let d = false;
+    fn combined(l: char, r: bool) -> bool {
+        return r;
+    }
+    combined(rhs(c, d), lhs(a, b));
+    combined
+}
+
+fn some_fn(a: i64, b: char) -> bool {
+    if a > 5 {
+        true
+    } else if b == 'a' {
+        false
+    } else {
+        true
+    }
+}
+
+fn other_fn(c: str, d: bool) -> bool {
+    if d {
+        d
+    } else {
+        c == "some str"
+    }
+}
+
+let inner_fn: fn(char, bool) -> bool = combined_funcs(some_fn, other_fn);
+```
+
+Since functions are first class values, they can be assigned to variables:
+
+```rust
+let function: fn(str, bool) -> bool = other_fn; // the annotation is not required
+```
+
+In the above example, the type annotation can be very cumbersome to type and since it will be inferred during analysis, there is no need to type annotate the `function` variable.
 
 ## Structs
 

@@ -67,3 +67,4 @@ let h: str = if f(1, 'c') {
 } else {
     "it also works"
 };
+let i: fn() -> fn(i64, char) -> bool = returns_fn;
