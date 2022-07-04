@@ -88,8 +88,10 @@ func (u *Proto_Unit) TypeSignature() string {
 type Proto_Function struct {
 	Params *Proto_Tuple
 	Return ProtoType
+	Fn     *FunctionDef
 }
 
 func (f *Proto_Function) TypeSignature() string {
-	return f.Params.TypeSignature() + " -> " + f.Return.TypeSignature()
+	return "fn" + f.Params.TypeSignature() +
+		" -> " + f.Return.TypeSignature()
 }

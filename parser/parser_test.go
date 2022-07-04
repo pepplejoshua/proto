@@ -153,6 +153,8 @@ func TestParsingVariableDeclarations(t *testing.T) {
 		"(let n: UserDefined)",
 		"(mut o: ())",
 		"(mut p: () ())",
+		"(let q: fn(i64, bool) -> char)",
+		"(let r: fn(fn(i64, bool) -> bool, fn(char, str) -> ()) -> fn(i64, str) -> ())",
 	}
 
 	for index, node := range contents {
@@ -348,6 +350,7 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 		"(fn do_nothing() -> () { (return) }: ())",
 		"(fn no_params() -> char { 'a' }: char)",
 		"(fn three_params(m: i64, n: bool, o: [str]) -> () { m }: untyped)",
+		"(fn closure(c: char, b: bool) -> fn(char, bool) -> str {  }: ())",
 	}
 
 	for index, node := range contents {

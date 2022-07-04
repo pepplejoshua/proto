@@ -15,12 +15,18 @@ var UnaryOps = GetBuiltinUnaryOperators()
 type TypeChecker struct {
 	TypeEnvs   []map[string]ast.ProtoType
 	FoundError bool
+	// these 2 are used for typechecking function calls,
+	// vs updating every function to take a flag.
+	CurReturnType ast.ProtoType
+	FnDefSpan     *lexer.Span
 }
 
 func NewTypeChecker() *TypeChecker {
 	return &TypeChecker{
-		TypeEnvs:   []map[string]ast.ProtoType{},
-		FoundError: false,
+		TypeEnvs:      []map[string]ast.ProtoType{},
+		FoundError:    false,
+		CurReturnType: nil,
+		FnDefSpan:     nil,
 	}
 }
 
@@ -87,6 +93,10 @@ func (tc *TypeChecker) TypeCheckProgram(prog *ast.ProtoProgram) {
 		})
 	}
 
+	for _, fn := range prog.FunctionDefs {
+		tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
+	}
+
 	for _, node := range prog.Contents {
 		tc.TypeCheck(node)
 	}
@@ -133,10 +143,10 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckIndexExpression(actual)
 	case *ast.Assignment:
 		tc.TypeCheckAssignment(actual)
-	// case *ast.FunctionDef:
-	// 	tc.TypeCheckFunctionDef(actual)
-	// case *ast.CallExpression:
-	// 	tc.TypeCheckCallExpr(actual)
+	case *ast.FunctionDef:
+		tc.TypeCheckFunctionDef(actual)
+	case *ast.CallExpression:
+		tc.TypeCheckCallExpr(actual)
 	case *ast.Membership:
 		tc.TypeCheckMembership(actual)
 	case *ast.Return:
@@ -152,6 +162,16 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
+	tc.TypeCheck(call.Callable)
+}
+
+func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
+	if !tc.ContainsIdent(fn.Name.LiteralRepr()) {
+		tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
+	}
+}
+
 func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 	tc.TypeCheck(mem.Object)
 
@@ -161,7 +181,6 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		switch ref := member.(type) {
 		case *ast.Identifier:
 			found := false
-			// println()
 			fetched := tc.GetTypeForName(actual.Name.Token).(*ast.Proto_UserDef)
 			for _, actual_mem := range fetched.Definition.Members {
 				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
@@ -170,7 +189,6 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 					return
 				}
 			}
-			// println()
 			if !found {
 				var msg strings.Builder
 				line := mem.Start.TokenSpan.Line
@@ -230,7 +248,8 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 }
 
 func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
-	actual := tc.GetTypeForName(i.StructName.Token)
+	// actual := tc.GetTypeForName(i.StructName.Token)
+	actual := i.Type()
 
 	switch sdef := actual.(type) {
 	case *ast.Proto_UserDef:
@@ -259,10 +278,12 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 }
 
 func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
-	tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
-		Name:       &s.Name,
-		Definition: s,
-	})
+	if !tc.ContainsIdent(s.Name.LiteralRepr()) {
+		tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
+			Name:       &s.Name,
+			Definition: s,
+		})
+	}
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
@@ -488,7 +509,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		type_ := col_for.Collection.Type().TypeSignature()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("Collections looping through a %s is not allowed. ", type_))
-		msg.WriteString("Only arrays can be (for now).")
+		msg.WriteString("Only arrays and ranges are allowed (for now).")
 		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
 		return

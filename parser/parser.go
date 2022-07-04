@@ -26,6 +26,13 @@ func New(src string) *Parser {
 
 	token := l.Next_Token()
 	for token.Type != lexer.END {
+		if token.Type == lexer.ERROR {
+			// lexer error
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprintf("%d:%d ", token.TokenSpan.Line, token.TokenSpan.Col))
+			msg.WriteString(token.Literal)
+			shared.ReportErrorAndExit("Lexer", msg.String())
+		}
 		p.tokens = append(p.tokens, token)
 		token = l.Next_Token()
 	}
@@ -656,6 +663,52 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 			Name:       token,
 			Definition: &ast.Struct{},
 		}
+	case lexer.FN:
+		p.consume(p.cur.Type)
+		tuple_type := p.parse_type(try)
+
+		switch actual := tuple_type.(type) {
+		case *ast.Proto_Tuple:
+			var return_type ast.ProtoType = nil
+
+			if p.cur.Type == lexer.ARROW {
+				p.consume(lexer.ARROW)
+				return_type = p.parse_type(try)
+			} else {
+				return_type = &ast.Proto_Unit{}
+			}
+			proto_type = &ast.Proto_Function{
+				Params: actual,
+				Return: return_type,
+				Fn:     &ast.FunctionDef{},
+			}
+		case *ast.Proto_Unit:
+			var return_type ast.ProtoType = nil
+
+			if p.cur.Type == lexer.ARROW {
+				p.consume(lexer.ARROW)
+				return_type = p.parse_type(try)
+			} else {
+				return_type = &ast.Proto_Unit{}
+			}
+			proto_type = &ast.Proto_Function{
+				Params: &ast.Proto_Tuple{
+					InternalTypes: []ast.ProtoType{},
+				},
+				Return: return_type,
+				Fn:     &ast.FunctionDef{},
+			}
+		default:
+			if !try {
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+				msg.WriteString(" Expected function type signature to contain tuple of parameter types but found ")
+				msg.WriteString(actual.TypeSignature() + ".")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			} else {
+				return nil
+			}
+		}
 	default:
 		if !try {
 			var msg strings.Builder
@@ -860,16 +913,28 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		p.consume(p.cur.Type)
 		return_type = p.parse_type(false)
 	}
-
 	body := p.parse_block()
-
-	return &ast.FunctionDef{
+	fn_def := &ast.FunctionDef{
 		Start:         start,
 		Name:          name,
 		ParameterList: paramslist,
 		ReturnType:    return_type,
 		Body:          body,
 	}
+	type_params := &ast.Proto_Tuple{
+		InternalTypes: []ast.ProtoType{},
+	}
+	for _, param := range paramslist {
+		type_params.InternalTypes = append(type_params.InternalTypes, param.Id_Type)
+	}
+	function_type_sig := &ast.Proto_Function{
+		Params: type_params,
+		Return: return_type,
+		Fn:     fn_def,
+	}
+	fn_def.FunctionTypeSignature = function_type_sig
+
+	return fn_def
 }
 
 func (p *Parser) parse_protonode() ast.ProtoNode {

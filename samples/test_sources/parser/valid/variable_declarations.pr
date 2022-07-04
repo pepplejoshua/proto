@@ -14,3 +14,5 @@ mut m = [(1, 2, 'a'), (2, 3, 'b')];
 let n: UserDefined;
 mut o: ();
 mut p = ();
+let q: fn(i64, bool) -> char;
+let r: fn(fn(i64, bool) -> bool, fn(char, str)) -> fn(i64, str);

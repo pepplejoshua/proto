@@ -17,3 +17,5 @@ fn no_params() -> char {
 fn three_params(m: i64, n: bool, o: [str]) {
     m
 }
+
+fn closure(c: char, b: bool) -> fn(char, bool) -> str {}
