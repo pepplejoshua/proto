@@ -1,7 +1,6 @@
 let a: bool;
 fn main() {
     a = is_even();
-    return false;
 }
 
 fn is_even(a: i64) -> bool {
