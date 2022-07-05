@@ -4,3 +4,5 @@ a..b;
 'a'..'z';
 'a'..='e';
 300..end;
+
+let range: Range<i64> = 1..5;

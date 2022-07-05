@@ -84,6 +84,7 @@ const (
 	IN       = "IN"
 	WHILE    = "WHILE"
 
+	RANGE_TYPE  = "RANGE_TYPE"
 	STRING_TYPE = "STRING_TYPE"
 	CHAR_TYPE   = "CHAR_TYPE"
 	BOOL_TYPE   = "BOOL_TYPE"
@@ -111,6 +112,7 @@ var keywords = map[string]TokenType{
 	"char":     CHAR_TYPE,
 	"bool":     BOOL_TYPE,
 	"i64":      I64_TYPE,
+	"Range":    RANGE_TYPE,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {

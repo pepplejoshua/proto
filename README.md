@@ -69,11 +69,11 @@ The **unit** type is the return type of statements (like variable definitions) a
   (1, 'c', "some string", false) is inferred to be or annotated (i64, char, str, bool)
   ```
 
-- Ranges are another complex type. They don't need to be type annotated as their type will be inferred. Range types which are inferred as Range<`T`>, where `T` is an ordinal type (i.e can be counted and put in a one-to-one correspondence with positive integers). Both `char` and `i64` types are ordinal by this definition. The elements in each of these sets of types can be compared to one another to attain some form of 'order'. In this way, they are similar to Pascal's subrange type. A range literal can be specified with a `start..end`, where the range terminates at 1 before the `end` provided. You can also specify an end-inclusive range literal using `start..=end`, where the range terminates exactly at the end. For example:
+- Ranges are another complex type. They don't need to be type annotated, although they can be. Range types are inferred or annotated as Range<`T`>, where `T` is an ordinal type (i.e can be counted and put in a one-to-one correspondence with positive integers). Both `char` and `i64` types are ordinal by this definition. The elements in each of these sets of types can be compared to one another to attain some form of 'order'. In this way, they are similar to Pascal's subrange type. A range literal can be specified with a `start..end`, where the range terminates at 1 before the `end` provided. You can also specify an end-inclusive range literal using `start..=end`, where the range terminates exactly at the end. For example:
 
   ```rs
     let a = 1..10 // runs from 1 to 9, and inferred as Range<i64>
-    let b = 'a'..='z' // runs from 'a' to 'z', and inferred as Range<char>
+    let b: Range<char> = 'a'..='z' // runs from 'a' to 'z', and inferred as Range<char>
   ```
 
   It is an error to specify the start of a range to be bigger than its end. For example:

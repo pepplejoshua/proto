@@ -419,6 +419,7 @@ func TestParsingRanges(t *testing.T) {
 		"'a'..'z': Range<char>;",
 		"'a'..='e': Range<char>;",
 		"300..end: Range<untyped>;",
+		"(let range: Range<i64> 1..5: Range<i64>)",
 	}
 
 	for index, node := range contents {

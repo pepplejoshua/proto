@@ -54,6 +54,10 @@ fn returns_fn() -> fn(i64, char) -> bool {
     return inner;
 }
 
+fn returns_range(start: i64, end: i64) -> Range<i64> {
+    start..=end
+}
+
 let a: i64 = add_1_to(1);
 let b: bool = explicit_return();
 let c: str = another_explicit_return('a');
@@ -68,3 +72,4 @@ let h: str = if f(1, 'c') {
     "it also works"
 };
 let i: fn() -> fn(i64, char) -> bool = returns_fn;
+let j: Range<i64> = returns_range(1, 100);

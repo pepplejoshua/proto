@@ -643,6 +643,31 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		proto_type = &ast.Proto_Array{
 			InternalType: internal,
 		}
+	case lexer.RANGE_TYPE:
+		p.consume(p.cur.Type)
+		p.consume(lexer.LESS_THAN)
+		start := p.cur
+		inner_type := p.parse_type(try)
+		switch actual := inner_type.(type) {
+		case *ast.Proto_Builtin:
+			if actual.TypeToken.Literal != "i64" && actual.TypeToken.Literal != "char" {
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
+				msg.WriteString(" Expected Range type signature to contain i64 or char type but got ")
+				msg.WriteString(inner_type.TypeSignature() + ".")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			}
+		default:
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
+			msg.WriteString(" Expected Range type signature to contain i64 or char type but got ")
+			msg.WriteString(inner_type.TypeSignature() + ".")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		}
+		p.consume(lexer.GREATER_THAN)
+		proto_type = &ast.Proto_Range{
+			InternalType: inner_type,
+		}
 	case lexer.OPEN_PAREN:
 		p.consume(p.cur.Type)
 		var contained []ast.ProtoType
