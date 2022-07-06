@@ -160,3 +160,17 @@ func TestResolvingMembership(t *testing.T) {
 		log.Fatal("Found errors during name resolution")
 	}
 }
+
+func TestResolvingLetSingleAssignment(t *testing.T) {
+	path := "../../samples/test_sources/name_resolver/let_single_assignment.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src)
+
+	nr := NewNameResolver()
+	nr.ResolveProgram(program)
+
+	if nr.FoundError {
+		log.Fatal("Found errors during name resolution")
+	}
+}

@@ -209,9 +209,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 }
 
 func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
-	if !tc.ContainsIdent(fn.Name.LiteralRepr()) {
-		tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
-	}
+	tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
 	tc.EnterTypeEnv()
 	for _, param := range fn.ParameterList {
 		tc.SetTypeForName(param.Token, param.Id_Type)
@@ -332,12 +330,10 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 }
 
 func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
-	if !tc.ContainsIdent(s.Name.LiteralRepr()) {
-		tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
-			Name:       &s.Name,
-			Definition: s,
-		})
-	}
+	tc.SetTypeForName(s.Name.Token, &ast.Proto_UserDef{
+		Name:       &s.Name,
+		Definition: s,
+	})
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {

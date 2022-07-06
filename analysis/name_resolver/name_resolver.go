@@ -18,6 +18,7 @@ const (
 
 type Pair struct {
 	Value       ast.ProtoNode
+	Mutable     bool
 	Initialized bool
 	Defined     bool
 }
@@ -51,7 +52,7 @@ func (nr *NameResolver) topscope() map[string]*Pair {
 	return nr.Scopes[len(nr.Scopes)-1]
 }
 
-func (nr *NameResolver) DeclareName(name lexer.ProtoToken, value ast.ProtoNode) {
+func (nr *NameResolver) DeclareName(name lexer.ProtoToken, value ast.ProtoNode, mutable bool) {
 	if len(nr.Scopes) == 0 {
 		return
 	}
@@ -59,6 +60,7 @@ func (nr *NameResolver) DeclareName(name lexer.ProtoToken, value ast.ProtoNode) 
 	scope := nr.topscope()
 	scope[name.Literal] = &Pair{
 		Value:       value,
+		Mutable:     mutable,
 		Initialized: false,
 		Defined:     false,
 	}
@@ -138,6 +140,23 @@ func (nr *NameResolver) GetValueAtName(name lexer.ProtoToken) ast.ProtoNode {
 	return nil
 }
 
+func (nr *NameResolver) GetMutabilityAtName(name lexer.ProtoToken) bool {
+	for i := len(nr.Scopes) - 1; i >= 0; i-- {
+		cur_scope := nr.Scopes[i]
+		if val, ok := cur_scope[name.Literal]; ok {
+			return val.Mutable
+		}
+	}
+	var msg strings.Builder
+	line := name.TokenSpan.Line
+	col := name.TokenSpan.Col
+	msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+	msg.WriteString("Undeclared variable.")
+	shared.ReportError("NameResolver", msg.String())
+	nr.FoundError = true
+	return false
+}
+
 func (nr *NameResolver) ContainsIdent(ident string) bool {
 	for i := len(nr.Scopes) - 1; i >= 0; i-- {
 		cur_scope := nr.Scopes[i]
@@ -151,13 +170,13 @@ func (nr *NameResolver) ContainsIdent(ident string) bool {
 func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 	nr.EnterScope()
 	for _, fn := range prog.FunctionDefs {
-		nr.DeclareName(fn.Name.Token, fn)
+		nr.DeclareName(fn.Name.Token, fn, false)
 		nr.DefineName(fn.Name.Token)
 		nr.InitializeName(fn.Name.Token)
 	}
 
 	for _, struct_node := range prog.Structs {
-		nr.DeclareName(struct_node.Name.Token, struct_node)
+		nr.DeclareName(struct_node.Name.Token, struct_node, false)
 		nr.DefineName(struct_node.Name.Token)
 		nr.InitializeName(struct_node.Name.Token)
 	}
@@ -272,7 +291,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 }
 
 func (nr *NameResolver) ResolveStruct(str *ast.Struct) {
-	nr.DeclareName(str.Name.Token, str)
+	nr.DeclareName(str.Name.Token, str, false)
 	nr.DefineName(str.Name.Token)
 	nr.InitializeName(str.Name.Token)
 }
@@ -352,7 +371,7 @@ func (nr *NameResolver) ResolveRange(range_ *ast.Range) {
 
 func (nr *NameResolver) ResolveCollectionsForLoop(cfor *ast.CollectionsForLoop) {
 	nr.EnterScope()
-	nr.DeclareName(cfor.LoopVar.Token, &cfor.LoopVar)
+	nr.DeclareName(cfor.LoopVar.Token, &cfor.LoopVar, false)
 	nr.Resolve(cfor.Collection)
 	nr.DefineName(cfor.LoopVar.Token)
 	nr.InitializeName(cfor.LoopVar.Token)
@@ -399,14 +418,14 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 	enclosing := nr.ScopeTag
 	nr.ScopeTag = fnScope
 	if !nr.ContainsIdent(fn.Name.LiteralRepr()) {
-		nr.DeclareName(fn.Name.Token, fn)
+		nr.DeclareName(fn.Name.Token, fn, false)
 		nr.DefineName(fn.Name.Token)
 		nr.InitializeName(fn.Name.Token)
 	}
 
 	nr.EnterScope()
 	for _, param := range fn.ParameterList {
-		nr.DeclareName(param.Token, param)
+		nr.DeclareName(param.Token, param, false)
 		nr.DefineName(param.Token)
 		nr.InitializeName(param.Token)
 	}
@@ -471,6 +490,15 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 
 	switch actual := assignment.Target.(type) {
 	case *ast.Identifier:
+		if !nr.GetMutabilityAtName(actual.Token) && nr.GetInitializedAtName(actual.Token) {
+			var msg strings.Builder
+			line := actual.Token.TokenSpan.Line
+			col := actual.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
+			shared.ReportError("NameResolver", msg.String())
+			nr.FoundError = true
+		}
 		if !nr.GetInitializedAtName(actual.Token) {
 			nr.InitializeName(actual.Token)
 		}
@@ -494,7 +522,7 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
 }
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
-	nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee)
+	nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 	if var_def.Assigned != nil {
 		nr.Resolve(var_def.Assigned)
 		nr.DefineName(var_def.Assignee.Token)
