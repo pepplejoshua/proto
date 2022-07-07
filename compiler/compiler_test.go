@@ -40,6 +40,35 @@ func TestIntegerArithmetic(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestBooleanValues(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input:             "true;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+			},
+		},
+		{
+			input:             "false;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+			},
+		},
+		{
+			input:             "false; true;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 
@@ -71,7 +100,7 @@ func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
 func testInstructions(t *testing.T, exp opcode.VMInstructions, ins opcode.VMInstructions) {
 	t.Helper()
 	if len(exp) != len(ins) {
-		t.Errorf("Wrong instructions.\nwant: %q\ngot: %q", exp, ins)
+		t.Errorf("Wrong instructions.\nwant: %q\ngot: %q", exp.Disassemble(), ins.Disassemble())
 	}
 
 	for i, in := range exp {
@@ -81,7 +110,7 @@ func testInstructions(t *testing.T, exp opcode.VMInstructions, ins opcode.VMInst
 	}
 }
 
-func testConstants(t *testing.T, exp []string, cons []ast.Expression) {
+func testConstants(t *testing.T, exp []string, cons []ast.ProtoNode) {
 	t.Helper()
 	if len(exp) != len(cons) {
 		t.Errorf("Expected %d constants, got %d.", len(exp), len(cons))

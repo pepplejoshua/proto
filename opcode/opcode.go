@@ -38,6 +38,8 @@ func (i *VMInstructions) formatInstruction(def *InstructionDef, ops []int) strin
 	}
 
 	switch opcount {
+	case 0:
+		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, ops[0])
 	}
@@ -54,10 +56,14 @@ type InstructionDef struct {
 
 const (
 	LoadConstant OpCode = iota
+	PushBoolTrue
+	PushBoolFalse
 )
 
 var Definitions = map[OpCode]*InstructionDef{
-	LoadConstant: {"LoadConstant", []int{2}}, // max size of constants pool is 65535 (starting at 0)
+	LoadConstant:  {"LoadConstant", []int{2}}, // max size of constants pool is 65535 (starting at 0)
+	PushBoolTrue:  {"PushBoolTrue", []int{}},  // an OpCode for pushing a true value onto stack
+	PushBoolFalse: {"PushBoolFalse", []int{}}, // an OpCode for pushing a false value onto stack
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
@@ -80,6 +86,7 @@ func MakeInstruction(op OpCode, operands ...int) []byte {
 				// turn operand into an 16 bits, and then fit it in BigEndian order
 				// into the instruction array of bytes starting at offset
 				binary.BigEndian.PutUint16(ins[offset:], uint16(operand))
+			case 0:
 			}
 			offset += w // increase offset by the width of last operand
 		}
@@ -100,10 +107,10 @@ func ReadOperands(def *InstructionDef, ins VMInstructions) ([]int, int) {
 	// this decodes operands
 	for i, width := range def.OperandWidths {
 		switch width {
+		case 0:
 		case 2:
 			val := int(ReadUInt16(ins[offset:]))
 			operands[i] = val
-			println(ins[offset+1])
 		}
 		offset += width
 	}

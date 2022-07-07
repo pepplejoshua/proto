@@ -9,6 +9,8 @@ func TestMakingOpCode(t *testing.T) {
 		expectedInstruction []byte
 	}{
 		{LoadConstant, []int{65534}, []byte{byte(LoadConstant), 255, 254}},
+		{PushBoolFalse, []int{}, []byte{byte(PushBoolFalse)}},
+		{PushBoolTrue, []int{}, []byte{byte(PushBoolTrue)}},
 	}
 
 	for _, test := range tests {
@@ -21,7 +23,7 @@ func TestMakingOpCode(t *testing.T) {
 
 		for i, b := range test.expectedInstruction {
 			if ins[i] != test.expectedInstruction[i] {
-				t.Errorf("Expected %d at instruction pos %d but got %d",
+				t.Errorf("Expected %d at instruction position %d but got %d",
 					b, i, ins[i])
 			}
 		}
@@ -41,15 +43,19 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(LoadConstant, 1),
 		MakeInstruction(LoadConstant, 2),
 		MakeInstruction(LoadConstant, 65535),
+		MakeInstruction(PushBoolFalse),
+		MakeInstruction(PushBoolTrue),
 	})
 
 	exp := `0000 LoadConstant 1
 0003 LoadConstant 2
 0006 LoadConstant 65535
+0009 PushBoolFalse
+0010 PushBoolTrue
 `
 
 	if ins.Disassemble() != exp {
-		t.Errorf("Incorrect instruction format.\nwant: %q\ngot:%q",
+		t.Errorf("Incorrect instruction format.\nwant: %q\ngot: %q",
 			exp, ins.Disassemble())
 	}
 }
@@ -61,6 +67,8 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		bytesRead int
 	}{
 		{LoadConstant, []int{65535}, 2},
+		{PushBoolFalse, []int{}, 0},
+		{PushBoolTrue, []int{}, 0},
 	}
 
 	for _, tt := range tests {
