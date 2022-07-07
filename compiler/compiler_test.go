@@ -15,6 +15,55 @@ type compilerTestCase struct {
 	expectedIns       []opcode.VMInstructions
 }
 
+func TestUnaryOperations(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "-1;",
+			expectedConstants: []string{
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.NegateI64),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input:             "not true;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.NegateBool),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input:             "not false;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.NegateBool),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "1 + -1;",
+			expectedConstants: []string{
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.NegateI64),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func TestBinaryOperations(t *testing.T) {
 	tests := []compilerTestCase{
 		{

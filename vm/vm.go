@@ -101,6 +101,53 @@ func (vm *VM) AddI64(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) AddChar(ip int) int {
+	rhs := vm.PopOffStack().(*ast.Char)
+	lhs := vm.PopOffStack().(*ast.Char)
+	n_val := "\"" + lhs.Token.Literal + rhs.Token.Literal + "\""
+	val := &ast.String{
+		Token: lexer.ProtoToken{
+			Type:      lexer.CHAR,
+			Literal:   n_val,
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) AddStr(ip int) int {
+	rhs := vm.PopOffStack().(*ast.String)
+	lhs := vm.PopOffStack().(*ast.String)
+	n_val := "\"" + lhs.Token.Literal[1:len(lhs.Token.Literal)-1] +
+		rhs.Token.Literal[1:len(rhs.Token.Literal)-1] + "\""
+	val := &ast.String{
+		Token: lexer.ProtoToken{
+			Type:      lexer.STRING,
+			Literal:   n_val,
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) AddStrChar(ip int) int {
+	rhs := vm.PopOffStack().(*ast.Char)
+	lhs := vm.PopOffStack().(*ast.String)
+	n_val := "\"" + lhs.Token.Literal[1:len(lhs.Token.Literal)-1] +
+		rhs.Token.Literal + "\""
+	val := &ast.String{
+		Token: lexer.ProtoToken{
+			Type:      lexer.STRING,
+			Literal:   n_val,
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
 func (vm *VM) OpCodePop(ip int) int {
 	vm.stack_index--
 	return ip + 1
@@ -184,17 +231,60 @@ func (vm *VM) ModuloI64(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) NegateI64(ip int) int {
+	op := vm.PopOffStack().(*ast.I64)
+	op_val, _ := strconv.ParseInt(op.LiteralRepr(), 10, 64)
+	n_val := -op_val
+	val := &ast.I64{
+		Token: lexer.ProtoToken{
+			Type:      lexer.I64,
+			Literal:   fmt.Sprint(n_val),
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) NegateBool(ip int) int {
+	op := vm.PopOffStack().(*ast.Boolean)
+	n_val := !op.Value
+	val := &ast.Boolean{
+		Value: n_val,
+		Token: lexer.ProtoToken{
+			Type:      "",
+			Literal:   "",
+			TokenSpan: lexer.Span{},
+		},
+	}
+
+	if n_val {
+		val.Token.Literal = "true"
+		val.Token.Type = lexer.TRUE
+	} else {
+		val.Token.Literal = "false"
+		val.Token.Type = lexer.FALSE
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):  vm.LoadConstant,
 		byte(opcode.PushBoolTrue):  vm.PushBoolTrue,
 		byte(opcode.PushBoolFalse): vm.PushBoolFalse,
 		byte(opcode.AddI64):        vm.AddI64,
+		byte(opcode.AddChar):       vm.AddChar,
+		byte(opcode.AddStr):        vm.AddStr,
+		byte(opcode.AddStrChar):    vm.AddStrChar,
 		byte(opcode.Pop):           vm.OpCodePop,
 		byte(opcode.SubI64):        vm.SubI64,
 		byte(opcode.MultI64):       vm.MultI64,
 		byte(opcode.DivI64):        vm.DivI64,
 		byte(opcode.ModuloI64):     vm.ModuloI64,
+		byte(opcode.NegateI64):     vm.NegateI64,
+		byte(opcode.NegateBool):    vm.NegateBool,
 	}
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]

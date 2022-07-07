@@ -67,6 +67,8 @@ const (
 	MultI64
 	DivI64
 	ModuloI64
+	NegateI64
+	NegateBool
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -82,6 +84,8 @@ var Definitions = map[OpCode]*InstructionDef{
 	MultI64:       {"MultI64", []int{}},
 	DivI64:        {"DivI64", []int{}},
 	ModuloI64:     {"ModuloI64", []int{}},
+	NegateI64:     {"NegateI64", []int{}},
+	NegateBool:    {"NegateBool", []int{}},
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

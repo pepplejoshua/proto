@@ -47,6 +47,18 @@ func TestIntegerArithmetic(t *testing.T) {
 			input:    "1 % 2;",
 			expected: "1",
 		},
+		{
+			input:    "-1;",
+			expected: "-1",
+		},
+		{
+			input:    "300 * -2;",
+			expected: "-600",
+		},
+		{
+			input:    "-(300 * -2);",
+			expected: "600",
+		},
 	}
 
 	runVmTest(t, tests)
@@ -66,9 +78,40 @@ func TestBooleanValues(t *testing.T) {
 			input:    "false; true;",
 			expected: "true",
 		},
+		{
+			input:    "not true;",
+			expected: "false",
+		},
+		{
+			input:    "not false;",
+			expected: "true",
+		},
+		{
+			input:    "not not not false;",
+			expected: "true",
+		},
 	}
 
 	runVmTest(t, tests)
+}
+
+func TestStringsAndChars(t *testing.T) {
+	test := []vmTestCase{
+		{
+			input:    "'a' + 'b';",
+			expected: "\"ab\"",
+		},
+		{
+			input:    "\"proto \" + \"language\";",
+			expected: "\"proto language\"",
+		},
+		{
+			input:    "\"proto \" + \"language\" + '!';",
+			expected: "\"proto language!\"",
+		},
+	}
+
+	runVmTest(t, test)
 }
 
 func runVmTest(t *testing.T, tests []vmTestCase) {

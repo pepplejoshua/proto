@@ -73,6 +73,14 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		} else {
 			c.generateBytecode(opcode.PushBoolFalse)
 		}
+	case *ast.UnaryOp:
+		c.Compile(actual.Operand)
+		switch actual.Operator.Literal {
+		case "-":
+			c.generateBytecode(opcode.NegateI64)
+		case "not":
+			c.generateBytecode(opcode.NegateBool)
+		}
 	case *ast.BinaryOp:
 		c.Compile(actual.Left)
 		c.Compile(actual.Right)

@@ -20,6 +20,8 @@ func TestMakingOpCode(t *testing.T) {
 		{MultI64, []int{}, []byte{byte(MultI64)}},
 		{DivI64, []int{}, []byte{byte(DivI64)}},
 		{ModuloI64, []int{}, []byte{byte(ModuloI64)}},
+		{NegateI64, []int{}, []byte{byte(NegateI64)}},
+		{NegateBool, []int{}, []byte{byte(NegateBool)}},
 	}
 
 	for _, test := range tests {
@@ -63,6 +65,8 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(MultI64),
 		MakeInstruction(DivI64),
 		MakeInstruction(ModuloI64),
+		MakeInstruction(NegateI64),
+		MakeInstruction(NegateBool),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -79,6 +83,8 @@ func TestInstructionsString(t *testing.T) {
 0017 MultI64
 0018 DivI64
 0019 ModuloI64
+0020 NegateI64
+0021 NegateBool
 `
 
 	if ins.Disassemble() != exp {
@@ -105,6 +111,8 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{MultI64, []int{}, 0},
 		{DivI64, []int{}, 0},
 		{ModuloI64, []int{}, 0},
+		{NegateI64, []int{}, 0},
+		{NegateBool, []int{}, 0},
 	}
 
 	for _, tt := range tests {
