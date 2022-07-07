@@ -69,6 +69,51 @@ func TestBooleanValues(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestStringAndChar(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "'a'; 'b'; 'c'; 'a';",
+			expectedConstants: []string{
+				"'a'",
+				"'b'",
+				"'c'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+			},
+		},
+		{
+			input: "\"this is a string\"; \"another string\";",
+			expectedConstants: []string{
+				"\"this is a string\"",
+				"\"another string\"",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+			},
+		},
+		{
+			input: "\"this is a string\"; 'c'; 'd';",
+			expectedConstants: []string{
+				"\"this is a string\"",
+				"'c'",
+				"'d'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 

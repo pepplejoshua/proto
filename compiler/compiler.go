@@ -63,11 +63,9 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.PromotedExpr:
 		c.Compile(actual.Expr)
-	case *ast.I64:
+	case *ast.I64, *ast.Char, *ast.String:
 		loc := c.appendConstant(actual)
 		c.generateBytecode(opcode.LoadConstant, loc)
-	case *ast.Char:
-	case *ast.String:
 	case *ast.Boolean:
 		if actual.Value {
 			c.generateBytecode(opcode.PushBoolTrue)
