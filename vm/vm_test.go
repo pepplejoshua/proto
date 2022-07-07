@@ -1,84 +1,92 @@
 package vm
 
-// type vmTestCase struct {
-// 	input    string
-// 	expected string
-// }
+import (
+	"proto/analysis/name_resolver"
+	"proto/analysis/type_checker"
+	"proto/compiler"
+	"proto/parser"
+	"testing"
+)
 
-// func TestIntegerArithmetic(t *testing.T) {
-// 	tests := []vmTestCase{
-// 		{
-// 			input:    "1;",
-// 			expected: "1",
-// 		},
-// 		{
-// 			input:    "2;",
-// 			expected: "2",
-// 		},
-// 		{
-// 			input:    "1 + 2;",
-// 			expected: "3",
-// 		},
-// 	}
+type vmTestCase struct {
+	input    string
+	expected string
+}
 
-// 	runVmTest(t, tests)
-// }
+func TestIntegerArithmetic(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "1;",
+			expected: "1",
+		},
+		{
+			input:    "2;",
+			expected: "2",
+		},
+		{
+			input:    "1 + 2;",
+			expected: "3",
+		},
+	}
 
-// func TestBooleanValues(t *testing.T) {
-// 	tests := []vmTestCase{
-// 		{
-// 			input:    "true;",
-// 			expected: "true",
-// 		},
-// 		{
-// 			input:    "false;",
-// 			expected: "false",
-// 		},
-// 		{
-// 			input:    "false; true;",
-// 			expected: "true",
-// 		},
-// 	}
+	runVmTest(t, tests)
+}
 
-// 	runVmTest(t, tests)
-// }
+func TestBooleanValues(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "true;",
+			expected: "true",
+		},
+		{
+			input:    "false;",
+			expected: "false",
+		},
+		{
+			input:    "false; true;",
+			expected: "true",
+		},
+	}
 
-// func runVmTest(t *testing.T, tests []vmTestCase) {
-// 	t.Helper()
+	runVmTest(t, tests)
+}
 
-// 	for _, tt := range tests {
-// 		prog := parser.Parse(tt.input)
-// 		nr := name_resolver.NewNameResolver()
-// 		tc := type_checker.NewTypeChecker()
-// 		nr.ResolveProgram(prog)
-// 		if nr.FoundError {
-// 			t.Fatal("Found errors during name resolution")
-// 		}
+func runVmTest(t *testing.T, tests []vmTestCase) {
+	t.Helper()
 
-// 		tc.TypeCheckProgram(prog)
-// 		if tc.FoundError {
-// 			t.Fatal("Found errors during type checking")
-// 		}
+	for _, tt := range tests {
+		prog := parser.Parse(tt.input)
+		nr := name_resolver.NewNameResolver()
+		tc := type_checker.NewTypeChecker()
+		nr.ResolveProgram(prog)
+		if nr.FoundError {
+			t.Fatal("Found errors during name resolution")
+		}
 
-// 		compiler := compiler.NewCompiler()
-// 		compiler.CompileProgram(prog)
+		tc.TypeCheckProgram(prog)
+		if tc.FoundError {
+			t.Fatal("Found errors during type checking")
+		}
 
-// 		if compiler.FoundError {
-// 			t.Fatal("Found errors during compilation")
-// 		}
+		compiler := compiler.NewCompiler()
+		compiler.CompileProgram(prog)
 
-// 		bc := compiler.ByteCode()
-// 		vm := NewVM(bc)
-// 		vm.Run()
+		if compiler.FoundError {
+			t.Fatal("Found errors during compilation")
+		}
 
-// 		if vm.FoundError {
-// 			t.Fatal("Found errors during virtual machine execution")
-// 		}
+		bc := compiler.ByteCode()
+		vm := NewVM(bc)
+		vm.Run()
 
-// 		res := vm.StackTop()
+		if vm.FoundError {
+			t.Fatal("Found errors during virtual machine execution")
+		}
 
-// 		if res.LiteralRepr() != tt.expected {
-// 			t.Fatalf("Expected %s as stack top but found %s.", tt.expected, res.LiteralRepr())
-// 		}
-// 	}
-// }
+		res := vm.LastPoppedElem()
+
+		if res.LiteralRepr() != tt.expected {
+			t.Fatalf("Expected %s as stack top but found %s.", tt.expected, res.LiteralRepr())
+		}
+	}
+}

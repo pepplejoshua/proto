@@ -49,11 +49,8 @@ func NewVM(bc *compiler.ByteCode) *VM {
 	}
 }
 
-func (vm *VM) StackTop() ast.ProtoNode {
-	if vm.stack_index == 0 {
-		return nil
-	}
-	return vm.stack[vm.stack_index-1]
+func (vm *VM) LastPoppedElem() ast.ProtoNode {
+	return vm.stack[vm.stack_index]
 }
 
 func (vm *VM) PushOntoStack(item ast.ProtoNode) {
@@ -103,8 +100,8 @@ func (vm *VM) AddI64(ip int) int {
 	return ip + 1
 }
 
-func (vm *VM) Pop(ip int) int {
-	vm.PopOffStack()
+func (vm *VM) OpCodePop(ip int) int {
+	vm.stack_index--
 	return ip + 1
 }
 
@@ -114,7 +111,7 @@ func (vm *VM) Run() {
 		byte(opcode.PushBoolTrue):  vm.PushBoolTrue,
 		byte(opcode.PushBoolFalse): vm.PushBoolFalse,
 		byte(opcode.AddI64):        vm.AddI64,
-		byte(opcode.Pop):           vm.Pop,
+		byte(opcode.Pop):           vm.OpCodePop,
 	}
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]
@@ -129,9 +126,5 @@ func (vm *VM) Run() {
 						def.Name, ins_p))
 			}
 		}
-	}
-
-	for i := vm.stack_index - 1; i >= 0; i-- {
-		println(vm.stack[i].LiteralRepr())
 	}
 }
