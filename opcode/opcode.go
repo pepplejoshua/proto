@@ -62,16 +62,18 @@ const (
 	AddChar
 	AddStr
 	AddStrChar
+	Pop
 )
 
 var Definitions = map[OpCode]*InstructionDef{
 	LoadConstant:  {"LoadConstant", []int{2}}, // max size of constants pool is 65535 (starting at 0)
 	PushBoolTrue:  {"PushBoolTrue", []int{}},  // an OpCode for pushing a true value onto stack
 	PushBoolFalse: {"PushBoolFalse", []int{}}, // an OpCode for pushing a false value onto stack
-	AddI64:        {"AddI64", []int{}},
-	AddChar:       {"AddChar", []int{}},
-	AddStr:        {"AddStr", []int{}},
-	AddStrChar:    {"AddStrChar", []int{}},
+	AddI64:        {"AddI64", []int{}},        // add 2 i64 numbers
+	AddChar:       {"AddChar", []int{}},       // add 2 characters
+	AddStr:        {"AddStr", []int{}},        // add 2 strings
+	AddStrChar:    {"AddStrChar", []int{}},    // add a character to a string
+	Pop:           {"Pop", []int{}},           // pop a value off the stack
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

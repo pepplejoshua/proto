@@ -63,6 +63,7 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.PromotedExpr:
 		c.Compile(actual.Expr)
+		c.generateBytecode(opcode.Pop)
 	case *ast.I64, *ast.Char, *ast.String:
 		loc := c.appendConstant(actual)
 		c.generateBytecode(opcode.LoadConstant, loc)

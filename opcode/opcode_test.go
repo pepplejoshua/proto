@@ -15,6 +15,7 @@ func TestMakingOpCode(t *testing.T) {
 		{AddChar, []int{}, []byte{byte(AddChar)}},
 		{AddStr, []int{}, []byte{byte(AddStr)}},
 		{AddStrChar, []int{}, []byte{byte(AddStrChar)}},
+		{Pop, []int{}, []byte{byte(Pop)}},
 	}
 
 	for _, test := range tests {
@@ -53,6 +54,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(AddChar),
 		MakeInstruction(AddStr),
 		MakeInstruction(AddStrChar),
+		MakeInstruction(Pop),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -64,6 +66,7 @@ func TestInstructionsString(t *testing.T) {
 0012 AddChar
 0013 AddStr
 0014 AddStrChar
+0015 Pop
 `
 
 	if ins.Disassemble() != exp {

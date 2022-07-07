@@ -103,12 +103,18 @@ func (vm *VM) AddI64(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) Pop(ip int) int {
+	vm.PopOffStack()
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):  vm.LoadConstant,
 		byte(opcode.PushBoolTrue):  vm.PushBoolTrue,
 		byte(opcode.PushBoolFalse): vm.PushBoolFalse,
 		byte(opcode.AddI64):        vm.AddI64,
+		byte(opcode.Pop):           vm.Pop,
 	}
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]

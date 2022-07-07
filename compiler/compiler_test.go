@@ -26,6 +26,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
 				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -37,6 +38,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -49,6 +51,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
 				opcode.MakeInstruction(opcode.AddChar),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -61,6 +64,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
 				opcode.MakeInstruction(opcode.AddStr),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -76,6 +80,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.AddStr),
 				opcode.MakeInstruction(opcode.LoadConstant, 2),
 				opcode.MakeInstruction(opcode.AddStrChar),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -93,6 +98,7 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.AddI64),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 	}
@@ -107,6 +113,7 @@ func TestBooleanValues(t *testing.T) {
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -114,6 +121,7 @@ func TestBooleanValues(t *testing.T) {
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -121,7 +129,9 @@ func TestBooleanValues(t *testing.T) {
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 	}
@@ -140,9 +150,13 @@ func TestStringAndChar(t *testing.T) {
 			},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -153,7 +167,9 @@ func TestStringAndChar(t *testing.T) {
 			},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 		{
@@ -165,8 +181,11 @@ func TestStringAndChar(t *testing.T) {
 			},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.Pop),
 				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
 	}
