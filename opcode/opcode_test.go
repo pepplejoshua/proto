@@ -11,6 +11,10 @@ func TestMakingOpCode(t *testing.T) {
 		{LoadConstant, []int{65534}, []byte{byte(LoadConstant), 255, 254}},
 		{PushBoolFalse, []int{}, []byte{byte(PushBoolFalse)}},
 		{PushBoolTrue, []int{}, []byte{byte(PushBoolTrue)}},
+		{AddI64, []int{}, []byte{byte(AddI64)}},
+		{AddChar, []int{}, []byte{byte(AddChar)}},
+		{AddStr, []int{}, []byte{byte(AddStr)}},
+		{AddStrChar, []int{}, []byte{byte(AddStrChar)}},
 	}
 
 	for _, test := range tests {
@@ -45,6 +49,10 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(LoadConstant, 65535),
 		MakeInstruction(PushBoolFalse),
 		MakeInstruction(PushBoolTrue),
+		MakeInstruction(AddI64),
+		MakeInstruction(AddChar),
+		MakeInstruction(AddStr),
+		MakeInstruction(AddStrChar),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -52,6 +60,10 @@ func TestInstructionsString(t *testing.T) {
 0006 LoadConstant 65535
 0009 PushBoolFalse
 0010 PushBoolTrue
+0011 AddI64
+0012 AddChar
+0013 AddStr
+0014 AddStrChar
 `
 
 	if ins.Disassemble() != exp {
@@ -69,6 +81,10 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{LoadConstant, []int{65535}, 2},
 		{PushBoolFalse, []int{}, 0},
 		{PushBoolTrue, []int{}, 0},
+		{AddI64, []int{}, 0},
+		{AddChar, []int{}, 0},
+		{AddStr, []int{}, 0},
+		{AddStrChar, []int{}, 0},
 	}
 
 	for _, tt := range tests {

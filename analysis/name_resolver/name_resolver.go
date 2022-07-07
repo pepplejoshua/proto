@@ -1,4 +1,4 @@
-package analysis
+package name_resolver
 
 import (
 	"fmt"

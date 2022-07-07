@@ -44,7 +44,7 @@ func (i *VMInstructions) formatInstruction(def *InstructionDef, ops []int) strin
 		return fmt.Sprintf("%s %d", def.Name, ops[0])
 	}
 
-	return fmt.Sprintf("Error: Unhandled Operator Count %d", opcount)
+	return fmt.Sprintf("Error: Unhandled Operator Count %d for %s", opcount, def.Name)
 }
 
 type InstructionDef struct {
@@ -58,12 +58,20 @@ const (
 	LoadConstant OpCode = iota
 	PushBoolTrue
 	PushBoolFalse
+	AddI64
+	AddChar
+	AddStr
+	AddStrChar
 )
 
 var Definitions = map[OpCode]*InstructionDef{
 	LoadConstant:  {"LoadConstant", []int{2}}, // max size of constants pool is 65535 (starting at 0)
 	PushBoolTrue:  {"PushBoolTrue", []int{}},  // an OpCode for pushing a true value onto stack
 	PushBoolFalse: {"PushBoolFalse", []int{}}, // an OpCode for pushing a false value onto stack
+	AddI64:        {"AddI64", []int{}},
+	AddChar:       {"AddChar", []int{}},
+	AddStr:        {"AddStr", []int{}},
+	AddStrChar:    {"AddStrChar", []int{}},
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

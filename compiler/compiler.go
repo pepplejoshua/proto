@@ -75,6 +75,20 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.BinaryOp:
 		c.Compile(actual.Left)
 		c.Compile(actual.Right)
+
+		switch actual.Op_Type.TypeSignature() {
+		case "i64":
+			c.generateBytecode(opcode.AddI64)
+		case "str":
+			if actual.Left.Type().TypeSignature() == "char" {
+				c.generateBytecode(opcode.AddChar)
+			} else if actual.Left.Type().TypeSignature() == "str" &&
+				actual.Right.Type().TypeSignature() == "char" {
+				c.generateBytecode(opcode.AddStrChar)
+			} else {
+				c.generateBytecode(opcode.AddStr)
+			}
+		}
 	default:
 	}
 }

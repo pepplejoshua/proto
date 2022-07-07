@@ -1,6 +1,8 @@
 package compiler
 
 import (
+	"proto/analysis/name_resolver"
+	"proto/analysis/type_checker"
 	"proto/ast"
 	"proto/opcode"
 	"proto/parser"
@@ -13,7 +15,7 @@ type compilerTestCase struct {
 	expectedIns       []opcode.VMInstructions
 }
 
-func TestIntegerArithmetic(t *testing.T) {
+func TestBinaryOperations(t *testing.T) {
 	tests := []compilerTestCase{
 		{
 			input: "1 + 2;",
@@ -23,6 +25,7 @@ func TestIntegerArithmetic(t *testing.T) {
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddI64),
 			},
 		},
 		{
@@ -33,6 +36,63 @@ func TestIntegerArithmetic(t *testing.T) {
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+			},
+		},
+		{
+			input: "'a' + 'b';",
+			expectedConstants: []string{
+				"'a'",
+				"'b'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddChar),
+			},
+		},
+		{
+			input: "\"proto \" + \"language\";",
+			expectedConstants: []string{
+				"\"proto \"",
+				"\"language\"",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddStr),
+			},
+		},
+		{
+			input: "\"proto \" + \"language\" + '!';",
+			expectedConstants: []string{
+				"\"proto \"",
+				"\"language\"",
+				"'!'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddStr),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.AddStrChar),
+			},
+		},
+		{
+			input: "1 + 2 + 3 + 1;",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AddI64),
 			},
 		},
 	}
@@ -119,8 +179,19 @@ func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 
 	for _, tt := range tests {
 		prog := parser.Parse(tt.input)
-		compiler := NewCompiler()
+		nr := name_resolver.NewNameResolver()
+		tc := type_checker.NewTypeChecker()
+		nr.ResolveProgram(prog)
+		if nr.FoundError {
+			t.Fatal("Found errors during name resolution")
+		}
 
+		tc.TypeCheckProgram(prog)
+		if tc.FoundError {
+			t.Fatal("Found errors during type checking")
+		}
+
+		compiler := NewCompiler()
 		compiler.CompileProgram(prog)
 
 		if compiler.FoundError {

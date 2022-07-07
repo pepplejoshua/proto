@@ -1,4 +1,4 @@
-package analysis
+package type_checker
 
 import (
 	"fmt"
