@@ -27,6 +27,26 @@ func TestIntegerArithmetic(t *testing.T) {
 			input:    "1 + 2;",
 			expected: "3",
 		},
+		{
+			input:    "2 - 1;",
+			expected: "1",
+		},
+		{
+			input:    "3 * 3;",
+			expected: "9",
+		},
+		{
+			input:    "42 / 21;",
+			expected: "2",
+		},
+		{
+			input:    "3 / 2;",
+			expected: "1",
+		},
+		{
+			input:    "1 % 2;",
+			expected: "1",
+		},
 	}
 
 	runVmTest(t, tests)

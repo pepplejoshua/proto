@@ -8,6 +8,7 @@ import (
 	"proto/opcode"
 	"proto/shared"
 	"strconv"
+	"strings"
 )
 
 const STACK_SIZE = 2048
@@ -105,6 +106,84 @@ func (vm *VM) OpCodePop(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) SubI64(ip int) int {
+	rhs := vm.PopOffStack().(*ast.I64)
+	lhs := vm.PopOffStack().(*ast.I64)
+	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
+	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	n_val := l_val - r_val
+	val := &ast.I64{
+		Token: lexer.ProtoToken{
+			Type:      lexer.I64,
+			Literal:   fmt.Sprint(n_val),
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) MultI64(ip int) int {
+	rhs := vm.PopOffStack().(*ast.I64)
+	lhs := vm.PopOffStack().(*ast.I64)
+	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
+	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	n_val := l_val * r_val
+	val := &ast.I64{
+		Token: lexer.ProtoToken{
+			Type:      lexer.I64,
+			Literal:   fmt.Sprint(n_val),
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) DivI64(ip int) int {
+	rhs := vm.PopOffStack().(*ast.I64)
+	lhs := vm.PopOffStack().(*ast.I64)
+	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
+	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	if r_val == 0 {
+		var err strings.Builder
+		err.WriteString("Division by 0 is not allowed.")
+		shared.ReportErrorAndExit("VM", err.String())
+	}
+	n_val := l_val / r_val
+	val := &ast.I64{
+		Token: lexer.ProtoToken{
+			Type:      lexer.I64,
+			Literal:   fmt.Sprint(n_val),
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
+func (vm *VM) ModuloI64(ip int) int {
+	rhs := vm.PopOffStack().(*ast.I64)
+	lhs := vm.PopOffStack().(*ast.I64)
+	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
+	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	if r_val == 0 {
+		var err strings.Builder
+		err.WriteString("Modulo by 0 is not allowed.")
+		shared.ReportErrorAndExit("VM", err.String())
+	}
+	n_val := l_val % r_val
+	val := &ast.I64{
+		Token: lexer.ProtoToken{
+			Type:      lexer.I64,
+			Literal:   fmt.Sprint(n_val),
+			TokenSpan: lexer.Span{},
+		},
+	}
+	vm.PushOntoStack(val)
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):  vm.LoadConstant,
@@ -112,6 +191,10 @@ func (vm *VM) Run() {
 		byte(opcode.PushBoolFalse): vm.PushBoolFalse,
 		byte(opcode.AddI64):        vm.AddI64,
 		byte(opcode.Pop):           vm.OpCodePop,
+		byte(opcode.SubI64):        vm.SubI64,
+		byte(opcode.MultI64):       vm.MultI64,
+		byte(opcode.DivI64):        vm.DivI64,
+		byte(opcode.ModuloI64):     vm.ModuloI64,
 	}
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]

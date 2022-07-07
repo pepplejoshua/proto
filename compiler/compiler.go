@@ -92,6 +92,14 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 					c.generateBytecode(opcode.AddStr)
 				}
 			}
+		case "-":
+			c.generateBytecode(opcode.SubI64)
+		case "*":
+			c.generateBytecode(opcode.MultI64)
+		case "/":
+			c.generateBytecode(opcode.DivI64)
+		case "%":
+			c.generateBytecode(opcode.ModuloI64)
 		}
 	default:
 	}

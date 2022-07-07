@@ -63,6 +63,10 @@ const (
 	AddStr
 	AddStrChar
 	Pop
+	SubI64
+	MultI64
+	DivI64
+	ModuloI64
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -74,6 +78,10 @@ var Definitions = map[OpCode]*InstructionDef{
 	AddStr:        {"AddStr", []int{}},        // add 2 strings
 	AddStrChar:    {"AddStrChar", []int{}},    // add a character to a string
 	Pop:           {"Pop", []int{}},           // pop a value off the stack
+	SubI64:        {"SubI64", []int{}},
+	MultI64:       {"MultI64", []int{}},
+	DivI64:        {"DivI64", []int{}},
+	ModuloI64:     {"ModuloI64", []int{}},
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
