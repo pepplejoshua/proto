@@ -75,6 +75,8 @@ const (
 	GreaterEqualsComp
 	And
 	Or
+	JumpOnNotTrueTo
+	JumpTo
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -96,8 +98,10 @@ var Definitions = map[OpCode]*InstructionDef{
 	NotEqualsComp:     {"NotEqualsComp", []int{}},     // compare 2 values for inequality
 	GreaterThanComp:   {"GreaterThanComp", []int{}},   // check if an i64 or char is greater than another i64 or char
 	GreaterEqualsComp: {"GreaterEqualsComp", []int{}}, // check if an i64 or char is greater or equal to another i64 or char
-	And:               {"And", []int{}},
-	Or:                {"Or", []int{}},
+	And:               {"And", []int{}},               // perform and on 2 boolean values
+	Or:                {"Or", []int{}},                // perform or on 2 boolean values
+	JumpOnNotTrueTo:   {"JumpOnNotTrueTo", []int{2}},  // jump if value at top of stack is not true to a provided location in instructions
+	JumpTo:            {"JumpTo", []int{2}},           // jump to a provided location in instructions
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

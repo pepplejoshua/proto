@@ -31,6 +31,14 @@ var FALSE = &ast.Boolean{
 	},
 }
 
+var UNIT = &ast.Unit{
+	Token: lexer.ProtoToken{
+		Type:      lexer.OPEN_PAREN,
+		Literal:   "()",
+		TokenSpan: lexer.Span{},
+	},
+}
+
 type VM struct {
 	constants    []ast.ProtoNode
 	instructions opcode.VMInstructions
@@ -375,6 +383,21 @@ func (vm *VM) Or(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) JumpOnNotTrueTo(ip int) int {
+	val := vm.PopOffStack().(*ast.Boolean)
+
+	if !val.Value {
+		new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
+		return int(new_ip)
+	}
+	return ip + 3
+}
+
+func (vm *VM) JumpTo(ip int) int {
+	new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
+	return int(new_ip)
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
@@ -397,6 +420,8 @@ func (vm *VM) Run() {
 		byte(opcode.GreaterEqualsComp): vm.GreaterEqualsComp,
 		byte(opcode.And):               vm.And,
 		byte(opcode.Or):                vm.Or,
+		byte(opcode.JumpOnNotTrueTo):   vm.JumpOnNotTrueTo,
+		byte(opcode.JumpTo):            vm.JumpTo,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

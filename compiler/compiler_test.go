@@ -471,6 +471,155 @@ func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	}
 }
 
+func TestIfConditionals(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "if true { 10; } 20; ",
+			expectedConstants: []string{
+				"10",
+				"20",
+			},
+			expectedIns: []opcode.VMInstructions{
+				// 0
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 1
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 8),
+				// 4
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 7
+				opcode.MakeInstruction(opcode.Pop),
+				// 8
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 11
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "if true { 10 }; 20; ",
+			expectedConstants: []string{
+				"10",
+				"20",
+			},
+			expectedIns: []opcode.VMInstructions{
+				// 0
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 1
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 7),
+				// 4
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 7
+				opcode.MakeInstruction(opcode.Pop),
+				// 8
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 11
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "if 1 < 2 { true } else { false } 10000;",
+			expectedConstants: []string{
+				"2",
+				"1",
+				"10000",
+			},
+			expectedIns: []opcode.VMInstructions{
+				// 0
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 3
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 6
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				// 7
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 14),
+				// 10
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 11
+				opcode.MakeInstruction(opcode.JumpTo, 15),
+				// 14
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				// 15
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				// 18
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "if 1 < 2 { true } else { false }; 10000;",
+			expectedConstants: []string{
+				"2",
+				"1",
+				"10000",
+			},
+			expectedIns: []opcode.VMInstructions{
+				// 0
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 3
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 6
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				// 7
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 14),
+				// 10
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 11
+				opcode.MakeInstruction(opcode.JumpTo, 15),
+				// 14
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				// 15
+				opcode.MakeInstruction(opcode.Pop),
+				// 16
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				// 19
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "if 1 < 2 { true } else if 2 < 1{ false } else { true }; 10000;",
+			expectedConstants: []string{
+				"2",
+				"1",
+				"10000",
+			},
+			expectedIns: []opcode.VMInstructions{
+				// 0 - 2
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 3 - 1
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 6 - 2 > 1
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				// 7 - Jump to first else
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 14),
+				// 10 - true
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 11 - just past rest of if expr to Pop (because of semi-colon)
+				opcode.MakeInstruction(opcode.JumpTo, 29),
+				// 14 - 1
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 17 - 2
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				// 20 - 1 > 2
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				// 21 - jump to second else
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 28),
+				// 24 - false
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				// 25 - jump past second else to Pop (because of semi-colon)
+				opcode.MakeInstruction(opcode.JumpTo, 29),
+				// 28 - true
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				// 29
+				opcode.MakeInstruction(opcode.Pop),
+				// 30
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				// 33
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
 	conc := opcode.VMInstructions{}
 	for _, in := range ins {
@@ -482,12 +631,12 @@ func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
 func testInstructions(t *testing.T, exp opcode.VMInstructions, ins opcode.VMInstructions) {
 	t.Helper()
 	if len(exp) != len(ins) {
-		t.Errorf("Wrong instructions.\nwant: %q\ngot: %q", exp.Disassemble(), ins.Disassemble())
+		t.Fatalf("Wrong instructions.\nwant: %q\ngot: %q", exp.Disassemble(), ins.Disassemble())
 	}
 
 	for i, in := range exp {
 		if ins[i] != in {
-			t.Errorf("Wrong instruction at %d.\nwant: %q\ngot: %q", i, in, ins[i])
+			t.Fatalf("Wrong instruction at %d.\nwant: %q\ngot: %q", i, exp.Disassemble(), ins.Disassemble())
 		}
 	}
 }

@@ -28,6 +28,8 @@ func TestMakingOpCode(t *testing.T) {
 		{GreaterEqualsComp, []int{}, []byte{byte(GreaterEqualsComp)}},
 		{And, []int{}, []byte{byte(And)}},
 		{Or, []int{}, []byte{byte(Or)}},
+		{JumpOnNotTrueTo, []int{10}, []byte{byte(JumpOnNotTrueTo), 0, 10}},
+		{JumpTo, []int{100}, []byte{byte(JumpTo), 0, 100}},
 	}
 
 	for _, test := range tests {
@@ -79,6 +81,8 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(GreaterEqualsComp),
 		MakeInstruction(And),
 		MakeInstruction(Or),
+		MakeInstruction(JumpOnNotTrueTo, 10),
+		MakeInstruction(JumpTo, 100),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -103,6 +107,8 @@ func TestInstructionsString(t *testing.T) {
 0025 GreaterEqualsComp
 0026 And
 0027 Or
+0028 JumpOnNotTrueTo 10
+0031 JumpTo 100
 `
 
 	if ins.Disassemble() != exp {
@@ -137,6 +143,8 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{GreaterEqualsComp, []int{}, 0},
 		{And, []int{}, 0},
 		{Or, []int{}, 0},
+		{JumpOnNotTrueTo, []int{10}, 2},
+		{JumpTo, []int{100}, 2},
 	}
 
 	for _, tt := range tests {

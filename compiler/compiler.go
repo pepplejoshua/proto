@@ -53,6 +53,23 @@ func (c *Compiler) addInstruction(ins []byte) int {
 	return new_ins_pos
 }
 
+func (c *Compiler) replaceInstruction(pos int, new_ins []byte) {
+	// replace segment of instruction with new instruction
+	for i := 0; i < len(new_ins); i++ {
+		c.instructions[pos+i] = new_ins[i]
+	}
+}
+
+func (c *Compiler) updateOperand(ins_pos int, operand int) {
+	// get the original instruction
+	op := opcode.OpCode(c.instructions[ins_pos])
+	// make new instruction with new operand
+	new_ins := opcode.MakeInstruction(op, operand)
+
+	// replace instruction with update
+	c.replaceInstruction(ins_pos, new_ins)
+}
+
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram) {
 	for _, node := range prog.Contents {
 		c.Compile(node)
@@ -67,6 +84,32 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.I64, *ast.Char, *ast.String:
 		loc := c.appendConstant(actual)
 		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.IfConditional:
+		c.Compile(actual.Condition)
+		// jump instruction with an operand to be updated later
+		jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+		c.Compile(actual.ThenBody)
+		// the jump target is the instruction after the then body of the if conditional
+		if actual.ElseBody == nil {
+			jump_not_true_target := len(c.instructions)
+			c.updateOperand(jump_not_true, jump_not_true_target)
+		} else {
+			// store the jump instruction to be updated later
+			// it allows the then body jump past the rest of the else statement
+			jump_to := c.generateBytecode(opcode.JumpTo, 9999)
+
+			// set the jump not true target to be the start of the else body
+			jump_not_true_target := len(c.instructions)
+			c.updateOperand(jump_not_true, jump_not_true_target)
+
+			c.Compile(actual.ElseBody)
+			jump_to_target := len(c.instructions)
+			c.updateOperand(jump_to, jump_to_target)
+		}
+	case *ast.Block:
+		for _, node := range actual.Contents {
+			c.Compile(node)
+		}
 	case *ast.Boolean:
 		if actual.Value {
 			c.generateBytecode(opcode.PushBoolTrue)

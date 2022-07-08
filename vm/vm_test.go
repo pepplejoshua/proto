@@ -201,7 +201,7 @@ func TestComparison(t *testing.T) {
 }
 
 func TestStringsAndChars(t *testing.T) {
-	test := []vmTestCase{
+	tests := []vmTestCase{
 		{
 			input:    "'a' + 'b';",
 			expected: "\"ab\"",
@@ -220,7 +220,38 @@ func TestStringsAndChars(t *testing.T) {
 		},
 	}
 
-	runVmTest(t, test)
+	runVmTest(t, tests)
+}
+
+func TestIfConditional(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "if 1 < 2 { true; }",
+			expected: "true",
+		},
+		{
+			input:    "if 3 * 2 == 6 { 6; }",
+			expected: "6",
+		},
+		{
+			input:    "if 1 > 2 { 1; } else { 2; }",
+			expected: "2",
+		},
+		{
+			input:    "if 1 > 2 { 1; } else if 2 > 3 { 2; } else { 3; }",
+			expected: "3",
+		},
+		{
+			input:    "if 1 > 2 { 1 } else if 2 <= 3 { 2 } else { 3 };",
+			expected: "2",
+		},
+		{
+			input:    "if false { 1; }",
+			expected: "false", // this is because the condition is not popped off the stack
+		},
+	}
+
+	runVmTest(t, tests)
 }
 
 func runVmTest(t *testing.T, tests []vmTestCase) {
