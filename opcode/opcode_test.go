@@ -22,6 +22,10 @@ func TestMakingOpCode(t *testing.T) {
 		{ModuloI64, []int{}, []byte{byte(ModuloI64)}},
 		{NegateI64, []int{}, []byte{byte(NegateI64)}},
 		{NegateBool, []int{}, []byte{byte(NegateBool)}},
+		{EqualsComp, []int{}, []byte{byte(EqualsComp)}},
+		{NotEqualsComp, []int{}, []byte{byte(NotEqualsComp)}},
+		{GreaterThanComp, []int{}, []byte{byte(GreaterThanComp)}},
+		{GreaterEqualsComp, []int{}, []byte{byte(GreaterEqualsComp)}},
 	}
 
 	for _, test := range tests {
@@ -67,6 +71,10 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(ModuloI64),
 		MakeInstruction(NegateI64),
 		MakeInstruction(NegateBool),
+		MakeInstruction(EqualsComp),
+		MakeInstruction(NotEqualsComp),
+		MakeInstruction(GreaterThanComp),
+		MakeInstruction(GreaterEqualsComp),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -85,6 +93,10 @@ func TestInstructionsString(t *testing.T) {
 0019 ModuloI64
 0020 NegateI64
 0021 NegateBool
+0022 EqualsComp
+0023 NotEqualsComp
+0024 GreaterThanComp
+0025 GreaterEqualsComp
 `
 
 	if ins.Disassemble() != exp {
@@ -113,6 +125,10 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{ModuloI64, []int{}, 0},
 		{NegateI64, []int{}, 0},
 		{NegateBool, []int{}, 0},
+		{EqualsComp, []int{}, 0},
+		{NotEqualsComp, []int{}, 0},
+		{GreaterThanComp, []int{}, 0},
+		{GreaterEqualsComp, []int{}, 0},
 	}
 
 	for _, tt := range tests {

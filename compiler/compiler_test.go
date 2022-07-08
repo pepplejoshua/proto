@@ -234,6 +234,93 @@ func TestBinaryOperations(t *testing.T) {
 				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
+		{
+			input: "1 == 2;",
+			expectedConstants: []string{
+				"1",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.EqualsComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input:             "true == false;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.EqualsComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "1 != 1;",
+			expectedConstants: []string{
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.NotEqualsComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "2 > 1;",
+			expectedConstants: []string{
+				"2",
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "1 < 2;",
+			expectedConstants: []string{
+				"2",
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.GreaterThanComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "3 >= 2;",
+			expectedConstants: []string{
+				"3",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.GreaterEqualsComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "2 <= 4;",
+			expectedConstants: []string{
+				"4",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.GreaterEqualsComp),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
 	}
 
 	runCompilerTest(t, tests)

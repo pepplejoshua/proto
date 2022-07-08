@@ -82,11 +82,10 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 			c.generateBytecode(opcode.NegateBool)
 		}
 	case *ast.BinaryOp:
-		c.Compile(actual.Left)
-		c.Compile(actual.Right)
-
 		switch actual.Operator.Literal {
 		case "+":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
 			switch actual.Op_Type.TypeSignature() {
 			case "i64":
 				c.generateBytecode(opcode.AddI64)
@@ -101,13 +100,45 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 				}
 			}
 		case "-":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
 			c.generateBytecode(opcode.SubI64)
 		case "*":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
 			c.generateBytecode(opcode.MultI64)
 		case "/":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
 			c.generateBytecode(opcode.DivI64)
 		case "%":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
 			c.generateBytecode(opcode.ModuloI64)
+		case "==":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.EqualsComp)
+		case "!=":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.NotEqualsComp)
+		case ">":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.GreaterThanComp)
+		case "<":
+			c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThan is possible
+			c.Compile(actual.Left)
+			c.generateBytecode(opcode.GreaterThanComp)
+		case ">=":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.GreaterEqualsComp)
+		case "<=":
+			c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThanEquals is possible
+			c.Compile(actual.Left)
+			c.generateBytecode(opcode.GreaterEqualsComp)
 		}
 	default:
 	}

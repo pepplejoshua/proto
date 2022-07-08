@@ -84,11 +84,16 @@ func (vm *VM) PushBoolFalse(ip int) int {
 	return ip + 1
 }
 
+func MakeInt64(val string) int64 {
+	num, _ := strconv.ParseInt(val, 10, 64)
+	return num
+}
+
 func (vm *VM) AddI64(ip int) int {
 	rhs := vm.PopOffStack().(*ast.I64)
 	lhs := vm.PopOffStack().(*ast.I64)
-	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
-	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	l_val := MakeInt64(lhs.LiteralRepr())
+	r_val := MakeInt64(rhs.LiteralRepr())
 	n_val := l_val + r_val
 	val := &ast.I64{
 		Token: lexer.ProtoToken{
@@ -156,8 +161,8 @@ func (vm *VM) OpCodePop(ip int) int {
 func (vm *VM) SubI64(ip int) int {
 	rhs := vm.PopOffStack().(*ast.I64)
 	lhs := vm.PopOffStack().(*ast.I64)
-	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
-	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	l_val := MakeInt64(lhs.LiteralRepr())
+	r_val := MakeInt64(rhs.LiteralRepr())
 	n_val := l_val - r_val
 	val := &ast.I64{
 		Token: lexer.ProtoToken{
@@ -173,8 +178,8 @@ func (vm *VM) SubI64(ip int) int {
 func (vm *VM) MultI64(ip int) int {
 	rhs := vm.PopOffStack().(*ast.I64)
 	lhs := vm.PopOffStack().(*ast.I64)
-	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
-	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	l_val := MakeInt64(lhs.LiteralRepr())
+	r_val := MakeInt64(rhs.LiteralRepr())
 	n_val := l_val * r_val
 	val := &ast.I64{
 		Token: lexer.ProtoToken{
@@ -190,8 +195,8 @@ func (vm *VM) MultI64(ip int) int {
 func (vm *VM) DivI64(ip int) int {
 	rhs := vm.PopOffStack().(*ast.I64)
 	lhs := vm.PopOffStack().(*ast.I64)
-	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
-	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	l_val := MakeInt64(lhs.LiteralRepr())
+	r_val := MakeInt64(rhs.LiteralRepr())
 	if r_val == 0 {
 		var err strings.Builder
 		err.WriteString("Division by 0 is not allowed.")
@@ -212,8 +217,8 @@ func (vm *VM) DivI64(ip int) int {
 func (vm *VM) ModuloI64(ip int) int {
 	rhs := vm.PopOffStack().(*ast.I64)
 	lhs := vm.PopOffStack().(*ast.I64)
-	l_val, _ := strconv.ParseInt(lhs.LiteralRepr(), 10, 64)
-	r_val, _ := strconv.ParseInt(rhs.LiteralRepr(), 10, 64)
+	l_val := MakeInt64(lhs.LiteralRepr())
+	r_val := MakeInt64(rhs.LiteralRepr())
 	if r_val == 0 {
 		var err strings.Builder
 		err.WriteString("Modulo by 0 is not allowed.")
@@ -233,7 +238,7 @@ func (vm *VM) ModuloI64(ip int) int {
 
 func (vm *VM) NegateI64(ip int) int {
 	op := vm.PopOffStack().(*ast.I64)
-	op_val, _ := strconv.ParseInt(op.LiteralRepr(), 10, 64)
+	op_val := MakeInt64(op.LiteralRepr())
 	n_val := -op_val
 	val := &ast.I64{
 		Token: lexer.ProtoToken{
@@ -269,22 +274,103 @@ func (vm *VM) NegateBool(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) EqualsComp(ip int) int {
+	rhs := vm.PopOffStack()
+	lhs := vm.PopOffStack()
+	val := lhs.LiteralRepr() == rhs.LiteralRepr()
+	if val {
+		vm.PushOntoStack(TRUE)
+	} else {
+		vm.PushOntoStack(FALSE)
+	}
+	return ip + 1
+}
+
+func (vm *VM) NotEqualsComp(ip int) int {
+	rhs := vm.PopOffStack()
+	lhs := vm.PopOffStack()
+	val := lhs.LiteralRepr() != rhs.LiteralRepr()
+	if val {
+		vm.PushOntoStack(TRUE)
+	} else {
+		vm.PushOntoStack(FALSE)
+	}
+
+	return ip + 1
+}
+
+func (vm *VM) GreaterThanComp(ip int) int {
+	rhs := vm.PopOffStack()
+	lhs := vm.PopOffStack()
+
+	switch lhs.(type) {
+	case *ast.Char:
+		l_val := lhs.LiteralRepr()[1 : len(lhs.LiteralRepr())-1]
+		r_val := rhs.LiteralRepr()[1 : len(rhs.LiteralRepr())-1]
+		if l_val > r_val {
+			vm.PushOntoStack(TRUE)
+		} else {
+			vm.PushOntoStack(FALSE)
+		}
+	case *ast.I64:
+		l_val := MakeInt64(lhs.LiteralRepr())
+		r_val := MakeInt64(rhs.LiteralRepr())
+		if l_val > r_val {
+			vm.PushOntoStack(TRUE)
+		} else {
+			vm.PushOntoStack(FALSE)
+		}
+	}
+
+	return ip + 1
+}
+
+func (vm *VM) GreaterEqualsComp(ip int) int {
+	rhs := vm.PopOffStack()
+	lhs := vm.PopOffStack()
+
+	switch lhs.(type) {
+	case *ast.Char:
+		l_val := lhs.LiteralRepr()[1 : len(lhs.LiteralRepr())-1]
+		r_val := rhs.LiteralRepr()[1 : len(rhs.LiteralRepr())-1]
+		if l_val >= r_val {
+			vm.PushOntoStack(TRUE)
+		} else {
+			vm.PushOntoStack(FALSE)
+		}
+	case *ast.I64:
+		l_val := MakeInt64(lhs.LiteralRepr())
+		r_val := MakeInt64(rhs.LiteralRepr())
+		if l_val >= r_val {
+			vm.PushOntoStack(TRUE)
+		} else {
+			vm.PushOntoStack(FALSE)
+		}
+	}
+
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
-		byte(opcode.LoadConstant):  vm.LoadConstant,
-		byte(opcode.PushBoolTrue):  vm.PushBoolTrue,
-		byte(opcode.PushBoolFalse): vm.PushBoolFalse,
-		byte(opcode.AddI64):        vm.AddI64,
-		byte(opcode.AddChar):       vm.AddChar,
-		byte(opcode.AddStr):        vm.AddStr,
-		byte(opcode.AddStrChar):    vm.AddStrChar,
-		byte(opcode.Pop):           vm.OpCodePop,
-		byte(opcode.SubI64):        vm.SubI64,
-		byte(opcode.MultI64):       vm.MultI64,
-		byte(opcode.DivI64):        vm.DivI64,
-		byte(opcode.ModuloI64):     vm.ModuloI64,
-		byte(opcode.NegateI64):     vm.NegateI64,
-		byte(opcode.NegateBool):    vm.NegateBool,
+		byte(opcode.LoadConstant):      vm.LoadConstant,
+		byte(opcode.PushBoolTrue):      vm.PushBoolTrue,
+		byte(opcode.PushBoolFalse):     vm.PushBoolFalse,
+		byte(opcode.AddI64):            vm.AddI64,
+		byte(opcode.AddChar):           vm.AddChar,
+		byte(opcode.AddStr):            vm.AddStr,
+		byte(opcode.AddStrChar):        vm.AddStrChar,
+		byte(opcode.Pop):               vm.OpCodePop,
+		byte(opcode.SubI64):            vm.SubI64,
+		byte(opcode.MultI64):           vm.MultI64,
+		byte(opcode.DivI64):            vm.DivI64,
+		byte(opcode.ModuloI64):         vm.ModuloI64,
+		byte(opcode.NegateI64):         vm.NegateI64,
+		byte(opcode.NegateBool):        vm.NegateBool,
+		byte(opcode.EqualsComp):        vm.EqualsComp,
+		byte(opcode.NotEqualsComp):     vm.NotEqualsComp,
+		byte(opcode.GreaterThanComp):   vm.GreaterThanComp,
+		byte(opcode.GreaterEqualsComp): vm.GreaterEqualsComp,
 	}
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]

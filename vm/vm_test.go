@@ -95,6 +95,80 @@ func TestBooleanValues(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestEquality(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "1 == 2;",
+			expected: "false",
+		},
+		{
+			input:    "1 != 1;",
+			expected: "false",
+		},
+		{
+			input:    "true == true;",
+			expected: "true",
+		},
+		{
+			input:    "'a' != 'b';",
+			expected: "true",
+		},
+		{
+			input:    "\"str\" == \"str\";",
+			expected: "true",
+		},
+		{
+			input:    "1 + 2 == 3 * 1;",
+			expected: "true",
+		},
+		{
+			input:    "3 > 2 == true;",
+			expected: "true",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestComparison(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "1 > 2;",
+			expected: "false",
+		},
+		{
+			input:    "3 <= 1;",
+			expected: "false",
+		},
+		{
+			input:    "500 > 499;",
+			expected: "true",
+		},
+		{
+			input:    "2 < 3;",
+			expected: "true",
+		},
+		{
+			input:    "3 >= 3;",
+			expected: "true",
+		},
+		{
+			input:    "'b' > 'a';",
+			expected: "true",
+		},
+		{
+			input:    "'' >= '';",
+			expected: "true",
+		},
+		{
+			input:    "'a' < 'z';",
+			expected: "true",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestStringsAndChars(t *testing.T) {
 	test := []vmTestCase{
 		{
@@ -109,6 +183,10 @@ func TestStringsAndChars(t *testing.T) {
 			input:    "\"proto \" + \"language\" + '!';",
 			expected: "\"proto language!\"",
 		},
+		{
+			input:    "\"proto \" + \"language\" + '!' + \" It is fun!\";",
+			expected: "\"proto language! It is fun!\"",
+		},
 	}
 
 	runVmTest(t, test)
@@ -117,7 +195,7 @@ func TestStringsAndChars(t *testing.T) {
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
-	for _, tt := range tests {
+	for i, tt := range tests {
 		prog := parser.Parse(tt.input)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
@@ -149,7 +227,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 		res := vm.LastPoppedElem()
 
 		if res.LiteralRepr() != tt.expected {
-			t.Fatalf("Expected %s as stack top but found %s.", tt.expected, res.LiteralRepr())
+			t.Fatalf("%d. Expected %s as stack top but found %s.", i, tt.expected, res.LiteralRepr())
 		}
 	}
 }

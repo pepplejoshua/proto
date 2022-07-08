@@ -69,23 +69,31 @@ const (
 	ModuloI64
 	NegateI64
 	NegateBool
+	EqualsComp
+	NotEqualsComp
+	GreaterThanComp
+	GreaterEqualsComp
 )
 
 var Definitions = map[OpCode]*InstructionDef{
-	LoadConstant:  {"LoadConstant", []int{2}}, // max size of constants pool is 65535 (starting at 0)
-	PushBoolTrue:  {"PushBoolTrue", []int{}},  // an OpCode for pushing a true value onto stack
-	PushBoolFalse: {"PushBoolFalse", []int{}}, // an OpCode for pushing a false value onto stack
-	AddI64:        {"AddI64", []int{}},        // add 2 i64 numbers
-	AddChar:       {"AddChar", []int{}},       // add 2 characters
-	AddStr:        {"AddStr", []int{}},        // add 2 strings
-	AddStrChar:    {"AddStrChar", []int{}},    // add a character to a string
-	Pop:           {"Pop", []int{}},           // pop a value off the stack
-	SubI64:        {"SubI64", []int{}},
-	MultI64:       {"MultI64", []int{}},
-	DivI64:        {"DivI64", []int{}},
-	ModuloI64:     {"ModuloI64", []int{}},
-	NegateI64:     {"NegateI64", []int{}},
-	NegateBool:    {"NegateBool", []int{}},
+	LoadConstant:      {"LoadConstant", []int{2}},     // max size of constants pool is 65535 (starting at 0)
+	PushBoolTrue:      {"PushBoolTrue", []int{}},      // an OpCode for pushing a true value onto stack
+	PushBoolFalse:     {"PushBoolFalse", []int{}},     // an OpCode for pushing a false value onto stack
+	AddI64:            {"AddI64", []int{}},            // add 2 i64 numbers
+	AddChar:           {"AddChar", []int{}},           // add 2 characters
+	AddStr:            {"AddStr", []int{}},            // add 2 strings
+	AddStrChar:        {"AddStrChar", []int{}},        // add a character to a string
+	Pop:               {"Pop", []int{}},               // pop a value off the stack
+	SubI64:            {"SubI64", []int{}},            // subtract 2 i64 numbers
+	MultI64:           {"MultI64", []int{}},           // multiply 2 i64 numbers
+	DivI64:            {"DivI64", []int{}},            // divide 2 i64 numbers
+	ModuloI64:         {"ModuloI64", []int{}},         // module between 2 i64 numbers
+	NegateI64:         {"NegateI64", []int{}},         // negate an i64 number
+	NegateBool:        {"NegateBool", []int{}},        // negate a boolean value
+	EqualsComp:        {"EqualsComp", []int{}},        // compare 2 values for equality
+	NotEqualsComp:     {"NotEqualsComp", []int{}},     // compare 2 values for inequality
+	GreaterThanComp:   {"GreaterThanComp", []int{}},   // check if an i64 or char is greater than another i64 or char
+	GreaterEqualsComp: {"GreaterEqualsComp", []int{}}, // check if an i64 or char is greater or equal to another i64 or char
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
