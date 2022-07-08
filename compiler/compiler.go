@@ -139,6 +139,14 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 			c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThanEquals is possible
 			c.Compile(actual.Left)
 			c.generateBytecode(opcode.GreaterEqualsComp)
+		case "&&":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.And)
+		case "||":
+			c.Compile(actual.Left)
+			c.Compile(actual.Right)
+			c.generateBytecode(opcode.Or)
 		}
 	default:
 	}

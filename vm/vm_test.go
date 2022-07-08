@@ -130,6 +130,37 @@ func TestEquality(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestAndOr(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "true || false;",
+			expected: "true",
+		},
+		{
+			input:    "false && true;",
+			expected: "false",
+		},
+		{
+			input:    "true && false;",
+			expected: "false",
+		},
+		{
+			input:    "false || true;",
+			expected: "true",
+		},
+		{
+			input:    "true || true;",
+			expected: "true",
+		},
+		{
+			input:    "false && false;",
+			expected: "false",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestComparison(t *testing.T) {
 	tests := []vmTestCase{
 		{

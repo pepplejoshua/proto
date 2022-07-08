@@ -359,6 +359,33 @@ func TestBooleanValues(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestAndOr(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input:             "true || false;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.Or),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input:             "false && true;",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.And),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func TestStringAndChar(t *testing.T) {
 	tests := []compilerTestCase{
 		{

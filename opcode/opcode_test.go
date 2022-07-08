@@ -26,6 +26,8 @@ func TestMakingOpCode(t *testing.T) {
 		{NotEqualsComp, []int{}, []byte{byte(NotEqualsComp)}},
 		{GreaterThanComp, []int{}, []byte{byte(GreaterThanComp)}},
 		{GreaterEqualsComp, []int{}, []byte{byte(GreaterEqualsComp)}},
+		{And, []int{}, []byte{byte(And)}},
+		{Or, []int{}, []byte{byte(Or)}},
 	}
 
 	for _, test := range tests {
@@ -75,6 +77,8 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(NotEqualsComp),
 		MakeInstruction(GreaterThanComp),
 		MakeInstruction(GreaterEqualsComp),
+		MakeInstruction(And),
+		MakeInstruction(Or),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -97,6 +101,8 @@ func TestInstructionsString(t *testing.T) {
 0023 NotEqualsComp
 0024 GreaterThanComp
 0025 GreaterEqualsComp
+0026 And
+0027 Or
 `
 
 	if ins.Disassemble() != exp {
@@ -129,6 +135,8 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{NotEqualsComp, []int{}, 0},
 		{GreaterThanComp, []int{}, 0},
 		{GreaterEqualsComp, []int{}, 0},
+		{And, []int{}, 0},
+		{Or, []int{}, 0},
 	}
 
 	for _, tt := range tests {

@@ -351,6 +351,30 @@ func (vm *VM) GreaterEqualsComp(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) And(ip int) int {
+	rhs := vm.PopOffStack().(*ast.Boolean)
+	lhs := vm.PopOffStack().(*ast.Boolean)
+
+	if lhs.Value && rhs.Value {
+		vm.PushOntoStack(TRUE)
+	} else {
+		vm.PushOntoStack(FALSE)
+	}
+	return ip + 1
+}
+
+func (vm *VM) Or(ip int) int {
+	rhs := vm.PopOffStack().(*ast.Boolean)
+	lhs := vm.PopOffStack().(*ast.Boolean)
+
+	if lhs.Value || rhs.Value {
+		vm.PushOntoStack(TRUE)
+	} else {
+		vm.PushOntoStack(FALSE)
+	}
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
@@ -371,7 +395,10 @@ func (vm *VM) Run() {
 		byte(opcode.NotEqualsComp):     vm.NotEqualsComp,
 		byte(opcode.GreaterThanComp):   vm.GreaterThanComp,
 		byte(opcode.GreaterEqualsComp): vm.GreaterEqualsComp,
+		byte(opcode.And):               vm.And,
+		byte(opcode.Or):                vm.Or,
 	}
+
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]
 		if dispatch, ok := operations_dispatch[op]; ok {
