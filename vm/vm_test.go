@@ -90,6 +90,10 @@ func TestBooleanValues(t *testing.T) {
 			input:    "not not not false;",
 			expected: "true",
 		},
+		{
+			input:    "not if false { false } else { true };",
+			expected: "false",
+		},
 	}
 
 	runVmTest(t, tests)
@@ -246,8 +250,8 @@ func TestIfConditional(t *testing.T) {
 			expected: "2",
 		},
 		{
-			input:    "if false { 1; }",
-			expected: "false", // this is because the condition is not popped off the stack
+			input:    "if false { 1 } else { 2 }",
+			expected: "2", // this is because the condition is not popped off the stack
 		},
 	}
 
@@ -287,6 +291,10 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 		}
 
 		res := vm.LastPoppedElem()
+
+		if res == nil {
+			res = vm.StackTop()
+		}
 
 		if res.LiteralRepr() != tt.expected {
 			t.Fatalf("%d. Expected %s as stack top but found %s.", i, tt.expected, res.LiteralRepr())

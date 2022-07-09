@@ -58,6 +58,10 @@ func NewVM(bc *compiler.ByteCode) *VM {
 	}
 }
 
+func (vm *VM) StackTop() ast.ProtoNode {
+	return vm.stack[vm.stack_index-1]
+}
+
 func (vm *VM) LastPoppedElem() ast.ProtoNode {
 	return vm.stack[vm.stack_index]
 }
@@ -398,6 +402,11 @@ func (vm *VM) JumpTo(ip int) int {
 	return int(new_ip)
 }
 
+func (vm *VM) PushUnit(ip int) int {
+	vm.PushOntoStack(UNIT)
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
@@ -422,6 +431,7 @@ func (vm *VM) Run() {
 		byte(opcode.Or):                vm.Or,
 		byte(opcode.JumpOnNotTrueTo):   vm.JumpOnNotTrueTo,
 		byte(opcode.JumpTo):            vm.JumpTo,
+		byte(opcode.PushUnit):          vm.PushUnit,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

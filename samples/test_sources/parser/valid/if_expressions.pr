@@ -59,3 +59,5 @@ a = if b {
 } else {
     2
 };
+
+not if true { 1 } else { 2 };

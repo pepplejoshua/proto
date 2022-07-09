@@ -483,14 +483,18 @@ func TestIfConditionals(t *testing.T) {
 				// 0
 				opcode.MakeInstruction(opcode.PushBoolTrue),
 				// 1
-				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 8),
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 11),
 				// 4
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				// 7
 				opcode.MakeInstruction(opcode.Pop),
 				// 8
-				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.JumpTo, 12),
 				// 11
+				opcode.MakeInstruction(opcode.PushUnit),
+				// 12
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 15
 				opcode.MakeInstruction(opcode.Pop),
 			},
 		},
@@ -504,14 +508,18 @@ func TestIfConditionals(t *testing.T) {
 				// 0
 				opcode.MakeInstruction(opcode.PushBoolTrue),
 				// 1
-				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 7),
+				opcode.MakeInstruction(opcode.JumpOnNotTrueTo, 10),
 				// 4
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				// 7
-				opcode.MakeInstruction(opcode.Pop),
-				// 8
-				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.JumpTo, 11),
+				// 10
+				opcode.MakeInstruction(opcode.PushUnit),
 				// 11
+				opcode.MakeInstruction(opcode.Pop),
+				// 12
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				// 15
 				opcode.MakeInstruction(opcode.Pop),
 			},
 		},

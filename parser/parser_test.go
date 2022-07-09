@@ -233,6 +233,7 @@ func TestParsingIfExpressions(t *testing.T) {
 		"(let f: i64 (if true { 1 }: i64 else { 2 }: i64): i64)",
 		"(while (if true { true }: bool else { false }: bool): bool {  }: ())",
 		"(a = (if b { 1 }: i64 else { 2 }: i64): i64)",
+		"(not (if true { 1 }: i64 else { 2 }: i64): i64);",
 	}
 
 	for index, node := range contents {

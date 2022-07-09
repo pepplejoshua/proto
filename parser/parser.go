@@ -156,7 +156,7 @@ func (p *Parser) parse_if_conditional(skip_else bool) *ast.IfConditional {
 		var msg strings.Builder
 		line := p.cur.TokenSpan.Line
 		col := p.cur.TokenSpan.Col
-		msg.WriteString(fmt.Sprintf("%d: %d ", line, col))
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("If conditional requires an else statement.")
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
@@ -443,7 +443,7 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 	case lexer.NOT, lexer.MINUS:
 		operator := p.cur
 		p.consume(operator.Type)
-		operand := p.parse_unary(skip_struct_expr, skip_else)
+		operand := p.parse_unary(skip_struct_expr, false)
 		val = &ast.UnaryOp{
 			Operand:  operand,
 			Operator: operator,

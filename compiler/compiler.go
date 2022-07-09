@@ -88,24 +88,29 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.Compile(actual.Condition)
 		// jump instruction with an operand to be updated later
 		jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+
+		// compile the then body of if conditional
 		c.Compile(actual.ThenBody)
-		// the jump target is the instruction after the then body of the if conditional
+
+		// store the jump instruction to be updated later
+		// it allows the then body jump past the rest of the else statement
+		jump_to := c.generateBytecode(opcode.JumpTo, 9999)
+
+		// the jump to else target is the instruction after the then body of the if conditional
+		// update that with the right location
+		jump_not_true_target := len(c.instructions)
+		c.updateOperand(jump_not_true, jump_not_true_target)
+
+		// if there is no else body, then push a unit onto stack
 		if actual.ElseBody == nil {
-			jump_not_true_target := len(c.instructions)
-			c.updateOperand(jump_not_true, jump_not_true_target)
+			c.generateBytecode(opcode.PushUnit)
 		} else {
-			// store the jump instruction to be updated later
-			// it allows the then body jump past the rest of the else statement
-			jump_to := c.generateBytecode(opcode.JumpTo, 9999)
-
-			// set the jump not true target to be the start of the else body
-			jump_not_true_target := len(c.instructions)
-			c.updateOperand(jump_not_true, jump_not_true_target)
-
 			c.Compile(actual.ElseBody)
-			jump_to_target := len(c.instructions)
-			c.updateOperand(jump_to, jump_to_target)
 		}
+
+		// set jump to target for then body to be past the end of the if statement
+		jump_to_target := len(c.instructions)
+		c.updateOperand(jump_to, jump_to_target)
 	case *ast.Block:
 		for _, node := range actual.Contents {
 			c.Compile(node)

@@ -77,6 +77,7 @@ const (
 	Or
 	JumpOnNotTrueTo
 	JumpTo
+	PushUnit
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -102,6 +103,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	Or:                {"Or", []int{}},                // perform or on 2 boolean values
 	JumpOnNotTrueTo:   {"JumpOnNotTrueTo", []int{2}},  // jump if value at top of stack is not true to a provided location in instructions
 	JumpTo:            {"JumpTo", []int{2}},           // jump to a provided location in instructions
+	PushUnit:          {"PushUnit", []int{}},          // used in the case of an if expression with no else, or just pushing a unit onto stack
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
