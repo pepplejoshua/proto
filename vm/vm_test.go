@@ -296,6 +296,41 @@ func TestMakingArrays(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestIndexingArrays(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "let a = [1, 2, 3]; a[1];",
+			expected: "2",
+		},
+		{
+			input:    "let a = [1, 2, 3]; a[1 + 1];",
+			expected: "3",
+		},
+		{
+			input:    "let a = [1, 2, 3, 4]; let b = 2; a[b + 1];",
+			expected: "4",
+		},
+		{
+			input:    "let a = [1, 2, 3]; let b = [0]; a[b[0]];",
+			expected: "1",
+		},
+		{
+			input:    "let a = [i64; 1, 2, 3]; a[2];",
+			expected: "3",
+		},
+		{
+			input:    "let a = [[1, 2, 3], [4, 5, 6]]; a[0];",
+			expected: "[1, 2, 3]",
+		},
+		{
+			input:    "let a = [[1, 2, 3], [4, 5, 6]]; a[0][1];",
+			expected: "2",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

@@ -438,7 +438,6 @@ func (vm *VM) MakeArray(ip int) int {
 	start := vm.stack_index - size
 	for i := start; i < vm.stack_index; i++ {
 		val := vm.stack[i].(ast.Expression)
-		println(val.LiteralRepr())
 		array.Items[i-start] = val
 	}
 
@@ -448,6 +447,27 @@ func (vm *VM) MakeArray(ip int) int {
 	vm.stack_index = start
 	vm.PushOntoStack(array)
 	return ip + 3
+}
+
+func (vm *VM) AccessIndex(ip int) int {
+	index_t := vm.PopOffStack().(*ast.I64)
+	indexable := vm.PopOffStack().(*ast.Array)
+	index := MakeInt64(index_t.Token.Literal)
+
+	if index < 0 || int(index) >= len(indexable.Items) {
+		if len(indexable.Items) == 0 {
+			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
+				index, len(indexable.Items)))
+		} else if len(indexable.Items) == 1 {
+			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
+				index, len(indexable.Items)))
+		} else {
+			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
+				index, len(indexable.Items), len(indexable.Items)-1))
+		}
+	}
+	vm.PushOntoStack(indexable.Items[index])
+	return ip + 1
 }
 
 func (vm *VM) Run() {
@@ -478,6 +498,7 @@ func (vm *VM) Run() {
 		byte(opcode.SetGlobal):         vm.SetGlobal,
 		byte(opcode.GetGlobal):         vm.GetGlobal,
 		byte(opcode.MakeArray):         vm.MakeArray,
+		byte(opcode.AccessIndex):       vm.AccessIndex,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

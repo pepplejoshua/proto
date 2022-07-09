@@ -95,6 +95,10 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		}
 
 		c.generateBytecode(opcode.MakeArray, len(actual.Items))
+	case *ast.IndexExpression:
+		c.Compile(actual.Indexable)
+		c.Compile(actual.Index)
+		c.generateBytecode(opcode.AccessIndex)
 	case *ast.VariableDecl:
 		c.Compile(actual.Assigned)
 		sym := c.symbolTable.Define(actual.Assignee.Token.Literal)

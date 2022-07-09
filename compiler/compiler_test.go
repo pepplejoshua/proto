@@ -693,6 +693,93 @@ func TestMakingArrays(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestIndexExpressions(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "[1, 2, 3][1];",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.MakeArray, 3),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AccessIndex),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "let a = [1, 2, 3]; a[1];",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.MakeArray, 3),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AccessIndex),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "let a = [1, 2, 3]; let b = 2; a[b];",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.MakeArray, 3),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 1),
+				opcode.MakeInstruction(opcode.AccessIndex),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "let a = [1, 2, 3]; let b = 1; a[b + 1];",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.MakeArray, 3),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.AccessIndex),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 

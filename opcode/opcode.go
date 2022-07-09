@@ -81,6 +81,7 @@ const (
 	SetGlobal
 	GetGlobal
 	MakeArray
+	AccessIndex
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -110,6 +111,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	SetGlobal:         {"SetGlobal", []int{2}},        // used to set the value at an index in global scope. It is used to bind global variables
 	GetGlobal:         {"GetGlobal", []int{2}},        // used to get the value at the provided index in the global scope. It is used to bind global variables
 	MakeArray:         {"MakeArray", []int{2}},        // used to construct an array with values off the stack with a size provided as its operand
+	AccessIndex:       {"AccessIndex", []int{}},       // used to access the index of an array by popping a value of the stack to use
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
