@@ -440,37 +440,6 @@ func TestStringAndChar(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
-func runCompilerTest(t *testing.T, tests []compilerTestCase) {
-	t.Helper()
-
-	for _, tt := range tests {
-		prog := parser.Parse(tt.input)
-		nr := name_resolver.NewNameResolver()
-		tc := type_checker.NewTypeChecker()
-		nr.ResolveProgram(prog)
-		if nr.FoundError {
-			t.Fatal("Found errors during name resolution")
-		}
-
-		tc.TypeCheckProgram(prog)
-		if tc.FoundError {
-			t.Fatal("Found errors during type checking")
-		}
-
-		compiler := NewCompiler()
-		compiler.CompileProgram(prog)
-
-		if compiler.FoundError {
-			t.Fatal("Found errors during compilation")
-		}
-
-		bc := compiler.ByteCode()
-
-		testInstructions(t, concatInstructions(tt.expectedIns), bc.Instructions)
-		testConstants(t, tt.expectedConstants, bc.Constants)
-	}
-}
-
 func TestIfConditionals(t *testing.T) {
 	tests := []compilerTestCase{
 		{
@@ -665,6 +634,94 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 	}
 
 	runCompilerTest(t, tests)
+}
+
+func TestMakingArrays(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input:             "[i64;];",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.MakeArray, 0),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "let a = 4; [1, 2, 3, a];",
+			expectedConstants: []string{
+				"4",
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.LoadConstant, 3),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.MakeArray, 4),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{
+			input: "let a = 4; [1, 2, 3, a, a + 1];",
+			expectedConstants: []string{
+				"4",
+				"1",
+				"2",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.LoadConstant, 3),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.MakeArray, 5),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+		{},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func runCompilerTest(t *testing.T, tests []compilerTestCase) {
+	t.Helper()
+
+	for _, tt := range tests {
+		prog := parser.Parse(tt.input)
+		nr := name_resolver.NewNameResolver()
+		tc := type_checker.NewTypeChecker()
+		nr.ResolveProgram(prog)
+		if nr.FoundError {
+			t.Fatal("Found errors during name resolution")
+		}
+
+		tc.TypeCheckProgram(prog)
+		if tc.FoundError {
+			t.Fatal("Found errors during type checking")
+		}
+
+		compiler := NewCompiler()
+		compiler.CompileProgram(prog)
+
+		if compiler.FoundError {
+			t.Fatal("Found errors during compilation")
+		}
+
+		bc := compiler.ByteCode()
+
+		testInstructions(t, concatInstructions(tt.expectedIns), bc.Instructions)
+		testConstants(t, tt.expectedConstants, bc.Constants)
+	}
 }
 
 func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {

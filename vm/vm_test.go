@@ -277,6 +277,25 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestMakingArrays(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "[i64;];",
+			expected: "[]",
+		},
+		{
+			input:    "let a = 4; [1, 2, 3, a];",
+			expected: "[1, 2, 3, 4]",
+		},
+		{
+			input:    "let a = 4; [1, 2, 3, a, a + 1];",
+			expected: "[1, 2, 3, 4, 5]",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

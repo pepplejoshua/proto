@@ -33,6 +33,7 @@ func TestMakingOpCode(t *testing.T) {
 		{PushUnit, []int{}, []byte{byte(PushUnit)}},
 		{SetGlobal, []int{5}, []byte{byte(SetGlobal), 0, 5}},
 		{GetGlobal, []int{100}, []byte{byte(GetGlobal), 0, 100}},
+		{MakeArray, []int{10}, []byte{byte(MakeArray), 0, 10}},
 	}
 
 	for _, test := range tests {
@@ -89,6 +90,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(PushUnit),
 		MakeInstruction(SetGlobal, 0),
 		MakeInstruction(GetGlobal, 10),
+		MakeInstruction(MakeArray, 5),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -118,6 +120,7 @@ func TestInstructionsString(t *testing.T) {
 0034 PushUnit
 0035 SetGlobal 0
 0038 GetGlobal 10
+0041 MakeArray 5
 `
 
 	if ins.Disassemble() != exp {
@@ -157,6 +160,7 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{PushUnit, []int{}, 0},
 		{SetGlobal, []int{10}, 2},
 		{GetGlobal, []int{100}, 2},
+		{MakeArray, []int{2}, 2},
 	}
 
 	for _, tt := range tests {

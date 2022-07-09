@@ -89,6 +89,12 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.I64, *ast.Char, *ast.String:
 		loc := c.appendConstant(actual)
 		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.Array:
+		for _, item := range actual.Items {
+			c.Compile(item)
+		}
+
+		c.generateBytecode(opcode.MakeArray, len(actual.Items))
 	case *ast.VariableDecl:
 		c.Compile(actual.Assigned)
 		sym := c.symbolTable.Define(actual.Assignee.Token.Literal)

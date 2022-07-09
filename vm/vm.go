@@ -413,15 +413,40 @@ func (vm *VM) PushUnit(ip int) int {
 }
 
 func (vm *VM) SetGlobal(ip int) int {
-	globalIndex := opcode.ReadUInt16(vm.instructions[ip+1:])
+	globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
 	vm.globals[globalIndex] = vm.PopOffStack()
 	return ip + 3
 }
 
 func (vm *VM) GetGlobal(ip int) int {
-	globalIndex := opcode.ReadUInt16(vm.instructions[ip+1:])
+	globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
 	val := vm.globals[globalIndex]
 	vm.PushOntoStack(val)
+	return ip + 3
+}
+
+func (vm *VM) MakeArray(ip int) int {
+	size := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+
+	array := &ast.Array{
+		Items: make([]ast.Expression, size),
+		ArrayType: &ast.Proto_Array{
+			InternalType: nil,
+		},
+	}
+
+	start := vm.stack_index - size
+	for i := start; i < vm.stack_index; i++ {
+		val := vm.stack[i].(ast.Expression)
+		println(val.LiteralRepr())
+		array.Items[i-start] = val
+	}
+
+	if len(array.Items) > 0 {
+		array.ArrayType.InternalType = array.Items[0].Type()
+	}
+	vm.stack_index = start
+	vm.PushOntoStack(array)
 	return ip + 3
 }
 
@@ -452,6 +477,7 @@ func (vm *VM) Run() {
 		byte(opcode.PushUnit):          vm.PushUnit,
 		byte(opcode.SetGlobal):         vm.SetGlobal,
 		byte(opcode.GetGlobal):         vm.GetGlobal,
+		byte(opcode.MakeArray):         vm.MakeArray,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

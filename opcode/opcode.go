@@ -80,6 +80,7 @@ const (
 	PushUnit
 	SetGlobal
 	GetGlobal
+	MakeArray
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -108,6 +109,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	PushUnit:          {"PushUnit", []int{}},          // used in the case of an if expression with no else, or just pushing a unit onto stack
 	SetGlobal:         {"SetGlobal", []int{2}},        // used to set the value at an index in global scope. It is used to bind global variables
 	GetGlobal:         {"GetGlobal", []int{2}},        // used to get the value at the provided index in the global scope. It is used to bind global variables
+	MakeArray:         {"MakeArray", []int{2}},        // used to construct an array with values off the stack with a size provided as its operand
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
