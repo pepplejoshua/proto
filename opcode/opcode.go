@@ -78,6 +78,8 @@ const (
 	JumpOnNotTrueTo
 	JumpTo
 	PushUnit
+	SetGlobal
+	GetGlobal
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -104,6 +106,8 @@ var Definitions = map[OpCode]*InstructionDef{
 	JumpOnNotTrueTo:   {"JumpOnNotTrueTo", []int{2}},  // jump if value at top of stack is not true to a provided location in instructions
 	JumpTo:            {"JumpTo", []int{2}},           // jump to a provided location in instructions
 	PushUnit:          {"PushUnit", []int{}},          // used in the case of an if expression with no else, or just pushing a unit onto stack
+	SetGlobal:         {"SetGlobal", []int{2}},        // used to set the value at an index in global scope. It is used to bind global variables
+	GetGlobal:         {"GetGlobal", []int{2}},        // used to get the value at the provided index in the global scope. It is used to bind global variables
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

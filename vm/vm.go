@@ -12,6 +12,7 @@ import (
 )
 
 const STACK_SIZE = 2048
+const GLOBALS_SIZE = 65536
 
 var TRUE = &ast.Boolean{
 	Value: true,
@@ -43,9 +44,12 @@ type VM struct {
 	constants    []ast.ProtoNode
 	instructions opcode.VMInstructions
 
-	FoundError  bool
+	FoundError bool
+
 	stack       []ast.ProtoNode
 	stack_index int
+
+	globals []ast.ProtoNode
 }
 
 func NewVM(bc *compiler.ByteCode) *VM {
@@ -55,6 +59,7 @@ func NewVM(bc *compiler.ByteCode) *VM {
 		FoundError:   false,
 		stack:        make([]ast.ProtoNode, STACK_SIZE),
 		stack_index:  0,
+		globals:      make([]ast.ProtoNode, GLOBALS_SIZE),
 	}
 }
 
@@ -407,6 +412,19 @@ func (vm *VM) PushUnit(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) SetGlobal(ip int) int {
+	globalIndex := opcode.ReadUInt16(vm.instructions[ip+1:])
+	vm.globals[globalIndex] = vm.PopOffStack()
+	return ip + 3
+}
+
+func (vm *VM) GetGlobal(ip int) int {
+	globalIndex := opcode.ReadUInt16(vm.instructions[ip+1:])
+	val := vm.globals[globalIndex]
+	vm.PushOntoStack(val)
+	return ip + 3
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
@@ -432,6 +450,8 @@ func (vm *VM) Run() {
 		byte(opcode.JumpOnNotTrueTo):   vm.JumpOnNotTrueTo,
 		byte(opcode.JumpTo):            vm.JumpTo,
 		byte(opcode.PushUnit):          vm.PushUnit,
+		byte(opcode.SetGlobal):         vm.SetGlobal,
+		byte(opcode.GetGlobal):         vm.GetGlobal,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

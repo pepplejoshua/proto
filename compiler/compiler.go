@@ -1,8 +1,10 @@
 package compiler
 
 import (
+	"fmt"
 	"proto/ast"
 	"proto/opcode"
+	"proto/shared"
 )
 
 type ByteCode struct {
@@ -14,12 +16,15 @@ type Compiler struct {
 	instructions opcode.VMInstructions
 	constants    []ast.ProtoNode
 	FoundError   bool
+	symbolTable  *SymbolTable
 }
 
 func NewCompiler() *Compiler {
 	return &Compiler{
 		instructions: opcode.VMInstructions{},
 		constants:    []ast.ProtoNode{},
+		FoundError:   false,
+		symbolTable:  NewSymbolTable(),
 	}
 }
 
@@ -84,6 +89,17 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.I64, *ast.Char, *ast.String:
 		loc := c.appendConstant(actual)
 		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.VariableDecl:
+		c.Compile(actual.Assigned)
+		sym := c.symbolTable.Define(actual.Assignee.Token.Literal)
+		c.generateBytecode(opcode.SetGlobal, sym.Index)
+	case *ast.Identifier:
+		sym, ok := c.symbolTable.Resolve(actual.Token.Literal)
+		if !ok {
+			shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+				actual.Token.Literal))
+		}
+		c.generateBytecode(opcode.GetGlobal, sym.Index)
 	case *ast.IfConditional:
 		c.Compile(actual.Condition)
 		// jump instruction with an operand to be updated later

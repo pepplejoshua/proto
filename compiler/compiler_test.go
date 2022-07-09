@@ -628,6 +628,45 @@ func TestIfConditionals(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestGlobalUseOfIdentifiers(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "let one = 1; let two = 2;",
+			expectedConstants: []string{
+				"1",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+			},
+		},
+		{
+			input: "let un: i64 = 1; un; let deux = 2; deux; let un: i64 = 1;",
+			expectedConstants: []string{
+				"1",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.Pop),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+				opcode.MakeInstruction(opcode.GetGlobal, 1),
+				opcode.MakeInstruction(opcode.Pop),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
 	conc := opcode.VMInstructions{}
 	for _, in := range ins {

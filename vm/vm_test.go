@@ -258,6 +258,25 @@ func TestIfConditional(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestGlobalUseOfIdentifiers(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "let un: i64 = 1; un;",
+			expected: "1",
+		},
+		{
+			input:    "let un = 1; let deux = 2; un + deux;",
+			expected: "3",
+		},
+		{
+			input:    "let un = 1; let deux = 2; if un + deux >= 3 { 3 } else { un + deux }",
+			expected: "3",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
