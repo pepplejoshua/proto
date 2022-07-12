@@ -349,6 +349,26 @@ func TestBlocks(t *testing.T) {
 			input:    "let a: bool = true; { let a = a; a };",
 			expected: "true",
 		},
+		{
+			input:    "{ 1 + 2 + 3; let a = 4; a };",
+			expected: "4",
+		},
+		{
+			input:    "{ let a = 10; { let b = a; b } };",
+			expected: "10",
+		},
+		{
+			input:    "{ let a = 10; { let b = a; { let c = b + a; c } } };",
+			expected: "20",
+		},
+		{
+			input:    "{ let a = 10; { let a = 20; a + a } + a }; ",
+			expected: "50",
+		},
+		{
+			input:    "1 + 1 + 3; let a = 6; { let a = 10; a }",
+			expected: "10",
+		},
 	}
 
 	runVmTest(t, tests)

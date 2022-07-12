@@ -42,6 +42,8 @@ func (i *VMInstructions) formatInstruction(def *InstructionDef, ops []int) strin
 		return def.Name
 	case 1:
 		return fmt.Sprintf("%s %d", def.Name, ops[0])
+	case 2:
+		return fmt.Sprintf("%s %d %d", def.Name, ops[0], ops[1])
 	}
 
 	return fmt.Sprintf("Error: Unhandled Operator Count %d for %s", opcount, def.Name)
@@ -87,7 +89,6 @@ const (
 	EnterScope
 	ExitScope
 	PopN
-	SetFrameResult
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -123,7 +124,6 @@ var Definitions = map[OpCode]*InstructionDef{
 	EnterScope:        {"EnterScope", []int{}},        // used to tell the VM to add a stack frame
 	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a scope
 	PopN:              {"PopN", []int{2}},             // used to tell the VM to pop N values from stack
-	SetFrameResult:    {"SetFrameResult", []int{}},    // used to persist the result value pushed onto stack before frame is exited
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
@@ -156,6 +156,10 @@ func MakeInstruction(op OpCode, operands ...int) []byte {
 
 func ReadUInt16(ins VMInstructions) uint16 {
 	return binary.BigEndian.Uint16(ins)
+}
+
+func ReadUInt8(ins VMInstructions) uint8 {
+	return uint8(ins[0])
 }
 
 func ReadOperands(def *InstructionDef, ins VMInstructions) ([]int, int) {

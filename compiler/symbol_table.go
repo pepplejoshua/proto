@@ -7,7 +7,7 @@ type Symbol struct {
 }
 
 type SymbolTable struct {
-	store              map[string]*Symbol
+	store              []*Symbol
 	numOfStoredSymbols int
 	CurScopeDepth      int
 	EnclosingSymTable  *SymbolTable
@@ -15,7 +15,7 @@ type SymbolTable struct {
 
 func NewSymbolTable() *SymbolTable {
 	return &SymbolTable{
-		store:              map[string]*Symbol{},
+		store:              []*Symbol{},
 		numOfStoredSymbols: 0,
 		CurScopeDepth:      0,
 		EnclosingSymTable:  nil,
@@ -24,7 +24,7 @@ func NewSymbolTable() *SymbolTable {
 
 func NewSymbolTableFrom(enclosing *SymbolTable) *SymbolTable {
 	return &SymbolTable{
-		store:              map[string]*Symbol{},
+		store:              []*Symbol{},
 		numOfStoredSymbols: 0,
 		CurScopeDepth:      enclosing.CurScopeDepth + 1,
 		EnclosingSymTable:  enclosing,
@@ -33,7 +33,7 @@ func NewSymbolTableFrom(enclosing *SymbolTable) *SymbolTable {
 
 func (st *SymbolTable) Define(name string) (*Symbol, bool) {
 	for _, s := range st.store {
-		if s.Name == name {
+		if s.Name == name && s.ScopeDepth == st.CurScopeDepth {
 			return s, true
 		}
 	}
@@ -43,16 +43,21 @@ func (st *SymbolTable) Define(name string) (*Symbol, bool) {
 		ScopeDepth: st.CurScopeDepth,
 		Index:      st.numOfStoredSymbols,
 	}
+	st.store = append(st.store, sym)
 	st.numOfStoredSymbols++
-	st.store[name] = sym
 	return sym, false
 }
 
 func (st *SymbolTable) Resolve(name string) (*Symbol, bool) {
-	sym, ok := st.store[name]
+	for i := len(st.store) - 1; i >= 0; i-- {
+		s := st.store[i]
+		if s.Name == name && s.ScopeDepth <= st.CurScopeDepth {
+			return s, true
+		}
+	}
 
-	if !ok && st.EnclosingSymTable != nil {
+	if st.EnclosingSymTable != nil {
 		return st.EnclosingSymTable.Resolve(name)
 	}
-	return sym, ok
+	return nil, false
 }

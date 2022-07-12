@@ -82,6 +82,33 @@ func (c *Compiler) updateOperand(ins_pos int, operand int) {
 	c.replaceInstruction(ins_pos, new_ins)
 }
 
+func (c *Compiler) enterScope() {
+	// c.symbolTable.CurScopeDepth++
+	if c.symbolTable.CurScopeDepth == 0 {
+		c.symbolTable = NewSymbolTableFrom(c.symbolTable)
+	} else {
+		c.symbolTable.CurScopeDepth++
+	}
+	// c.generateBytecode(opcode.EnterScope)
+}
+
+func (c *Compiler) exitScope() {
+	if c.symbolTable.CurScopeDepth > 0 {
+		// removes all locals in scope
+		num_of_locals := 0
+		for _, sym := range c.symbolTable.store {
+			if sym.ScopeDepth == c.symbolTable.CurScopeDepth {
+				num_of_locals++
+			}
+		}
+
+		if num_of_locals > 0 {
+			c.generateBytecode(opcode.PopN, num_of_locals)
+		}
+		c.symbolTable.CurScopeDepth--
+	}
+}
+
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram) {
 	for _, node := range prog.Contents {
 		c.Compile(node)
@@ -100,63 +127,17 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		for _, item := range actual.Items {
 			c.Compile(item)
 		}
-
 		c.generateBytecode(opcode.MakeArray, len(actual.Items))
 	case *ast.IndexExpression:
 		c.Compile(actual.Indexable)
 		c.Compile(actual.Index)
 		c.generateBytecode(opcode.AccessIndex)
 	case *ast.VariableDecl:
-		c.Compile(actual.Assigned)
-		sym, exists := c.symbolTable.Define(actual.Assignee.Token.Literal)
-		if c.symbolTable.CurScopeDepth > 0 {
-			// since local variables use stack pointer offsets, we don't generate
-			// any special code for them
-			if exists {
-				c.generateBytecode(opcode.SetLocal, sym.Index)
-			}
-			return
-		}
-		c.generateBytecode(opcode.SetGlobal, sym.Index)
+		c.CompileVariableDecl(actual)
 	case *ast.Identifier:
-		sym, ok := c.symbolTable.Resolve(actual.Token.Literal)
-		if !ok {
-			shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
-				actual.Token.Literal))
-		}
-
-		if sym.ScopeDepth == 0 {
-			c.generateBytecode(opcode.GetGlobal, sym.Index)
-		} else {
-			c.generateBytecode(opcode.GetLocal, sym.Index)
-		}
+		c.CompileIdentifier(actual)
 	case *ast.IfConditional:
-		c.Compile(actual.Condition)
-		// jump instruction with an operand to be updated later
-		jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
-
-		// compile the then body of if conditional
-		c.Compile(actual.ThenBody)
-
-		// store the jump instruction to be updated later
-		// it allows the then body jump past the rest of the else statement
-		jump_to := c.generateBytecode(opcode.JumpTo, 9999)
-
-		// the jump to else target is the instruction after the then body of the if conditional
-		// update that with the right location
-		jump_not_true_target := len(c.instructions)
-		c.updateOperand(jump_not_true, jump_not_true_target)
-
-		// if there is no else body, then push a unit onto stack
-		if actual.ElseBody == nil {
-			c.generateBytecode(opcode.PushUnit)
-		} else {
-			c.Compile(actual.ElseBody)
-		}
-
-		// set jump to target for then body to be past the end of the if statement
-		jump_to_target := len(c.instructions)
-		c.updateOperand(jump_to, jump_to_target)
+		c.CompileIfConditional(actual)
 	case *ast.Block:
 		c.CompileBlock(actual, true)
 	case *ast.Boolean:
@@ -166,97 +147,49 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 			c.generateBytecode(opcode.PushBoolFalse)
 		}
 	case *ast.UnaryOp:
-		c.Compile(actual.Operand)
-		switch actual.Operator.Literal {
-		case "-":
-			c.generateBytecode(opcode.NegateI64)
-		case "not":
-			c.generateBytecode(opcode.NegateBool)
-		}
+		c.CompileUnaryOp(actual)
 	case *ast.BinaryOp:
-		switch actual.Operator.Literal {
-		case "+":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			switch actual.Op_Type.TypeSignature() {
-			case "i64":
-				c.generateBytecode(opcode.AddI64)
-			case "str":
-				if actual.Left.Type().TypeSignature() == "char" {
-					c.generateBytecode(opcode.AddChar)
-				} else if actual.Left.Type().TypeSignature() == "str" &&
-					actual.Right.Type().TypeSignature() == "char" {
-					c.generateBytecode(opcode.AddStrChar)
-				} else {
-					c.generateBytecode(opcode.AddStr)
-				}
-			}
-		case "-":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.SubI64)
-		case "*":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.MultI64)
-		case "/":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.DivI64)
-		case "%":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.ModuloI64)
-		case "==":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.EqualsComp)
-		case "!=":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.NotEqualsComp)
-		case ">":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.GreaterThanComp)
-		case "<":
-			c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThan is possible
-			c.Compile(actual.Left)
-			c.generateBytecode(opcode.GreaterThanComp)
-		case ">=":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.GreaterEqualsComp)
-		case "<=":
-			c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThanEquals is possible
-			c.Compile(actual.Left)
-			c.generateBytecode(opcode.GreaterEqualsComp)
-		case "&&":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.And)
-		case "||":
-			c.Compile(actual.Left)
-			c.Compile(actual.Right)
-			c.generateBytecode(opcode.Or)
-		}
+		c.CompileBinaryOp(actual)
+	case *ast.Assignment:
+		c.CompileAssignment(actual)
 	default:
 	}
 }
 
-func (c *Compiler) enterScope() {
-	c.symbolTable = NewSymbolTableFrom(c.symbolTable)
-	c.generateBytecode(opcode.EnterScope)
+func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
+
 }
 
-func (c *Compiler) exitScope() {
-	if c.symbolTable.CurScopeDepth > 0 && c.symbolTable.numOfStoredSymbols > 0 {
-		// removes all locals in scope
-		c.generateBytecode(opcode.PopN, c.symbolTable.numOfStoredSymbols)
+func (c *Compiler) CompileVariableDecl(actual *ast.VariableDecl) {
+	c.Compile(actual.Assigned)
+	sym, exists := c.symbolTable.Define(actual.Assignee.Token.Literal)
+	if c.symbolTable.CurScopeDepth > 0 {
+		// since local variables use stack pointer offsets, we don't generate
+		// any special code for them
+		if exists {
+			c.generateBytecode(opcode.SetLocal, sym.Index)
+		}
+		return
+	}
+	c.generateBytecode(opcode.SetGlobal, sym.Index)
+}
+
+func (c *Compiler) CompileIdentifier(actual *ast.Identifier) {
+	sym, ok := c.symbolTable.Resolve(actual.Token.Literal)
+	if !ok {
+		shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+			actual.Token.Literal))
 	}
 
-	c.symbolTable = c.symbolTable.EnclosingSymTable
-	c.generateBytecode(opcode.ExitScope)
+	if sym.ScopeDepth == 0 {
+		c.generateBytecode(opcode.GetGlobal, sym.Index)
+	} else {
+		c.generateBytecode(opcode.GetLocal, sym.Index)
+	}
+	// } else {
+	// 	c.generateBytecode(opcode.GetOuterLocal,
+	// 		c.symbolTable.CurScopeDepth-sym.ScopeDepth, sym.Index)
+	// }
 }
 
 func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
@@ -269,10 +202,8 @@ func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 		if index+1 == len(blk.Contents) {
 			switch node.(type) {
 			case ast.Expression:
-				c.generateBytecode(opcode.SetFrameResult)
 			default:
 				c.generateBytecode(opcode.PushUnit)
-				c.generateBytecode(opcode.SetFrameResult)
 
 			}
 		}
@@ -280,5 +211,113 @@ func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 
 	if makeScope {
 		c.exitScope()
+	}
+}
+
+func (c *Compiler) CompileIfConditional(actual *ast.IfConditional) {
+	c.Compile(actual.Condition)
+	// jump instruction with an operand to be updated later
+	jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+
+	// compile the then body of if conditional
+	c.Compile(actual.ThenBody)
+
+	// store the jump instruction to be updated later
+	// it allows the then body jump past the rest of the else statement
+	jump_to := c.generateBytecode(opcode.JumpTo, 9999)
+
+	// the jump to else target is the instruction after the then body of the if conditional
+	// update that with the right location
+	jump_not_true_target := len(c.instructions)
+	c.updateOperand(jump_not_true, jump_not_true_target)
+
+	// if there is no else body, then push a unit onto stack
+	if actual.ElseBody == nil {
+		c.generateBytecode(opcode.PushUnit)
+	} else {
+		c.Compile(actual.ElseBody)
+	}
+
+	// set jump to target for then body to be past the end of the if statement
+	jump_to_target := len(c.instructions)
+	c.updateOperand(jump_to, jump_to_target)
+}
+
+func (c *Compiler) CompileUnaryOp(actual *ast.UnaryOp) {
+	c.Compile(actual.Operand)
+	switch actual.Operator.Literal {
+	case "-":
+		c.generateBytecode(opcode.NegateI64)
+	case "not":
+		c.generateBytecode(opcode.NegateBool)
+	}
+}
+
+func (c *Compiler) CompileBinaryOp(actual *ast.BinaryOp) {
+	switch actual.Operator.Literal {
+	case "+":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		switch actual.Op_Type.TypeSignature() {
+		case "i64":
+			c.generateBytecode(opcode.AddI64)
+		case "str":
+			if actual.Left.Type().TypeSignature() == "char" {
+				c.generateBytecode(opcode.AddChar)
+			} else if actual.Left.Type().TypeSignature() == "str" &&
+				actual.Right.Type().TypeSignature() == "char" {
+				c.generateBytecode(opcode.AddStrChar)
+			} else {
+				c.generateBytecode(opcode.AddStr)
+			}
+		}
+	case "-":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.SubI64)
+	case "*":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.MultI64)
+	case "/":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.DivI64)
+	case "%":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.ModuloI64)
+	case "==":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.EqualsComp)
+	case "!=":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.NotEqualsComp)
+	case ">":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.GreaterThanComp)
+	case "<":
+		c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThan is possible
+		c.Compile(actual.Left)
+		c.generateBytecode(opcode.GreaterThanComp)
+	case ">=":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.GreaterEqualsComp)
+	case "<=":
+		c.Compile(actual.Right) // by reversing the orders of operands, reusing GreaterThanEquals is possible
+		c.Compile(actual.Left)
+		c.generateBytecode(opcode.GreaterEqualsComp)
+	case "&&":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.And)
+	case "||":
+		c.Compile(actual.Left)
+		c.Compile(actual.Right)
+		c.generateBytecode(opcode.Or)
 	}
 }

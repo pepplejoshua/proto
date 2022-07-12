@@ -790,15 +790,12 @@ func TestBlocks(t *testing.T) {
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.SetGlobal, 0),
-				opcode.MakeInstruction(opcode.EnterScope),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.GetGlobal, 0),
 				opcode.MakeInstruction(opcode.GetLocal, 0),
 				opcode.MakeInstruction(opcode.AddI64),
 				opcode.MakeInstruction(opcode.PushUnit),
-				opcode.MakeInstruction(opcode.SetFrameResult),
 				opcode.MakeInstruction(opcode.PopN, 2),
-				opcode.MakeInstruction(opcode.ExitScope),
 			},
 		},
 		{
@@ -809,8 +806,6 @@ func TestBlocks(t *testing.T) {
 				"1",
 			},
 			expectedIns: []opcode.VMInstructions{
-
-				opcode.MakeInstruction(opcode.EnterScope),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
 				opcode.MakeInstruction(opcode.SetLocal, 0),
@@ -821,9 +816,7 @@ func TestBlocks(t *testing.T) {
 				opcode.MakeInstruction(opcode.GetLocal, 0),
 				opcode.MakeInstruction(opcode.AddI64),
 				opcode.MakeInstruction(opcode.PushUnit),
-				opcode.MakeInstruction(opcode.SetFrameResult),
 				opcode.MakeInstruction(opcode.PopN, 3),
-				opcode.MakeInstruction(opcode.ExitScope),
 			},
 		},
 		{
@@ -834,8 +827,6 @@ func TestBlocks(t *testing.T) {
 				"1",
 			},
 			expectedIns: []opcode.VMInstructions{
-
-				opcode.MakeInstruction(opcode.EnterScope),
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.LoadConstant, 1),
 				opcode.MakeInstruction(opcode.SetLocal, 0),
@@ -846,9 +837,20 @@ func TestBlocks(t *testing.T) {
 				opcode.MakeInstruction(opcode.GetLocal, 0),
 				opcode.MakeInstruction(opcode.AddI64),
 				opcode.MakeInstruction(opcode.GetLocal, 2),
-				opcode.MakeInstruction(opcode.SetFrameResult),
 				opcode.MakeInstruction(opcode.PopN, 3),
-				opcode.MakeInstruction(opcode.ExitScope),
+			},
+		},
+		{
+			input: "{ let a = 10; { let b = a; b } }",
+			expectedConstants: []string{
+				"10",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 1),
+				opcode.MakeInstruction(opcode.PopN, 1),
+				opcode.MakeInstruction(opcode.PopN, 1),
 			},
 		},
 	}

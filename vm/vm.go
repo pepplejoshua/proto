@@ -480,7 +480,9 @@ func (vm *VM) AccessIndex(ip int) int {
 
 func (vm *VM) PopN(ip int) int {
 	N := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+	res := vm.PopOffStack()
 	vm.stack_index -= N
+	vm.PushOntoStack(res)
 	return ip + 3
 }
 
@@ -500,19 +502,14 @@ func (vm *VM) ExitScope(ip int) int {
 
 func (vm *VM) GetLocal(ip int) int {
 	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	vm.PushOntoStack(vm.stack[vm.frame.stack_index+offset])
+	vm.PushOntoStack(vm.stack[offset])
 	return ip + 3
 }
 
 func (vm *VM) SetLocal(ip int) int {
 	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	vm.stack[vm.frame.stack_index+offset] = vm.PopOffStack()
+	vm.stack[offset] = vm.PopOffStack()
 	return ip + 3
-}
-
-func (vm *VM) SetFrameResult(ip int) int {
-	vm.frame.return_val = vm.PopOffStack()
-	return ip + 1
 }
 
 func (vm *VM) Run() {
@@ -549,7 +546,6 @@ func (vm *VM) Run() {
 		byte(opcode.ExitScope):         vm.ExitScope,
 		byte(opcode.GetLocal):          vm.GetLocal,
 		byte(opcode.SetLocal):          vm.SetLocal,
-		byte(opcode.SetFrameResult):    vm.SetFrameResult,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {
