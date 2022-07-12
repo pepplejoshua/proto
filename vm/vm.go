@@ -11,7 +11,7 @@ import (
 	"strings"
 )
 
-const STACK_SIZE = 2048
+const STACK_SIZE = 65536
 const GLOBALS_SIZE = 65536
 
 var TRUE = &ast.Boolean{
@@ -40,6 +40,12 @@ var UNIT = &ast.Unit{
 	},
 }
 
+type ScopeFrame struct {
+	stack_index int
+	enclosing   *ScopeFrame
+	return_val  ast.ProtoNode
+}
+
 type VM struct {
 	constants    []ast.ProtoNode
 	instructions opcode.VMInstructions
@@ -50,6 +56,7 @@ type VM struct {
 	stack_index int
 
 	globals []ast.ProtoNode
+	frame   *ScopeFrame
 }
 
 func NewVM(bc *compiler.ByteCode) *VM {
@@ -60,6 +67,7 @@ func NewVM(bc *compiler.ByteCode) *VM {
 		stack:        make([]ast.ProtoNode, STACK_SIZE),
 		stack_index:  0,
 		globals:      make([]ast.ProtoNode, GLOBALS_SIZE),
+		frame:        nil,
 	}
 }
 
@@ -470,6 +478,43 @@ func (vm *VM) AccessIndex(ip int) int {
 	return ip + 1
 }
 
+func (vm *VM) PopN(ip int) int {
+	N := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+	vm.stack_index -= N
+	return ip + 3
+}
+
+func (vm *VM) EnterScope(ip int) int {
+	vm.frame = &ScopeFrame{
+		stack_index: vm.stack_index,
+		enclosing:   vm.frame,
+	}
+	return ip + 1
+}
+
+func (vm *VM) ExitScope(ip int) int {
+	vm.PushOntoStack(vm.frame.return_val)
+	vm.frame = vm.frame.enclosing
+	return ip + 1
+}
+
+func (vm *VM) GetLocal(ip int) int {
+	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+	vm.PushOntoStack(vm.stack[vm.frame.stack_index+offset])
+	return ip + 3
+}
+
+func (vm *VM) SetLocal(ip int) int {
+	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+	vm.stack[vm.frame.stack_index+offset] = vm.PopOffStack()
+	return ip + 3
+}
+
+func (vm *VM) SetFrameResult(ip int) int {
+	vm.frame.return_val = vm.PopOffStack()
+	return ip + 1
+}
+
 func (vm *VM) Run() {
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
@@ -499,6 +544,12 @@ func (vm *VM) Run() {
 		byte(opcode.GetGlobal):         vm.GetGlobal,
 		byte(opcode.MakeArray):         vm.MakeArray,
 		byte(opcode.AccessIndex):       vm.AccessIndex,
+		byte(opcode.PopN):              vm.PopN,
+		byte(opcode.EnterScope):        vm.EnterScope,
+		byte(opcode.ExitScope):         vm.ExitScope,
+		byte(opcode.GetLocal):          vm.GetLocal,
+		byte(opcode.SetLocal):          vm.SetLocal,
+		byte(opcode.SetFrameResult):    vm.SetFrameResult,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {

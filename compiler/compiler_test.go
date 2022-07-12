@@ -780,6 +780,82 @@ func TestIndexExpressions(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestBlocks(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "let a = 3; { let b = 3; let c = a + b; }",
+			expectedConstants: []string{
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.EnterScope),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.SetFrameResult),
+				opcode.MakeInstruction(opcode.PopN, 2),
+				opcode.MakeInstruction(opcode.ExitScope),
+			},
+		},
+		{
+			input: "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; }",
+			expectedConstants: []string{
+				"4",
+				"6",
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+
+				opcode.MakeInstruction(opcode.EnterScope),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetLocal, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.GetLocal, 1),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.SetFrameResult),
+				opcode.MakeInstruction(opcode.PopN, 3),
+				opcode.MakeInstruction(opcode.ExitScope),
+			},
+		},
+		{
+			input: "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; c }",
+			expectedConstants: []string{
+				"4",
+				"6",
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+
+				opcode.MakeInstruction(opcode.EnterScope),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetLocal, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.GetLocal, 1),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.GetLocal, 2),
+				opcode.MakeInstruction(opcode.SetFrameResult),
+				opcode.MakeInstruction(opcode.PopN, 3),
+				opcode.MakeInstruction(opcode.ExitScope),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 

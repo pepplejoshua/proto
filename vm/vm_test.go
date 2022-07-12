@@ -331,6 +331,29 @@ func TestIndexingArrays(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestBlocks(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "let a = 3; { let b = 3; let c = a + b; };",
+			expected: "()",
+		},
+		{
+			input:    "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; };",
+			expected: "()",
+		},
+		{
+			input:    "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; c };",
+			expected: "13",
+		},
+		{
+			input:    "let a: bool = true; { let a = a; a };",
+			expected: "true",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

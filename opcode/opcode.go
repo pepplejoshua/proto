@@ -82,6 +82,12 @@ const (
 	GetGlobal
 	MakeArray
 	AccessIndex
+	GetLocal
+	SetLocal
+	EnterScope
+	ExitScope
+	PopN
+	SetFrameResult
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -112,6 +118,12 @@ var Definitions = map[OpCode]*InstructionDef{
 	GetGlobal:         {"GetGlobal", []int{2}},        // used to get the value at the provided index in the global scope. It is used to bind global variables
 	MakeArray:         {"MakeArray", []int{2}},        // used to construct an array with values off the stack with a size provided as its operand
 	AccessIndex:       {"AccessIndex", []int{}},       // used to access the index of an array by popping a value of the stack to use
+	GetLocal:          {"GetLocal", []int{2}},         // used to access local by reading value off stack
+	SetLocal:          {"SetLocal", []int{2}},         // used to access local by reading value off stack
+	EnterScope:        {"EnterScope", []int{}},        // used to tell the VM to add a stack frame
+	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a scope
+	PopN:              {"PopN", []int{2}},             // used to tell the VM to pop N values from stack
+	SetFrameResult:    {"SetFrameResult", []int{}},    // used to persist the result value pushed onto stack before frame is exited
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

@@ -49,3 +49,30 @@
 
     }
   ```
+
+```rust
+let a = 2;
+
+fn stuff() -> i64 {
+  1
+}
+
+fn main() {
+  a = stuff();
+}
+
+// TODO
+
+fn accept_i64(a: i64) -> bool {
+  if a > 2 {
+    false
+  } else {
+    true
+  }
+}
+
+fn main() {
+  let a = 2;
+  let b = accept_i64(a);
+}
+```

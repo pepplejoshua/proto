@@ -1,46 +1,58 @@
 package compiler
 
-type SymScope int
-
-const (
-	Global SymScope = iota
-)
-
 type Symbol struct {
-	Name  string
-	Scope SymScope
-	Index int
+	Name       string
+	ScopeDepth int
+	Index      int
 }
 
 type SymbolTable struct {
 	store              map[string]*Symbol
 	numOfStoredSymbols int
+	CurScopeDepth      int
+	EnclosingSymTable  *SymbolTable
 }
 
 func NewSymbolTable() *SymbolTable {
 	return &SymbolTable{
 		store:              map[string]*Symbol{},
 		numOfStoredSymbols: 0,
+		CurScopeDepth:      0,
+		EnclosingSymTable:  nil,
 	}
 }
 
-func (st *SymbolTable) Define(name string) *Symbol {
+func NewSymbolTableFrom(enclosing *SymbolTable) *SymbolTable {
+	return &SymbolTable{
+		store:              map[string]*Symbol{},
+		numOfStoredSymbols: 0,
+		CurScopeDepth:      enclosing.CurScopeDepth + 1,
+		EnclosingSymTable:  enclosing,
+	}
+}
+
+func (st *SymbolTable) Define(name string) (*Symbol, bool) {
 	for _, s := range st.store {
 		if s.Name == name {
-			return s
+			return s, true
 		}
 	}
+
 	sym := &Symbol{
-		Name:  name,
-		Scope: Global,
-		Index: st.numOfStoredSymbols,
+		Name:       name,
+		ScopeDepth: st.CurScopeDepth,
+		Index:      st.numOfStoredSymbols,
 	}
 	st.numOfStoredSymbols++
 	st.store[name] = sym
-	return sym
+	return sym, false
 }
 
 func (st *SymbolTable) Resolve(name string) (*Symbol, bool) {
 	sym, ok := st.store[name]
+
+	if !ok && st.EnclosingSymTable != nil {
+		return st.EnclosingSymTable.Resolve(name)
+	}
 	return sym, ok
 }

@@ -522,12 +522,13 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
 }
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
-	nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 	if var_def.Assigned != nil {
 		nr.Resolve(var_def.Assigned)
+		nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 		nr.DefineName(var_def.Assignee.Token)
 		nr.InitializeName(var_def.Assignee.Token)
 	} else {
+		nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 		nr.DefineName(var_def.Assignee.Token)
 	}
 }

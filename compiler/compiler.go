@@ -41,6 +41,13 @@ func (c *Compiler) appendConstant(cons ast.ProtoNode) int {
 	return len(c.constants) - 1
 }
 
+func (c *Compiler) ByteCode() *ByteCode {
+	return &ByteCode{
+		Instructions: c.instructions,
+		Constants:    c.constants,
+	}
+}
+
 // generates bytecode with current opcode and operands and returns the starting
 // position of the instruction so it can be used for later modification of the instruction
 // if required
@@ -101,7 +108,15 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.generateBytecode(opcode.AccessIndex)
 	case *ast.VariableDecl:
 		c.Compile(actual.Assigned)
-		sym := c.symbolTable.Define(actual.Assignee.Token.Literal)
+		sym, exists := c.symbolTable.Define(actual.Assignee.Token.Literal)
+		if c.symbolTable.CurScopeDepth > 0 {
+			// since local variables use stack pointer offsets, we don't generate
+			// any special code for them
+			if exists {
+				c.generateBytecode(opcode.SetLocal, sym.Index)
+			}
+			return
+		}
 		c.generateBytecode(opcode.SetGlobal, sym.Index)
 	case *ast.Identifier:
 		sym, ok := c.symbolTable.Resolve(actual.Token.Literal)
@@ -109,7 +124,12 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 			shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
 				actual.Token.Literal))
 		}
-		c.generateBytecode(opcode.GetGlobal, sym.Index)
+
+		if sym.ScopeDepth == 0 {
+			c.generateBytecode(opcode.GetGlobal, sym.Index)
+		} else {
+			c.generateBytecode(opcode.GetLocal, sym.Index)
+		}
 	case *ast.IfConditional:
 		c.Compile(actual.Condition)
 		// jump instruction with an operand to be updated later
@@ -138,9 +158,7 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		jump_to_target := len(c.instructions)
 		c.updateOperand(jump_to, jump_to_target)
 	case *ast.Block:
-		for _, node := range actual.Contents {
-			c.Compile(node)
-		}
+		c.CompileBlock(actual, true)
 	case *ast.Boolean:
 		if actual.Value {
 			c.generateBytecode(opcode.PushBoolTrue)
@@ -226,9 +244,41 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	}
 }
 
-func (c *Compiler) ByteCode() *ByteCode {
-	return &ByteCode{
-		Instructions: c.instructions,
-		Constants:    c.constants,
+func (c *Compiler) enterScope() {
+	c.symbolTable = NewSymbolTableFrom(c.symbolTable)
+	c.generateBytecode(opcode.EnterScope)
+}
+
+func (c *Compiler) exitScope() {
+	if c.symbolTable.CurScopeDepth > 0 && c.symbolTable.numOfStoredSymbols > 0 {
+		// removes all locals in scope
+		c.generateBytecode(opcode.PopN, c.symbolTable.numOfStoredSymbols)
+	}
+
+	c.symbolTable = c.symbolTable.EnclosingSymTable
+	c.generateBytecode(opcode.ExitScope)
+}
+
+func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
+	if makeScope {
+		c.enterScope()
+	}
+	for index, node := range blk.Contents {
+		c.Compile(node)
+
+		if index+1 == len(blk.Contents) {
+			switch node.(type) {
+			case ast.Expression:
+				c.generateBytecode(opcode.SetFrameResult)
+			default:
+				c.generateBytecode(opcode.PushUnit)
+				c.generateBytecode(opcode.SetFrameResult)
+
+			}
+		}
+	}
+
+	if makeScope {
+		c.exitScope()
 	}
 }
