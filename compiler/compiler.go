@@ -157,7 +157,10 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 }
 
 func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
-
+	switch assign.AssignmentToken.Literal {
+	case "+=":
+	case "":
+	}
 }
 
 func (c *Compiler) CompileVariableDecl(actual *ast.VariableDecl) {

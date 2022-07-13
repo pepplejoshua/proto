@@ -355,7 +355,49 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 			tc.FoundError = true
 			return
 		}
-	case lexer.PLUS_EQUAL, lexer.MINUS_EQUAL, lexer.STAR_EQUAL,
+	case lexer.PLUS_EQUAL:
+		switch target.Type().TypeSignature() {
+		case "i64":
+			switch assigned.Type().TypeSignature() {
+			case "i64":
+			default:
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
+					assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
+				shared.ReportError("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+		case "str":
+			switch assigned.Type().TypeSignature() {
+			case "char":
+			case "str":
+			default:
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
+					assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
+				shared.ReportError("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+		default:
+			var msg strings.Builder
+			line := assign.AssignmentToken.TokenSpan.Line
+			col := assign.AssignmentToken.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s and cannot use the %s operator reserved for i64|str values.",
+				target.LiteralRepr(), target.Type().TypeSignature(), assign.AssignmentToken.Literal))
+			shared.ReportError("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+	case lexer.MINUS_EQUAL, lexer.STAR_EQUAL,
 		lexer.SLASH_EQUAL, lexer.MODULO_EQUAL:
 		if target.Type().TypeSignature() != "i64" {
 			var msg strings.Builder
