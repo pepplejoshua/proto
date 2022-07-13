@@ -1,7 +1,7 @@
 fn print(i: i64) {}
 
 let cond = true;
-let a = 0;
+mut a = 0;
 while cond {
     a += 1;
 

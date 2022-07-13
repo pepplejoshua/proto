@@ -197,14 +197,14 @@ func TestParsingBlockExpressions(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"{ 1 }: i64",
-		"{ (1, true, 'c') }: (i64, bool, char)",
-		"{ [1, 2, 3, 4] }: [i64]",
+		"{ 1; }: i64",
+		"{ (1, true, 'c'); }: (i64, bool, char)",
+		"{ [1, 2, 3, 4]; }: [i64]",
 		"{ 1; }: ()",
 		"{ (let a: i64 2) }: ()",
 		"{ (mut c: bool) }: ()",
-		"{ (+ 1 2); (let a: bool true) (a = (* a 2)) \"string\" }: str",
-		"{ (let a: i64 3) (mut b: i64 5) (* a b) }: untyped",
+		"{ (+ 1 2); (let a: bool true) (a = (* a 2)) \"string\"; }: str",
+		"{ (let a: i64 3) (mut b: i64 5) (* a b); }: untyped",
 		"{  }: ()",
 	}
 
@@ -222,14 +222,14 @@ func TestParsingIfExpressions(t *testing.T) {
 	program := Parse(source)
 	contents := program.Contents
 	expected := []string{
-		"(if true { 1 }: i64 else { 3 }: i64): i64",
-		"(if (== a b) { \"same\" }: str else { \"different\" }: str): str",
+		"(if true { 1; }: i64 else { 3; }: i64): i64",
+		"(if (== a b) { \"same\"; }: str else { \"different\"; }: str): str",
 		"(let a: char (if (== (- 200 1) 199) { 'a' }: char else { 'b' }: char): char)",
 		"(if true {  }: ()): ()",
-		"(if stuff { 'a' }: char else { 400 }: i64): untyped",
+		"(if stuff { 'a'; }: char else { 400; }: i64): untyped",
 		"(let b: i64 (if true { 1 }: i64 else (if (not false) { 2 }: i64 else { 3 }: i64): i64): i64)",
-		"(if true { (+ 1 2) }: untyped else { 1 }: i64): untyped",
-		"(if false { (+ 1 2) }: untyped else { (* 3 4) }: untyped): untyped",
+		"(if true { (+ 1 2); }: untyped else { 1; }: i64): untyped",
+		"(if false { (+ 1 2); }: untyped else { (* 3 4); }: untyped): untyped",
 		"(let f: i64 (if true { 1 }: i64 else { 2 }: i64): i64)",
 		"(while (if true { true }: bool else { false }: bool): bool {  }: ())",
 		"(a = (if b { 1 }: i64 else { 2 }: i64): i64)",

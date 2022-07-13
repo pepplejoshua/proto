@@ -1047,10 +1047,13 @@ func top_level(p *Parser) *ast.ProtoProgram {
 			code.Structs = append(code.Structs, actual)
 			code.Contents = append(code.Contents, node)
 		case ast.Expression:
-			switch actual.(type) {
-			case *ast.Block, *ast.IfConditional:
-				code.Contents = append(code.Contents, node)
-				// allow these
+			switch actual := actual.(type) {
+			case *ast.IfConditional:
+				promote_expr(actual)
+				code.Contents = append(code.Contents, actual)
+			case *ast.Block:
+				promote_block_last(actual)
+				code.Contents = append(code.Contents, actual)
 			default:
 				var msg strings.Builder
 				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
@@ -1063,4 +1066,37 @@ func top_level(p *Parser) *ast.ProtoProgram {
 	}
 
 	return code
+}
+
+func promote_block_last(blk *ast.Block) {
+	if len(blk.Contents) > 0 {
+		switch last := blk.Contents[len(blk.Contents)-1].(type) {
+		case *ast.IfConditional:
+			promote_expr(last)
+		case *ast.Block:
+			promote_block_last(last)
+		case ast.Expression:
+			up_last := &ast.PromotedExpr{
+				Expr: last,
+			}
+			blk.Contents[len(blk.Contents)-1] = up_last
+		}
+	}
+}
+
+func promote_expr(cond *ast.IfConditional) {
+	then := cond.ThenBody
+	if len(then.Contents) > 0 {
+		promote_block_last(then)
+	}
+
+	if cond.ElseBody != nil {
+		else_b := cond.ElseBody
+		switch else_b := else_b.(type) {
+		case *ast.Block:
+			promote_block_last(else_b)
+		case *ast.IfConditional:
+			promote_expr(else_b)
+		}
+	}
 }

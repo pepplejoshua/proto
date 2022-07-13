@@ -1,5 +1,5 @@
-let a = 1;
-let b = (a, a);
+mut a = 1;
+mut b = (a, a);
 b = a;
 mut c = [a, b, a];
 a = c;
