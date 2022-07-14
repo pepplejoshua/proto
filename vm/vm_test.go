@@ -374,6 +374,17 @@ func TestBlocks(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestFunctionDef(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn returns() -> i64 { 1 } fn main() -> i64 { 1 + 2 }",
+			expected: "3",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

@@ -40,6 +40,7 @@ func TestMakingOpCode(t *testing.T) {
 		{PopN, []int{2}, []byte{byte(PopN), 0, 2}},
 		{MakeFn, []int{0, 2, 3}, []byte{byte(MakeFn), 0, 0, 2, 0, 3}},
 		{Return, []int{}, []byte{byte(Return)}},
+		{Halt, []int{}, []byte{byte(Halt)}},
 	}
 
 	for _, test := range tests {
@@ -103,6 +104,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(PopN, 4),
 		MakeInstruction(MakeFn, 0, 4, 0),
 		MakeInstruction(Return),
+		MakeInstruction(Halt),
 		// MakeInstruction(),
 	})
 
@@ -140,6 +142,7 @@ func TestInstructionsString(t *testing.T) {
 0051 PopN 4
 0054 MakeFn 0 4 0
 0060 Return
+0061 Halt
 `
 
 	if ins.Disassemble() != exp {
@@ -186,6 +189,7 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{PopN, []int{4}, 2},
 		{MakeFn, []int{3, 2, 1}, 5},
 		{Return, []int{}, 0},
+		{Halt, []int{}, 0},
 	}
 
 	for _, tt := range tests {

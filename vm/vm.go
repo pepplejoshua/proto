@@ -43,18 +43,16 @@ var UNIT = &ast.Unit{
 type CompiledFunction struct {
 	LocIP int
 	Arity int
-	Name  string
 }
 
 func (cf *CompiledFunction) LiteralRepr() string {
-	return fmt.Sprintf("fn %s at Instruction #%d", cf.Name, cf.LocIP)
+	return fmt.Sprintf("fn at Instruction #%d", cf.LocIP)
 }
 
 type CallFrame struct {
 	called_fn   *CompiledFunction
 	stack_index int
 	enclosing   *CallFrame
-	return_val  ast.ProtoNode
 }
 
 type VM struct {
@@ -497,22 +495,6 @@ func (vm *VM) PopN(ip int) int {
 	return ip + 3
 }
 
-func (vm *VM) EnterScope(ip int) int {
-	vm.frame = &CallFrame{
-		called_fn:   vm.PopOffStack().(*CompiledFunction),
-		stack_index: vm.stack_index,
-		enclosing:   vm.frame,
-		return_val:  nil,
-	}
-	return ip + 1
-}
-
-func (vm *VM) ExitScope(ip int) int {
-	vm.PushOntoStack(vm.frame.return_val)
-	vm.frame = vm.frame.enclosing
-	return ip + 1
-}
-
 func (vm *VM) GetLocal(ip int) int {
 	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
 	vm.PushOntoStack(vm.stack[offset])
@@ -525,7 +507,35 @@ func (vm *VM) SetLocal(ip int) int {
 	return ip + 3
 }
 
+func (vm *VM) Return(ip int) int {
+	vm.PopOffStack()
+	vm.frame = vm.frame.enclosing
+	return ip + 1
+}
+
+func (vm *VM) MakeFn(ip int) int {
+	arity := int(opcode.ReadUInt8(vm.instructions[ip+1:]))
+	loc_ip := int(opcode.ReadUInt16(vm.instructions[ip+2:]))
+	storage_loc := int(opcode.ReadUInt16(vm.instructions[ip+4:]))
+	fn := &CompiledFunction{
+		LocIP: loc_ip,
+		Arity: arity,
+	}
+	vm.frame = &CallFrame{
+		called_fn:   fn,
+		stack_index: 0,
+		enclosing:   vm.frame,
+	}
+	if vm.frame == nil { // in global scope
+		vm.globals[storage_loc] = fn
+	} else { // in local scope
+		vm.stack[storage_loc] = fn
+	}
+	return ip + 6
+}
+
 func (vm *VM) Run() {
+	println(vm.instructions.Disassemble())
 	operations_dispatch := map[byte]func(int) int{
 		byte(opcode.LoadConstant):      vm.LoadConstant,
 		byte(opcode.PushBoolTrue):      vm.PushBoolTrue,
@@ -557,10 +567,16 @@ func (vm *VM) Run() {
 		byte(opcode.PopN):              vm.PopN,
 		byte(opcode.GetLocal):          vm.GetLocal,
 		byte(opcode.SetLocal):          vm.SetLocal,
+		byte(opcode.Return):            vm.Return,
+		byte(opcode.MakeFn):            vm.MakeFn,
 	}
 
 	for ins_p := 0; ins_p < len(vm.instructions); {
 		op := vm.instructions[ins_p]
+
+		if op == byte(opcode.Halt) {
+			return
+		}
 		if dispatch, ok := operations_dispatch[op]; ok {
 			ins_p = dispatch(ins_p)
 		} else {

@@ -214,6 +214,9 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 		c.generateBytecode(opcode.PushUnit)
 		c.generateBytecode(opcode.Return)
 	}
+	if fn.Name.LiteralRepr() == "main" {
+		c.generateBytecode(opcode.Halt)
+	}
 	fn_def := len(c.instructions)
 	arity := len(fn.ParameterList)
 	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)
