@@ -378,7 +378,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
 	for i, tt := range tests {
-		prog := parser.Parse(tt.input)
+		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
 		nr.ResolveProgram(prog)

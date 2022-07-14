@@ -18,7 +18,7 @@ type compilerTestCase struct {
 func TestUnaryOperations(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "-1;",
+			input: "-1; fn main() { }",
 			expectedConstants: []string{
 				"1",
 			},
@@ -29,7 +29,7 @@ func TestUnaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input:             "not true;",
+			input:             "not true; fn main() { }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolTrue),
@@ -38,7 +38,7 @@ func TestUnaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input:             "not false;",
+			input:             "not false; fn main() { }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
@@ -47,7 +47,7 @@ func TestUnaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 + -1;",
+			input: "1 + -1; fn main() { }",
 			expectedConstants: []string{
 				"1",
 			},
@@ -67,7 +67,7 @@ func TestUnaryOperations(t *testing.T) {
 func TestBinaryOperations(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "1 + 2;",
+			input: "fn main() { 1 + 2; }",
 			expectedConstants: []string{
 				"1", "2",
 			},
@@ -79,7 +79,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 + 1;",
+			input: "fn main() { 1 + 1; }",
 			expectedConstants: []string{
 				"1",
 			},
@@ -91,7 +91,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "'a' + 'b';",
+			input: "fn main() { 'a' + 'b'; }",
 			expectedConstants: []string{
 				"'a'",
 				"'b'",
@@ -104,7 +104,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "\"proto \" + \"language\";",
+			input: "fn main() { \"proto \" + \"language\"; }",
 			expectedConstants: []string{
 				"\"proto \"",
 				"\"language\"",
@@ -117,7 +117,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "\"proto \" + \"language\" + '!';",
+			input: "fn main() { \"proto \" + \"language\" + '!'; }",
 			expectedConstants: []string{
 				"\"proto \"",
 				"\"language\"",
@@ -133,7 +133,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 + 2 + 3 + 1;",
+			input: "fn main() { 1 + 2 + 3 + 1; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -151,7 +151,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 - 2;",
+			input: "fn main() { 1 - 2; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -164,7 +164,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 * 2;",
+			input: "fn main() { 1 * 2; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -177,7 +177,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "2 / 1;",
+			input: "fn main() { 2 / 1; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -190,7 +190,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 % 2;",
+			input: "fn main() { 1 % 2; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -203,7 +203,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 + 2 * 3;",
+			input: "fn main() { 1 + 2 * 3; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -219,7 +219,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 * 2 + 3;",
+			input: "fn main() { 1 * 2 + 3; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -235,7 +235,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 == 2;",
+			input: "fn main() { 1 == 2; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -248,7 +248,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input:             "true == false;",
+			input:             "fn main() { true == false; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolTrue),
@@ -258,7 +258,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 != 1;",
+			input: "fn main() { 1 != 1; }",
 			expectedConstants: []string{
 				"1",
 			},
@@ -270,7 +270,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "2 > 1;",
+			input: "fn main() { 2 > 1; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -283,7 +283,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "1 < 2;",
+			input: "fn main() { 1 < 2; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -296,7 +296,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "3 >= 2;",
+			input: "fn main() { 3 >= 2; }",
 			expectedConstants: []string{
 				"3",
 				"2",
@@ -309,7 +309,7 @@ func TestBinaryOperations(t *testing.T) {
 			},
 		},
 		{
-			input: "2 <= 4;",
+			input: "fn main() { 2 <= 4; }",
 			expectedConstants: []string{
 				"4",
 				"2",
@@ -329,7 +329,7 @@ func TestBinaryOperations(t *testing.T) {
 func TestBooleanValues(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input:             "true;",
+			input:             "fn main() { true; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolTrue),
@@ -337,7 +337,7 @@ func TestBooleanValues(t *testing.T) {
 			},
 		},
 		{
-			input:             "false;",
+			input:             "fn main() { false; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
@@ -345,7 +345,7 @@ func TestBooleanValues(t *testing.T) {
 			},
 		},
 		{
-			input:             "false; true;",
+			input:             "fn main() { false; true; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
@@ -362,7 +362,7 @@ func TestBooleanValues(t *testing.T) {
 func TestAndOr(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input:             "true || false;",
+			input:             "fn main() { true || false; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolTrue),
@@ -372,7 +372,7 @@ func TestAndOr(t *testing.T) {
 			},
 		},
 		{
-			input:             "false && true;",
+			input:             "fn main() { false && true; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.PushBoolFalse),
@@ -389,7 +389,7 @@ func TestAndOr(t *testing.T) {
 func TestStringAndChar(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "'a'; 'b'; 'c'; 'a';",
+			input: "fn main() { 'a'; 'b'; 'c'; 'a'; }",
 			expectedConstants: []string{
 				"'a'",
 				"'b'",
@@ -407,7 +407,7 @@ func TestStringAndChar(t *testing.T) {
 			},
 		},
 		{
-			input: "\"this is a string\"; \"another string\";",
+			input: "fn main() { \"this is a string\"; \"another string\"; }",
 			expectedConstants: []string{
 				"\"this is a string\"",
 				"\"another string\"",
@@ -420,7 +420,7 @@ func TestStringAndChar(t *testing.T) {
 			},
 		},
 		{
-			input: "\"this is a string\"; 'c'; 'd';",
+			input: "fn main() { \"this is a string\"; 'c'; 'd'; }",
 			expectedConstants: []string{
 				"\"this is a string\"",
 				"'c'",
@@ -443,7 +443,7 @@ func TestStringAndChar(t *testing.T) {
 func TestIfConditionals(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "if true { 10; } 20; ",
+			input: "fn main() { if true { 10; } 20; }",
 			expectedConstants: []string{
 				"10",
 				"20",
@@ -468,7 +468,7 @@ func TestIfConditionals(t *testing.T) {
 			},
 		},
 		{
-			input: "if true { 10 }; 20; ",
+			input: "fn main() { if true { 10 }; 20; }",
 			expectedConstants: []string{
 				"10",
 				"20",
@@ -493,7 +493,7 @@ func TestIfConditionals(t *testing.T) {
 			},
 		},
 		{
-			input: "if 1 < 2 { true } else { false } 10000;",
+			input: "fn main() { if 1 < 2 { true } else { false } 10000; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -521,7 +521,7 @@ func TestIfConditionals(t *testing.T) {
 			},
 		},
 		{
-			input: "if 1 < 2 { true } else { false }; 10000;",
+			input: "fn main() { if 1 < 2 { true } else { false }; 10000; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -551,7 +551,7 @@ func TestIfConditionals(t *testing.T) {
 			},
 		},
 		{
-			input: "if 1 < 2 { true } else if 2 < 1{ false } else { true }; 10000;",
+			input: "fn main() { if 1 < 2 { true } else if 2 < 1{ false } else { true }; 10000; }",
 			expectedConstants: []string{
 				"2",
 				"1",
@@ -600,7 +600,7 @@ func TestIfConditionals(t *testing.T) {
 func TestGlobalUseOfIdentifiers(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "let one = 1; let two = 2;",
+			input: "let one = 1; let two = 2; fn main() { }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -613,7 +613,7 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 			},
 		},
 		{
-			input: "let un: i64 = 1; un; let deux = 2; deux; let un: i64 = 1;",
+			input: "let un: i64 = 1; un; let deux = 2; deux; let un: i64 = 1; fn main() { }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -639,7 +639,7 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 func TestMakingArrays(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input:             "[i64;];",
+			input:             "fn main() { [i64;]; }",
 			expectedConstants: []string{},
 			expectedIns: []opcode.VMInstructions{
 				opcode.MakeInstruction(opcode.MakeArray, 0),
@@ -647,7 +647,7 @@ func TestMakingArrays(t *testing.T) {
 			},
 		},
 		{
-			input: "let a = 4; [1, 2, 3, a];",
+			input: "let a = 4; fn main() { [1, 2, 3, a]; }",
 			expectedConstants: []string{
 				"4",
 				"1",
@@ -666,7 +666,7 @@ func TestMakingArrays(t *testing.T) {
 			},
 		},
 		{
-			input: "let a = 4; [1, 2, 3, a, a + 1];",
+			input: "let a = 4; fn main() { [1, 2, 3, a, a + 1]; }",
 			expectedConstants: []string{
 				"4",
 				"1",
@@ -696,7 +696,7 @@ func TestMakingArrays(t *testing.T) {
 func TestIndexExpressions(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "[1, 2, 3][1];",
+			input: "fn main() { [1, 2, 3][1]; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -713,7 +713,7 @@ func TestIndexExpressions(t *testing.T) {
 			},
 		},
 		{
-			input: "let a = [1, 2, 3]; a[1];",
+			input: "let a = [1, 2, 3]; fn main() { a[1]; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -732,7 +732,7 @@ func TestIndexExpressions(t *testing.T) {
 			},
 		},
 		{
-			input: "let a = [1, 2, 3]; let b = 2; a[b];",
+			input: "let a = [1, 2, 3]; let b = 2; fn main() { a[b]; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -753,7 +753,7 @@ func TestIndexExpressions(t *testing.T) {
 			},
 		},
 		{
-			input: "let a = [1, 2, 3]; let b = 1; a[b + 1];",
+			input: "let a = [1, 2, 3]; let b = 1; fn main() { a[b + 1]; }",
 			expectedConstants: []string{
 				"1",
 				"2",
@@ -783,7 +783,7 @@ func TestIndexExpressions(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "let a = 3; { let b = 3; let c = a + b; }",
+			input: "let a = 3; fn main() { { let b = 3; let c = a + b; } }",
 			expectedConstants: []string{
 				"3",
 			},
@@ -820,7 +820,7 @@ func TestBlocks(t *testing.T) {
 			},
 		},
 		{
-			input: "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; c }",
+			input: "fn main() { { let a = 4; let a = 6; let b = a + 1; let c = b + a; c } }",
 			expectedConstants: []string{
 				"4",
 				"6",
@@ -837,11 +837,13 @@ func TestBlocks(t *testing.T) {
 				opcode.MakeInstruction(opcode.GetLocal, 0),
 				opcode.MakeInstruction(opcode.AddI64),
 				opcode.MakeInstruction(opcode.GetLocal, 2),
+				opcode.MakeInstruction(opcode.Pop),
+				opcode.MakeInstruction(opcode.PushUnit),
 				opcode.MakeInstruction(opcode.PopN, 3),
 			},
 		},
 		{
-			input: "{ let a = 10; { let b = a; b } }",
+			input: "fn main() { { let a = 10; { let b = a; b } } }",
 			expectedConstants: []string{
 				"10",
 			},
@@ -849,7 +851,207 @@ func TestBlocks(t *testing.T) {
 				opcode.MakeInstruction(opcode.LoadConstant, 0),
 				opcode.MakeInstruction(opcode.GetLocal, 0),
 				opcode.MakeInstruction(opcode.GetLocal, 1),
-				opcode.MakeInstruction(opcode.PopN, 1),
+				opcode.MakeInstruction(opcode.Pop),
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.Pop),
+				opcode.MakeInstruction(opcode.Pop),
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestSimpleAssignment(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "mut a = 0; fn main() { a += 2; }",
+			expectedConstants: []string{
+				"0",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = \"scop\"; fn main() { a += 'e'; }",
+			expectedConstants: []string{
+				"\"scop\"",
+				"'e'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddStrChar),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = \"scop\"; fn main() { a += \"ed\"; }",
+			expectedConstants: []string{
+				`"scop"`,
+				`"ed"`,
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddStr),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 5; fn main() { a -= 3; }",
+			expectedConstants: []string{
+				"5",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SubI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 5; fn main() { a *= 3; }",
+			expectedConstants: []string{
+				"5",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.MultI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 5; fn main() { a %= 3; }",
+			expectedConstants: []string{
+				"5",
+				"3",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.ModuloI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 5; fn main() { a /= 2; }",
+			expectedConstants: []string{
+				"5",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.DivI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 0; fn main() { a += 10; a -= 5; a *= 2; a %= 0; a /= 2; }",
+			expectedConstants: []string{
+				"0",
+				"10",
+				"5",
+				"2",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.SubI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 3),
+				opcode.MakeInstruction(opcode.MultI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.ModuloI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 3),
+				opcode.MakeInstruction(opcode.DivI64),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+			},
+		},
+		{
+			input: "mut a = 0; a = 2; mut b = \"\"; b = \"stuff\"; mut c = 'a'; c = 'b'; mut d = true; d = false; fn main() { }",
+			expectedConstants: []string{
+				"0",
+				"2",
+				`""`,
+				`"stuff"`,
+				"'a'",
+				"'b'",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 1),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+
+				opcode.MakeInstruction(opcode.LoadConstant, 2),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+				opcode.MakeInstruction(opcode.LoadConstant, 3),
+				opcode.MakeInstruction(opcode.SetGlobal, 1),
+
+				opcode.MakeInstruction(opcode.LoadConstant, 4),
+				opcode.MakeInstruction(opcode.SetGlobal, 2),
+				opcode.MakeInstruction(opcode.LoadConstant, 5),
+				opcode.MakeInstruction(opcode.SetGlobal, 2),
+
+				opcode.MakeInstruction(opcode.PushBoolTrue),
+				opcode.MakeInstruction(opcode.SetGlobal, 3),
+				opcode.MakeInstruction(opcode.PushBoolFalse),
+				opcode.MakeInstruction(opcode.SetGlobal, 3),
+			},
+		},
+		{
+			input: "mut a = 0; fn main() { { mut b = a; b += 0; } }",
+			expectedConstants: []string{
+				"0",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.SetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetGlobal, 0),
+				opcode.MakeInstruction(opcode.GetLocal, 0),
+				opcode.MakeInstruction(opcode.LoadConstant, 0),
+				opcode.MakeInstruction(opcode.AddI64),
+				opcode.MakeInstruction(opcode.SetLocal, 0),
+				opcode.MakeInstruction(opcode.PushUnit),
 				opcode.MakeInstruction(opcode.PopN, 1),
 			},
 		},
@@ -858,11 +1060,70 @@ func TestBlocks(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestFunctionCompilation(t *testing.T) {
+	// MakeNewFunction arity, start of fn, name index
+	tests := []compilerTestCase{
+		{
+			input:             "fn main() { }",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.JumpTo, 5),
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.Return),
+				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),
+				opcode.MakeInstruction(opcode.JumpTo, 3),
+			},
+		},
+		{
+			input:             "fn stuff() { } fn main() { }",
+			expectedConstants: []string{},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.JumpTo, 5),
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.Return),
+				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),
+				opcode.MakeInstruction(opcode.JumpTo, 16), // 14
+				opcode.MakeInstruction(opcode.PushUnit),
+				opcode.MakeInstruction(opcode.Return),
+				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 14, 1),
+				opcode.MakeInstruction(opcode.JumpTo, 14),
+			},
+		},
+		{
+			input: "fn returns() -> i64 { 1 } fn main() { }",
+			expectedConstants: []string{
+				"1",
+			},
+			expectedIns: []opcode.VMInstructions{
+				opcode.MakeInstruction(opcode.JumpTo, 7),                 // 3
+				opcode.MakeInstruction(opcode.LoadConstant, 0),           // 6
+				opcode.MakeInstruction(opcode.Return),                    // 7
+				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),  // 13
+				opcode.MakeInstruction(opcode.JumpTo, 18),                // 16
+				opcode.MakeInstruction(opcode.PushUnit),                  // 17
+				opcode.MakeInstruction(opcode.Return),                    // 18
+				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 16, 1), // 24
+				opcode.MakeInstruction(opcode.JumpTo, 16),                // 27
+			},
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
+	conc := opcode.VMInstructions{}
+	for _, in := range ins {
+		conc = append(conc, in...)
+	}
+	return conc
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 
 	for _, tt := range tests {
-		prog := parser.Parse(tt.input)
+		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
 		nr.ResolveProgram(prog)
@@ -887,14 +1148,6 @@ func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 		testInstructions(t, concatInstructions(tt.expectedIns), bc.Instructions)
 		testConstants(t, tt.expectedConstants, bc.Constants)
 	}
-}
-
-func concatInstructions(ins []opcode.VMInstructions) opcode.VMInstructions {
-	conc := opcode.VMInstructions{}
-	for _, in := range ins {
-		conc = append(conc, in...)
-	}
-	return conc
 }
 
 func testInstructions(t *testing.T, exp opcode.VMInstructions, ins opcode.VMInstructions) {

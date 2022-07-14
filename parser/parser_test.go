@@ -15,7 +15,7 @@ func TestParsingBinaryOperations(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/binary_operations.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(+ 1 2);",
@@ -46,7 +46,7 @@ func TestParsingLiterals(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/literals.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"1;",
@@ -71,7 +71,7 @@ func TestParsingParenthesizedExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/parenthesized_expr.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(+ 1 2);",
@@ -96,7 +96,7 @@ func TestParsingStructs(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/structs.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(struct Person { name: str, age: i64 })",
@@ -115,7 +115,7 @@ func TestParsingUnaryOperations(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/unary_operations.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(- 300);",
@@ -134,7 +134,7 @@ func TestParsingVariableDeclarations(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/variable_declarations.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(let a: i64 3)",
@@ -168,7 +168,7 @@ func TestParsingAssignment(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/assignment.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(a = 3)",
@@ -194,7 +194,7 @@ func TestParsingBlockExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/blocks.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"{ 1; }: i64",
@@ -219,7 +219,7 @@ func TestParsingIfExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/if_expressions.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(if true { 1; }: i64 else { 3; }: i64): i64",
@@ -247,7 +247,7 @@ func TestParsingComplexTypes(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/complex_types.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []Pair{
 		{"[1, 2, 3, 4, 5];", "[i64]"},
@@ -289,7 +289,7 @@ func TestParsingGenericForLoops(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/generic_for_loops.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(for (mut a: i64 0) (< a 5) (a = (+ a 1)) {  }: ())",
@@ -308,7 +308,7 @@ func TestParsingCollectionsForLoops(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/collections_for_loops.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(for a in [1, 2, 3, 4, 5] {  }: ())",
@@ -326,7 +326,7 @@ func TestParsingInfiniteLoops(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/infinite_loops.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(loop { (let a: i64 5) (+ a a) }: untyped)",
@@ -346,7 +346,7 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/function_definitions.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(fn is_even(n: i64) -> bool { (== (% n 2) 0) }: untyped)",
@@ -368,7 +368,7 @@ func TestParsingFunctionCalls(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/function_calls.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"is_even(2);",
@@ -389,7 +389,7 @@ func TestParsingIndexingExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/indexing_expressions.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"[1, 2, 3, 4][0];",
@@ -411,7 +411,7 @@ func TestParsingRanges(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/ranges.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"a..b: Range<untyped>;",
@@ -434,7 +434,7 @@ func TestParsingMembershipExpressions(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/dot_expressions.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"[1, 2, 3, 4, 5].length();",
@@ -459,7 +459,7 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/binary_precedence.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(+ 1 (* 2 3));",
@@ -484,7 +484,7 @@ func TestParsingStructFunctionInits(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/struct_inits.pr"
 	source := shared.ReadFile(path)
 
-	program := Parse(source)
+	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
 		"(struct Person { name: str, age: i64, hobbies: [str], sex: char })",

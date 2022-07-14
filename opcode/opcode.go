@@ -44,6 +44,8 @@ func (i *VMInstructions) formatInstruction(def *InstructionDef, ops []int) strin
 		return fmt.Sprintf("%s %d", def.Name, ops[0])
 	case 2:
 		return fmt.Sprintf("%s %d %d", def.Name, ops[0], ops[1])
+	case 3:
+		return fmt.Sprintf("%s %d %d %d", def.Name, ops[0], ops[1], ops[2])
 	}
 
 	return fmt.Sprintf("Error: Unhandled Operator Count %d for %s", opcount, def.Name)
@@ -86,44 +88,44 @@ const (
 	AccessIndex
 	GetLocal
 	SetLocal
-	EnterScope
-	ExitScope
 	PopN
+	MakeNewFunction
+	Return
 )
 
 var Definitions = map[OpCode]*InstructionDef{
-	LoadConstant:      {"LoadConstant", []int{2}},     // max size of constants pool is 65535 (starting at 0)
-	PushBoolTrue:      {"PushBoolTrue", []int{}},      // an OpCode for pushing a true value onto stack
-	PushBoolFalse:     {"PushBoolFalse", []int{}},     // an OpCode for pushing a false value onto stack
-	AddI64:            {"AddI64", []int{}},            // add 2 i64 numbers
-	AddChar:           {"AddChar", []int{}},           // add 2 characters
-	AddStr:            {"AddStr", []int{}},            // add 2 strings
-	AddStrChar:        {"AddStrChar", []int{}},        // add a character to a string
-	Pop:               {"Pop", []int{}},               // pop a value off the stack
-	SubI64:            {"SubI64", []int{}},            // subtract 2 i64 numbers
-	MultI64:           {"MultI64", []int{}},           // multiply 2 i64 numbers
-	DivI64:            {"DivI64", []int{}},            // divide 2 i64 numbers
-	ModuloI64:         {"ModuloI64", []int{}},         // module between 2 i64 numbers
-	NegateI64:         {"NegateI64", []int{}},         // negate an i64 number
-	NegateBool:        {"NegateBool", []int{}},        // negate a boolean value
-	EqualsComp:        {"EqualsComp", []int{}},        // compare 2 values for equality
-	NotEqualsComp:     {"NotEqualsComp", []int{}},     // compare 2 values for inequality
-	GreaterThanComp:   {"GreaterThanComp", []int{}},   // check if an i64 or char is greater than another i64 or char
-	GreaterEqualsComp: {"GreaterEqualsComp", []int{}}, // check if an i64 or char is greater or equal to another i64 or char
-	And:               {"And", []int{}},               // perform and on 2 boolean values
-	Or:                {"Or", []int{}},                // perform or on 2 boolean values
-	JumpOnNotTrueTo:   {"JumpOnNotTrueTo", []int{2}},  // jump if value at top of stack is not true to a provided location in instructions
-	JumpTo:            {"JumpTo", []int{2}},           // jump to a provided location in instructions
-	PushUnit:          {"PushUnit", []int{}},          // used in the case of an if expression with no else, or just pushing a unit onto stack
-	SetGlobal:         {"SetGlobal", []int{2}},        // used to set the value at an index in global scope. It is used to bind global variables
-	GetGlobal:         {"GetGlobal", []int{2}},        // used to get the value at the provided index in the global scope. It is used to bind global variables
-	MakeArray:         {"MakeArray", []int{2}},        // used to construct an array with values off the stack with a size provided as its operand
-	AccessIndex:       {"AccessIndex", []int{}},       // used to access the index of an array by popping a value of the stack to use
-	GetLocal:          {"GetLocal", []int{2}},         // used to access local by reading value off stack
-	SetLocal:          {"SetLocal", []int{2}},         // used to access local by reading value off stack
-	EnterScope:        {"EnterScope", []int{}},        // used to tell the VM to add a stack frame
-	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a scope
-	PopN:              {"PopN", []int{2}},             // used to tell the VM to pop N values from stack
+	LoadConstant:      {"LoadConstant", []int{2}},          // max size of constants pool is 65535 (starting at 0)
+	PushBoolTrue:      {"PushBoolTrue", []int{}},           // an OpCode for pushing a true value onto stack
+	PushBoolFalse:     {"PushBoolFalse", []int{}},          // an OpCode for pushing a false value onto stack
+	AddI64:            {"AddI64", []int{}},                 // add 2 i64 numbers
+	AddChar:           {"AddChar", []int{}},                // add 2 characters
+	AddStr:            {"AddStr", []int{}},                 // add 2 strings
+	AddStrChar:        {"AddStrChar", []int{}},             // add a character to a string
+	Pop:               {"Pop", []int{}},                    // pop a value off the stack
+	SubI64:            {"SubI64", []int{}},                 // subtract 2 i64 numbers
+	MultI64:           {"MultI64", []int{}},                // multiply 2 i64 numbers
+	DivI64:            {"DivI64", []int{}},                 // divide 2 i64 numbers
+	ModuloI64:         {"ModuloI64", []int{}},              // module between 2 i64 numbers
+	NegateI64:         {"NegateI64", []int{}},              // negate an i64 number
+	NegateBool:        {"NegateBool", []int{}},             // negate a boolean value
+	EqualsComp:        {"EqualsComp", []int{}},             // compare 2 values for equality
+	NotEqualsComp:     {"NotEqualsComp", []int{}},          // compare 2 values for inequality
+	GreaterThanComp:   {"GreaterThanComp", []int{}},        // check if an i64 or char is greater than another i64 or char
+	GreaterEqualsComp: {"GreaterEqualsComp", []int{}},      // check if an i64 or char is greater or equal to another i64 or char
+	And:               {"And", []int{}},                    // perform and on 2 boolean values
+	Or:                {"Or", []int{}},                     // perform or on 2 boolean values
+	JumpOnNotTrueTo:   {"JumpOnNotTrueTo", []int{2}},       // jump if value at top of stack is not true to a provided location in instructions
+	JumpTo:            {"JumpTo", []int{2}},                // jump to a provided location in instructions
+	PushUnit:          {"PushUnit", []int{}},               // used in the case of an if expression with no else, or just pushing a unit onto stack
+	SetGlobal:         {"SetGlobal", []int{2}},             // used to set the value at an index in global scope. It is used to bind global variables
+	GetGlobal:         {"GetGlobal", []int{2}},             // used to get the value at the provided index in the global scope. It is used to bind global variables
+	MakeArray:         {"MakeArray", []int{2}},             // used to construct an array with values off the stack with a size provided as its operand
+	AccessIndex:       {"AccessIndex", []int{}},            // used to access the index of an array by popping a value of the stack to use
+	GetLocal:          {"GetLocal", []int{2}},              // used to access local by reading value off stack
+	SetLocal:          {"SetLocal", []int{2}},              // used to access local by reading value off stack
+	PopN:              {"PopN", []int{2}},                  // used to tell the VM to pop N values from stack
+	MakeNewFunction:   {"MakeNewFunction", []int{1, 2, 2}}, // makes a new function taking arity, start_ip and then constant_id (for name) to bind the name to
+	Return:            {"Return", []int{}},                 // used to tell the VM to return last value on stack from function
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
@@ -146,6 +148,8 @@ func MakeInstruction(op OpCode, operands ...int) []byte {
 				// turn operand into an 16 bits, and then fit it in BigEndian order
 				// into the instruction array of bytes starting at offset
 				binary.BigEndian.PutUint16(ins[offset:], uint16(operand))
+			case 1:
+				ins[offset] = uint8(operand)
 			case 0:
 			}
 			offset += w // increase offset by the width of last operand
@@ -172,6 +176,9 @@ func ReadOperands(def *InstructionDef, ins VMInstructions) ([]int, int) {
 	for i, width := range def.OperandWidths {
 		switch width {
 		case 0:
+		case 1:
+			val := int(ReadUInt8(ins[offset:]))
+			operands[i] = val
 		case 2:
 			val := int(ReadUInt16(ins[offset:]))
 			operands[i] = val

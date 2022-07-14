@@ -5,6 +5,7 @@ import (
 	"proto/ast"
 	"proto/opcode"
 	"proto/shared"
+	"strings"
 )
 
 type ByteCode struct {
@@ -18,6 +19,8 @@ type Compiler struct {
 	FoundError   bool
 	symbolTable  *SymbolTable
 }
+
+var MAIN_START = 0
 
 func NewCompiler() *Compiler {
 	return &Compiler{
@@ -102,7 +105,10 @@ func (c *Compiler) exitScope() {
 			}
 		}
 
-		if num_of_locals > 0 {
+		if num_of_locals == 1 {
+			c.generateBytecode(opcode.Pop)
+		}
+		if num_of_locals > 1 {
 			c.generateBytecode(opcode.PopN, num_of_locals)
 		}
 		c.symbolTable.CurScopeDepth--
@@ -113,6 +119,7 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram) {
 	for _, node := range prog.Contents {
 		c.Compile(node)
 	}
+	c.generateBytecode(opcode.JumpTo, MAIN_START)
 }
 
 func (c *Compiler) Compile(node ast.ProtoNode) {
@@ -152,14 +159,158 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileBinaryOp(actual)
 	case *ast.Assignment:
 		c.CompileAssignment(actual)
+	case *ast.FunctionDef:
+		c.CompileFunctionDef(actual)
+	case *ast.Return:
+		c.CompileReturn(actual)
 	default:
 	}
 }
 
+func (c *Compiler) CompileReturn(ret *ast.Return) {
+	if ret.Value != nil {
+		c.Compile(ret.Value)
+	} else {
+		c.generateBytecode(opcode.PushUnit)
+	}
+	c.generateBytecode(opcode.Return)
+}
+
+func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
+	start := c.generateBytecode(opcode.JumpTo, 9999)
+	sym, exists := c.symbolTable.Define(fn.Name.LiteralRepr())
+	if exists {
+		line := fn.Name.Token.TokenSpan.Line
+		col := fn.Name.Token.TokenSpan.Col
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("The name %s already exists.", sym.Name))
+		shared.ReportErrorAndExit("Compiler", msg.String())
+	}
+
+	fn_comp := &Compiler{
+		instructions: []byte{},
+		constants:    c.constants,
+		FoundError:   false,
+		symbolTable: &SymbolTable{
+			store:              []*Symbol{},
+			numOfStoredSymbols: 0,
+			CurScopeDepth:      0,
+			EnclosingSymTable:  c.symbolTable,
+		},
+	}
+
+	fn_ip := len(c.instructions)
+	if len(fn.Body.Contents) > 0 {
+		fn_comp.enterScope()
+		fn_comp.CompileBlock(fn.Body, false)
+		c.instructions = append(c.instructions, fn_comp.instructions...)
+		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(ast.Expression); ok {
+			c.generateBytecode(opcode.Return)
+		}
+		c.constants = fn_comp.constants
+		fn_comp.exitScope()
+	} else {
+		c.generateBytecode(opcode.PushUnit)
+		c.generateBytecode(opcode.Return)
+	}
+	fn_def := len(c.instructions)
+	arity := len(fn.ParameterList)
+	c.generateBytecode(opcode.MakeNewFunction, arity, fn_ip, sym.Index)
+	c.updateOperand(start, fn_def)
+	if fn.Name.LiteralRepr() == "main" {
+		MAIN_START = fn_ip
+	}
+}
+
 func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
+	target := assign.Target
+	assigned := assign.Assigned
 	switch assign.AssignmentToken.Literal {
+	case "=":
+		c.Compile(assigned)
+		switch target.(type) {
+		case *ast.Membership:
+		case *ast.IndexExpression:
+		case *ast.Identifier:
+			sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
+			if !ok {
+				shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+					target.LiteralRepr()))
+			}
+			if sym.ScopeDepth == 0 {
+				c.generateBytecode(opcode.SetGlobal, sym.Index)
+			} else {
+				c.generateBytecode(opcode.SetLocal, sym.Index)
+			}
+		}
 	case "+=":
-	case "":
+		switch target.(type) {
+		case *ast.Membership:
+		case *ast.IndexExpression:
+		case *ast.Identifier:
+			switch target.Type().TypeSignature() {
+			case "str":
+				c.Compile(target)
+				c.Compile(assigned)
+				switch assigned.Type().TypeSignature() {
+				case "char":
+					c.generateBytecode(opcode.AddStrChar)
+				case "str":
+					c.generateBytecode(opcode.AddStr)
+				}
+				sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
+				if !ok {
+					shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+						target.LiteralRepr()))
+				}
+				if sym.ScopeDepth == 0 {
+					c.generateBytecode(opcode.SetGlobal, sym.Index)
+				} else {
+					c.generateBytecode(opcode.SetLocal, sym.Index)
+				}
+			case "i64":
+				c.Compile(target)
+				c.Compile(assigned)
+				c.generateBytecode(opcode.AddI64)
+				sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
+				if !ok {
+					shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+						target.LiteralRepr()))
+				}
+				if sym.ScopeDepth == 0 {
+					c.generateBytecode(opcode.SetGlobal, sym.Index)
+				} else {
+					c.generateBytecode(opcode.SetLocal, sym.Index)
+				}
+			}
+		}
+	case "-=", "*=", "%=", "/=":
+		switch target.(type) {
+		case *ast.Membership:
+		case *ast.IndexExpression:
+		case *ast.Identifier:
+			c.Compile(target)
+			c.Compile(assigned)
+			ins := map[string]opcode.OpCode{
+				"-=": opcode.SubI64,
+				"*=": opcode.MultI64,
+				"%=": opcode.ModuloI64,
+				"/=": opcode.DivI64,
+			}
+			op := ins[assign.AssignmentToken.Literal]
+			c.generateBytecode(op)
+			sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
+			if !ok {
+				shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+					target.LiteralRepr()))
+			}
+			if sym.ScopeDepth == 0 {
+				c.generateBytecode(opcode.SetGlobal, sym.Index)
+			} else {
+				c.generateBytecode(opcode.SetLocal, sym.Index)
+			}
+		}
 	}
 }
 

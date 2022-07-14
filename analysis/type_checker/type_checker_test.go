@@ -11,7 +11,7 @@ func TestTypeCheckingVariableDeclaration(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/variable_decl.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -25,7 +25,7 @@ func TestTypeCheckingComplexTypes(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/complex_types.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -39,7 +39,7 @@ func TestTypeCheckingBlocks(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/blocks.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -53,7 +53,7 @@ func TestTypeCheckingBinaryOps(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/binary_ops.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -67,7 +67,7 @@ func TestTypeCheckingUnaryOps(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/unary_ops.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -81,7 +81,7 @@ func TestTypeCheckingIfExprs(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/if_exprs.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -95,7 +95,7 @@ func TestTypeCheckingLoops(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/loops.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -109,7 +109,7 @@ func TestTypeCheckingRanges(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/range_uses.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -123,7 +123,7 @@ func TestTypeCheckingIndexExpressions(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/index_expr.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -137,7 +137,7 @@ func TestTypeCheckingAssignments(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/assignment.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -151,7 +151,7 @@ func TestTypeCheckingStructUses(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/struct_use.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -165,7 +165,7 @@ func TestTypeCheckingMembership(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/membership.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)
@@ -179,7 +179,7 @@ func TestTypeCheckingFunctionUse(t *testing.T) {
 	path := "../../samples/test_sources/type_checker/function_use.pr"
 	src := shared.ReadFile(path)
 
-	program := parser.Parse(src)
+	program := parser.Parse(src, false)
 
 	tc := NewTypeChecker()
 	tc.TypeCheckProgram(program)

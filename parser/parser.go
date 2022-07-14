@@ -1027,21 +1027,42 @@ func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
 	return node
 }
 
-func Parse(src string) *ast.ProtoProgram {
+func Parse(src string, provide_main bool) *ast.ProtoProgram {
 	parser := New(src)
-	return top_level(parser)
+	return top_level(parser, provide_main)
 }
 
-func top_level(p *Parser) *ast.ProtoProgram {
+func top_level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	code := &ast.ProtoProgram{
-		Contents: []ast.ProtoNode{},
+		Main:         &ast.FunctionDef{},
+		Contents:     []ast.ProtoNode{},
+		FunctionDefs: []*ast.FunctionDef{},
+		Structs:      []*ast.Struct{},
 	}
 
+	has_main := false
+	var main_def_loc lexer.Span
 	for p.cur.Type != lexer.END {
 		node := p.parse_protonode(true)
 		switch actual := node.(type) {
 		case *ast.FunctionDef:
 			code.FunctionDefs = append(code.FunctionDefs, actual)
+			if provide_main {
+				if actual.Name.LiteralRepr() == "main" && !has_main {
+					has_main = true
+					main_def_loc = actual.Name.Token.TokenSpan
+					code.Main = actual
+				} else if actual.Name.LiteralRepr() == "main" && has_main {
+					name := actual.Name.Token
+					line := name.TokenSpan.Line
+					col := name.TokenSpan.Col
+					var msg strings.Builder
+					msg.WriteString(fmt.Sprintf("%d:%d", line, col))
+					msg.WriteString(fmt.Sprintf(" Provided duplicate main function. First definition is found at %d:%d.",
+						main_def_loc.Line, main_def_loc.Col))
+					shared.ReportErrorAndExit("Parser", msg.String())
+				}
+			}
 			code.Contents = append(code.Contents, node)
 		case *ast.Struct:
 			code.Structs = append(code.Structs, actual)
@@ -1063,6 +1084,12 @@ func top_level(p *Parser) *ast.ProtoProgram {
 		default:
 			code.Contents = append(code.Contents, node)
 		}
+	}
+
+	if provide_main && !has_main {
+		var msg strings.Builder
+		msg.WriteString("Expected a main function to act as code entry point.")
+		shared.ReportErrorAndExit("Parser", msg.String())
 	}
 
 	return code

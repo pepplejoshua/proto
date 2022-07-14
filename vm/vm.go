@@ -40,9 +40,20 @@ var UNIT = &ast.Unit{
 	},
 }
 
-type ScopeFrame struct {
+type CompiledFunction struct {
+	LocIP int
+	Arity int
+	Name  string
+}
+
+func (cf *CompiledFunction) LiteralRepr() string {
+	return fmt.Sprintf("fn %s at Instruction #%d", cf.Name, cf.LocIP)
+}
+
+type CallFrame struct {
+	called_fn   *CompiledFunction
 	stack_index int
-	enclosing   *ScopeFrame
+	enclosing   *CallFrame
 	return_val  ast.ProtoNode
 }
 
@@ -56,7 +67,7 @@ type VM struct {
 	stack_index int
 
 	globals []ast.ProtoNode
-	frame   *ScopeFrame
+	frame   *CallFrame
 }
 
 func NewVM(bc *compiler.ByteCode) *VM {
@@ -487,9 +498,11 @@ func (vm *VM) PopN(ip int) int {
 }
 
 func (vm *VM) EnterScope(ip int) int {
-	vm.frame = &ScopeFrame{
+	vm.frame = &CallFrame{
+		called_fn:   vm.PopOffStack().(*CompiledFunction),
 		stack_index: vm.stack_index,
 		enclosing:   vm.frame,
+		return_val:  nil,
 	}
 	return ip + 1
 }
@@ -542,8 +555,6 @@ func (vm *VM) Run() {
 		byte(opcode.MakeArray):         vm.MakeArray,
 		byte(opcode.AccessIndex):       vm.AccessIndex,
 		byte(opcode.PopN):              vm.PopN,
-		byte(opcode.EnterScope):        vm.EnterScope,
-		byte(opcode.ExitScope):         vm.ExitScope,
 		byte(opcode.GetLocal):          vm.GetLocal,
 		byte(opcode.SetLocal):          vm.SetLocal,
 	}

@@ -36,6 +36,10 @@ func TestMakingOpCode(t *testing.T) {
 		{MakeArray, []int{10}, []byte{byte(MakeArray), 0, 10}},
 		{AccessIndex, []int{}, []byte{byte(AccessIndex)}},
 		{GetLocal, []int{0}, []byte{byte(GetLocal), 0, 0}},
+		{SetLocal, []int{0}, []byte{byte(SetLocal), 0, 0}},
+		{PopN, []int{2}, []byte{byte(PopN), 0, 2}},
+		{MakeNewFunction, []int{0, 2, 3}, []byte{byte(MakeNewFunction), 0, 0, 2, 0, 3}},
+		{Return, []int{}, []byte{byte(Return)}},
 	}
 
 	for _, test := range tests {
@@ -95,6 +99,11 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(MakeArray, 5),
 		MakeInstruction(AccessIndex),
 		MakeInstruction(GetLocal, 0),
+		MakeInstruction(SetLocal, 2),
+		MakeInstruction(PopN, 4),
+		MakeInstruction(MakeNewFunction, 0, 4, 0),
+		MakeInstruction(Return),
+		// MakeInstruction(),
 	})
 
 	exp := `0000 LoadConstant 1
@@ -127,6 +136,10 @@ func TestInstructionsString(t *testing.T) {
 0041 MakeArray 5
 0044 AccessIndex
 0045 GetLocal 0
+0048 SetLocal 2
+0051 PopN 4
+0054 MakeNewFunction 0 4 0
+0060 Return
 `
 
 	if ins.Disassemble() != exp {
@@ -169,6 +182,10 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{MakeArray, []int{2}, 2},
 		{AccessIndex, []int{}, 0},
 		{GetLocal, []int{2}, 2},
+		{SetLocal, []int{2}, 2},
+		{PopN, []int{4}, 2},
+		{MakeNewFunction, []int{3, 2, 1}, 5},
+		{Return, []int{}, 0},
 	}
 
 	for _, tt := range tests {
