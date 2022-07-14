@@ -216,7 +216,7 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 	}
 	fn_def := len(c.instructions)
 	arity := len(fn.ParameterList)
-	c.generateBytecode(opcode.MakeNewFunction, arity, fn_ip, sym.Index)
+	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)
 	c.updateOperand(start, fn_def)
 	if fn.Name.LiteralRepr() == "main" {
 		MAIN_START = fn_ip

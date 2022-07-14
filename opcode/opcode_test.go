@@ -38,7 +38,7 @@ func TestMakingOpCode(t *testing.T) {
 		{GetLocal, []int{0}, []byte{byte(GetLocal), 0, 0}},
 		{SetLocal, []int{0}, []byte{byte(SetLocal), 0, 0}},
 		{PopN, []int{2}, []byte{byte(PopN), 0, 2}},
-		{MakeNewFunction, []int{0, 2, 3}, []byte{byte(MakeNewFunction), 0, 0, 2, 0, 3}},
+		{MakeFn, []int{0, 2, 3}, []byte{byte(MakeFn), 0, 0, 2, 0, 3}},
 		{Return, []int{}, []byte{byte(Return)}},
 	}
 
@@ -101,7 +101,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(GetLocal, 0),
 		MakeInstruction(SetLocal, 2),
 		MakeInstruction(PopN, 4),
-		MakeInstruction(MakeNewFunction, 0, 4, 0),
+		MakeInstruction(MakeFn, 0, 4, 0),
 		MakeInstruction(Return),
 		// MakeInstruction(),
 	})
@@ -138,7 +138,7 @@ func TestInstructionsString(t *testing.T) {
 0045 GetLocal 0
 0048 SetLocal 2
 0051 PopN 4
-0054 MakeNewFunction 0 4 0
+0054 MakeFn 0 4 0
 0060 Return
 `
 
@@ -184,7 +184,7 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{GetLocal, []int{2}, 2},
 		{SetLocal, []int{2}, 2},
 		{PopN, []int{4}, 2},
-		{MakeNewFunction, []int{3, 2, 1}, 5},
+		{MakeFn, []int{3, 2, 1}, 5},
 		{Return, []int{}, 0},
 	}
 

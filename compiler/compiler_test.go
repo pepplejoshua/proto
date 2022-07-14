@@ -1061,7 +1061,7 @@ func TestSimpleAssignment(t *testing.T) {
 }
 
 func TestFunctionCompilation(t *testing.T) {
-	// MakeNewFunction arity, start of fn, name index
+	// MakeFn arity, start of fn, name index
 	tests := []compilerTestCase{
 		{
 			input:             "fn main() { }",
@@ -1070,7 +1070,7 @@ func TestFunctionCompilation(t *testing.T) {
 				opcode.MakeInstruction(opcode.JumpTo, 5),
 				opcode.MakeInstruction(opcode.PushUnit),
 				opcode.MakeInstruction(opcode.Return),
-				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),
+				opcode.MakeInstruction(opcode.MakeFn, 0, 3, 0),
 				opcode.MakeInstruction(opcode.JumpTo, 3),
 			},
 		},
@@ -1081,11 +1081,11 @@ func TestFunctionCompilation(t *testing.T) {
 				opcode.MakeInstruction(opcode.JumpTo, 5),
 				opcode.MakeInstruction(opcode.PushUnit),
 				opcode.MakeInstruction(opcode.Return),
-				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),
+				opcode.MakeInstruction(opcode.MakeFn, 0, 3, 0),
 				opcode.MakeInstruction(opcode.JumpTo, 16), // 14
 				opcode.MakeInstruction(opcode.PushUnit),
 				opcode.MakeInstruction(opcode.Return),
-				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 14, 1),
+				opcode.MakeInstruction(opcode.MakeFn, 0, 14, 1),
 				opcode.MakeInstruction(opcode.JumpTo, 14),
 			},
 		},
@@ -1095,15 +1095,15 @@ func TestFunctionCompilation(t *testing.T) {
 				"1",
 			},
 			expectedIns: []opcode.VMInstructions{
-				opcode.MakeInstruction(opcode.JumpTo, 7),                 // 3
-				opcode.MakeInstruction(opcode.LoadConstant, 0),           // 6
-				opcode.MakeInstruction(opcode.Return),                    // 7
-				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 3, 0),  // 13
-				opcode.MakeInstruction(opcode.JumpTo, 18),                // 16
-				opcode.MakeInstruction(opcode.PushUnit),                  // 17
-				opcode.MakeInstruction(opcode.Return),                    // 18
-				opcode.MakeInstruction(opcode.MakeNewFunction, 0, 16, 1), // 24
-				opcode.MakeInstruction(opcode.JumpTo, 16),                // 27
+				opcode.MakeInstruction(opcode.JumpTo, 7),        // 3
+				opcode.MakeInstruction(opcode.LoadConstant, 0),  // 6
+				opcode.MakeInstruction(opcode.Return),           // 7
+				opcode.MakeInstruction(opcode.MakeFn, 0, 3, 0),  // 13
+				opcode.MakeInstruction(opcode.JumpTo, 18),       // 16
+				opcode.MakeInstruction(opcode.PushUnit),         // 17
+				opcode.MakeInstruction(opcode.Return),           // 18
+				opcode.MakeInstruction(opcode.MakeFn, 0, 16, 1), // 24
+				opcode.MakeInstruction(opcode.JumpTo, 16),       // 27
 			},
 		},
 	}
