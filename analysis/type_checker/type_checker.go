@@ -12,6 +12,15 @@ import (
 var BinaryOps = GetBuiltinBinaryOperators()
 var UnaryOps = GetBuiltinUnaryOperators()
 
+type BlockType int
+
+const (
+	NONE BlockType = iota
+	IF_EXPR
+	FUNCTION
+	LOOP
+)
+
 type TypeChecker struct {
 	TypeEnvs   []map[string]ast.ProtoType
 	FoundError bool
@@ -19,6 +28,7 @@ type TypeChecker struct {
 	// vs updating every function to take a flag.
 	CurReturnType ast.ProtoType
 	FnDefSpan     *lexer.Span
+	CurBlockType  BlockType
 }
 
 func NewTypeChecker() *TypeChecker {
@@ -27,6 +37,7 @@ func NewTypeChecker() *TypeChecker {
 		FoundError:    false,
 		CurReturnType: nil,
 		FnDefSpan:     nil,
+		CurBlockType:  NONE,
 	}
 }
 
@@ -218,7 +229,10 @@ func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	prevCurReturnType := tc.CurReturnType
 	tc.FnDefSpan = &fn.Start.TokenSpan
 	tc.CurReturnType = fn.ReturnType
+	prev := tc.CurBlockType
+	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlock(fn.Body, false)
+	tc.CurBlockType = prev
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
 	tc.ExitTypeEnv()
@@ -577,12 +591,18 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 	case *ast.Proto_Array:
 		tc.EnterTypeEnv()
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
+		prev := tc.CurBlockType
+		tc.CurBlockType = LOOP
 		tc.TypeCheckBlock(col_for.Body, false)
+		tc.CurBlockType = prev
 		tc.ExitTypeEnv()
 	case *ast.Proto_Range:
 		tc.EnterTypeEnv()
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
+		prev := tc.CurBlockType
+		tc.CurBlockType = LOOP
 		tc.TypeCheckBlock(col_for.Body, false)
+		tc.CurBlockType = prev
 		tc.ExitTypeEnv()
 	case *ast.Proto_Tuple:
 		var msg strings.Builder
@@ -623,7 +643,10 @@ func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
 		tc.FoundError = true
 	}
 	tc.TypeCheck(loop.Update)
+	prev := tc.CurBlockType
+	tc.CurBlockType = LOOP
 	tc.TypeCheckBlock(loop.Body, false)
+	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
 }
 
@@ -640,8 +663,10 @@ func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
 		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
 	}
-
-	tc.TypeCheckBlock(loop.Body, true)
+	prev := tc.CurBlockType
+	tc.CurBlockType = LOOP
+	tc.TypeCheckBlock(loop.Body, false)
+	tc.CurBlockType = prev
 }
 
 func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
@@ -659,11 +684,17 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 	}
 
 	tc.EnterTypeEnv()
+	prev := tc.CurBlockType
+	tc.CurBlockType = LOOP
 	tc.TypeCheckBlock(cond.ThenBody, false)
+	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
 
 	if cond.ElseBody != nil {
+		prev := tc.CurBlockType
+		tc.CurBlockType = LOOP
 		tc.TypeCheck(cond.ElseBody)
+		tc.CurBlockType = prev
 
 		if cond.ThenBody.Type().TypeSignature() != cond.ElseBody.Type().TypeSignature() {
 			// unexpected return type
@@ -855,7 +886,7 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 			case ast.Expression:
 				if tc.CurReturnType != nil {
 					// we are in a function
-					if actual.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
+					if tc.CurBlockType == FUNCTION && actual.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
 						var msg strings.Builder
 						line := tc.FnDefSpan.Line
 						col := tc.FnDefSpan.Col
