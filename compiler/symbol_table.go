@@ -32,7 +32,8 @@ func NewSymbolTableFrom(enclosing *SymbolTable) *SymbolTable {
 }
 
 func (st *SymbolTable) Define(name string) (*Symbol, bool) {
-	for _, s := range st.store {
+	for i := len(st.store) - 1; i >= 0; i-- {
+		s := st.store[i]
 		if s.Name == name && s.ScopeDepth == st.CurScopeDepth {
 			return s, true
 		}
@@ -44,6 +45,7 @@ func (st *SymbolTable) Define(name string) (*Symbol, bool) {
 		Index:      st.numOfStoredSymbols,
 	}
 	st.store = append(st.store, sym)
+	// println(name, st.CurScopeDepth, st.numOfStoredSymbols)
 	st.numOfStoredSymbols++
 	return sym, false
 }

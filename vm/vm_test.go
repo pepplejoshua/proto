@@ -377,8 +377,16 @@ func TestBlocks(t *testing.T) {
 func TestFunctionDef(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "fn returns() -> i64 { 1 } fn main() -> i64 { 1 + 2 }",
-			expected: "3",
+			input: `
+fn returns() -> i64 { 
+	1 
+} 
+
+fn main() -> i64 { 
+	let a = 5; 
+	a + 2 
+}`,
+			expected: "7",
 		},
 	}
 
@@ -389,6 +397,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
 	for i, tt := range tests {
+		println(tt.input + "\n")
 		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()

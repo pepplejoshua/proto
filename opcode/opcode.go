@@ -92,6 +92,8 @@ const (
 	MakeFn
 	Return
 	Halt
+	EnterScope
+	ExitScope
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -128,6 +130,8 @@ var Definitions = map[OpCode]*InstructionDef{
 	MakeFn:            {"MakeFn", []int{1, 2, 2}},     // makes a new function taking arity, start_ip and then constant_id (for name) to bind the name to
 	Return:            {"Return", []int{}},            // used to tell the VM to return last value on stack from function
 	Halt:              {"Halt", []int{}},              // used to tell the VM to stop execution
+	EnterScope:        {"EnterScope", []int{}},        // used to tell the VM to enter scope for local blocks
+	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a local scope
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

@@ -5,7 +5,6 @@ import (
 	"proto/ast"
 	"proto/opcode"
 	"proto/shared"
-	"strings"
 )
 
 type ByteCode struct {
@@ -86,17 +85,15 @@ func (c *Compiler) updateOperand(ins_pos int, operand int) {
 }
 
 func (c *Compiler) enterScope() {
-	// c.symbolTable.CurScopeDepth++
 	if c.symbolTable.CurScopeDepth == 0 {
 		c.symbolTable = NewSymbolTableFrom(c.symbolTable)
 	} else {
 		c.symbolTable.CurScopeDepth++
 	}
-	// c.generateBytecode(opcode.EnterScope)
 }
 
 func (c *Compiler) exitScope() {
-	if c.symbolTable.CurScopeDepth > 0 {
+	if c.symbolTable.CurScopeDepth > 1 {
 		// removes all locals in scope
 		num_of_locals := 0
 		for _, sym := range c.symbolTable.store {
@@ -105,17 +102,24 @@ func (c *Compiler) exitScope() {
 			}
 		}
 
-		if num_of_locals == 1 {
-			c.generateBytecode(opcode.Pop)
-		}
-		if num_of_locals > 1 {
+		if num_of_locals > 0 {
 			c.generateBytecode(opcode.PopN, num_of_locals)
 		}
 		c.symbolTable.CurScopeDepth--
+	} else if c.symbolTable.CurScopeDepth == 1 {
+		c.symbolTable = c.symbolTable.EnclosingSymTable
 	}
 }
 
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram) {
+	for _, fn := range prog.FunctionDefs {
+		c.symbolTable.Define(fn.Name.LiteralRepr())
+	}
+
+	for _, struct_ := range prog.Structs {
+		c.symbolTable.Define(struct_.Name.LiteralRepr())
+	}
+
 	for _, node := range prog.Contents {
 		c.Compile(node)
 	}
@@ -164,65 +168,6 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.Return:
 		c.CompileReturn(actual)
 	default:
-	}
-}
-
-func (c *Compiler) CompileReturn(ret *ast.Return) {
-	if ret.Value != nil {
-		c.Compile(ret.Value)
-	} else {
-		c.generateBytecode(opcode.PushUnit)
-	}
-	c.generateBytecode(opcode.Return)
-}
-
-func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
-	start := c.generateBytecode(opcode.JumpTo, 9999)
-	sym, exists := c.symbolTable.Define(fn.Name.LiteralRepr())
-	if exists {
-		line := fn.Name.Token.TokenSpan.Line
-		col := fn.Name.Token.TokenSpan.Col
-		var msg strings.Builder
-		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString(fmt.Sprintf("The name %s already exists.", sym.Name))
-		shared.ReportErrorAndExit("Compiler", msg.String())
-	}
-
-	fn_comp := &Compiler{
-		instructions: []byte{},
-		constants:    c.constants,
-		FoundError:   false,
-		symbolTable: &SymbolTable{
-			store:              []*Symbol{},
-			numOfStoredSymbols: 0,
-			CurScopeDepth:      0,
-			EnclosingSymTable:  c.symbolTable,
-		},
-	}
-
-	fn_ip := len(c.instructions)
-	if len(fn.Body.Contents) > 0 {
-		fn_comp.enterScope()
-		fn_comp.CompileBlock(fn.Body, false)
-		c.instructions = append(c.instructions, fn_comp.instructions...)
-		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(ast.Expression); ok {
-			c.generateBytecode(opcode.Return)
-		}
-		c.constants = fn_comp.constants
-		fn_comp.exitScope()
-	} else {
-		c.generateBytecode(opcode.PushUnit)
-		c.generateBytecode(opcode.Return)
-	}
-	if fn.Name.LiteralRepr() == "main" {
-		c.generateBytecode(opcode.Halt)
-	}
-	fn_def := len(c.instructions)
-	arity := len(fn.ParameterList)
-	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)
-	c.updateOperand(start, fn_def)
-	if fn.Name.LiteralRepr() == "main" {
-		MAIN_START = fn_ip
 	}
 }
 
@@ -321,9 +266,7 @@ func (c *Compiler) CompileVariableDecl(actual *ast.VariableDecl) {
 	c.Compile(actual.Assigned)
 	sym, exists := c.symbolTable.Define(actual.Assignee.Token.Literal)
 	if c.symbolTable.CurScopeDepth > 0 {
-		// since local variables use stack pointer offsets, we don't generate
-		// any special code for them
-		if exists {
+		if exists && sym.ScopeDepth == c.symbolTable.CurScopeDepth {
 			c.generateBytecode(opcode.SetLocal, sym.Index)
 		}
 		return
@@ -343,25 +286,56 @@ func (c *Compiler) CompileIdentifier(actual *ast.Identifier) {
 	} else {
 		c.generateBytecode(opcode.GetLocal, sym.Index)
 	}
-	// } else {
-	// 	c.generateBytecode(opcode.GetOuterLocal,
-	// 		c.symbolTable.CurScopeDepth-sym.ScopeDepth, sym.Index)
-	// }
+}
+
+func (c *Compiler) CompileReturn(ret *ast.Return) {
+	if ret.Value != nil {
+		c.Compile(ret.Value)
+	} else {
+		c.generateBytecode(opcode.PushUnit)
+	}
+	c.generateBytecode(opcode.Return)
+}
+
+func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
+	start := c.generateBytecode(opcode.JumpTo, 9999)
+	sym, _ := c.symbolTable.Define(fn.Name.LiteralRepr())
+	fn_ip := len(c.instructions)
+	if len(fn.Body.Contents) > 0 {
+		c.CompileBlock(fn.Body, true)
+		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(*ast.Return); !ok {
+			c.generateBytecode(opcode.Return)
+		}
+	} else {
+		c.generateBytecode(opcode.PushUnit)
+		c.generateBytecode(opcode.Return)
+	}
+	if fn.Name.LiteralRepr() == "main" {
+		c.generateBytecode(opcode.Halt)
+	}
+	fn_def := len(c.instructions)
+	arity := len(fn.ParameterList)
+	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)
+	c.updateOperand(start, fn_def)
+	if fn.Name.LiteralRepr() == "main" {
+		MAIN_START = fn_ip
+	}
 }
 
 func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 	if makeScope {
 		c.enterScope()
 	}
+
 	for index, node := range blk.Contents {
 		c.Compile(node)
 
 		if index+1 == len(blk.Contents) {
 			switch node.(type) {
 			case ast.Expression:
+			case *ast.Return:
 			default:
 				c.generateBytecode(opcode.PushUnit)
-
 			}
 		}
 	}
@@ -377,20 +351,22 @@ func (c *Compiler) CompileIfConditional(actual *ast.IfConditional) {
 	jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
 
 	// compile the then body of if conditional
-	c.Compile(actual.ThenBody)
+	c.CompileBlock(actual.ThenBody, true)
 
 	// store the jump instruction to be updated later
 	// it allows the then body jump past the rest of the else statement
 	jump_to := c.generateBytecode(opcode.JumpTo, 9999)
-
 	// the jump to else target is the instruction after the then body of the if conditional
 	// update that with the right location
 	jump_not_true_target := len(c.instructions)
+
 	c.updateOperand(jump_not_true, jump_not_true_target)
 
 	// if there is no else body, then push a unit onto stack
 	if actual.ElseBody == nil {
+		c.enterScope()
 		c.generateBytecode(opcode.PushUnit)
+		c.exitScope()
 	} else {
 		c.Compile(actual.ElseBody)
 	}
