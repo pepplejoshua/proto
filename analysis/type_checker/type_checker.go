@@ -884,9 +884,9 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 			// so we can set block_type to its type
 			switch actual := node.(type) {
 			case ast.Expression:
-				if tc.CurReturnType != nil {
+				if tc.CurReturnType != nil && tc.CurBlockType == FUNCTION {
 					// we are in a function
-					if tc.CurBlockType == FUNCTION && actual.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
+					if actual.Type().TypeSignature() != tc.CurReturnType.TypeSignature() {
 						var msg strings.Builder
 						line := tc.FnDefSpan.Line
 						col := tc.FnDefSpan.Col
