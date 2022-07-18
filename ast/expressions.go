@@ -5,11 +5,6 @@ import (
 	"strings"
 )
 
-type Proto_Callable interface {
-	Call([]Expression) Expression
-	Arity() int
-}
-
 type Expression interface { // anything that doesn't implement this is a statement
 	ProtoNode
 	Type() ProtoType

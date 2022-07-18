@@ -3,9 +3,9 @@ package compiler
 import (
 	"proto/analysis/name_resolver"
 	"proto/analysis/type_checker"
-	"proto/ast"
 	"proto/opcode"
 	"proto/parser"
+	"proto/runtime"
 	"testing"
 )
 
@@ -30,7 +30,8 @@ func TestUnaryOperations(t *testing.T) {
 0009 Return
 0010 Halt
 0011 MakeFn 0 8 0
-0017 JumpTo 8
+0017 GetGlobal 0
+0020 CallFn 0
 `,
 		},
 		{
@@ -44,7 +45,8 @@ func TestUnaryOperations(t *testing.T) {
 0007 Return
 0008 Halt
 0009 MakeFn 0 6 0
-0015 JumpTo 6
+0015 GetGlobal 0
+0018 CallFn 0
 `,
 		},
 		{
@@ -58,7 +60,8 @@ func TestUnaryOperations(t *testing.T) {
 0007 Return
 0008 Halt
 0009 MakeFn 0 6 0
-0015 JumpTo 6
+0015 GetGlobal 0
+0018 CallFn 0
 `,
 		},
 		{
@@ -74,7 +77,8 @@ func TestUnaryOperations(t *testing.T) {
 0013 Return
 0014 Halt
 0015 MakeFn 0 12 0
-0021 JumpTo 12
+0021 GetGlobal 0
+0024 CallFn 0
 `,
 		},
 	}
@@ -98,7 +102,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -115,7 +120,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -133,7 +139,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -151,7 +158,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -172,7 +180,8 @@ func TestBinaryOperations(t *testing.T) {
 0016 Return
 0017 Halt
 0018 MakeFn 0 3 0
-0024 JumpTo 3
+0024 GetGlobal 0
+0027 CallFn 0
 `,
 		},
 		{
@@ -195,7 +204,8 @@ func TestBinaryOperations(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 3 0
-0028 JumpTo 3
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -213,7 +223,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -231,7 +242,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -249,7 +261,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -267,7 +280,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -288,7 +302,8 @@ func TestBinaryOperations(t *testing.T) {
 0016 Return
 0017 Halt
 0018 MakeFn 0 3 0
-0024 JumpTo 3
+0024 GetGlobal 0
+0027 CallFn 0
 `,
 		},
 		{
@@ -309,7 +324,8 @@ func TestBinaryOperations(t *testing.T) {
 0016 Return
 0017 Halt
 0018 MakeFn 0 3 0
-0024 JumpTo 3
+0024 GetGlobal 0
+0027 CallFn 0
 `,
 		},
 		{
@@ -327,7 +343,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -342,7 +359,8 @@ func TestBinaryOperations(t *testing.T) {
 0008 Return
 0009 Halt
 0010 MakeFn 0 3 0
-0016 JumpTo 3
+0016 GetGlobal 0
+0019 CallFn 0
 `,
 		},
 		{
@@ -359,7 +377,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -377,7 +396,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -395,7 +415,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -413,7 +434,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -431,7 +453,8 @@ func TestBinaryOperations(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 	}
@@ -451,7 +474,8 @@ func TestBooleanValues(t *testing.T) {
 0006 Return
 0007 Halt
 0008 MakeFn 0 3 0
-0014 JumpTo 3
+0014 GetGlobal 0
+0017 CallFn 0
 `,
 		},
 		{
@@ -464,7 +488,8 @@ func TestBooleanValues(t *testing.T) {
 0006 Return
 0007 Halt
 0008 MakeFn 0 3 0
-0014 JumpTo 3
+0014 GetGlobal 0
+0017 CallFn 0
 `,
 		},
 		{
@@ -479,7 +504,8 @@ func TestBooleanValues(t *testing.T) {
 0008 Return
 0009 Halt
 0010 MakeFn 0 3 0
-0016 JumpTo 3
+0016 GetGlobal 0
+0019 CallFn 0
 `,
 		},
 	}
@@ -501,7 +527,8 @@ func TestAndOr(t *testing.T) {
 0008 Return
 0009 Halt
 0010 MakeFn 0 3 0
-0016 JumpTo 3
+0016 GetGlobal 0
+0019 CallFn 0
 `,
 		},
 		{
@@ -516,7 +543,8 @@ func TestAndOr(t *testing.T) {
 0008 Return
 0009 Halt
 0010 MakeFn 0 3 0
-0016 JumpTo 3
+0016 GetGlobal 0
+0019 CallFn 0
 `,
 		},
 	}
@@ -542,7 +570,8 @@ func TestStringAndChar(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 3 0
-0028 JumpTo 3
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -557,7 +586,8 @@ func TestStringAndChar(t *testing.T) {
 0012 Return
 0013 Halt
 0014 MakeFn 0 3 0
-0020 JumpTo 3
+0020 GetGlobal 0
+0023 CallFn 0
 `,
 		},
 		{
@@ -574,7 +604,8 @@ func TestStringAndChar(t *testing.T) {
 0016 Return
 0017 Halt
 0018 MakeFn 0 3 0
-0024 JumpTo 3
+0024 GetGlobal 0
+0027 CallFn 0
 `,
 		},
 	}
@@ -601,7 +632,8 @@ func TestIfConditionals(t *testing.T) {
 0021 Return
 0022 Halt
 0023 MakeFn 0 3 0
-0029 JumpTo 3
+0029 GetGlobal 0
+0032 CallFn 0
 `,
 		},
 		{
@@ -620,7 +652,8 @@ func TestIfConditionals(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 3 0
-0028 JumpTo 3
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -640,7 +673,8 @@ func TestIfConditionals(t *testing.T) {
 0023 Return
 0024 Halt
 0025 MakeFn 0 3 0
-0031 JumpTo 3
+0031 GetGlobal 0
+0034 CallFn 0
 `,
 		},
 		{
@@ -661,7 +695,8 @@ func TestIfConditionals(t *testing.T) {
 0024 Return
 0025 Halt
 0026 MakeFn 0 3 0
-0032 JumpTo 3
+0032 GetGlobal 0
+0035 CallFn 0
 `,
 		},
 		{
@@ -692,7 +727,8 @@ func TestIfConditionals(t *testing.T) {
 0038 Return
 0039 Halt
 0040 MakeFn 0 3 0
-0046 JumpTo 3
+0046 GetGlobal 0
+0049 CallFn 0
 `,
 		},
 	}
@@ -717,7 +753,8 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 0016 Return
 0017 Halt
 0018 MakeFn 0 15 0
-0024 JumpTo 15
+0024 GetGlobal 0
+0027 CallFn 0
 `,
 		},
 		{
@@ -738,7 +775,8 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 0030 Return
 0031 Halt
 0032 MakeFn 0 29 0
-0038 JumpTo 29
+0038 GetGlobal 0
+0041 CallFn 0
 `,
 		},
 	}
@@ -758,7 +796,8 @@ func TestMakingArrays(t *testing.T) {
 0008 Return
 0009 Halt
 0010 MakeFn 0 3 0
-0016 JumpTo 3
+0016 GetGlobal 0
+0019 CallFn 0
 `,
 		},
 		{
@@ -777,7 +816,8 @@ func TestMakingArrays(t *testing.T) {
 0026 Return
 0027 Halt
 0028 MakeFn 0 9 0
-0034 JumpTo 9
+0034 GetGlobal 0
+0037 CallFn 0
 `,
 		},
 		{
@@ -799,7 +839,8 @@ func TestMakingArrays(t *testing.T) {
 0033 Return
 0034 Halt
 0035 MakeFn 0 9 0
-0041 JumpTo 9
+0041 GetGlobal 0
+0044 CallFn 0
 `,
 		},
 	}
@@ -824,7 +865,8 @@ func TestIndexExpressions(t *testing.T) {
 0021 Return
 0022 Halt
 0023 MakeFn 0 3 0
-0029 JumpTo 3
+0029 GetGlobal 0
+0032 CallFn 0
 `,
 		},
 		{
@@ -844,7 +886,8 @@ func TestIndexExpressions(t *testing.T) {
 0027 Return
 0028 Halt
 0029 MakeFn 0 18 0
-0035 JumpTo 18
+0035 GetGlobal 0
+0038 CallFn 0
 `,
 		},
 		{
@@ -866,7 +909,8 @@ func TestIndexExpressions(t *testing.T) {
 0033 Return
 0034 Halt
 0035 MakeFn 0 24 0
-0041 JumpTo 24
+0041 GetGlobal 0
+0044 CallFn 0
 `,
 		},
 		{
@@ -890,7 +934,8 @@ func TestIndexExpressions(t *testing.T) {
 0037 Return
 0038 Halt
 0039 MakeFn 0 24 0
-0045 JumpTo 24
+0045 GetGlobal 0
+0048 CallFn 0
 `,
 		},
 	}
@@ -915,7 +960,8 @@ func TestBlocks(t *testing.T) {
 0023 Return
 0024 Halt
 0025 MakeFn 0 9 0
-0031 JumpTo 9
+0031 GetGlobal 0
+0034 CallFn 0
 `,
 		},
 		{
@@ -938,7 +984,8 @@ func TestBlocks(t *testing.T) {
 0034 Return
 0035 Halt
 0036 MakeFn 0 3 0
-0042 JumpTo 3
+0042 GetGlobal 0
+0045 CallFn 0
 `,
 		},
 		{
@@ -959,7 +1006,8 @@ func TestBlocks(t *testing.T) {
 0032 Return
 0033 Halt
 0034 MakeFn 0 3 0
-0040 JumpTo 3
+0040 GetGlobal 0
+0043 CallFn 0
 `,
 		},
 		{
@@ -974,7 +1022,8 @@ func TestBlocks(t *testing.T) {
 0018 Return
 0019 Halt
 0020 MakeFn 0 3 0
-0026 JumpTo 3
+0026 GetGlobal 0
+0029 CallFn 0
 `,
 		},
 	}
@@ -998,7 +1047,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1015,7 +1065,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1032,7 +1083,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1049,7 +1101,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1066,7 +1119,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1083,7 +1137,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1100,7 +1155,8 @@ func TestSimpleAssignment(t *testing.T) {
 0020 Return
 0021 Halt
 0022 MakeFn 0 9 0
-0028 JumpTo 9
+0028 GetGlobal 0
+0031 CallFn 0
 `,
 		},
 		{
@@ -1133,7 +1189,8 @@ func TestSimpleAssignment(t *testing.T) {
 0060 Return
 0061 Halt
 0062 MakeFn 0 9 0
-0068 JumpTo 9
+0068 GetGlobal 0
+0071 CallFn 0
 `,
 		},
 		{
@@ -1160,7 +1217,8 @@ func TestSimpleAssignment(t *testing.T) {
 0048 Return
 0049 Halt
 0050 MakeFn 0 47 0
-0056 JumpTo 47
+0056 GetGlobal 0
+0059 CallFn 0
 `,
 		},
 		{
@@ -1179,7 +1237,8 @@ func TestSimpleAssignment(t *testing.T) {
 0026 Return
 0027 Halt
 0028 MakeFn 0 9 0
-0034 JumpTo 9
+0034 GetGlobal 0
+0037 CallFn 0
 `,
 		},
 	}
@@ -1198,7 +1257,8 @@ func TestFunctionCompilation(t *testing.T) {
 0004 Return
 0005 Halt
 0006 MakeFn 0 3 0
-0012 JumpTo 3
+0012 GetGlobal 0
+0015 CallFn 0
 `,
 		},
 		{
@@ -1213,7 +1273,8 @@ func TestFunctionCompilation(t *testing.T) {
 0015 Return
 0016 Halt
 0017 MakeFn 0 14 1
-0023 JumpTo 14
+0023 GetGlobal 1
+0026 CallFn 0
 `,
 		},
 		{
@@ -1228,7 +1289,8 @@ func TestFunctionCompilation(t *testing.T) {
 0017 Return
 0018 Halt
 0019 MakeFn 0 16 1
-0025 JumpTo 16
+0025 GetGlobal 1
+0028 CallFn 0
 `,
 		},
 		{
@@ -1256,7 +1318,8 @@ func TestFunctionCompilation(t *testing.T) {
 0038 Return
 0039 Halt
 0040 MakeFn 0 27 1
-0046 JumpTo 27
+0046 GetGlobal 1
+0049 CallFn 0
 `,
 		},
 		{
@@ -1281,7 +1344,8 @@ func TestFunctionCompilation(t *testing.T) {
 0036 Return
 0037 Halt
 0038 MakeFn 0 27 2
-0044 JumpTo 27
+0044 GetGlobal 2
+0047 CallFn 0
 `,
 		},
 		{
@@ -1318,7 +1382,8 @@ func TestFunctionCompilation(t *testing.T) {
 0057 Return
 0058 Halt
 0059 MakeFn 0 3 0
-0065 JumpTo 3
+0065 GetGlobal 0
+0068 CallFn 0
 `,
 		},
 		{
@@ -1338,8 +1403,45 @@ func TestFunctionCompilation(t *testing.T) {
 0026 PopN 2
 0029 Return
 0030 MakeFn 2 19 1
-0036 JumpTo 3
+0036 GetGlobal 0
+0039 CallFn 0
 `,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestFunctionCalls(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { returns_1(); } fn returns_1() -> i64 { 1 }",
+			expectedConstants: []string{
+				"1",
+			},
+			expectedIns: `0000 JumpTo 13
+0003 GetGlobal 1
+0006 CallFn 0
+0009 Pop
+0010 PushUnit
+0011 Return
+0012 Halt
+0013 MakeFn 0 3 0
+0019 JumpTo 26
+0022 LoadConstant 0
+0025 Return
+0026 MakeFn 0 22 1
+0032 GetGlobal 0
+0035 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { fn squared(a: i64) -> i64 { a * a } let a = squared(3); a; }",
+			expectedConstants: []string{
+				"2",
+				"3",
+			},
+			expectedIns: ``,
 		},
 	}
 
@@ -1391,15 +1493,15 @@ func testInstructions(t *testing.T, exp string, ins opcode.VMInstructions) {
 	}
 }
 
-func testConstants(t *testing.T, exp []string, cons []ast.ProtoNode) {
+func testConstants(t *testing.T, exp []string, cons []runtime.RuntimeObj) {
 	t.Helper()
 	if len(exp) != len(cons) {
 		t.Errorf("Expected %d constants, got %d.", len(exp), len(cons))
 	}
 
 	for i, con := range exp {
-		if con != cons[i].LiteralRepr() {
-			t.Errorf("Expected %s at constant position %d, found %s", con, i, cons[i].LiteralRepr())
+		if con != cons[i].String() {
+			t.Errorf("Expected %s at constant position %d, found %s", con, i, cons[i])
 		}
 	}
 }

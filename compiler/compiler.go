@@ -4,36 +4,36 @@ import (
 	"fmt"
 	"proto/ast"
 	"proto/opcode"
+	"proto/runtime"
 	"proto/shared"
+	"strconv"
 )
 
 type ByteCode struct {
 	Instructions opcode.VMInstructions
-	Constants    []ast.ProtoNode
+	Constants    []runtime.RuntimeObj
 }
 
 type Compiler struct {
 	instructions opcode.VMInstructions
-	constants    []ast.ProtoNode
+	constants    []runtime.RuntimeObj
 	FoundError   bool
 	symbolTable  *SymbolTable
 }
 
-var MAIN_START = 0
-
 func NewCompiler() *Compiler {
 	return &Compiler{
 		instructions: opcode.VMInstructions{},
-		constants:    []ast.ProtoNode{},
+		constants:    []runtime.RuntimeObj{},
 		FoundError:   false,
 		symbolTable:  NewSymbolTable(),
 	}
 }
 
-func (c *Compiler) appendConstant(cons ast.ProtoNode) int {
+func (c *Compiler) appendConstant(cons runtime.RuntimeObj) int {
 	// first search for existing constant and return its index if it does
 	for index, c := range c.constants {
-		if c.LiteralRepr() == cons.LiteralRepr() {
+		if c.String() == cons.String() {
 			return index
 		}
 	}
@@ -123,7 +123,14 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram) {
 	for _, node := range prog.Contents {
 		c.Compile(node)
 	}
-	c.generateBytecode(opcode.JumpTo, MAIN_START)
+	sym, _ := c.symbolTable.Resolve("main")
+	c.generateBytecode(opcode.GetGlobal, sym.Index)
+	c.generateBytecode(opcode.CallFn, 0)
+}
+
+func MakeInt64(val string) int64 {
+	num, _ := strconv.ParseInt(val, 10, 64)
+	return num
 }
 
 func (c *Compiler) Compile(node ast.ProtoNode) {
@@ -131,8 +138,18 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.PromotedExpr:
 		c.Compile(actual.Expr)
 		c.generateBytecode(opcode.Pop)
-	case *ast.I64, *ast.Char, *ast.String:
-		loc := c.appendConstant(actual)
+	case *ast.I64:
+		loc := c.appendConstant(&runtime.I64{Value: MakeInt64(actual.LiteralRepr())})
+		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.Char:
+		loc := c.appendConstant(&runtime.Char{
+			Value: actual.Token.Literal,
+		})
+		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.String:
+		loc := c.appendConstant(&runtime.String{
+			Value: actual.LiteralRepr(),
+		})
 		c.generateBytecode(opcode.LoadConstant, loc)
 	case *ast.Array:
 		for _, item := range actual.Items {
@@ -145,6 +162,8 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.generateBytecode(opcode.AccessIndex)
 	case *ast.VariableDecl:
 		c.CompileVariableDecl(actual)
+	case *ast.CallExpression:
+		c.CompileCallExprs(actual)
 	case *ast.Identifier:
 		c.CompileIdentifier(actual)
 	case *ast.IfConditional:
@@ -297,6 +316,14 @@ func (c *Compiler) CompileReturn(ret *ast.Return) {
 	c.generateBytecode(opcode.Return)
 }
 
+func (c *Compiler) CompileCallExprs(call *ast.CallExpression) {
+	for _, arg := range call.Arguments {
+		c.Compile(arg)
+	}
+	c.Compile(call.Callable)
+	c.generateBytecode(opcode.CallFn, len(call.Arguments))
+}
+
 func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 	start := c.generateBytecode(opcode.JumpTo, 9999)
 	sym, _ := c.symbolTable.Define(fn.Name.LiteralRepr())
@@ -332,9 +359,6 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 	arity := len(fn.ParameterList)
 	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)
 	c.updateOperand(start, fn_def)
-	if fn.Name.LiteralRepr() == "main" {
-		MAIN_START = fn_ip
-	}
 }
 
 func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
