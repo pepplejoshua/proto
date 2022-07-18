@@ -43,6 +43,7 @@ func TestMakingOpCode(t *testing.T) {
 		{Halt, []int{}, []byte{byte(Halt)}},
 		{EnterScope, []int{}, []byte{byte(EnterScope)}},
 		{ExitScope, []int{}, []byte{byte(ExitScope)}},
+		{CallFn, []int{2}, []byte{byte(CallFn), 0, 2}},
 	}
 
 	for _, test := range tests {
@@ -109,6 +110,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(Halt),
 		MakeInstruction(EnterScope),
 		MakeInstruction(ExitScope),
+		MakeInstruction(CallFn, 3),
 		// MakeInstruction(),
 	})
 
@@ -149,6 +151,7 @@ func TestInstructionsString(t *testing.T) {
 0061 Halt
 0062 EnterScope
 0063 ExitScope
+0064 CallFn 3
 `
 
 	if ins.Disassemble() != exp {
@@ -198,6 +201,7 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{Halt, []int{}, 0},
 		{EnterScope, []int{}, 0},
 		{ExitScope, []int{}, 0},
+		{CallFn, []int{3}, 2},
 	}
 
 	for _, tt := range tests {

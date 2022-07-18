@@ -45,7 +45,6 @@ func (st *SymbolTable) Define(name string) (*Symbol, bool) {
 		Index:      st.numOfStoredSymbols,
 	}
 	st.store = append(st.store, sym)
-	// println(name, st.CurScopeDepth, st.numOfStoredSymbols)
 	st.numOfStoredSymbols++
 	return sym, false
 }

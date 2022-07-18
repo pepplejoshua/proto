@@ -921,7 +921,7 @@ func TestBlocks(t *testing.T) {
 		{
 			input:             "fn main() { let a = 4; let b = 6; { let a = 6; let b = b + 1; } let c = b + a; }",
 			expectedConstants: []string{"4", "6", "1"},
-			expectedIns: `0000 JumpTo 33
+			expectedIns: `0000 JumpTo 36
 0003 LoadConstant 0
 0006 LoadConstant 1
 0009 LoadConstant 1
@@ -934,10 +934,11 @@ func TestBlocks(t *testing.T) {
 0026 GetLocal 0
 0029 AddI64
 0030 PushUnit
-0031 Return
-0032 Halt
-0033 MakeFn 0 3 0
-0039 JumpTo 3
+0031 PopN 3
+0034 Return
+0035 Halt
+0036 MakeFn 0 3 0
+0042 JumpTo 3
 `,
 		},
 		{
@@ -1237,23 +1238,25 @@ func TestFunctionCompilation(t *testing.T) {
 				"5",
 				"2",
 			},
-			expectedIns: `0000 JumpTo 15
+			expectedIns: `0000 JumpTo 18
 0003 LoadConstant 0
 0006 LoadConstant 1
 0009 GetLocal 0
 0012 Pop
 0013 PushUnit
-0014 Return
-0015 MakeFn 0 3 0
-0021 JumpTo 34
-0024 LoadConstant 2
-0027 GetLocal 0
-0030 Pop
-0031 PushUnit
-0032 Return
-0033 Halt
-0034 MakeFn 0 24 1
-0040 JumpTo 24
+0014 PopN 2
+0017 Return
+0018 MakeFn 0 3 0
+0024 JumpTo 40
+0027 LoadConstant 2
+0030 GetLocal 0
+0033 Pop
+0034 PushUnit
+0035 PopN 1
+0038 Return
+0039 Halt
+0040 MakeFn 0 27 1
+0046 JumpTo 27
 `,
 		},
 		{
@@ -1279,6 +1282,63 @@ func TestFunctionCompilation(t *testing.T) {
 0037 Halt
 0038 MakeFn 0 27 2
 0044 JumpTo 27
+`,
+		},
+		{
+			input: "fn main() { let a = 0; let b = 1; { let c = a + b + 3; c; } fn inner() { let a = 3; a + 1; } }",
+			expectedConstants: []string{
+				"0",
+				"1",
+				"3",
+			},
+			expectedIns: `0000 JumpTo 59
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GetLocal 1
+0015 AddI64
+0016 LoadConstant 2
+0019 AddI64
+0020 GetLocal 2
+0023 Pop
+0024 PushUnit
+0025 PopN 1
+0028 JumpTo 47
+0031 LoadConstant 2
+0034 GetLocal 0
+0037 LoadConstant 1
+0040 AddI64
+0041 Pop
+0042 PushUnit
+0043 PopN 1
+0046 Return
+0047 MakeFn 0 31 3
+0053 PushUnit
+0054 PopN 3
+0057 Return
+0058 Halt
+0059 MakeFn 0 3 0
+0065 JumpTo 3
+`,
+		},
+		{
+			input:             "fn main() { has_params; } fn has_params(a: str, b: str) -> str { a + b }",
+			expectedConstants: []string{},
+			expectedIns: `0000 JumpTo 10
+0003 GetGlobal 1
+0006 Pop
+0007 PushUnit
+0008 Return
+0009 Halt
+0010 MakeFn 0 3 0
+0016 JumpTo 30
+0019 GetLocal 0
+0022 GetLocal 1
+0025 AddStr
+0026 PopN 2
+0029 Return
+0030 MakeFn 2 19 1
+0036 JumpTo 3
 `,
 		},
 	}

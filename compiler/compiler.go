@@ -302,17 +302,32 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 	sym, _ := c.symbolTable.Define(fn.Name.LiteralRepr())
 	fn_ip := len(c.instructions)
 	if len(fn.Body.Contents) > 0 {
-		c.CompileBlock(fn.Body, true)
-		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(*ast.Return); !ok {
-			c.generateBytecode(opcode.Return)
+		new_comp := &Compiler{
+			instructions: c.instructions,
+			constants:    c.constants,
+			FoundError:   false,
+			symbolTable:  NewSymbolTableFrom(c.symbolTable),
 		}
+		new_comp.enterScope()
+		for _, param := range fn.ParameterList {
+			new_comp.symbolTable.Define(param.LiteralRepr())
+		}
+		new_comp.CompileBlock(fn.Body, false)
+		new_comp.exitScope()
+		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(*ast.Return); !ok {
+			new_comp.generateBytecode(opcode.Return)
+		}
+		c.constants = new_comp.constants
+		c.instructions = new_comp.instructions
 	} else {
 		c.generateBytecode(opcode.PushUnit)
 		c.generateBytecode(opcode.Return)
 	}
+
 	if fn.Name.LiteralRepr() == "main" {
 		c.generateBytecode(opcode.Halt)
 	}
+
 	fn_def := len(c.instructions)
 	arity := len(fn.ParameterList)
 	c.generateBytecode(opcode.MakeFn, arity, fn_ip, sym.Index)

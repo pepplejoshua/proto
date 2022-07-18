@@ -53,6 +53,7 @@ type CallFrame struct {
 	called_fn   *CompiledFunction
 	stack_index int
 	enclosing   *CallFrame
+	return_ip   int
 }
 
 type VM struct {
@@ -497,20 +498,30 @@ func (vm *VM) PopN(ip int) int {
 
 func (vm *VM) GetLocal(ip int) int {
 	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	vm.PushOntoStack(vm.stack[offset])
+	if vm.frame == nil {
+		vm.PushOntoStack(vm.stack[offset])
+	} else {
+		vm.PushOntoStack(vm.stack[vm.frame.stack_index+offset])
+	}
 	return ip + 3
 }
 
 func (vm *VM) SetLocal(ip int) int {
 	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	vm.stack[offset] = vm.PopOffStack()
+	if vm.frame == nil {
+		vm.stack[offset] = vm.PopOffStack()
+	} else {
+		vm.stack[vm.frame.stack_index+offset] = vm.PopOffStack()
+	}
 	return ip + 3
 }
 
 func (vm *VM) Return(ip int) int {
-	vm.PopOffStack()
+	ret_val := vm.PopOffStack()
 	vm.frame = vm.frame.enclosing
-	return ip + 1
+	vm.stack_index = vm.frame.stack_index
+	vm.PushOntoStack(ret_val)
+	return vm.frame.return_ip
 }
 
 func (vm *VM) MakeFn(ip int) int {
@@ -529,7 +540,7 @@ func (vm *VM) MakeFn(ip int) int {
 	if vm.frame == nil { // in global scope
 		vm.globals[storage_loc] = fn
 	} else { // in local scope
-		vm.stack[storage_loc] = fn
+		vm.stack[vm.frame.stack_index+storage_loc] = fn
 	}
 	return ip + 6
 }

@@ -94,6 +94,7 @@ const (
 	Halt
 	EnterScope
 	ExitScope
+	CallFn
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -132,6 +133,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	Halt:              {"Halt", []int{}},              // used to tell the VM to stop execution
 	EnterScope:        {"EnterScope", []int{}},        // used to tell the VM to enter scope for local blocks
 	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a local scope
+	CallFn:            {"CallFn", []int{2}},           // used to call a function
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {
