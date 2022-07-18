@@ -16,47 +16,47 @@ type vmTestCase struct {
 func TestIntegerArithmetic(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "1;",
+			input:    "fn main() -> i64 { 1 }",
 			expected: "1",
 		},
 		{
-			input:    "2;",
+			input:    "fn main() -> i64 { 2 }",
 			expected: "2",
 		},
 		{
-			input:    "1 + 2;",
+			input:    "fn main() -> i64 { 1 + 2 }",
 			expected: "3",
 		},
 		{
-			input:    "2 - 1;",
+			input:    "fn main() -> i64 { 2 - 1 }",
 			expected: "1",
 		},
 		{
-			input:    "3 * 3;",
+			input:    "fn main() -> i64 { 3 * 3 }",
 			expected: "9",
 		},
 		{
-			input:    "42 / 21;",
+			input:    "fn main() -> i64 { 42 / 21 }",
 			expected: "2",
 		},
 		{
-			input:    "3 / 2;",
+			input:    "fn main() -> i64 { 3 / 2 }",
 			expected: "1",
 		},
 		{
-			input:    "1 % 2;",
+			input:    "fn main() -> i64 { 1 % 2 }",
 			expected: "1",
 		},
 		{
-			input:    "-1;",
+			input:    "fn main() -> i64 { -1 }",
 			expected: "-1",
 		},
 		{
-			input:    "300 * -2;",
+			input:    "fn main() -> i64 { 300 * -2 }",
 			expected: "-600",
 		},
 		{
-			input:    "-(300 * -2);",
+			input:    "fn main() -> i64 { -(300 * -2) }",
 			expected: "600",
 		},
 	}
@@ -67,31 +67,31 @@ func TestIntegerArithmetic(t *testing.T) {
 func TestBooleanValues(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "true;",
+			input:    "fn main() -> bool { true }",
 			expected: "true",
 		},
 		{
-			input:    "false;",
+			input:    "fn main() -> bool { false }",
 			expected: "false",
 		},
 		{
-			input:    "false; true;",
+			input:    "fn main() -> bool { false; true }",
 			expected: "true",
 		},
 		{
-			input:    "not true;",
+			input:    "fn main() -> bool { not true }",
 			expected: "false",
 		},
 		{
-			input:    "not false;",
+			input:    "fn main() -> bool { not false }",
 			expected: "true",
 		},
 		{
-			input:    "not not not false;",
+			input:    "fn main() -> bool { not not not false }",
 			expected: "true",
 		},
 		{
-			input:    "not if false { false } else { true };",
+			input:    "fn main() -> bool { not if false { false } else { true } }",
 			expected: "false",
 		},
 	}
@@ -102,31 +102,31 @@ func TestBooleanValues(t *testing.T) {
 func TestEquality(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "1 == 2;",
+			input:    "fn main() -> bool { 1 == 2 }",
 			expected: "false",
 		},
 		{
-			input:    "1 != 1;",
+			input:    "fn main() -> bool { 1 != 1 }",
 			expected: "false",
 		},
 		{
-			input:    "true == true;",
+			input:    "fn main() -> bool { true == true }",
 			expected: "true",
 		},
 		{
-			input:    "'a' != 'b';",
+			input:    "fn main() -> bool { 'a' != 'b' }",
 			expected: "true",
 		},
 		{
-			input:    "\"str\" == \"str\";",
+			input:    "fn main() -> bool { \"str\" == \"str\" }",
 			expected: "true",
 		},
 		{
-			input:    "1 + 2 == 3 * 1;",
+			input:    "fn main() -> bool { 1 + 2 == 3 * 1 }",
 			expected: "true",
 		},
 		{
-			input:    "3 > 2 == true;",
+			input:    "fn main() -> bool { 3 > 2 == true }",
 			expected: "true",
 		},
 	}
@@ -137,27 +137,27 @@ func TestEquality(t *testing.T) {
 func TestAndOr(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "true || false;",
+			input:    "fn main() -> bool { true || false }",
 			expected: "true",
 		},
 		{
-			input:    "false && true;",
+			input:    "fn main() -> bool { false && true }",
 			expected: "false",
 		},
 		{
-			input:    "true && false;",
+			input:    "fn main() -> bool { true && false }",
 			expected: "false",
 		},
 		{
-			input:    "false || true;",
+			input:    "fn main() -> bool { false || true }",
 			expected: "true",
 		},
 		{
-			input:    "true || true;",
+			input:    "fn main() -> bool { true || true }",
 			expected: "true",
 		},
 		{
-			input:    "false && false;",
+			input:    "fn main() -> bool { false && false }",
 			expected: "false",
 		},
 	}
@@ -168,35 +168,35 @@ func TestAndOr(t *testing.T) {
 func TestComparison(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "1 > 2;",
+			input:    "fn main() -> bool { 1 > 2 }",
 			expected: "false",
 		},
 		{
-			input:    "3 <= 1;",
+			input:    "fn main() -> bool { 3 <= 1 }",
 			expected: "false",
 		},
 		{
-			input:    "500 > 499;",
+			input:    "fn main() -> bool { 500 > 499 }",
 			expected: "true",
 		},
 		{
-			input:    "2 < 3;",
+			input:    "fn main() -> bool { 2 < 3 }",
 			expected: "true",
 		},
 		{
-			input:    "3 >= 3;",
+			input:    "fn main() -> bool { 3 >= 3 }",
 			expected: "true",
 		},
 		{
-			input:    "'b' > 'a';",
+			input:    "fn main() -> bool { 'b' > 'a' }",
 			expected: "true",
 		},
 		{
-			input:    "'' >= '';",
+			input:    "fn main() -> bool { '' >= '' }",
 			expected: "true",
 		},
 		{
-			input:    "'a' < 'z';",
+			input:    "fn main() -> bool { 'a' < 'z' }",
 			expected: "true",
 		},
 	}
@@ -207,19 +207,19 @@ func TestComparison(t *testing.T) {
 func TestStringsAndChars(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "'a' + 'b';",
+			input:    "fn main() -> str { 'a' + 'b' }",
 			expected: "\"ab\"",
 		},
 		{
-			input:    "\"proto \" + \"language\";",
+			input:    "fn main() -> str { \"proto \" + \"language\" }",
 			expected: "\"proto language\"",
 		},
 		{
-			input:    "\"proto \" + \"language\" + '!';",
+			input:    "fn main() -> str { \"proto \" + \"language\" + '!' }",
 			expected: "\"proto language!\"",
 		},
 		{
-			input:    "\"proto \" + \"language\" + '!' + \" It is fun!\";",
+			input:    "fn main() -> str { \"proto \" + \"language\" + '!' + \" It is fun!\" }",
 			expected: "\"proto language! It is fun!\"",
 		},
 	}
@@ -230,28 +230,28 @@ func TestStringsAndChars(t *testing.T) {
 func TestIfConditional(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "if 1 < 2 { true; }",
+			input:    "fn main() -> bool { if 1 < 2 { true } }",
 			expected: "true",
 		},
 		{
-			input:    "if 3 * 2 == 6 { 6; }",
+			input:    "fn main() -> i64 { if 3 * 2 == 6 { 6 } }",
 			expected: "6",
 		},
 		{
-			input:    "if 1 > 2 { 1; } else { 2; }",
+			input:    "fn main() -> i64 { if 1 > 2 { 1 } else { 2 } }",
 			expected: "2",
 		},
 		{
-			input:    "if 1 > 2 { 1; } else if 2 > 3 { 2; } else { 3; }",
+			input:    "fn main() -> i64 { if 1 > 2 { 1 } else if 2 > 3 { 2 } else { 3 } }",
 			expected: "3",
 		},
 		{
-			input:    "if 1 > 2 { 1 } else if 2 <= 3 { 2 } else { 3 };",
+			input:    "fn main() -> i64 { if 1 > 2 { 1 } else if 2 <= 3 { 2 } else { 3 } }",
 			expected: "2",
 		},
 		{
-			input:    "if false { 1 } else { 2 }",
-			expected: "2", // this is because the condition is not popped off the stack
+			input:    "fn main() -> i64 { if false { 1 } else { 2 } }",
+			expected: "2",
 		},
 	}
 
@@ -261,15 +261,15 @@ func TestIfConditional(t *testing.T) {
 func TestGlobalUseOfIdentifiers(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "let un: i64 = 1; un;",
+			input:    "fn main() -> i64 { let un: i64 = 1; un }",
 			expected: "1",
 		},
 		{
-			input:    "let un = 1; let deux = 2; un + deux;",
+			input:    "fn main() -> i64 { let un = 1; let deux = 2; un + deux }",
 			expected: "3",
 		},
 		{
-			input:    "let un = 1; let deux = 2; if un + deux >= 3 { 3 } else { un + deux }",
+			input:    "fn main() -> i64 { let un = 1; let deux = 2; if un + deux >= 3 { 3 } else { un + deux } }",
 			expected: "3",
 		},
 	}
@@ -280,15 +280,15 @@ func TestGlobalUseOfIdentifiers(t *testing.T) {
 func TestMakingArrays(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "[i64;];",
+			input:    "fn main() -> [i64] { [i64;] }",
 			expected: "[]",
 		},
 		{
-			input:    "let a = 4; [1, 2, 3, a];",
+			input:    "fn main() -> [i64] { let a = 4; [1, 2, 3, a] }",
 			expected: "[1, 2, 3, 4]",
 		},
 		{
-			input:    "let a = 4; [1, 2, 3, a, a + 1];",
+			input:    "fn main() -> [i64] { let a = 4; [1, 2, 3, a, a + 1] }",
 			expected: "[1, 2, 3, 4, 5]",
 		},
 	}
@@ -299,31 +299,31 @@ func TestMakingArrays(t *testing.T) {
 func TestIndexingArrays(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "let a = [1, 2, 3]; a[1];",
+			input:    "fn main() -> i64 { let a = [1, 2, 3]; a[1] }",
 			expected: "2",
 		},
 		{
-			input:    "let a = [1, 2, 3]; a[1 + 1];",
+			input:    "fn main() -> i64 { let a = [1, 2, 3]; a[1 + 1] }",
 			expected: "3",
 		},
 		{
-			input:    "let a = [1, 2, 3, 4]; let b = 2; a[b + 1];",
+			input:    "fn main() -> i64 { let a = [1, 2, 3, 4]; let b = 2; a[b + 1] }",
 			expected: "4",
 		},
 		{
-			input:    "let a = [1, 2, 3]; let b = [0]; a[b[0]];",
+			input:    "fn main() -> i64 { let a = [1, 2, 3]; let b = [0]; a[b[0]] }",
 			expected: "1",
 		},
 		{
-			input:    "let a = [i64; 1, 2, 3]; a[2];",
+			input:    "fn main() -> i64 { let a = [i64; 1, 2, 3]; a[2] }",
 			expected: "3",
 		},
 		{
-			input:    "let a = [[1, 2, 3], [4, 5, 6]]; a[0];",
+			input:    "fn main() -> [i64] { let a = [[1, 2, 3], [4, 5, 6]]; a[0] }",
 			expected: "[1, 2, 3]",
 		},
 		{
-			input:    "let a = [[1, 2, 3], [4, 5, 6]]; a[0][1];",
+			input:    "fn main() -> i64 { let a = [[1, 2, 3], [4, 5, 6]]; a[0][1] }",
 			expected: "2",
 		},
 	}
@@ -334,39 +334,39 @@ func TestIndexingArrays(t *testing.T) {
 func TestBlocks(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "let a = 3; { let b = 3; let c = a + b; };",
+			input:    "fn main() { let a = 3; { let b = 3; let c = a + b; } }",
 			expected: "()",
 		},
 		{
-			input:    "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; };",
+			input:    "fn main() { { let a = 4; let a = 6; let b = a + 1; let c = b + a; } }",
 			expected: "()",
 		},
 		{
-			input:    "{ let a = 4; let a = 6; let b = a + 1; let c = b + a; c };",
+			input:    "fn main() -> i64 { { let a = 4; let a = 6; let b = a + 1; let c = b + a; c } }",
 			expected: "13",
 		},
 		{
-			input:    "let a: bool = true; { let a = a; a };",
+			input:    "fn main() -> bool { let a: bool = true; { let a = a; a } }",
 			expected: "true",
 		},
 		{
-			input:    "{ 1 + 2 + 3; let a = 4; a };",
+			input:    "fn main() -> i64 { { 1 + 2 + 3; let a = 4; a } }",
 			expected: "4",
 		},
 		{
-			input:    "{ let a = 10; { let b = a; b } };",
+			input:    "fn main() -> i64 { { let a = 10; { let b = a; b } } }",
 			expected: "10",
 		},
 		{
-			input:    "{ let a = 10; { let b = a; { let c = b + a; c } } };",
+			input:    "fn main() -> i64 { { let a = 10; { let b = a; { let c = b + a; c } } } }",
 			expected: "20",
 		},
 		{
-			input:    "{ let a = 10; { let a = 20; a + a } + a }; ",
+			input:    "fn main() -> i64 { { let a = 10; { let a = 20; a + a } + a } }",
 			expected: "50",
 		},
 		{
-			input:    "1 + 1 + 3; let a = 6; { let a = 10; a }",
+			input:    "fn main() -> i64 { 1 + 1 + 3; let a = 6; { let a = 10; a } }",
 			expected: "10",
 		},
 	}
@@ -382,11 +382,44 @@ fn returns() -> i64 {
 	1 
 } 
 
-fn main() -> i64 { 
+fn main() { 
 	let a = 5; 
-	a + 2 
 }`,
-			expected: "7",
+			expected: "()",
+		},
+		{
+			input:    "fn main() { } fn adds_1(n: i64) -> i64 { n + 1 }",
+			expected: "()",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestFunctionCalls(t *testing.T) {
+	tests := []vmTestCase{
+		// {
+		// 	input:    "fn main() -> i64 { fn squared(n: i64) -> i64 { n * n } mut a = 0; fn add_1(n: i64) -> i64 { n + 1 } a = add_1(2); squared(a) }",
+		// 	expected: "9",
+		// },
+		// {
+		// 	input:    "fn returns_1() -> i64 { 1 } fn main() -> i64 { returns_1() }",
+		// 	expected: "1",
+		// },
+		{
+			input: `
+fn fib(x: i64) -> i64 {
+	if x <= 1 {
+		x
+	} else {
+		fib(x - 1) + fib(x - 2)
+	}
+}
+
+fn main() -> i64 { 
+	fib(30)
+}`,
+			expected: "1",
 		},
 	}
 
@@ -397,7 +430,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
 	for i, tt := range tests {
-		println(tt.input + "\n")
+		// println(tt.input + "\n")
 		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
@@ -432,8 +465,9 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 			res = vm.StackTop()
 		}
 
-		if res.LiteralRepr() != tt.expected {
-			t.Fatalf("%d. Expected %s as stack top but found %s.", i, tt.expected, res.LiteralRepr())
+		if res.String() != tt.expected {
+			t.Errorf("%d. Expected %s as stack top but found %s.", i, tt.expected, res.String())
+			t.Fatal(compiler.ByteCode().Instructions.Disassemble())
 		}
 	}
 }

@@ -2,71 +2,54 @@ package vm
 
 import (
 	"fmt"
-	"proto/ast"
 	"proto/compiler"
-	"proto/lexer"
 	"proto/opcode"
+	"proto/runtime"
 	"proto/shared"
-	"strconv"
 	"strings"
 )
 
-const STACK_SIZE = 65536
+const STACK_SIZE = 2048
 const GLOBALS_SIZE = 65536
+const FRAME_SIZE = 1024
 
-var TRUE = &ast.Boolean{
+var TRUE = &runtime.Bool{
 	Value: true,
-	Token: lexer.ProtoToken{
-		Type:      lexer.TRUE,
-		Literal:   "true",
-		TokenSpan: lexer.Span{},
-	},
 }
 
-var FALSE = &ast.Boolean{
+var FALSE = &runtime.Bool{
 	Value: false,
-	Token: lexer.ProtoToken{
-		Type:      lexer.FALSE,
-		Literal:   "false",
-		TokenSpan: lexer.Span{},
-	},
 }
 
-var UNIT = &ast.Unit{
-	Token: lexer.ProtoToken{
-		Type:      lexer.OPEN_PAREN,
-		Literal:   "()",
-		TokenSpan: lexer.Span{},
-	},
-}
+var UNIT = &runtime.Unit{}
 
 type CompiledFunction struct {
 	LocIP int
 	Arity int
 }
 
-func (cf *CompiledFunction) LiteralRepr() string {
+func (cf *CompiledFunction) String() string {
 	return fmt.Sprintf("fn at Instruction #%d", cf.LocIP)
 }
 
 type CallFrame struct {
 	called_fn   *CompiledFunction
 	stack_index int
-	enclosing   *CallFrame
 	return_ip   int
 }
 
 type VM struct {
-	constants    []ast.ProtoNode
+	constants    []runtime.RuntimeObj
 	instructions opcode.VMInstructions
 
 	FoundError bool
 
-	stack       []ast.ProtoNode
+	stack       []runtime.RuntimeObj
 	stack_index int
 
-	globals []ast.ProtoNode
-	frame   *CallFrame
+	globals     []runtime.RuntimeObj
+	frames      []*CallFrame
+	frame_index int
 }
 
 func NewVM(bc *compiler.ByteCode) *VM {
@@ -74,22 +57,23 @@ func NewVM(bc *compiler.ByteCode) *VM {
 		constants:    bc.Constants,
 		instructions: bc.Instructions,
 		FoundError:   false,
-		stack:        make([]ast.ProtoNode, STACK_SIZE),
+		stack:        make([]runtime.RuntimeObj, STACK_SIZE),
 		stack_index:  0,
-		globals:      make([]ast.ProtoNode, GLOBALS_SIZE),
-		frame:        nil,
+		globals:      make([]runtime.RuntimeObj, GLOBALS_SIZE),
+		frames:       make([]*CallFrame, FRAME_SIZE),
+		frame_index:  0,
 	}
 }
 
-func (vm *VM) StackTop() ast.ProtoNode {
+func (vm *VM) StackTop() runtime.RuntimeObj {
 	return vm.stack[vm.stack_index-1]
 }
 
-func (vm *VM) LastPoppedElem() ast.ProtoNode {
+func (vm *VM) LastPoppedElem() runtime.RuntimeObj {
 	return vm.stack[vm.stack_index]
 }
 
-func (vm *VM) PushOntoStack(item ast.ProtoNode) {
+func (vm *VM) PushOntoStack(item runtime.RuntimeObj) {
 	if vm.stack_index >= STACK_SIZE {
 		shared.ReportErrorAndExit("VM", "Stack Overflow")
 	}
@@ -97,506 +81,314 @@ func (vm *VM) PushOntoStack(item ast.ProtoNode) {
 	vm.stack_index++
 }
 
-func (vm *VM) PopOffStack() ast.ProtoNode {
+func (vm *VM) PopOffStack() runtime.RuntimeObj {
 	item := vm.stack[vm.stack_index-1]
 	vm.stack_index--
 	return item
 }
 
-func (vm *VM) LoadConstant(ip int) int {
-	cons_index := opcode.ReadUInt16(vm.instructions[ip+1:])
-	vm.PushOntoStack(vm.constants[cons_index])
-	return ip + 3
-}
-
-func (vm *VM) PushBoolTrue(ip int) int {
-	vm.PushOntoStack(TRUE)
-	return ip + 1
-}
-
-func (vm *VM) PushBoolFalse(ip int) int {
-	vm.PushOntoStack(FALSE)
-	return ip + 1
-}
-
-func MakeInt64(val string) int64 {
-	num, _ := strconv.ParseInt(val, 10, 64)
-	return num
-}
-
-func (vm *VM) AddI64(ip int) int {
-	rhs := vm.PopOffStack().(*ast.I64)
-	lhs := vm.PopOffStack().(*ast.I64)
-	l_val := MakeInt64(lhs.LiteralRepr())
-	r_val := MakeInt64(rhs.LiteralRepr())
-	n_val := l_val + r_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) AddChar(ip int) int {
-	rhs := vm.PopOffStack().(*ast.Char)
-	lhs := vm.PopOffStack().(*ast.Char)
-	n_val := "\"" + lhs.Token.Literal + rhs.Token.Literal + "\""
-	val := &ast.String{
-		Token: lexer.ProtoToken{
-			Type:      lexer.CHAR,
-			Literal:   n_val,
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) AddStr(ip int) int {
-	rhs := vm.PopOffStack().(*ast.String)
-	lhs := vm.PopOffStack().(*ast.String)
-	n_val := "\"" + lhs.Token.Literal[1:len(lhs.Token.Literal)-1] +
-		rhs.Token.Literal[1:len(rhs.Token.Literal)-1] + "\""
-	val := &ast.String{
-		Token: lexer.ProtoToken{
-			Type:      lexer.STRING,
-			Literal:   n_val,
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) AddStrChar(ip int) int {
-	rhs := vm.PopOffStack().(*ast.Char)
-	lhs := vm.PopOffStack().(*ast.String)
-	n_val := "\"" + lhs.Token.Literal[1:len(lhs.Token.Literal)-1] +
-		rhs.Token.Literal + "\""
-	val := &ast.String{
-		Token: lexer.ProtoToken{
-			Type:      lexer.STRING,
-			Literal:   n_val,
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) OpCodePop(ip int) int {
-	vm.stack_index--
-	return ip + 1
-}
-
-func (vm *VM) SubI64(ip int) int {
-	rhs := vm.PopOffStack().(*ast.I64)
-	lhs := vm.PopOffStack().(*ast.I64)
-	l_val := MakeInt64(lhs.LiteralRepr())
-	r_val := MakeInt64(rhs.LiteralRepr())
-	n_val := l_val - r_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) MultI64(ip int) int {
-	rhs := vm.PopOffStack().(*ast.I64)
-	lhs := vm.PopOffStack().(*ast.I64)
-	l_val := MakeInt64(lhs.LiteralRepr())
-	r_val := MakeInt64(rhs.LiteralRepr())
-	n_val := l_val * r_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) DivI64(ip int) int {
-	rhs := vm.PopOffStack().(*ast.I64)
-	lhs := vm.PopOffStack().(*ast.I64)
-	l_val := MakeInt64(lhs.LiteralRepr())
-	r_val := MakeInt64(rhs.LiteralRepr())
-	if r_val == 0 {
-		var err strings.Builder
-		err.WriteString("Division by 0 is not allowed.")
-		shared.ReportErrorAndExit("VM", err.String())
-	}
-	n_val := l_val / r_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) ModuloI64(ip int) int {
-	rhs := vm.PopOffStack().(*ast.I64)
-	lhs := vm.PopOffStack().(*ast.I64)
-	l_val := MakeInt64(lhs.LiteralRepr())
-	r_val := MakeInt64(rhs.LiteralRepr())
-	if r_val == 0 {
-		var err strings.Builder
-		err.WriteString("Modulo by 0 is not allowed.")
-		shared.ReportErrorAndExit("VM", err.String())
-	}
-	n_val := l_val % r_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) NegateI64(ip int) int {
-	op := vm.PopOffStack().(*ast.I64)
-	op_val := MakeInt64(op.LiteralRepr())
-	n_val := -op_val
-	val := &ast.I64{
-		Token: lexer.ProtoToken{
-			Type:      lexer.I64,
-			Literal:   fmt.Sprint(n_val),
-			TokenSpan: lexer.Span{},
-		},
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) NegateBool(ip int) int {
-	op := vm.PopOffStack().(*ast.Boolean)
-	n_val := !op.Value
-	val := &ast.Boolean{
-		Value: n_val,
-		Token: lexer.ProtoToken{
-			Type:      "",
-			Literal:   "",
-			TokenSpan: lexer.Span{},
-		},
-	}
-
-	if n_val {
-		val.Token.Literal = "true"
-		val.Token.Type = lexer.TRUE
-	} else {
-		val.Token.Literal = "false"
-		val.Token.Type = lexer.FALSE
-	}
-	vm.PushOntoStack(val)
-	return ip + 1
-}
-
-func (vm *VM) EqualsComp(ip int) int {
-	rhs := vm.PopOffStack()
-	lhs := vm.PopOffStack()
-	val := lhs.LiteralRepr() == rhs.LiteralRepr()
-	if val {
-		vm.PushOntoStack(TRUE)
-	} else {
-		vm.PushOntoStack(FALSE)
-	}
-	return ip + 1
-}
-
-func (vm *VM) NotEqualsComp(ip int) int {
-	rhs := vm.PopOffStack()
-	lhs := vm.PopOffStack()
-	val := lhs.LiteralRepr() != rhs.LiteralRepr()
-	if val {
-		vm.PushOntoStack(TRUE)
-	} else {
-		vm.PushOntoStack(FALSE)
-	}
-
-	return ip + 1
-}
-
-func (vm *VM) GreaterThanComp(ip int) int {
-	rhs := vm.PopOffStack()
-	lhs := vm.PopOffStack()
-
-	switch lhs.(type) {
-	case *ast.Char:
-		l_val := lhs.LiteralRepr()[1 : len(lhs.LiteralRepr())-1]
-		r_val := rhs.LiteralRepr()[1 : len(rhs.LiteralRepr())-1]
-		if l_val > r_val {
-			vm.PushOntoStack(TRUE)
-		} else {
-			vm.PushOntoStack(FALSE)
-		}
-	case *ast.I64:
-		l_val := MakeInt64(lhs.LiteralRepr())
-		r_val := MakeInt64(rhs.LiteralRepr())
-		if l_val > r_val {
-			vm.PushOntoStack(TRUE)
-		} else {
-			vm.PushOntoStack(FALSE)
-		}
-	}
-
-	return ip + 1
-}
-
-func (vm *VM) GreaterEqualsComp(ip int) int {
-	rhs := vm.PopOffStack()
-	lhs := vm.PopOffStack()
-
-	switch lhs.(type) {
-	case *ast.Char:
-		l_val := lhs.LiteralRepr()[1 : len(lhs.LiteralRepr())-1]
-		r_val := rhs.LiteralRepr()[1 : len(rhs.LiteralRepr())-1]
-		if l_val >= r_val {
-			vm.PushOntoStack(TRUE)
-		} else {
-			vm.PushOntoStack(FALSE)
-		}
-	case *ast.I64:
-		l_val := MakeInt64(lhs.LiteralRepr())
-		r_val := MakeInt64(rhs.LiteralRepr())
-		if l_val >= r_val {
-			vm.PushOntoStack(TRUE)
-		} else {
-			vm.PushOntoStack(FALSE)
-		}
-	}
-
-	return ip + 1
-}
-
-func (vm *VM) And(ip int) int {
-	rhs := vm.PopOffStack().(*ast.Boolean)
-	lhs := vm.PopOffStack().(*ast.Boolean)
-
-	if lhs.Value && rhs.Value {
-		vm.PushOntoStack(TRUE)
-	} else {
-		vm.PushOntoStack(FALSE)
-	}
-	return ip + 1
-}
-
-func (vm *VM) Or(ip int) int {
-	rhs := vm.PopOffStack().(*ast.Boolean)
-	lhs := vm.PopOffStack().(*ast.Boolean)
-
-	if lhs.Value || rhs.Value {
-		vm.PushOntoStack(TRUE)
-	} else {
-		vm.PushOntoStack(FALSE)
-	}
-	return ip + 1
-}
-
-func (vm *VM) JumpOnNotTrueTo(ip int) int {
-	val := vm.PopOffStack().(*ast.Boolean)
-
-	if !val.Value {
-		new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
-		return int(new_ip)
-	}
-	return ip + 3
-}
-
-func (vm *VM) JumpTo(ip int) int {
-	new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
-	return int(new_ip)
-}
-
-func (vm *VM) PushUnit(ip int) int {
-	vm.PushOntoStack(UNIT)
-	return ip + 1
-}
-
-func (vm *VM) SetGlobal(ip int) int {
-	globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	vm.globals[globalIndex] = vm.PopOffStack()
-	return ip + 3
-}
-
-func (vm *VM) GetGlobal(ip int) int {
-	globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	val := vm.globals[globalIndex]
-	vm.PushOntoStack(val)
-	return ip + 3
-}
-
-func (vm *VM) MakeArray(ip int) int {
-	size := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-
-	array := &ast.Array{
-		Items: make([]ast.Expression, size),
-		ArrayType: &ast.Proto_Array{
-			InternalType: nil,
-		},
-	}
-
-	start := vm.stack_index - size
-	for i := start; i < vm.stack_index; i++ {
-		val := vm.stack[i].(ast.Expression)
-		array.Items[i-start] = val
-	}
-
-	if len(array.Items) > 0 {
-		array.ArrayType.InternalType = array.Items[0].Type()
-	}
-	vm.stack_index = start
-	vm.PushOntoStack(array)
-	return ip + 3
-}
-
-func (vm *VM) AccessIndex(ip int) int {
-	index_t := vm.PopOffStack().(*ast.I64)
-	indexable := vm.PopOffStack().(*ast.Array)
-	index := MakeInt64(index_t.Token.Literal)
-
-	if index < 0 || int(index) >= len(indexable.Items) {
-		if len(indexable.Items) == 0 {
-			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
-				index, len(indexable.Items)))
-		} else if len(indexable.Items) == 1 {
-			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
-				index, len(indexable.Items)))
-		} else {
-			shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
-				index, len(indexable.Items), len(indexable.Items)-1))
-		}
-	}
-	vm.PushOntoStack(indexable.Items[index])
-	return ip + 1
-}
-
-func (vm *VM) PopN(ip int) int {
-	N := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	res := vm.PopOffStack()
-	vm.stack_index -= N
-	vm.PushOntoStack(res)
-	return ip + 3
-}
-
-func (vm *VM) GetLocal(ip int) int {
-	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	if vm.frame == nil {
-		vm.PushOntoStack(vm.stack[offset])
-	} else {
-		vm.PushOntoStack(vm.stack[vm.frame.stack_index+offset])
-	}
-	return ip + 3
-}
-
-func (vm *VM) SetLocal(ip int) int {
-	offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-	if vm.frame == nil {
-		vm.stack[offset] = vm.PopOffStack()
-	} else {
-		vm.stack[vm.frame.stack_index+offset] = vm.PopOffStack()
-	}
-	return ip + 3
-}
-
-func (vm *VM) Return(ip int) int {
-	ret_val := vm.PopOffStack()
-	vm.frame = vm.frame.enclosing
-	vm.stack_index = vm.frame.stack_index
-	vm.PushOntoStack(ret_val)
-	return vm.frame.return_ip
-}
-
-func (vm *VM) MakeFn(ip int) int {
-	arity := int(opcode.ReadUInt8(vm.instructions[ip+1:]))
-	loc_ip := int(opcode.ReadUInt16(vm.instructions[ip+2:]))
-	storage_loc := int(opcode.ReadUInt16(vm.instructions[ip+4:]))
-	fn := &CompiledFunction{
-		LocIP: loc_ip,
-		Arity: arity,
-	}
-	vm.frame = &CallFrame{
-		called_fn:   fn,
-		stack_index: 0,
-		enclosing:   vm.frame,
-	}
-	if vm.frame == nil { // in global scope
-		vm.globals[storage_loc] = fn
-	} else { // in local scope
-		vm.stack[vm.frame.stack_index+storage_loc] = fn
-	}
-	return ip + 6
-}
-
 func (vm *VM) Run() {
-	println(vm.instructions.Disassemble())
-	operations_dispatch := map[byte]func(int) int{
-		byte(opcode.LoadConstant):      vm.LoadConstant,
-		byte(opcode.PushBoolTrue):      vm.PushBoolTrue,
-		byte(opcode.PushBoolFalse):     vm.PushBoolFalse,
-		byte(opcode.AddI64):            vm.AddI64,
-		byte(opcode.AddChar):           vm.AddChar,
-		byte(opcode.AddStr):            vm.AddStr,
-		byte(opcode.AddStrChar):        vm.AddStrChar,
-		byte(opcode.Pop):               vm.OpCodePop,
-		byte(opcode.SubI64):            vm.SubI64,
-		byte(opcode.MultI64):           vm.MultI64,
-		byte(opcode.DivI64):            vm.DivI64,
-		byte(opcode.ModuloI64):         vm.ModuloI64,
-		byte(opcode.NegateI64):         vm.NegateI64,
-		byte(opcode.NegateBool):        vm.NegateBool,
-		byte(opcode.EqualsComp):        vm.EqualsComp,
-		byte(opcode.NotEqualsComp):     vm.NotEqualsComp,
-		byte(opcode.GreaterThanComp):   vm.GreaterThanComp,
-		byte(opcode.GreaterEqualsComp): vm.GreaterEqualsComp,
-		byte(opcode.And):               vm.And,
-		byte(opcode.Or):                vm.Or,
-		byte(opcode.JumpOnNotTrueTo):   vm.JumpOnNotTrueTo,
-		byte(opcode.JumpTo):            vm.JumpTo,
-		byte(opcode.PushUnit):          vm.PushUnit,
-		byte(opcode.SetGlobal):         vm.SetGlobal,
-		byte(opcode.GetGlobal):         vm.GetGlobal,
-		byte(opcode.MakeArray):         vm.MakeArray,
-		byte(opcode.AccessIndex):       vm.AccessIndex,
-		byte(opcode.PopN):              vm.PopN,
-		byte(opcode.GetLocal):          vm.GetLocal,
-		byte(opcode.SetLocal):          vm.SetLocal,
-		byte(opcode.Return):            vm.Return,
-		byte(opcode.MakeFn):            vm.MakeFn,
-	}
+	for ip := 0; ip < len(vm.instructions); {
+		op := opcode.OpCode(vm.instructions[ip])
+		switch op {
+		case opcode.LoadConstant:
+			cons_index := opcode.ReadUInt16(vm.instructions[ip+1:])
+			vm.PushOntoStack(vm.constants[cons_index])
+			ip += 3
+		case opcode.PushBoolTrue:
+			vm.PushOntoStack(TRUE)
+			ip += 1
+		case opcode.PushBoolFalse:
+			vm.PushOntoStack(FALSE)
+			ip += 1
+		case opcode.AddI64, opcode.SubI64, opcode.MultI64:
+			rhs := vm.PopOffStack().(*runtime.I64)
+			lhs := vm.PopOffStack().(*runtime.I64)
+			var n_val int64
+			if op == opcode.AddI64 {
+				n_val = lhs.Value + rhs.Value
+			} else if op == opcode.SubI64 {
+				n_val = lhs.Value - rhs.Value
+			} else {
+				n_val = lhs.Value * rhs.Value
+			}
+			val := &runtime.I64{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.AddChar:
+			rhs := vm.PopOffStack().(*runtime.Char)
+			lhs := vm.PopOffStack().(*runtime.Char)
+			n_val := "\"" + lhs.String() + rhs.String() + "\""
+			val := &runtime.String{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.AddStr:
+			rhs := vm.PopOffStack().(*runtime.String)
+			lhs := vm.PopOffStack().(*runtime.String)
+			n_val := "\"" + lhs.String()[1:len(lhs.String())-1] +
+				rhs.String()[1:len(rhs.String())-1] + "\""
+			val := &runtime.String{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.AddStrChar:
+			rhs := vm.PopOffStack().(*runtime.Char)
+			lhs := vm.PopOffStack().(*runtime.String)
+			n_val := "\"" + lhs.String()[1:len(lhs.String())-1] +
+				rhs.String() + "\""
+			val := &runtime.String{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.Pop:
+			vm.stack_index--
+			ip += 1
+		case opcode.DivI64, opcode.ModuloI64:
+			rhs := vm.PopOffStack().(*runtime.I64)
+			lhs := vm.PopOffStack().(*runtime.I64)
+			if rhs.Value == 0 {
+				var err strings.Builder
+				err.WriteString("Division/Modulo by 0 is not allowed.")
+				shared.ReportErrorAndExit("VM", err.String())
+			}
+			var n_val int64
+			if op == opcode.DivI64 {
+				n_val = lhs.Value / rhs.Value
+			} else {
+				n_val = lhs.Value % rhs.Value
+			}
+			val := &runtime.I64{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.NegateI64:
+			op := vm.PopOffStack().(*runtime.I64)
+			n_val := -op.Value
+			val := &runtime.I64{
+				Value: n_val,
+			}
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.NegateBool:
+			op := vm.PopOffStack().(*runtime.Bool)
+			if op.Value {
+				vm.PushOntoStack(FALSE)
+			} else {
+				vm.PushOntoStack(TRUE)
+			}
+			ip += 1
+		case opcode.EqualsComp:
+			rhs := vm.PopOffStack()
+			lhs := vm.PopOffStack()
+			val := lhs.String() == rhs.String()
+			if val {
+				vm.PushOntoStack(TRUE)
+			} else {
+				vm.PushOntoStack(FALSE)
+			}
+			ip += 1
+		case opcode.NotEqualsComp:
+			rhs := vm.PopOffStack()
+			lhs := vm.PopOffStack()
+			val := lhs.String() != rhs.String()
+			if val {
+				vm.PushOntoStack(TRUE)
+			} else {
+				vm.PushOntoStack(FALSE)
+			}
+			ip += 1
+		case opcode.GreaterThanComp:
+			rhs := vm.PopOffStack()
+			lhs := vm.PopOffStack()
 
-	for ins_p := 0; ins_p < len(vm.instructions); {
-		op := vm.instructions[ins_p]
+			switch lhs.(type) {
+			case *runtime.Char:
+				l_val := lhs.String()
+				r_val := rhs.String()
+				if l_val > r_val {
+					vm.PushOntoStack(TRUE)
+				} else {
+					vm.PushOntoStack(FALSE)
+				}
+			case *runtime.I64:
+				lhs := lhs.(*runtime.I64)
+				rhs := rhs.(*runtime.I64)
+				if lhs.Value > rhs.Value {
+					vm.PushOntoStack(TRUE)
+				} else {
+					vm.PushOntoStack(FALSE)
+				}
+			}
+			ip += 1
+		case opcode.GreaterEqualsComp:
+			rhs := vm.PopOffStack()
+			lhs := vm.PopOffStack()
 
-		if op == byte(opcode.Halt) {
+			switch lhs.(type) {
+			case *runtime.Char:
+				l_val := lhs.String()
+				r_val := rhs.String()
+				if l_val >= r_val {
+					vm.PushOntoStack(TRUE)
+				} else {
+					vm.PushOntoStack(FALSE)
+				}
+			case *runtime.I64:
+				lhs := lhs.(*runtime.I64)
+				rhs := rhs.(*runtime.I64)
+				if lhs.Value >= rhs.Value {
+					vm.PushOntoStack(TRUE)
+				} else {
+					vm.PushOntoStack(FALSE)
+				}
+			}
+			ip += 1
+		case opcode.And, opcode.Or:
+			rhs := vm.PopOffStack().(*runtime.Bool)
+			lhs := vm.PopOffStack().(*runtime.Bool)
+
+			var boolean_val bool
+			if op == opcode.And {
+				boolean_val = lhs.Value && rhs.Value
+			} else {
+				boolean_val = lhs.Value || rhs.Value
+			}
+			if boolean_val {
+				vm.PushOntoStack(TRUE)
+			} else {
+				vm.PushOntoStack(FALSE)
+			}
+			ip += 1
+		case opcode.JumpOnNotTrueTo:
+			val := vm.PopOffStack().(*runtime.Bool)
+			if !val.Value {
+				new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
+				ip = int(new_ip)
+				continue
+			}
+			ip += 3
+		case opcode.JumpTo:
+			new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
+			ip = int(new_ip)
+		case opcode.PushUnit:
+			vm.PushOntoStack(UNIT)
+			ip += 1
+		case opcode.SetGlobal:
+			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			vm.globals[globalIndex] = vm.PopOffStack()
+			ip += 3
+		case opcode.GetGlobal:
+			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			val := vm.globals[globalIndex]
+			vm.PushOntoStack(val)
+			ip += 3
+		case opcode.MakeArray:
+			size := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+
+			array := &runtime.Array{
+				Items: make([]runtime.RuntimeObj, size),
+			}
+
+			start := vm.stack_index - size
+			for i := start; i < vm.stack_index; i++ {
+				val := vm.stack[i]
+				array.Items[i-start] = val
+			}
+
+			vm.stack_index = start
+			vm.PushOntoStack(array)
+			ip += 3
+		case opcode.AccessIndex:
+			index_t := vm.PopOffStack().(*runtime.I64)
+			indexable := vm.PopOffStack().(*runtime.Array)
+
+			if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Items) {
+				if len(indexable.Items) == 0 {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
+						index_t.Value, len(indexable.Items)))
+				} else if len(indexable.Items) == 1 {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
+						index_t.Value, len(indexable.Items)))
+				} else {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
+						index_t.Value, len(indexable.Items), len(indexable.Items)-1))
+				}
+			}
+			vm.PushOntoStack(indexable.Items[index_t.Value])
+			ip += 1
+		case opcode.PopN:
+			N := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			res := vm.PopOffStack()
+			vm.stack_index -= N
+			vm.PushOntoStack(res)
+			ip += 3
+		case opcode.GetLocal:
+			offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			if vm.frame_index == 0 {
+				vm.PushOntoStack(vm.stack[offset])
+			} else {
+				vm.PushOntoStack(vm.stack[vm.frames[vm.frame_index-1].stack_index+offset])
+			}
+			ip += 3
+		case opcode.SetLocal:
+			offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			if vm.frame_index == 0 {
+				vm.stack[offset] = vm.PopOffStack()
+			} else {
+				vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = vm.PopOffStack()
+			}
+			ip += 3
+		case opcode.MakeFn:
+			arity := int(opcode.ReadUInt8(vm.instructions[ip+1:]))
+			loc_ip := int(opcode.ReadUInt16(vm.instructions[ip+2:]))
+			storage_loc := int(opcode.ReadUInt16(vm.instructions[ip+4:]))
+			fn := &CompiledFunction{
+				LocIP: loc_ip,
+				Arity: arity,
+			}
+			if vm.frame_index == 0 { // in global scope
+				vm.globals[storage_loc] = fn
+			} else { // in local scope
+				// why does this just work???
+				vm.PushOntoStack(fn)
+			}
+			ip += 6
+		case opcode.Return:
+			return_loc := vm.frames[vm.frame_index-1].return_ip
+			vm.frame_index--
+			if vm.frame_index == 0 {
+				ip += 1
+				continue
+			}
+			ip = return_loc
+		case opcode.CallFn:
+			arg_count := opcode.ReadUInt16(vm.instructions[ip+1:])
+			fn := vm.PopOffStack().(*CompiledFunction)
+			new_frame := &CallFrame{
+				called_fn:   fn,
+				stack_index: vm.stack_index - int(arg_count),
+				return_ip:   ip + 3,
+			}
+			vm.frames[vm.frame_index] = new_frame
+			vm.frame_index++
+			ip = new_frame.called_fn.LocIP
+		case opcode.Halt:
+			vm.PopOffStack()
 			return
-		}
-		if dispatch, ok := operations_dispatch[op]; ok {
-			ins_p = dispatch(ins_p)
-		} else {
+		default:
 			if def, err := opcode.LookupInstructionDef(opcode.OpCode(op)); err != nil {
 				shared.ReportErrorAndExit("VM", err.Error())
 			} else {
 				shared.ReportErrorAndExit("VM",
 					fmt.Sprintf("OpCode %s found at Instruction index %d is not implemented in VM",
-						def.Name, ins_p))
+						def.Name, ip))
 			}
 		}
 	}
