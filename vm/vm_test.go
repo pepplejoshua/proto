@@ -361,6 +361,21 @@ func TestUpdatingArrayIndex(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestAccessingMember(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> char { let a = (1, 'c', false); let b: char = a.1; b }",
+			expected: "c",
+		},
+		{
+			input:    "fn main() -> (i64, bool) { let a = ((1, 'c', false), (3, true)); let b: i64 = a.0.0; let c: bool = a.1.1; (b, c) }",
+			expected: "(1, true)",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestBlocks(t *testing.T) {
 	tests := []vmTestCase{
 		{

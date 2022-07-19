@@ -1009,7 +1009,131 @@ func TestUpdateArrayIndex(t *testing.T) {
 				"3",
 				"1",
 			},
-			expectedIns: ``,
+			expectedIns: `0000 JumpTo 38
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 MakeArray 3
+0015 LoadConstant 1
+0018 GetLocal 0
+0021 GetLocal 1
+0024 LoadConstant 2
+0027 LoadConstant 3
+0030 AddI64
+0031 UpdateIndex
+0032 PushUnit
+0033 PopN 2
+0036 Return
+0037 Halt
+0038 MakeFn 0 3 0
+0044 GetGlobal 0
+0047 CallFn 0
+`,
+		},
+		{
+			input: "fn main() -> [i64] { mut a = [[0, 2, 3], [1, 3, 5]]; let b = 2; a[0][b] = 3 + 1; a[0] }",
+			expectedConstants: []string{
+				"0",
+				"2",
+				"3",
+				"1",
+				"5",
+			},
+			expectedIns: `0000 JumpTo 63
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 MakeArray 3
+0015 LoadConstant 3
+0018 LoadConstant 2
+0021 LoadConstant 4
+0024 MakeArray 3
+0027 MakeArray 2
+0030 LoadConstant 1
+0033 GetLocal 0
+0036 LoadConstant 0
+0039 AccessIndex
+0040 GetLocal 1
+0043 LoadConstant 2
+0046 LoadConstant 3
+0049 AddI64
+0050 UpdateIndex
+0051 GetLocal 0
+0054 LoadConstant 0
+0057 AccessIndex
+0058 PopN 2
+0061 Return
+0062 Halt
+0063 MakeFn 0 3 0
+0069 GetGlobal 0
+0072 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestAccessingMember(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = (1, 'c', false); let b: char = a.1; }",
+			expectedConstants: []string{
+				"1",
+				"c",
+			},
+			expectedIns: `0000 JumpTo 26
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 PushBoolFalse
+0010 MakeTuple 3
+0013 GetLocal 0
+0016 LoadConstant 0
+0019 AccessMember
+0020 PushUnit
+0021 PopN 2
+0024 Return
+0025 Halt
+0026 MakeFn 0 3 0
+0032 GetGlobal 0
+0035 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = ((1, 'c', false), (3, true)); let b: i64 = a.0.0; let c: bool = a.1.1; }",
+			expectedConstants: []string{
+				"1",
+				"c",
+				"3",
+				"0",
+			},
+			expectedIns: `0000 JumpTo 51
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 PushBoolFalse
+0010 MakeTuple 3
+0013 LoadConstant 2
+0016 PushBoolTrue
+0017 MakeTuple 2
+0020 MakeTuple 2
+0023 GetLocal 0
+0026 LoadConstant 3
+0029 AccessMember
+0030 LoadConstant 3
+0033 AccessMember
+0034 GetLocal 0
+0037 LoadConstant 0
+0040 AccessMember
+0041 LoadConstant 0
+0044 AccessMember
+0045 PushUnit
+0046 PopN 3
+0049 Return
+0050 Halt
+0051 MakeFn 0 3 0
+0057 GetGlobal 0
+0060 CallFn 0
+`,
 		},
 	}
 

@@ -416,6 +416,17 @@ func (vm *VM) Run() {
 
 			array.Items[index.Value] = assigned
 			ip += 1
+		case opcode.AccessMember:
+			mem := vm.PopOffStack()
+			obj := vm.PopOffStack()
+
+			switch target := obj.(type) {
+			case *runtime.Tuple:
+				index := mem.(*runtime.I64)
+				val := target.Items[index.Value]
+				vm.PushOntoStack(val)
+			}
+			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()
 			return

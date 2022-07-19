@@ -97,6 +97,7 @@ const (
 	CallFn
 	MakeTuple
 	UpdateIndex
+	AccessMember
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -138,6 +139,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	CallFn:            {"CallFn", []int{2}},           // used to call a function
 	MakeTuple:         {"MakeTuple", []int{2}},        // used to build a Tuple with n contents, where n is the operand for the instruction
 	UpdateIndex:       {"UpdateIndex", []int{}},       // used to update the index of an array
+	AccessMember:      {"AccessMember", []int{}},      // used to access member of a tuple or a struct
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

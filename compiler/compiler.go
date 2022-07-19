@@ -201,6 +201,10 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileFunctionDef(actual)
 	case *ast.Return:
 		c.CompileReturn(actual)
+	case *ast.Membership:
+		c.Compile(actual.Object)
+		c.Compile(actual.Member)
+		c.generateBytecode(opcode.AccessMember)
 	case *ast.InfiniteLoop:
 		c.CompileInfiniteLoop(actual)
 	default:
