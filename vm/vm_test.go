@@ -331,6 +331,21 @@ func TestIndexingArrays(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestMakingTuples(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> (i64, char, bool) { let a: (i64, char, bool) = (300, 'a', false); a }",
+			expected: "(300, a, false)",
+		},
+		{
+			input:    "let a = (1, 'b', 3, 'd'); fn main() -> ((i64, char, i64, char), i64, bool, bool) { let b = (a, 1, false, true); b }",
+			expected: "((1, b, 3, d), 1, false, true)",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestBlocks(t *testing.T) {
 	tests := []vmTestCase{
 		{
@@ -472,7 +487,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 
 		bc := compiler.ByteCode()
 		vm := NewVM(bc)
-		println(vm.instructions.Disassemble())
+		// println(vm.instructions.Disassemble())
 		vm.Run()
 
 		if vm.FoundError {
@@ -487,7 +502,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 
 		if res.String() != tt.expected {
 			t.Errorf("%d. Expected %s as stack top but found %s.", i, tt.expected, res.String())
-			t.Fatal(compiler.ByteCode().Instructions.Disassemble())
+			// t.Fatal(compiler.ByteCode().Instructions.Disassemble())
 		}
 	}
 }

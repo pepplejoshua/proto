@@ -155,11 +155,18 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 			Value: actual.LiteralRepr(),
 		})
 		c.generateBytecode(opcode.LoadConstant, loc)
+	case *ast.Unit:
+		c.generateBytecode(opcode.PushUnit)
 	case *ast.Array:
 		for _, item := range actual.Items {
 			c.Compile(item)
 		}
 		c.generateBytecode(opcode.MakeArray, len(actual.Items))
+	case *ast.Tuple:
+		for _, item := range actual.Items {
+			c.Compile(item)
+		}
+		c.generateBytecode(opcode.MakeTuple, len(actual.Items))
 	case *ast.IndexExpression:
 		c.Compile(actual.Indexable)
 		c.Compile(actual.Index)

@@ -943,6 +943,62 @@ func TestIndexExpressions(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestMakingTuples(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a: (i64, char, bool) = (300, 'a', false); }",
+			expectedConstants: []string{
+				"300",
+				"a",
+			},
+			expectedIns: `0000 JumpTo 19
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 PushBoolFalse
+0010 MakeTuple 3
+0013 PushUnit
+0014 PopN 1
+0017 Return
+0018 Halt
+0019 MakeFn 0 3 0
+0025 GetGlobal 0
+0028 CallFn 0
+`,
+		},
+		{
+			input: "let a = (1, 'b', 3, 'd'); fn main() { let b = (a, 1, false, true); }",
+			expectedConstants: []string{
+				"1",
+				"b",
+				"3",
+				"d",
+			},
+			expectedIns: `0000 LoadConstant 0
+0003 LoadConstant 1
+0006 LoadConstant 2
+0009 LoadConstant 3
+0012 MakeTuple 4
+0015 SetGlobal 1
+0018 JumpTo 38
+0021 GetGlobal 1
+0024 LoadConstant 0
+0027 PushBoolFalse
+0028 PushBoolTrue
+0029 MakeTuple 4
+0032 PushUnit
+0033 PopN 1
+0036 Return
+0037 Halt
+0038 MakeFn 0 21 0
+0044 GetGlobal 0
+0047 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func TestBlocks(t *testing.T) {
 	tests := []compilerTestCase{
 		{
@@ -1315,7 +1371,6 @@ func TestInfiniteLoops(t *testing.T) {
 }
 
 func TestFunctionCompilation(t *testing.T) {
-	// MakeFn arity, start of fn, name index
 	tests := []compilerTestCase{
 		{
 			input:             "fn main() { }",

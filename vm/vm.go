@@ -306,6 +306,22 @@ func (vm *VM) Run() {
 			vm.stack_index = start
 			vm.PushOntoStack(array)
 			ip += 3
+		case opcode.MakeTuple:
+			size := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+
+			tuple := &runtime.Tuple{
+				Items: make([]runtime.RuntimeObj, size),
+			}
+
+			start := vm.stack_index - size
+			for i := start; i < vm.stack_index; i++ {
+				val := vm.stack[i]
+				tuple.Items[i-start] = val
+			}
+
+			vm.stack_index = start
+			vm.PushOntoStack(tuple)
+			ip += 3
 		case opcode.AccessIndex:
 			index_t := vm.PopOffStack().(*runtime.I64)
 			indexable := vm.PopOffStack().(*runtime.Array)
@@ -362,12 +378,13 @@ func (vm *VM) Run() {
 			}
 			ip += 6
 		case opcode.Return:
-			ip = vm.frames[vm.frame_index-1].return_ip
+			ret_loc := vm.frames[vm.frame_index-1].return_ip
 			vm.frame_index--
 			if vm.frame_index == 0 {
 				ip += 1
 				continue
 			}
+			ip = ret_loc
 		case opcode.CallFn:
 			arg_count := opcode.ReadUInt16(vm.instructions[ip+1:])
 			fn := vm.PopOffStack().(*CompiledFunction)
