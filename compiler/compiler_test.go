@@ -999,6 +999,23 @@ func TestMakingTuples(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestUpdateArrayIndex(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { mut a = [0, 2, 3]; let b = 2; a[b] = 3 + 1; }",
+			expectedConstants: []string{
+				"0",
+				"2",
+				"3",
+				"1",
+			},
+			expectedIns: ``,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func TestBlocks(t *testing.T) {
 	tests := []compilerTestCase{
 		{

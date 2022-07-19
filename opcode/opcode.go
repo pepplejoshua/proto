@@ -96,6 +96,7 @@ const (
 	ExitScope
 	CallFn
 	MakeTuple
+	UpdateIndex
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -136,6 +137,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	ExitScope:         {"ExitScope", []int{}},         // used to tell the VM to exit a local scope
 	CallFn:            {"CallFn", []int{2}},           // used to call a function
 	MakeTuple:         {"MakeTuple", []int{2}},        // used to build a Tuple with n contents, where n is the operand for the instruction
+	UpdateIndex:       {"UpdateIndex", []int{}},       // used to update the index of an array
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

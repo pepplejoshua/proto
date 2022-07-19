@@ -346,6 +346,21 @@ func TestMakingTuples(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestUpdatingArrayIndex(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> [i64] { mut a = [0, 2, 3]; let b = 2; a[b] = 3 + 1; a }",
+			expected: "[0, 2, 4]",
+		},
+		{
+			input:    "fn main() -> [i64] { mut a = [[0, 2, 3], [1, 3, 5]]; let b = 2; a[0][b] = 3 + 1; a[0] }",
+			expected: "[0, 2, 4]",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestBlocks(t *testing.T) {
 	tests := []vmTestCase{
 		{

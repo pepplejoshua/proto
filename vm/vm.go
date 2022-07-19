@@ -396,6 +396,26 @@ func (vm *VM) Run() {
 			vm.frames[vm.frame_index] = new_frame
 			vm.frame_index++
 			ip = new_frame.called_fn.LocIP
+		case opcode.UpdateIndex:
+			assigned := vm.PopOffStack()
+			index := vm.PopOffStack().(*runtime.I64)
+			array := vm.PopOffStack().(*runtime.Array)
+
+			if int(index.Value) < 0 || int(index.Value) >= len(array.Items) {
+				if len(array.Items) == 0 {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not Indexable).",
+						index.Value, len(array.Items)))
+				} else if len(array.Items) == 1 {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (array only by 0).",
+						index.Value, len(array.Items)))
+				} else {
+					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (array from 0 to %d)",
+						index.Value, len(array.Items), len(array.Items)-1))
+				}
+			}
+
+			array.Items[index.Value] = assigned
+			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()
 			return

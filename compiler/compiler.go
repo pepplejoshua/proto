@@ -232,11 +232,15 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 	assigned := assign.Assigned
 	switch assign.AssignmentToken.Literal {
 	case "=":
-		c.Compile(assigned)
-		switch target.(type) {
+		switch lhs := target.(type) {
 		case *ast.Membership:
 		case *ast.IndexExpression:
+			c.Compile(lhs.Indexable)
+			c.Compile(lhs.Index)
+			c.Compile(assigned)
+			c.generateBytecode(opcode.UpdateIndex)
 		case *ast.Identifier:
+			c.Compile(assigned)
 			sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
 			if !ok {
 				shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
