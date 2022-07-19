@@ -133,6 +133,10 @@ func MakeInt64(val string) int64 {
 	return num
 }
 
+var BREAKS = []int{}
+var CONTINUES = []int{}
+var LOOP_START int = -1
+
 func (c *Compiler) Compile(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.PromotedExpr:
@@ -176,6 +180,10 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		} else {
 			c.generateBytecode(opcode.PushBoolFalse)
 		}
+	case *ast.Break:
+		BREAKS = append(BREAKS, c.generateBytecode(opcode.JumpTo, 9999))
+	case *ast.Continue:
+		CONTINUES = append(CONTINUES, c.generateBytecode(opcode.JumpTo, LOOP_START))
 	case *ast.UnaryOp:
 		c.CompileUnaryOp(actual)
 	case *ast.BinaryOp:
@@ -186,8 +194,30 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileFunctionDef(actual)
 	case *ast.Return:
 		c.CompileReturn(actual)
+	case *ast.InfiniteLoop:
+		c.CompileInfiniteLoop(actual)
 	default:
 	}
+}
+
+func (c *Compiler) CompileInfiniteLoop(loop *ast.InfiniteLoop) {
+	prev_breaks := BREAKS
+	prev_continues := CONTINUES
+	prev_loop_start := LOOP_START
+	LOOP_START = len(c.instructions)
+	BREAKS = []int{}
+	CONTINUES = []int{}
+	c.enterScope()
+	c.CompileBlock(loop.Body, false)
+	c.exitScope()
+	c.generateBytecode(opcode.JumpTo, LOOP_START)
+	loop_end := len(c.instructions)
+	for _, _break := range BREAKS {
+		c.updateOperand(_break, loop_end)
+	}
+	BREAKS = prev_breaks
+	CONTINUES = prev_continues
+	LOOP_START = prev_loop_start
 }
 
 func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
@@ -373,6 +403,7 @@ func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 			switch node.(type) {
 			case ast.Expression:
 			case *ast.Return:
+			case *ast.Continue, *ast.Break:
 			default:
 				c.generateBytecode(opcode.PushUnit)
 			}

@@ -141,7 +141,7 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	case *ast.WhileLoop:
 		tc.TypeCheckWhileLoop(actual)
 	case *ast.InfiniteLoop:
-		tc.TypeCheck(actual.Body)
+		tc.TypeCheckInfiniteLoop(actual)
 	case *ast.GenericForLoop:
 		tc.TypeCheckGenericFor(actual)
 	case *ast.CollectionsForLoop:
@@ -650,6 +650,13 @@ func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
 	tc.ExitTypeEnv()
 }
 
+func (tc *TypeChecker) TypeCheckInfiniteLoop(loop *ast.InfiniteLoop) {
+	prev := tc.CurBlockType
+	tc.CurBlockType = LOOP
+	tc.TypeCheckBlock(loop.Body, true)
+	tc.CurBlockType = prev
+}
+
 func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
 	tc.TypeCheck(loop.LoopCondition)
 
@@ -665,7 +672,7 @@ func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
 	}
 	prev := tc.CurBlockType
 	tc.CurBlockType = LOOP
-	tc.TypeCheckBlock(loop.Body, false)
+	tc.TypeCheckBlock(loop.Body, true)
 	tc.CurBlockType = prev
 }
 
@@ -685,14 +692,14 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 
 	tc.EnterTypeEnv()
 	prev := tc.CurBlockType
-	tc.CurBlockType = LOOP
+	tc.CurBlockType = IF_EXPR
 	tc.TypeCheckBlock(cond.ThenBody, false)
 	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
 
 	if cond.ElseBody != nil {
 		prev := tc.CurBlockType
-		tc.CurBlockType = LOOP
+		tc.CurBlockType = IF_EXPR
 		tc.TypeCheck(cond.ElseBody)
 		tc.CurBlockType = prev
 
@@ -903,10 +910,11 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 			default:
 				if tc.CurReturnType != nil {
 					// we are in a function
-					if tc.CurReturnType.TypeSignature() != "()" {
+					if tc.CurBlockType == FUNCTION && tc.CurReturnType.TypeSignature() != "()" {
 						var msg strings.Builder
 						line := tc.FnDefSpan.Line
 						col := tc.FnDefSpan.Col
+						println("HERE")
 						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 						msg.WriteString(fmt.Sprintf("implicit return type () does not match function return type, which is %s.",
 							tc.CurReturnType.TypeSignature()))

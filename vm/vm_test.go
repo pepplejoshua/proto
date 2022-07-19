@@ -374,17 +374,36 @@ func TestBlocks(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestInfiniteLoops(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { mut count = 10; loop { if count <= 0 { break; } count -= 1; } count }",
+			expected: "0",
+		},
+		{
+			input:    "fn main() -> i64 { mut i = 0; loop { if i == 10 { break; } else { i += 1; } } i }",
+			expected: "10",
+		},
+		{
+			input:    "fn main() -> i64 { mut i = 0; loop { if i == 200 { break; } else { loop { if i == 200 { break; } i += 10; continue; } } } i }",
+			expected: "200",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestFunctionDef(t *testing.T) {
 	tests := []vmTestCase{
 		{
 			input: `
-fn returns() -> i64 { 
-	1 
-} 
+		fn returns() -> i64 {
+			1
+		}
 
-fn main() { 
-	let a = 5; 
-}`,
+		fn main() {
+			let a = 5;
+		}`,
 			expected: "()",
 		},
 		{
@@ -398,14 +417,14 @@ fn main() {
 
 func TestFunctionCalls(t *testing.T) {
 	tests := []vmTestCase{
-		// {
-		// 	input:    "fn main() -> i64 { fn squared(n: i64) -> i64 { n * n } mut a = 0; fn add_1(n: i64) -> i64 { n + 1 } a = add_1(2); squared(a) }",
-		// 	expected: "9",
-		// },
-		// {
-		// 	input:    "fn returns_1() -> i64 { 1 } fn main() -> i64 { returns_1() }",
-		// 	expected: "1",
-		// },
+		{
+			input:    "fn main() -> i64 { fn squared(n: i64) -> i64 { n * n } mut a = 0; fn add_1(n: i64) -> i64 { n + 1 } a = add_1(2); squared(a) }",
+			expected: "9",
+		},
+		{
+			input:    "fn returns_1() -> i64 { 1 } fn main() -> i64 { returns_1() }",
+			expected: "1",
+		},
 		{
 			input: `
 fn fib(x: i64) -> i64 {
@@ -417,7 +436,7 @@ fn fib(x: i64) -> i64 {
 }
 
 fn main() -> i64 { 
-	fib(30)
+	fib(2)
 }`,
 			expected: "1",
 		},
@@ -430,7 +449,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 
 	for i, tt := range tests {
-		// println(tt.input + "\n")
+		println(tt.input + "\n")
 		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
@@ -453,6 +472,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 
 		bc := compiler.ByteCode()
 		vm := NewVM(bc)
+		println(vm.instructions.Disassemble())
 		vm.Run()
 
 		if vm.FoundError {

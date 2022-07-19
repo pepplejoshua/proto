@@ -68,3 +68,21 @@ func (a *Array) String() string {
 	msg.WriteString("]")
 	return msg.String()
 }
+
+type Tuple struct {
+	Items []RuntimeObj
+}
+
+func (t *Tuple) String() string {
+	var msg strings.Builder
+	msg.WriteString("(")
+	for index, item := range t.Items {
+		msg.WriteString(item.String())
+
+		if index+1 != len(t.Items) {
+			msg.WriteString(", ")
+		}
+	}
+	msg.WriteString(")")
+	return msg.String()
+}

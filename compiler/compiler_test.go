@@ -127,8 +127,8 @@ func TestBinaryOperations(t *testing.T) {
 		{
 			input: "fn main() { 'a' + 'b'; }",
 			expectedConstants: []string{
-				"'a'",
-				"'b'",
+				"a",
+				"b",
 			},
 			expectedIns: `0000 JumpTo 14
 0003 LoadConstant 0
@@ -167,7 +167,7 @@ func TestBinaryOperations(t *testing.T) {
 			expectedConstants: []string{
 				"\"proto \"",
 				"\"language\"",
-				"'!'",
+				"!",
 			},
 			expectedIns: `0000 JumpTo 18
 0003 LoadConstant 0
@@ -556,7 +556,7 @@ func TestStringAndChar(t *testing.T) {
 	tests := []compilerTestCase{
 		{
 			input:             "fn main() { 'a'; 'b'; 'c'; 'a'; }",
-			expectedConstants: []string{"'a'", "'b'", "'c'"},
+			expectedConstants: []string{"a", "b", "c"},
 			expectedIns: `0000 JumpTo 22
 0003 LoadConstant 0
 0006 Pop
@@ -592,7 +592,7 @@ func TestStringAndChar(t *testing.T) {
 		},
 		{
 			input:             "fn main() { \"this is a string\"; 'c'; 'd'; }",
-			expectedConstants: []string{"\"this is a string\"", "'c'", "'d'"},
+			expectedConstants: []string{"\"this is a string\"", "c", "d"},
 			expectedIns: `0000 JumpTo 18
 0003 LoadConstant 0
 0006 Pop
@@ -1053,7 +1053,7 @@ func TestSimpleAssignment(t *testing.T) {
 		},
 		{
 			input:             "mut a = \"scop\"; fn main() { a += 'e'; }",
-			expectedConstants: []string{"\"scop\"", "'e'"},
+			expectedConstants: []string{"\"scop\"", "e"},
 			expectedIns: `0000 LoadConstant 0
 0003 SetGlobal 1
 0006 JumpTo 22
@@ -1195,7 +1195,7 @@ func TestSimpleAssignment(t *testing.T) {
 		},
 		{
 			input:             "mut a = 0; a = 2; mut b = \"\"; b = \"stuff\"; mut c = 'a'; c = 'b'; mut d = true; d = false; fn main() { }",
-			expectedConstants: []string{"0", "2", `""`, `"stuff"`, "'a'", "'b'"},
+			expectedConstants: []string{"0", "2", `""`, `"stuff"`, "a", "b"},
 			expectedIns: `0000 LoadConstant 0
 0003 SetGlobal 1
 0006 LoadConstant 1
@@ -1239,6 +1239,74 @@ func TestSimpleAssignment(t *testing.T) {
 0028 MakeFn 0 9 0
 0034 GetGlobal 0
 0037 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestInfiniteLoops(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() -> i64 { mut count = 10; loop { if count <= 0 { break; } count -= 1; } count }",
+			expectedConstants: []string{
+				"10",
+				"0",
+				"1",
+			},
+			expectedIns: `0000 JumpTo 45
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GreaterEqualsComp
+0013 JumpOnNotTrueTo 22
+0016 JumpTo 37
+0019 JumpTo 23
+0022 PushUnit
+0023 GetLocal 0
+0026 LoadConstant 2
+0029 SubI64
+0030 SetLocal 0
+0033 PushUnit
+0034 JumpTo 6
+0037 GetLocal 0
+0040 PopN 1
+0043 Return
+0044 Halt
+0045 MakeFn 0 3 0
+0051 GetGlobal 0
+0054 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { mut i = 0; loop { if i == 10 { break; } else { i += 1; } } }",
+			expectedConstants: []string{
+				"0",
+				"10",
+				"1",
+			},
+			expectedIns: `0000 JumpTo 42
+0003 LoadConstant 0
+0006 GetLocal 0
+0009 LoadConstant 1
+0012 EqualsComp
+0013 JumpOnNotTrueTo 22
+0016 JumpTo 36
+0019 JumpTo 33
+0022 GetLocal 0
+0025 LoadConstant 2
+0028 AddI64
+0029 SetLocal 0
+0032 PushUnit
+0033 JumpTo 6
+0036 PushUnit
+0037 PopN 1
+0040 Return
+0041 Halt
+0042 MakeFn 0 3 0
+0048 GetGlobal 0
+0051 CallFn 0
 `,
 		},
 	}
@@ -1438,10 +1506,29 @@ func TestFunctionCalls(t *testing.T) {
 		{
 			input: "fn main() { fn squared(a: i64) -> i64 { a * a } let a = squared(3); a; }",
 			expectedConstants: []string{
-				"2",
 				"3",
 			},
-			expectedIns: ``,
+			expectedIns: `0000 JumpTo 42
+0003 JumpTo 17
+0006 GetLocal 0
+0009 GetLocal 0
+0012 MultI64
+0013 PopN 1
+0016 Return
+0017 MakeFn 1 6 0
+0023 LoadConstant 0
+0026 GetLocal 0
+0029 CallFn 1
+0032 GetLocal 1
+0035 Pop
+0036 PushUnit
+0037 PopN 2
+0040 Return
+0041 Halt
+0042 MakeFn 0 3 0
+0048 GetGlobal 0
+0051 CallFn 0
+`,
 		},
 	}
 

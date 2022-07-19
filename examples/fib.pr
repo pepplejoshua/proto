@@ -7,5 +7,5 @@ fn fib(x: i64) -> i64 {
 }
 
 fn main() -> i64 {
-    fib(32)
+    fib(30)
 }

@@ -88,6 +88,7 @@ func (vm *VM) PopOffStack() runtime.RuntimeObj {
 }
 
 func (vm *VM) Run() {
+	println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
 		switch op {
@@ -361,13 +362,12 @@ func (vm *VM) Run() {
 			}
 			ip += 6
 		case opcode.Return:
-			return_loc := vm.frames[vm.frame_index-1].return_ip
+			ip = vm.frames[vm.frame_index-1].return_ip
 			vm.frame_index--
 			if vm.frame_index == 0 {
 				ip += 1
 				continue
 			}
-			ip = return_loc
 		case opcode.CallFn:
 			arg_count := opcode.ReadUInt16(vm.instructions[ip+1:])
 			fn := vm.PopOffStack().(*CompiledFunction)
