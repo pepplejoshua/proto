@@ -1089,7 +1089,7 @@ func TestAccessingMember(t *testing.T) {
 0010 MakeTuple 3
 0013 GetLocal 0
 0016 LoadConstant 0
-0019 AccessMember
+0019 AccessTupleMember
 0020 PushUnit
 0021 PopN 2
 0024 Return
@@ -1118,14 +1118,14 @@ func TestAccessingMember(t *testing.T) {
 0020 MakeTuple 2
 0023 GetLocal 0
 0026 LoadConstant 3
-0029 AccessMember
+0029 AccessTupleMember
 0030 LoadConstant 3
-0033 AccessMember
+0033 AccessTupleMember
 0034 GetLocal 0
 0037 LoadConstant 0
-0040 AccessMember
+0040 AccessTupleMember
 0041 LoadConstant 0
-0044 AccessMember
+0044 AccessTupleMember
 0045 PushUnit
 0046 PopN 3
 0049 Return
@@ -1504,6 +1504,87 @@ func TestInfiniteLoops(t *testing.T) {
 0042 MakeFn 0 3 0
 0048 GetGlobal 0
 0051 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestGenericForLoops(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { mut i = 0; for mut j = i; j < 20; j += 1 { i += j; } }",
+			expectedConstants: []string{
+				"0",
+				"20",
+				"1",
+			},
+			expectedIns: `0000 JumpTo 52
+0003 LoadConstant 0
+0006 GetLocal 0
+0009 LoadConstant 1
+0012 GetLocal 1
+0015 GreaterThanComp
+0016 JumpOnNotTrueTo 46
+0019 GetLocal 0
+0022 GetLocal 1
+0025 AddI64
+0026 SetLocal 0
+0029 PushUnit
+0030 GetLocal 1
+0033 LoadConstant 2
+0036 AddI64
+0037 SetLocal 1
+0040 JumpTo 9
+0043 PopN 1
+0046 PushUnit
+0047 PopN 1
+0050 Return
+0051 Halt
+0052 MakeFn 0 3 0
+0058 GetGlobal 0
+0061 CallFn 0
+`,
+		},
+		{
+			input: "fn main() -> i64 { mut largest = 0; for mut j = 0; j <= 20; j += 2 { if j % 2 == 0 { largest = j; } } largest }",
+			expectedConstants: []string{
+				"0",
+				"20",
+				"2",
+			},
+			expectedIns: `0000 JumpTo 68
+0003 LoadConstant 0
+0006 LoadConstant 0
+0009 LoadConstant 1
+0012 GetLocal 1
+0015 GreaterEqualsComp
+0016 JumpOnNotTrueTo 60
+0019 GetLocal 1
+0022 LoadConstant 2
+0025 ModuloI64
+0026 LoadConstant 0
+0029 EqualsComp
+0030 JumpOnNotTrueTo 43
+0033 GetLocal 1
+0036 SetLocal 0
+0039 PushUnit
+0040 JumpTo 44
+0043 PushUnit
+0044 GetLocal 1
+0047 LoadConstant 2
+0050 AddI64
+0051 SetLocal 1
+0054 JumpTo 9
+0057 PopN 1
+0060 GetLocal 0
+0063 PopN 1
+0066 Return
+0067 Halt
+0068 MakeFn 0 3 0
+0074 GetGlobal 0
+0077 CallFn 0
 `,
 		},
 	}

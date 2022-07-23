@@ -295,6 +295,7 @@ func TestParsingGenericForLoops(t *testing.T) {
 		"(for (mut a: i64 0) (< a 5) (a = (+ a 1)) {  }: ())",
 		"(for (mut b: bool true) b (!= b false) {  }: ())",
 		"(for (mut c: i64 3) (== (% c 3) 0) (c = (+ c 3)) { 300 }: i64)",
+		"(for (mut i: i64 0) (< i 30) (+ i 30) { 300 }: i64)",
 	}
 
 	for index, node := range contents {

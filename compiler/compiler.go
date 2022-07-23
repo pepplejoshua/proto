@@ -204,11 +204,61 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.Membership:
 		c.Compile(actual.Object)
 		c.Compile(actual.Member)
-		c.generateBytecode(opcode.AccessMember)
+		c.generateBytecode(opcode.AccessTupleMember)
 	case *ast.InfiniteLoop:
 		c.CompileInfiniteLoop(actual)
+	case *ast.GenericForLoop:
+		c.CompileGenericForLoop(actual)
 	default:
 	}
+}
+
+func (c *Compiler) CompileGenericForLoop(loop *ast.GenericForLoop) {
+	prev_breaks := BREAKS
+	prev_continues := CONTINUES
+	prev_loop_start := LOOP_START
+	BREAKS = []int{}
+	CONTINUES = []int{}
+
+	// first enter scope to store loop variable
+	c.enterScope()
+
+	// then compile init statement and track the start of the body of
+	// the loop to be past the initialization
+	c.CompileVariableDecl(loop.Init)
+	LOOP_START = len(c.instructions)
+
+	// then compile loop condition
+	c.Compile(loop.LoopCondition)
+	exit_loop := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+
+	// then compile body and track location of update part of loop so continues
+	// can jump there
+	// it has its own scope so the init variable outlives the variables in the scope
+	c.CompileBlock(loop.Body, true)
+	update_loc := len(c.instructions)
+
+	// then compile update statement
+	c.Compile(loop.Update)
+
+	// jump to loop start to check condition again
+	c.generateBytecode(opcode.JumpTo, LOOP_START)
+
+	// and finally exit scope
+	c.exitScope()
+
+	loop_end := len(c.instructions)
+	c.updateOperand(exit_loop, loop_end)
+	for _, _break := range BREAKS {
+		c.updateOperand(_break, loop_end)
+	}
+
+	for _, _continue := range CONTINUES {
+		c.updateOperand(_continue, update_loc)
+	}
+	BREAKS = prev_breaks
+	CONTINUES = prev_continues
+	LOOP_START = prev_loop_start
 }
 
 func (c *Compiler) CompileInfiniteLoop(loop *ast.InfiniteLoop) {

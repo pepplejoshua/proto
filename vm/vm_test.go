@@ -438,6 +438,21 @@ func TestInfiniteLoops(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestGenericForLoops(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { mut i = 0; for mut j = i; j < 10; j += 1 { i += j; } i}",
+			expected: "45",
+		},
+		{
+			input:    "fn main() -> i64 { mut largest = 0; for mut j = 0; j <= 20; j += 2 { if j % 2 == 0 { largest = j; } } largest }",
+			expected: "20",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func TestFunctionDef(t *testing.T) {
 	tests := []vmTestCase{
 		{

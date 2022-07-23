@@ -88,7 +88,7 @@ func (vm *VM) PopOffStack() runtime.RuntimeObj {
 }
 
 func (vm *VM) Run() {
-	println(vm.instructions.Disassemble())
+	// println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
 		switch op {
@@ -416,16 +416,12 @@ func (vm *VM) Run() {
 
 			array.Items[index.Value] = assigned
 			ip += 1
-		case opcode.AccessMember:
-			mem := vm.PopOffStack()
-			obj := vm.PopOffStack()
+		case opcode.AccessTupleMember:
+			index := vm.PopOffStack().(*runtime.I64)
+			obj := vm.PopOffStack().(*runtime.Tuple)
 
-			switch target := obj.(type) {
-			case *runtime.Tuple:
-				index := mem.(*runtime.I64)
-				val := target.Items[index.Value]
-				vm.PushOntoStack(val)
-			}
+			val := obj.Items[index.Value]
+			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()
