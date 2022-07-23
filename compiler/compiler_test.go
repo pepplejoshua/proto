@@ -1074,7 +1074,7 @@ func TestUpdateArrayIndex(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
-func TestAccessingMember(t *testing.T) {
+func TestAccessingTupleMember(t *testing.T) {
 	tests := []compilerTestCase{
 		{
 			input: "fn main() { let a = (1, 'c', false); let b: char = a.1; }",
@@ -1452,28 +1452,27 @@ func TestInfiniteLoops(t *testing.T) {
 				"0",
 				"1",
 			},
-			expectedIns: `0000 JumpTo 45
+			expectedIns: `0000 JumpTo 44
 0003 LoadConstant 0
 0006 LoadConstant 1
 0009 GetLocal 0
 0012 GreaterEqualsComp
 0013 JumpOnNotTrueTo 22
-0016 JumpTo 37
+0016 JumpTo 36
 0019 JumpTo 23
 0022 PushUnit
 0023 GetLocal 0
 0026 LoadConstant 2
 0029 SubI64
 0030 SetLocal 0
-0033 PushUnit
-0034 JumpTo 6
-0037 GetLocal 0
-0040 PopN 1
-0043 Return
-0044 Halt
-0045 MakeFn 0 3 0
-0051 GetGlobal 0
-0054 CallFn 0
+0033 JumpTo 6
+0036 GetLocal 0
+0039 PopN 1
+0042 Return
+0043 Halt
+0044 MakeFn 0 3 0
+0050 GetGlobal 0
+0053 CallFn 0
 `,
 		},
 		{
@@ -1483,27 +1482,26 @@ func TestInfiniteLoops(t *testing.T) {
 				"10",
 				"1",
 			},
-			expectedIns: `0000 JumpTo 42
+			expectedIns: `0000 JumpTo 41
 0003 LoadConstant 0
 0006 GetLocal 0
 0009 LoadConstant 1
 0012 EqualsComp
 0013 JumpOnNotTrueTo 22
-0016 JumpTo 36
-0019 JumpTo 33
+0016 JumpTo 35
+0019 JumpTo 32
 0022 GetLocal 0
 0025 LoadConstant 2
 0028 AddI64
 0029 SetLocal 0
-0032 PushUnit
-0033 JumpTo 6
-0036 PushUnit
-0037 PopN 1
-0040 Return
-0041 Halt
-0042 MakeFn 0 3 0
-0048 GetGlobal 0
-0051 CallFn 0
+0032 JumpTo 6
+0035 PushUnit
+0036 PopN 1
+0039 Return
+0040 Halt
+0041 MakeFn 0 3 0
+0047 GetGlobal 0
+0050 CallFn 0
 `,
 		},
 	}
@@ -1520,31 +1518,30 @@ func TestGenericForLoops(t *testing.T) {
 				"20",
 				"1",
 			},
-			expectedIns: `0000 JumpTo 52
+			expectedIns: `0000 JumpTo 49
 0003 LoadConstant 0
 0006 GetLocal 0
 0009 LoadConstant 1
 0012 GetLocal 1
 0015 GreaterThanComp
-0016 JumpOnNotTrueTo 46
+0016 JumpOnNotTrueTo 43
 0019 GetLocal 0
 0022 GetLocal 1
 0025 AddI64
 0026 SetLocal 0
-0029 PushUnit
-0030 GetLocal 1
-0033 LoadConstant 2
-0036 AddI64
-0037 SetLocal 1
-0040 JumpTo 9
-0043 PopN 1
-0046 PushUnit
-0047 PopN 1
-0050 Return
-0051 Halt
-0052 MakeFn 0 3 0
-0058 GetGlobal 0
-0061 CallFn 0
+0029 GetLocal 1
+0032 LoadConstant 2
+0035 AddI64
+0036 SetLocal 1
+0039 JumpTo 9
+0042 Pop
+0043 PushUnit
+0044 PopN 1
+0047 Return
+0048 Halt
+0049 MakeFn 0 3 0
+0055 GetGlobal 0
+0058 CallFn 0
 `,
 		},
 		{
@@ -1554,37 +1551,164 @@ func TestGenericForLoops(t *testing.T) {
 				"20",
 				"2",
 			},
-			expectedIns: `0000 JumpTo 68
+			expectedIns: `0000 JumpTo 65
 0003 LoadConstant 0
 0006 LoadConstant 0
 0009 LoadConstant 1
 0012 GetLocal 1
 0015 GreaterEqualsComp
-0016 JumpOnNotTrueTo 60
+0016 JumpOnNotTrueTo 57
 0019 GetLocal 1
 0022 LoadConstant 2
 0025 ModuloI64
 0026 LoadConstant 0
 0029 EqualsComp
-0030 JumpOnNotTrueTo 43
+0030 JumpOnNotTrueTo 42
 0033 GetLocal 1
 0036 SetLocal 0
-0039 PushUnit
-0040 JumpTo 44
-0043 PushUnit
-0044 GetLocal 1
-0047 LoadConstant 2
-0050 AddI64
-0051 SetLocal 1
-0054 JumpTo 9
-0057 PopN 1
-0060 GetLocal 0
-0063 PopN 1
-0066 Return
-0067 Halt
-0068 MakeFn 0 3 0
-0074 GetGlobal 0
-0077 CallFn 0
+0039 JumpTo 43
+0042 PushUnit
+0043 GetLocal 1
+0046 LoadConstant 2
+0049 AddI64
+0050 SetLocal 1
+0053 JumpTo 9
+0056 Pop
+0057 GetLocal 0
+0060 PopN 1
+0063 Return
+0064 Halt
+0065 MakeFn 0 3 0
+0071 GetGlobal 0
+0074 CallFn 0
+`,
+		},
+		{
+			input: `
+fn main() -> i64 { 
+	let n = 30;
+	if n <= 1 {
+        n
+    } else {
+        mut x = 0;
+        mut y = 1;
+        mut z = 0;
+		mut temp = 0;
+        for mut i = 0; i < n; i += 1 {
+            z = x + y;
+            temp = x;
+            x = y;
+            y = z;
+        }
+        z    
+    } 
+}`,
+			expectedConstants: []string{
+				"30",
+				"1",
+				"0",
+			},
+			expectedIns: `0000 JumpTo 100
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GreaterEqualsComp
+0013 JumpOnNotTrueTo 22
+0016 GetLocal 0
+0019 JumpTo 95
+0022 LoadConstant 2
+0025 LoadConstant 1
+0028 LoadConstant 2
+0031 LoadConstant 2
+0034 LoadConstant 2
+0037 GetLocal 0
+0040 GetLocal 5
+0043 GreaterThanComp
+0044 JumpOnNotTrueTo 89
+0047 GetLocal 1
+0050 GetLocal 2
+0053 AddI64
+0054 SetLocal 3
+0057 GetLocal 1
+0060 SetLocal 4
+0063 GetLocal 2
+0066 SetLocal 1
+0069 GetLocal 3
+0072 SetLocal 2
+0075 GetLocal 5
+0078 LoadConstant 1
+0081 AddI64
+0082 SetLocal 5
+0085 JumpTo 37
+0088 Pop
+0089 GetLocal 3
+0092 PopN 4
+0095 PopN 1
+0098 Return
+0099 Halt
+0100 MakeFn 0 3 0
+0106 GetGlobal 0
+0109 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestWhileLoops(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { mut a = false; mut b = 0; while a { if b == 10 { a = not a; } else { b += 1; } } }",
+			expectedConstants: []string{
+				"0",
+				"10",
+				"1",
+			},
+			expectedIns: `0000 JumpTo 52
+0003 PushBoolFalse
+0004 LoadConstant 0
+0007 GetLocal 0
+0010 JumpOnNotTrueTo 46
+0013 GetLocal 1
+0016 LoadConstant 1
+0019 EqualsComp
+0020 JumpOnNotTrueTo 33
+0023 GetLocal 0
+0026 NegateBool
+0027 SetLocal 0
+0030 JumpTo 43
+0033 GetLocal 1
+0036 LoadConstant 2
+0039 AddI64
+0040 SetLocal 1
+0043 JumpTo 7
+0046 PushUnit
+0047 PopN 2
+0050 Return
+0051 Halt
+0052 MakeFn 0 3 0
+0058 GetGlobal 0
+0061 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { while true { let a = 5; } }",
+			expectedConstants: []string{
+				"5",
+			},
+			expectedIns: `0000 JumpTo 17
+0003 PushBoolTrue
+0004 JumpOnNotTrueTo 14
+0007 LoadConstant 0
+0010 Pop
+0011 JumpTo 3
+0014 PushUnit
+0015 Return
+0016 Halt
+0017 MakeFn 0 3 0
+0023 GetGlobal 0
+0026 CallFn 0
 `,
 		},
 	}

@@ -102,8 +102,20 @@ func (c *Compiler) exitScope() {
 			}
 		}
 
-		if num_of_locals > 0 {
+		// we're not in a loop and we have locals to get rid of
+		if num_of_locals > 0 && LOOP_START == -1 {
 			c.generateBytecode(opcode.PopN, num_of_locals)
+		} else if LOOP_START != 1 && num_of_locals > 0 {
+			// we are in a loop and have locals to get rid of
+			// we use pop instead because we don't have a return value to return
+			// from the loop
+			for {
+				c.generateBytecode(opcode.Pop)
+				num_of_locals--
+				if num_of_locals == 0 {
+					break
+				}
+			}
 		}
 		c.symbolTable.CurScopeDepth--
 	} else if c.symbolTable.CurScopeDepth == 1 {
@@ -209,8 +221,34 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileInfiniteLoop(actual)
 	case *ast.GenericForLoop:
 		c.CompileGenericForLoop(actual)
+	case *ast.WhileLoop:
+		c.CompileWhileLoop(actual)
 	default:
 	}
+}
+
+func (c *Compiler) CompileWhileLoop(loop *ast.WhileLoop) {
+	prev_breaks := BREAKS
+	prev_continues := CONTINUES
+	prev_loop_start := LOOP_START
+	BREAKS = []int{}
+	CONTINUES = []int{}
+	// loop start will be the beginning of loop condition
+	LOOP_START = len(c.instructions)
+	// compile condition
+	c.Compile(loop.LoopCondition)
+	// exit loop if condition fails
+	exit_loop := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+	c.CompileBlock(loop.Body, true)
+	c.generateBytecode(opcode.JumpTo, LOOP_START)
+	loop_end := len(c.instructions)
+	c.updateOperand(exit_loop, loop_end)
+	for _, _break := range BREAKS {
+		c.updateOperand(_break, loop_end)
+	}
+	BREAKS = prev_breaks
+	CONTINUES = prev_continues
+	LOOP_START = prev_loop_start
 }
 
 func (c *Compiler) CompileGenericForLoop(loop *ast.GenericForLoop) {
@@ -268,9 +306,7 @@ func (c *Compiler) CompileInfiniteLoop(loop *ast.InfiniteLoop) {
 	LOOP_START = len(c.instructions)
 	BREAKS = []int{}
 	CONTINUES = []int{}
-	c.enterScope()
-	c.CompileBlock(loop.Body, false)
-	c.exitScope()
+	c.CompileBlock(loop.Body, true)
 	c.generateBytecode(opcode.JumpTo, LOOP_START)
 	loop_end := len(c.instructions)
 	for _, _break := range BREAKS {
@@ -470,7 +506,9 @@ func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 			case *ast.Return:
 			case *ast.Continue, *ast.Break:
 			default:
-				c.generateBytecode(opcode.PushUnit)
+				if LOOP_START == -1 {
+					c.generateBytecode(opcode.PushUnit)
+				}
 			}
 		}
 	}

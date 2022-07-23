@@ -1,0 +1,19 @@
+fn fib_loop(n: i64) -> i64 {
+    if n <= 1 {
+        n
+    } else {
+        mut x = 0;
+        mut y = 1;
+        mut z = 0;
+        for mut i = 1; i < n; i += 1 {
+            z = x + y;
+            x = y;
+            y = z;
+        }
+        z
+    }
+}
+
+fn main() -> i64 {
+    fib_loop(32)
+}

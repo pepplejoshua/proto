@@ -199,6 +199,14 @@ func TestComparison(t *testing.T) {
 			input:    "fn main() -> bool { 'a' < 'z' }",
 			expected: "true",
 		},
+		{
+			input:    "fn main() -> bool { 'a' >= 'z' }",
+			expected: "false",
+		},
+		{
+			input:    "fn main() -> bool { 'z' < 'a' }",
+			expected: "false",
+		},
 	}
 
 	runVmTest(t, tests)
@@ -447,6 +455,21 @@ func TestGenericForLoops(t *testing.T) {
 		{
 			input:    "fn main() -> i64 { mut largest = 0; for mut j = 0; j <= 20; j += 2 { if j % 2 == 0 { largest = j; } } largest }",
 			expected: "20",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestWhileLoops(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { mut a = true; mut b = 0; while a { if b == 10 { a = not a; } else { b += 1; } } b }",
+			expected: "10",
+		},
+		{
+			input:    "fn main() -> i64 { mut n = 32; mut i = 1; mut x = 0; mut y = i; mut z = x; while i < n { z = x + y; x = y; y = z; i += 1; } z }",
+			expected: "2178309",
 		},
 	}
 
