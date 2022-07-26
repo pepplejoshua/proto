@@ -223,8 +223,39 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileGenericForLoop(actual)
 	case *ast.WhileLoop:
 		c.CompileWhileLoop(actual)
+	case *ast.Struct:
+		c.CompileStruct(actual)
+	case *ast.StructInitialization:
+	case *ast.Range:
+		c.CompileRange(actual)
+	case *ast.InclusiveRange:
+		c.CompileInclusiveRange(actual)
 	default:
 	}
+}
+
+func (c *Compiler) CompileStruct(strct *ast.Struct) {
+	proto_struct := &runtime.ProtoStruct{
+		Name: strct.Name.Token.Literal,
+	}
+
+	for _, mem := range strct.Members {
+		proto_struct.Members = append(proto_struct.Members, mem.Token.Literal)
+	}
+
+	c.appendConstant(proto_struct)
+}
+
+func (c *Compiler) CompileRange(rng *ast.Range) {
+	c.Compile(rng.Start)
+	c.Compile(rng.PastEnd)
+	c.generateBytecode(opcode.MakeRange)
+}
+
+func (c *Compiler) CompileInclusiveRange(irng *ast.InclusiveRange) {
+	c.Compile(irng.Start)
+	c.Compile(irng.End)
+	c.generateBytecode(opcode.MakeInclusiveRange)
 }
 
 func (c *Compiler) CompileWhileLoop(loop *ast.WhileLoop) {

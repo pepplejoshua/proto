@@ -2,6 +2,10 @@
 
 ---
 
+- [ ] Fix early return
+
+  - [ ] between ripping out Halt and making use of implicit behaviour of return opcode and doing some hacky stuff to jump to halt on early return from main(). I prefer the first. 1 less opcode. I'd really just need to fix tests.
+
 - [ ] Update READMe
 
   - [ ] include structs and initialization

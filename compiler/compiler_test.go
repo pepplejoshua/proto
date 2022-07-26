@@ -127,8 +127,8 @@ func TestBinaryOperations(t *testing.T) {
 		{
 			input: "fn main() { 'a' + 'b'; }",
 			expectedConstants: []string{
-				"a",
-				"b",
+				"'a'",
+				"'b'",
 			},
 			expectedIns: `0000 JumpTo 14
 0003 LoadConstant 0
@@ -167,7 +167,7 @@ func TestBinaryOperations(t *testing.T) {
 			expectedConstants: []string{
 				"\"proto \"",
 				"\"language\"",
-				"!",
+				"'!'",
 			},
 			expectedIns: `0000 JumpTo 18
 0003 LoadConstant 0
@@ -556,7 +556,7 @@ func TestStringAndChar(t *testing.T) {
 	tests := []compilerTestCase{
 		{
 			input:             "fn main() { 'a'; 'b'; 'c'; 'a'; }",
-			expectedConstants: []string{"a", "b", "c"},
+			expectedConstants: []string{"'a'", "'b'", "'c'"},
 			expectedIns: `0000 JumpTo 22
 0003 LoadConstant 0
 0006 Pop
@@ -592,7 +592,7 @@ func TestStringAndChar(t *testing.T) {
 		},
 		{
 			input:             "fn main() { \"this is a string\"; 'c'; 'd'; }",
-			expectedConstants: []string{"\"this is a string\"", "c", "d"},
+			expectedConstants: []string{"\"this is a string\"", "'c'", "'d'"},
 			expectedIns: `0000 JumpTo 18
 0003 LoadConstant 0
 0006 Pop
@@ -949,7 +949,7 @@ func TestMakingTuples(t *testing.T) {
 			input: "fn main() { let a: (i64, char, bool) = (300, 'a', false); }",
 			expectedConstants: []string{
 				"300",
-				"a",
+				"'a'",
 			},
 			expectedIns: `0000 JumpTo 19
 0003 LoadConstant 0
@@ -969,9 +969,9 @@ func TestMakingTuples(t *testing.T) {
 			input: "let a = (1, 'b', 3, 'd'); fn main() { let b = (a, 1, false, true); }",
 			expectedConstants: []string{
 				"1",
-				"b",
+				"'b'",
 				"3",
-				"d",
+				"'d'",
 			},
 			expectedIns: `0000 LoadConstant 0
 0003 LoadConstant 1
@@ -1080,7 +1080,7 @@ func TestAccessingTupleMember(t *testing.T) {
 			input: "fn main() { let a = (1, 'c', false); let b: char = a.1; }",
 			expectedConstants: []string{
 				"1",
-				"c",
+				"'c'",
 			},
 			expectedIns: `0000 JumpTo 26
 0003 LoadConstant 0
@@ -1103,7 +1103,7 @@ func TestAccessingTupleMember(t *testing.T) {
 			input: "fn main() { let a = ((1, 'c', false), (3, true)); let b: i64 = a.0.0; let c: bool = a.1.1; }",
 			expectedConstants: []string{
 				"1",
-				"c",
+				"'c'",
 				"3",
 				"0",
 			},
@@ -1250,7 +1250,7 @@ func TestSimpleAssignment(t *testing.T) {
 		},
 		{
 			input:             "mut a = \"scop\"; fn main() { a += 'e'; }",
-			expectedConstants: []string{"\"scop\"", "e"},
+			expectedConstants: []string{"\"scop\"", "'e'"},
 			expectedIns: `0000 LoadConstant 0
 0003 SetGlobal 1
 0006 JumpTo 22
@@ -1392,7 +1392,7 @@ func TestSimpleAssignment(t *testing.T) {
 		},
 		{
 			input:             "mut a = 0; a = 2; mut b = \"\"; b = \"stuff\"; mut c = 'a'; c = 'b'; mut d = true; d = false; fn main() { }",
-			expectedConstants: []string{"0", "2", `""`, `"stuff"`, "a", "b"},
+			expectedConstants: []string{"0", "2", `""`, `"stuff"`, "'a'", "'b'"},
 			expectedIns: `0000 LoadConstant 0
 0003 SetGlobal 1
 0006 LoadConstant 1
@@ -1930,6 +1930,194 @@ func TestFunctionCalls(t *testing.T) {
 0048 GetGlobal 0
 0051 CallFn 0
 `,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestMakingRange(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = 0..5; }",
+			expectedConstants: []string{
+				"0",
+				"5",
+			},
+			expectedIns: `0000 JumpTo 16
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeRange
+0010 PushUnit
+0011 PopN 1
+0014 Return
+0015 Halt
+0016 MakeFn 0 3 0
+0022 GetGlobal 0
+0025 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 2; let b = 3; let c = a..b; }",
+			expectedConstants: []string{
+				"2",
+				"3",
+			},
+			expectedIns: `0000 JumpTo 22
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GetLocal 1
+0015 MakeRange
+0016 PushUnit
+0017 PopN 3
+0020 Return
+0021 Halt
+0022 MakeFn 0 3 0
+0028 GetGlobal 0
+0031 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 'a'..'z'; }",
+			expectedConstants: []string{
+				"'a'",
+				"'z'",
+			},
+			expectedIns: `0000 JumpTo 16
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeRange
+0010 PushUnit
+0011 PopN 1
+0014 Return
+0015 Halt
+0016 MakeFn 0 3 0
+0022 GetGlobal 0
+0025 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 'a'; let past_end = 'd'; let chars = a..past_end; }",
+			expectedConstants: []string{
+				"'a'",
+				"'d'",
+			},
+			expectedIns: `0000 JumpTo 22
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GetLocal 1
+0015 MakeRange
+0016 PushUnit
+0017 PopN 3
+0020 Return
+0021 Halt
+0022 MakeFn 0 3 0
+0028 GetGlobal 0
+0031 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestMakingInclusiveRange(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = 0..=5; }",
+			expectedConstants: []string{
+				"0",
+				"5",
+			},
+			expectedIns: `0000 JumpTo 16
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeInclusiveRange
+0010 PushUnit
+0011 PopN 1
+0014 Return
+0015 Halt
+0016 MakeFn 0 3 0
+0022 GetGlobal 0
+0025 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 0; let b = 10; let c = a..=b; }",
+			expectedConstants: []string{
+				"0",
+				"10",
+			},
+			expectedIns: `0000 JumpTo 22
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GetLocal 1
+0015 MakeInclusiveRange
+0016 PushUnit
+0017 PopN 3
+0020 Return
+0021 Halt
+0022 MakeFn 0 3 0
+0028 GetGlobal 0
+0031 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 'a'..='z'; }",
+			expectedConstants: []string{
+				"'a'",
+				"'z'",
+			},
+			expectedIns: `0000 JumpTo 16
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeInclusiveRange
+0010 PushUnit
+0011 PopN 1
+0014 Return
+0015 Halt
+0016 MakeFn 0 3 0
+0022 GetGlobal 0
+0025 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { let a = 'a'; let z = 'z'; let alphabets = a..=z; }",
+			expectedConstants: []string{
+				"'a'",
+				"'z'",
+			},
+			expectedIns: `0000 JumpTo 22
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 GetLocal 0
+0012 GetLocal 1
+0015 MakeInclusiveRange
+0016 PushUnit
+0017 PopN 3
+0020 Return
+0021 Halt
+0022 MakeFn 0 3 0
+0028 GetGlobal 0
+0031 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestCompilingStructs(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "struct Test { a: i64 } fn main() { }",
+			expectedConstants: []string{
+				"struct Test { a }",
+			},
+			expectedIns: ``,
 		},
 	}
 

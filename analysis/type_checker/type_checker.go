@@ -914,7 +914,6 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 						var msg strings.Builder
 						line := tc.FnDefSpan.Line
 						col := tc.FnDefSpan.Col
-						println("HERE")
 						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 						msg.WriteString(fmt.Sprintf("implicit return type () does not match function return type, which is %s.",
 							tc.CurReturnType.TypeSignature()))

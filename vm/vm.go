@@ -121,7 +121,7 @@ func (vm *VM) Run() {
 		case opcode.AddChar:
 			rhs := vm.PopOffStack().(*runtime.Char)
 			lhs := vm.PopOffStack().(*runtime.Char)
-			n_val := "\"" + lhs.String() + rhs.String() + "\""
+			n_val := "\"" + lhs.Character() + rhs.Character() + "\""
 			val := &runtime.String{
 				Value: n_val,
 			}
@@ -141,7 +141,7 @@ func (vm *VM) Run() {
 			rhs := vm.PopOffStack().(*runtime.Char)
 			lhs := vm.PopOffStack().(*runtime.String)
 			n_val := "\"" + lhs.String()[1:len(lhs.String())-1] +
-				rhs.String() + "\""
+				rhs.Character() + "\""
 			val := &runtime.String{
 				Value: n_val,
 			}
@@ -422,6 +422,38 @@ func (vm *VM) Run() {
 
 			val := obj.Items[index.Value]
 			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.MakeRange:
+			past_end := vm.PopOffStack()
+			start := vm.PopOffStack()
+
+			if past_end.String() <= start.String() {
+				var msg strings.Builder
+				msg.WriteString(start.String() + " is greater than or equal to " + past_end.String() + ".")
+				shared.ReportErrorAndExit("VM", msg.String())
+			}
+
+			rng := &runtime.Range{
+				Start:   start,
+				PastEnd: past_end,
+			}
+			vm.PushOntoStack(rng)
+			ip += 1
+		case opcode.MakeInclusiveRange:
+			end := vm.PopOffStack()
+			start := vm.PopOffStack()
+
+			if end.String() <= start.String() {
+				var msg strings.Builder
+				msg.WriteString(start.String() + " is greater than or equal to " + end.String() + ".")
+				shared.ReportErrorAndExit("VM", msg.String())
+			}
+
+			irng := &runtime.InclusiveRange{
+				Start: start,
+				End:   end,
+			}
+			vm.PushOntoStack(irng)
 			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()

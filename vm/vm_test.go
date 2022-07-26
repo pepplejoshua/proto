@@ -343,11 +343,11 @@ func TestMakingTuples(t *testing.T) {
 	tests := []vmTestCase{
 		{
 			input:    "fn main() -> (i64, char, bool) { let a: (i64, char, bool) = (300, 'a', false); a }",
-			expected: "(300, a, false)",
+			expected: "(300, 'a', false)",
 		},
 		{
 			input:    "let a = (1, 'b', 3, 'd'); fn main() -> ((i64, char, i64, char), i64, bool, bool) { let b = (a, 1, false, true); b }",
-			expected: "((1, b, 3, d), 1, false, true)",
+			expected: "((1, 'b', 3, 'd'), 1, false, true)",
 		},
 	}
 
@@ -373,7 +373,7 @@ func TestAccessingMember(t *testing.T) {
 	tests := []vmTestCase{
 		{
 			input:    "fn main() -> char { let a = (1, 'c', false); let b: char = a.1; b }",
-			expected: "c",
+			expected: "'c'",
 		},
 		{
 			input:    "fn main() -> (i64, bool) { let a = ((1, 'c', false), (3, true)); let b: i64 = a.0.0; let c: bool = a.1.1; (b, c) }",
@@ -522,6 +522,52 @@ fn main() -> i64 {
 	fib(2)
 }`,
 			expected: "1",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestMakingRanges(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> Range<i64> { 1..2 }",
+			expected: "1..2",
+		},
+		{
+			input:    "fn main() -> Range<i64> { let a = 1; let b = 5; let c = a..b; c }",
+			expected: "1..5",
+		},
+		{
+			input:    "fn main() -> Range<char> { 'a'..'z' }",
+			expected: "'a'..'z'",
+		},
+		{
+			input:    "fn main() -> Range<char> { let a = 'a'; let b = 'b'; let c = a..b; c }",
+			expected: "'a'..'b'",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestMakingInclusiveRanges(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> Range<i64> { 1..=2 }",
+			expected: "1..=2",
+		},
+		{
+			input:    "fn main() -> Range<i64> { let a = 1; let b = 5; let c = a..=b; c }",
+			expected: "1..=5",
+		},
+		{
+			input:    "fn main() -> Range<char> { 'a'..='z' }",
+			expected: "'a'..='z'",
+		},
+		{
+			input:    "fn main() -> Range<char> { let a = 'a'; let b = 'b'; let c = a..=b; c }",
+			expected: "'a'..='b'",
 		},
 	}
 
