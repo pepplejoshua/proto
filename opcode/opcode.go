@@ -102,6 +102,7 @@ const (
 	MakeRange
 	MakeInclusiveRange
 	InitStruct
+	UpdateStructMember
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -143,10 +144,12 @@ var Definitions = map[OpCode]*InstructionDef{
 	CallFn:             {"CallFn", []int{2}},            // used to call a function
 	MakeTuple:          {"MakeTuple", []int{2}},         // used to build a Tuple with n contents, where n is the operand for the instruction
 	UpdateIndex:        {"UpdateIndex", []int{}},        // used to update the index of an array
-	AccessTupleMember:  {"AccessTupleMember", []int{}},  // used to access member of a tuple or a struct
+	AccessTupleMember:  {"AccessTupleMember", []int{}},  // used to access member of a tuple
 	MakeRange:          {"MakeRange", []int{}},          // used to make a range from 2 values on stack
 	MakeInclusiveRange: {"MakeInclusiveRange", []int{}}, // used to make an inclusive from 2 values on stack
 	InitStruct:         {"InitStruct", []int{2}},        // used to initialize a struct with a number of params on stack
+	AccessStructMember: {"AccessStructMember", []int{}}, // used to access member of a struct
+	UpdateStructMember: {"UpdateStructMember", []int{}}, // used to update member of a struct
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

@@ -364,12 +364,32 @@ func TestUpdatingArrayIndex(t *testing.T) {
 			input:    "fn main() -> [i64] { mut a = [[0, 2, 3], [1, 3, 5]]; let b = 2; a[0][b] = 3 + 1; a[0] }",
 			expected: "[0, 2, 4]",
 		},
+		{
+			input:    "fn main() -> [i64] { mut a = [1, 2]; a[0] += 3; a }",
+			expected: "[4, 2]",
+		},
+		{
+			input:    "fn main() -> [i64] { mut a = [1, 2]; a[0] -= 1; a }",
+			expected: "[0, 2]",
+		},
+		{
+			input:    "fn main() -> [i64] { mut a = [1, 2]; a[0] *= 3; a }",
+			expected: "[3, 2]",
+		},
+		{
+			input:    "fn main() -> [i64] { mut a = [4, 2]; a[0] /= 2; a }",
+			expected: "[2, 2]",
+		},
+		{
+			input:    "fn main() -> [i64] { mut a = [3, 2]; a[0] %= 3; a }",
+			expected: "[0, 2]",
+		},
 	}
 
 	runVmTest(t, tests)
 }
 
-func TestAccessingMember(t *testing.T) {
+func TestAccessingTupleMembers(t *testing.T) {
 	tests := []vmTestCase{
 		{
 			input:    "fn main() -> char { let a = (1, 'c', false); let b: char = a.1; b }",
@@ -378,6 +398,21 @@ func TestAccessingMember(t *testing.T) {
 		{
 			input:    "fn main() -> (i64, bool) { let a = ((1, 'c', false), (3, true)); let b: i64 = a.0.0; let c: bool = a.1.1; (b, c) }",
 			expected: "(1, true)",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestAccessingStructMembers(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { struct Test { a: i64 } let a = Test { a: 3 }; a.a }",
+			expected: "3",
+		},
+		{
+			input:    "struct Test { a: char } struct Nest { b: Test } fn main() -> char { let b = Nest { b: Test { a: 'c' } }; b.b.a }",
+			expected: "'c'",
 		},
 	}
 
@@ -583,6 +618,45 @@ func TestStructInitialization(t *testing.T) {
 		{
 			input:    "struct Local { loc: i64, point: char } fn main() -> Local { let a = Local { loc: 4, point: 'd' }; a }",
 			expected: "Local { point: 'd', loc: 4 }",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestUpdatingStructMembers(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 4 }; a.a = 50; a.a }",
+			expected: "50",
+		},
+		{
+			input:    "struct Test { a: i64 } struct Nest { b: Test } fn main() -> (Test, i64) { mut a = Test { a: 5 }; a.a = 45; let b = Nest { b: a }; (b.b, b.b.a) }",
+			expected: "(Test { a: 45 }, 45)",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 1 }; a.a += 5; a.a }",
+			expected: "6",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 1 }; a.a -= 1; a.a }",
+			expected: "0",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 1 }; a.a *= 5; a.a }",
+			expected: "5",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 7 }; a.a /= 5; a.a }",
+			expected: "1",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> i64 { mut a = Test { a: 3 }; a.a %= 2; a.a }",
+			expected: "1",
+		},
+		{
+			input:    `struct Test { a: str } fn main() -> str { mut a = Test { a: "proto" }; a.a += " is awesome."; a.a }`,
+			expected: `"proto is awesome."`,
 		},
 	}
 

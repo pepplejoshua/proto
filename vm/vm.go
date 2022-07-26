@@ -416,11 +416,25 @@ func (vm *VM) Run() {
 
 			array.Items[index.Value] = assigned
 			ip += 1
+		case opcode.UpdateStructMember:
+			assigned := vm.PopOffStack()
+			mem := vm.PopOffStack().(*runtime.String)
+			strct := vm.PopOffStack().(*runtime.InitializedStruct)
+
+			strct.Members[mem.Value] = assigned
+			ip += 1
 		case opcode.AccessTupleMember:
 			index := vm.PopOffStack().(*runtime.I64)
 			obj := vm.PopOffStack().(*runtime.Tuple)
 
 			val := obj.Items[index.Value]
+			vm.PushOntoStack(val)
+			ip += 1
+		case opcode.AccessStructMember:
+			mem := vm.PopOffStack().(*runtime.String)
+			obj := vm.PopOffStack().(*runtime.InitializedStruct)
+
+			val := obj.Members[mem.Value]
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.MakeRange:

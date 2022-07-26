@@ -7,6 +7,7 @@ import (
 	"proto/runtime"
 	"proto/shared"
 	"strconv"
+	"strings"
 )
 
 type ByteCode struct {
@@ -214,9 +215,7 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.Return:
 		c.CompileReturn(actual)
 	case *ast.Membership:
-		c.Compile(actual.Object)
-		c.Compile(actual.Member)
-		c.generateBytecode(opcode.AccessTupleMember)
+		c.CompileMembership(actual)
 	case *ast.InfiniteLoop:
 		c.CompileInfiniteLoop(actual)
 	case *ast.GenericForLoop:
@@ -231,6 +230,43 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.InclusiveRange:
 		c.CompileInclusiveRange(actual)
 	default:
+	}
+}
+
+func (c *Compiler) CompileMembership(mem *ast.Membership) {
+	switch mem_type := mem.Object.(type) {
+	case *ast.Identifier:
+		switch mem_type.Type().(type) {
+		case *ast.Proto_Tuple:
+			c.Compile(mem.Object)
+			c.Compile(mem.Member)
+			c.generateBytecode(opcode.AccessTupleMember)
+		case *ast.Proto_UserDef:
+			c.Compile(mem.Object)
+			actual := mem.Member.(*ast.Identifier)
+			member := &runtime.String{
+				Value: actual.Token.Literal,
+			}
+			mem_loc := c.appendConstant(member)
+			c.generateBytecode(opcode.LoadConstant, mem_loc)
+			c.generateBytecode(opcode.AccessStructMember)
+		}
+	case *ast.Membership:
+		switch mem_type.Type().(type) {
+		case *ast.Proto_Tuple:
+			c.Compile(mem.Object)
+			c.Compile(mem.Member)
+			c.generateBytecode(opcode.AccessTupleMember)
+		case *ast.Proto_UserDef:
+			c.Compile(mem.Object)
+			actual := mem.Member.(*ast.Identifier)
+			member := &runtime.String{
+				Value: actual.Token.Literal,
+			}
+			mem_loc := c.appendConstant(member)
+			c.generateBytecode(opcode.LoadConstant, mem_loc)
+			c.generateBytecode(opcode.AccessStructMember)
+		}
 	}
 }
 
@@ -365,6 +401,25 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 	case "=":
 		switch lhs := target.(type) {
 		case *ast.Membership:
+			switch lhs.Object.Type().(type) {
+			case *ast.Proto_Tuple:
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Tuples are immutable by default.")
+				shared.ReportErrorAndExit("Compiler", msg.String())
+			case *ast.Proto_UserDef:
+				c.Compile(lhs.Object)
+				actual := lhs.Member.(*ast.Identifier)
+				member := &runtime.String{
+					Value: actual.Token.Literal,
+				}
+				mem_loc := c.appendConstant(member)
+				c.generateBytecode(opcode.LoadConstant, mem_loc)
+				c.Compile(assigned)
+				c.generateBytecode(opcode.UpdateStructMember)
+			}
 		case *ast.IndexExpression:
 			c.Compile(lhs.Indexable)
 			c.Compile(lhs.Index)
@@ -384,9 +439,65 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 			}
 		}
 	case "+=":
-		switch target.(type) {
+		switch lhs := target.(type) {
 		case *ast.Membership:
+			switch lhs.Object.Type().(type) {
+			case *ast.Proto_Tuple:
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Tuples are immutable by default.")
+				shared.ReportErrorAndExit("Compiler", msg.String())
+			case *ast.Proto_UserDef:
+				c.Compile(lhs.Object)
+				actual := lhs.Member.(*ast.Identifier)
+				member := &runtime.String{
+					Value: actual.Token.Literal,
+				}
+				mem_loc := c.appendConstant(member)
+				c.generateBytecode(opcode.LoadConstant, mem_loc)
+
+				c.Compile(lhs.Object)
+				c.generateBytecode(opcode.LoadConstant, mem_loc)
+				c.generateBytecode(opcode.AccessStructMember)
+				c.Compile(assigned)
+
+				struct_mem := lhs.MembershipType
+
+				switch struct_mem.TypeSignature() {
+				case "str":
+					switch assigned.Type().TypeSignature() {
+					case "char":
+						c.generateBytecode(opcode.AddStrChar)
+					case "str":
+						c.generateBytecode(opcode.AddStr)
+					}
+				case "i64":
+					c.generateBytecode(opcode.AddI64)
+				}
+				c.generateBytecode(opcode.UpdateStructMember)
+			}
 		case *ast.IndexExpression:
+			arr := lhs.Indexable.Type().(*ast.Proto_Array)
+			c.Compile(lhs.Indexable)
+			c.Compile(lhs.Index)
+			c.Compile(lhs.Indexable)
+			c.Compile(lhs.Index)
+			c.generateBytecode(opcode.AccessIndex)
+			c.Compile(assigned)
+			switch arr.InternalType.TypeSignature() {
+			case "str":
+				switch assigned.Type().TypeSignature() {
+				case "char":
+					c.generateBytecode(opcode.AddStrChar)
+				case "str":
+					c.generateBytecode(opcode.AddStr)
+				}
+			case "i64":
+				c.generateBytecode(opcode.AddI64)
+			}
+			c.generateBytecode(opcode.UpdateIndex)
 		case *ast.Identifier:
 			switch target.Type().TypeSignature() {
 			case "str":
@@ -425,18 +536,54 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 			}
 		}
 	case "-=", "*=", "%=", "/=":
-		switch target.(type) {
+		ins := map[string]opcode.OpCode{
+			"-=": opcode.SubI64,
+			"*=": opcode.MultI64,
+			"%=": opcode.ModuloI64,
+			"/=": opcode.DivI64,
+		}
+		switch lhs := target.(type) {
 		case *ast.Membership:
+			switch lhs.Object.Type().(type) {
+			case *ast.Proto_Tuple:
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Tuples are immutable by default.")
+				shared.ReportErrorAndExit("Compiler", msg.String())
+			case *ast.Proto_UserDef:
+				c.Compile(lhs.Object)
+				actual := lhs.Member.(*ast.Identifier)
+				member := &runtime.String{
+					Value: actual.Token.Literal,
+				}
+				mem_loc := c.appendConstant(member)
+				c.generateBytecode(opcode.LoadConstant, mem_loc)
+
+				c.Compile(lhs.Object)
+				c.generateBytecode(opcode.LoadConstant, mem_loc)
+				c.generateBytecode(opcode.AccessStructMember)
+				c.Compile(assigned)
+
+				op := ins[assign.AssignmentToken.Literal]
+				c.generateBytecode(op)
+				c.generateBytecode(opcode.UpdateStructMember)
+			}
 		case *ast.IndexExpression:
+			c.Compile(lhs.Indexable)
+			c.Compile(lhs.Index)
+			c.Compile(lhs.Indexable)
+			c.Compile(lhs.Index)
+			c.generateBytecode(opcode.AccessIndex)
+			c.Compile(assigned)
+			op := ins[assign.AssignmentToken.Literal]
+			c.generateBytecode(op)
+			c.generateBytecode(opcode.UpdateIndex)
 		case *ast.Identifier:
 			c.Compile(target)
 			c.Compile(assigned)
-			ins := map[string]opcode.OpCode{
-				"-=": opcode.SubI64,
-				"*=": opcode.MultI64,
-				"%=": opcode.ModuloI64,
-				"/=": opcode.DivI64,
-			}
+
 			op := ins[assign.AssignmentToken.Literal]
 			c.generateBytecode(op)
 			sym, ok := c.symbolTable.Resolve(target.LiteralRepr())

@@ -1443,6 +1443,71 @@ func TestSimpleAssignment(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestArrayComplexAssignment(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { mut a = [1, 2]; a[0] += 3; }",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"0",
+				"3",
+			},
+			expectedIns: `0000 JumpTo 36
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeArray 2
+0012 GetLocal 0
+0015 LoadConstant 2
+0018 GetLocal 0
+0021 LoadConstant 2
+0024 AccessIndex
+0025 LoadConstant 3
+0028 AddI64
+0029 UpdateIndex
+0030 PushUnit
+0031 PopN 1
+0034 Return
+0035 Halt
+0036 MakeFn 0 3 0
+0042 GetGlobal 0
+0045 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { mut a = [1, 2]; a[0] -= 3; }",
+			expectedConstants: []string{
+				"1",
+				"2",
+				"0",
+				"3",
+			},
+			expectedIns: `0000 JumpTo 36
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 MakeArray 2
+0012 GetLocal 0
+0015 LoadConstant 2
+0018 GetLocal 0
+0021 LoadConstant 2
+0024 AccessIndex
+0025 LoadConstant 3
+0028 SubI64
+0029 UpdateIndex
+0030 PushUnit
+0031 PopN 1
+0034 Return
+0035 Halt
+0036 MakeFn 0 3 0
+0042 GetGlobal 0
+0045 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func TestInfiniteLoops(t *testing.T) {
 	tests := []compilerTestCase{
 		{
@@ -2177,6 +2242,350 @@ func TestCompilingStructInitializations(t *testing.T) {
 0021 MakeFn 0 18 0
 0027 GetGlobal 0
 0030 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestAccessingStructMember(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "struct Test { a: i64 } fn main() { let a = Test { a: 13 }; let b: i64 = a.a; }",
+			expectedConstants: []string{
+				"a",
+				"13",
+				"Test",
+			},
+			expectedIns: `0000 JumpTo 28
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 AccessStructMember
+0022 PushUnit
+0023 PopN 2
+0026 Return
+0027 Halt
+0028 MakeFn 0 3 0
+0034 GetGlobal 0
+0037 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: char } struct Nest { b: Test } fn main() -> char { let b = Nest { b: Test { a: 'c' } }; b.b.a }",
+			expectedConstants: []string{
+				"b",
+				"a",
+				"'c'",
+				"Test",
+				"Nest",
+			},
+			expectedIns: `0000 JumpTo 40
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 LoadConstant 3
+0015 InitStruct 1
+0018 LoadConstant 4
+0021 InitStruct 1
+0024 GetLocal 0
+0027 LoadConstant 0
+0030 AccessStructMember
+0031 LoadConstant 1
+0034 AccessStructMember
+0035 PopN 1
+0038 Return
+0039 Halt
+0040 MakeFn 0 3 0
+0046 GetGlobal 0
+0049 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestUpdatingStructMember(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a = 50; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"50",
+			},
+			expectedIns: `0000 JumpTo 31
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 LoadConstant 3
+0024 UpdateStructMember
+0025 PushUnit
+0026 PopN 1
+0029 Return
+0030 Halt
+0031 MakeFn 0 3 0
+0037 GetGlobal 0
+0040 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } struct Nest { b: Test } fn main() -> (Test, i64) { mut a = Test { a: 5 }; a.a = 45; let b = Nest { b: a }; (b.b, b.b.a) }",
+			expectedConstants: []string{
+				"a",
+				"5",
+				"Test",
+				"45",
+				"b",
+				"Nest",
+			},
+			expectedIns: `0000 JumpTo 63
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 LoadConstant 3
+0024 UpdateStructMember
+0025 LoadConstant 4
+0028 GetLocal 0
+0031 LoadConstant 5
+0034 InitStruct 1
+0037 GetLocal 1
+0040 LoadConstant 4
+0043 AccessStructMember
+0044 GetLocal 1
+0047 LoadConstant 4
+0050 AccessStructMember
+0051 LoadConstant 0
+0054 AccessStructMember
+0055 MakeTuple 2
+0058 PopN 2
+0061 Return
+0062 Halt
+0063 MakeFn 0 3 0
+0069 GetGlobal 0
+0072 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a += 50; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"50",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 AddI64
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a -= 2; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"2",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 SubI64
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a *= 25; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"25",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 MultI64
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a /= 2; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"2",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 DivI64
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } fn main() { mut a = Test { a: 4 }; a.a %= 50; }",
+			expectedConstants: []string{
+				"a",
+				"4",
+				"Test",
+				"50",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 ModuloI64
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: `struct Test { a: str } fn main() { mut a = Test { a: "a" }; a.a += 'b'; }`,
+			expectedConstants: []string{
+				"a",
+				`"a"`,
+				"Test",
+				"'b'",
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 AddStrChar
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
+`,
+		},
+		{
+			input: `struct Test { a: str } fn main() { mut a = Test { a: "a" }; a.a += "bcde"; }`,
+			expectedConstants: []string{
+				"a",
+				`"a"`,
+				"Test",
+				`"bcde"`,
+			},
+			expectedIns: `0000 JumpTo 39
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 GetLocal 0
+0018 LoadConstant 0
+0021 GetLocal 0
+0024 LoadConstant 0
+0027 AccessStructMember
+0028 LoadConstant 3
+0031 AddStr
+0032 UpdateStructMember
+0033 PushUnit
+0034 PopN 1
+0037 Return
+0038 Halt
+0039 MakeFn 0 3 0
+0045 GetGlobal 0
+0048 CallFn 0
 `,
 		},
 	}
