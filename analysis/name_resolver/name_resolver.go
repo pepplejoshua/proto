@@ -502,9 +502,28 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 		if !nr.GetInitializedAtName(actual.Token) {
 			nr.InitializeName(actual.Token)
 		}
+	case *ast.Membership:
+		nr.CheckObjectOfMembershipForMutability(actual)
 	default:
 	}
 	nr.Resolve(assignment.Target)
+}
+
+func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership) {
+	switch actual_obj := mem.Object.(type) {
+	case *ast.Identifier:
+		if !nr.GetMutabilityAtName(actual_obj.Token) && nr.GetInitializedAtName(actual_obj.Token) {
+			var msg strings.Builder
+			line := actual_obj.Token.TokenSpan.Line
+			col := actual_obj.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("'" + actual_obj.LiteralRepr() + "' is not mutable.")
+			shared.ReportError("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+	case *ast.Membership:
+		nr.CheckObjectOfMembershipForMutability(actual_obj)
+	}
 }
 
 func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
