@@ -62,7 +62,7 @@ func (tc *TypeChecker) SetTypeForName(name lexer.ProtoToken, proto_type ast.Prot
 	env[name.Literal] = proto_type
 }
 
-func (tc *TypeChecker) GetTypeForName(name lexer.ProtoToken) ast.ProtoType {
+func (tc *TypeChecker) GetTypeForNameOrFail(name lexer.ProtoToken) ast.ProtoType {
 	var proto_type ast.ProtoType = nil
 	for i := len(tc.TypeEnvs) - 1; i >= 0; i-- {
 		env := tc.TypeEnvs[i]
@@ -82,6 +82,17 @@ func (tc *TypeChecker) GetTypeForName(name lexer.ProtoToken) ast.ProtoType {
 		tc.FoundError = true
 	}
 	return proto_type
+}
+
+func (tc *TypeChecker) GetTypeForName(name lexer.ProtoToken) ast.ProtoType {
+	for i := len(tc.TypeEnvs) - 1; i >= 0; i-- {
+		env := tc.TypeEnvs[i]
+		if found_type, ok := env[name.Literal]; ok {
+			return found_type
+		}
+	}
+
+	return nil
 }
 
 func (tc *TypeChecker) ContainsIdent(ident string) bool {
@@ -228,7 +239,22 @@ func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	prevFnDefSpan := tc.FnDefSpan
 	prevCurReturnType := tc.CurReturnType
 	tc.FnDefSpan = &fn.Start.TokenSpan
-	tc.CurReturnType = fn.ReturnType
+
+	switch ret_type := fn.ReturnType.(type) {
+	case *ast.Proto_UserDef:
+		found_type := tc.GetTypeForName(ret_type.Name.Token)
+		if found_type == nil {
+			var msg strings.Builder
+			line := fn.Body.Start.TokenSpan.Line
+			col := fn.Body.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Function return type '%s' is not defined.", ret_type.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+		}
+		tc.CurReturnType = fn.ReturnType
+	default:
+		tc.CurReturnType = fn.ReturnType
+	}
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlock(fn.Body, false)
@@ -247,7 +273,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		switch ref := member.(type) {
 		case *ast.Identifier:
 			found := false
-			fetched := tc.GetTypeForName(actual.Name.Token).(*ast.Proto_UserDef)
+			fetched := tc.GetTypeForNameOrFail(actual.Name.Token).(*ast.Proto_UserDef)
 			for _, actual_mem := range fetched.Definition.Members {
 				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
 					mem.MembershipType = actual_mem.Type()
@@ -314,7 +340,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 }
 
 func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
-	// actual := tc.GetTypeForName(i.StructName.Token)
+	// actual := tc.GetTypeForNameOrFail(i.StructName.Token)
 	actual := i.Type()
 
 	switch sdef := actual.(type) {
@@ -461,7 +487,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 		index.ValueType = actual.InternalType
 		switch a := actual.InternalType.(type) {
 		case *ast.Proto_UserDef:
-			val := tc.GetTypeForName(a.Name.Token)
+			val := tc.GetTypeForNameOrFail(a.Name.Token)
 			index.ValueType = val
 		}
 	case *ast.Proto_Tuple:
@@ -1005,7 +1031,7 @@ func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {
 		shared.ReportError("TypeChecker", msg.String())
 		tc.FoundError = true
 	} else {
-		ident.Id_Type = tc.GetTypeForName(ident.Token)
+		ident.Id_Type = tc.GetTypeForNameOrFail(ident.Token)
 	}
 }
 

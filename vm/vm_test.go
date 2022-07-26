@@ -574,6 +574,21 @@ func TestMakingInclusiveRanges(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestStructInitialization(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "struct Test { a: i64 } fn main() -> Test { let a = Test { a: 30 }; a }",
+			expected: "Test { a: 30 }",
+		},
+		{
+			input:    "struct Local { loc: i64, point: char } fn main() -> Local { let a = Local { loc: 4, point: 'd' }; a }",
+			expected: "Local { point: 'd', loc: 4 }",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

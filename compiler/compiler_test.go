@@ -2110,14 +2110,74 @@ func TestMakingInclusiveRange(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
-func TestCompilingStructs(t *testing.T) {
+func TestCompilingStructInitializations(t *testing.T) {
 	tests := []compilerTestCase{
 		{
-			input: "struct Test { a: i64 } fn main() { }",
+			input: "struct Test { a: i64 } fn main() { let a = Test { a: 3 }; }",
 			expectedConstants: []string{
-				"struct Test { a }",
+				"a",
+				"3",
+				"Test",
 			},
-			expectedIns: ``,
+			expectedIns: `0000 JumpTo 21
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 InitStruct 1
+0015 PushUnit
+0016 PopN 1
+0019 Return
+0020 Halt
+0021 MakeFn 0 3 0
+0027 GetGlobal 0
+0030 CallFn 0
+`,
+		},
+		{
+			input: "fn main() { struct Local { loc: i64, point: char } let a = Local { loc: 300, point: 'l' }; }",
+			expectedConstants: []string{
+				"loc",
+				"300",
+				"point",
+				"'l'",
+				"Local",
+			},
+			expectedIns: `0000 JumpTo 27
+0003 LoadConstant 0
+0006 LoadConstant 1
+0009 LoadConstant 2
+0012 LoadConstant 3
+0015 LoadConstant 4
+0018 InitStruct 2
+0021 PushUnit
+0022 PopN 1
+0025 Return
+0026 Halt
+0027 MakeFn 0 3 0
+0033 GetGlobal 0
+0036 CallFn 0
+`,
+		},
+		{
+			input: "struct Test { a: i64 } let test = Test { a: 30 }; fn main() { }",
+			expectedConstants: []string{
+				"a",
+				"30",
+				"Test",
+			},
+			expectedIns: `0000 LoadConstant 0
+0003 LoadConstant 1
+0006 LoadConstant 2
+0009 InitStruct 1
+0012 SetGlobal 2
+0015 JumpTo 21
+0018 PushUnit
+0019 Return
+0020 Halt
+0021 MakeFn 0 18 0
+0027 GetGlobal 0
+0030 CallFn 0
+`,
 		},
 	}
 

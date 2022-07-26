@@ -224,8 +224,8 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.WhileLoop:
 		c.CompileWhileLoop(actual)
 	case *ast.Struct:
-		c.CompileStruct(actual)
 	case *ast.StructInitialization:
+		c.CompileStructInitialization(actual)
 	case *ast.Range:
 		c.CompileRange(actual)
 	case *ast.InclusiveRange:
@@ -234,16 +234,26 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	}
 }
 
-func (c *Compiler) CompileStruct(strct *ast.Struct) {
-	proto_struct := &runtime.ProtoStruct{
-		Name: strct.Name.Token.Literal,
+func (c *Compiler) CompileStructInitialization(init *ast.StructInitialization) {
+	length := len(init.Fields)
+
+	for mem, val := range init.Fields {
+		member := &runtime.String{
+			Value: mem.Token.Literal,
+		}
+
+		member_loc := c.appendConstant(member)
+		c.generateBytecode(opcode.LoadConstant, member_loc)
+		c.Compile(val)
 	}
 
-	for _, mem := range strct.Members {
-		proto_struct.Members = append(proto_struct.Members, mem.Token.Literal)
+	struct_name := &runtime.String{
+		Value: init.StructName.Token.Literal,
 	}
 
-	c.appendConstant(proto_struct)
+	name_loc := c.appendConstant(struct_name)
+	c.generateBytecode(opcode.LoadConstant, name_loc)
+	c.generateBytecode(opcode.InitStruct, length)
 }
 
 func (c *Compiler) CompileRange(rng *ast.Range) {

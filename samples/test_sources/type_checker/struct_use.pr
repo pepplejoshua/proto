@@ -18,3 +18,12 @@ let other_test = StructTest {
     b: false,
     c: 'd'
 };
+
+fn test_defined_type() -> StructTest {
+    struct Test {
+        a: i64
+    }
+
+    let a = StructTest { a: [300], b: false, c: 'c' };
+    a
+}

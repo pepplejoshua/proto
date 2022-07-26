@@ -55,6 +55,10 @@ func (s *String) String() string {
 	return s.Value
 }
 
+func (s *String) Content() string {
+	return s.Value[1 : len(s.Value)-1]
+}
+
 type Array struct {
 	Items []RuntimeObj
 }
@@ -109,27 +113,6 @@ func (ir *InclusiveRange) String() string {
 	return ir.Start.String() + "..=" + ir.End.String()
 }
 
-type ProtoStruct struct {
-	Name    string
-	Members []string
-}
-
-func (s *ProtoStruct) String() string {
-	var msg strings.Builder
-
-	msg.WriteString("struct " + s.Name + " { ")
-	for index, mem := range s.Members {
-		msg.WriteString(mem)
-
-		if index+1 < len(s.Members) {
-			msg.WriteString(", ")
-		}
-	}
-	msg.WriteString(" }")
-
-	return msg.String()
-}
-
 type InitializedStruct struct {
 	StructName string
 	Members    map[string]RuntimeObj
@@ -138,7 +121,7 @@ type InitializedStruct struct {
 func (is *InitializedStruct) String() string {
 	var msg strings.Builder
 
-	msg.WriteString(is.StructName + "{ ")
+	msg.WriteString(is.StructName + " { ")
 	length := len(is.Members)
 	index := 0
 	for mem, val := range is.Members {

@@ -130,8 +130,8 @@ func (vm *VM) Run() {
 		case opcode.AddStr:
 			rhs := vm.PopOffStack().(*runtime.String)
 			lhs := vm.PopOffStack().(*runtime.String)
-			n_val := "\"" + lhs.String()[1:len(lhs.String())-1] +
-				rhs.String()[1:len(rhs.String())-1] + "\""
+			n_val := "\"" + lhs.Content() +
+				rhs.Content() + "\""
 			val := &runtime.String{
 				Value: n_val,
 			}
@@ -140,7 +140,7 @@ func (vm *VM) Run() {
 		case opcode.AddStrChar:
 			rhs := vm.PopOffStack().(*runtime.Char)
 			lhs := vm.PopOffStack().(*runtime.String)
-			n_val := "\"" + lhs.String()[1:len(lhs.String())-1] +
+			n_val := "\"" + lhs.Content() +
 				rhs.Character() + "\""
 			val := &runtime.String{
 				Value: n_val,
@@ -455,6 +455,30 @@ func (vm *VM) Run() {
 			}
 			vm.PushOntoStack(irng)
 			ip += 1
+		case opcode.InitStruct:
+			init_count := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			strct := &runtime.InitializedStruct{
+				StructName: "",
+				Members:    map[string]runtime.RuntimeObj{},
+			}
+
+			name := vm.PopOffStack().(*runtime.String)
+			strct.StructName = name.String() // set name
+
+			for {
+				if init_count == 0 {
+					break
+				}
+
+				val := vm.PopOffStack()
+				mem := vm.PopOffStack().String()
+
+				strct.Members[mem] = val
+				init_count--
+			}
+
+			vm.PushOntoStack(strct)
+			ip += 3
 		case opcode.Halt:
 			vm.PopOffStack()
 			return
