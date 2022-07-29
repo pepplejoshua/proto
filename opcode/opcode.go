@@ -103,6 +103,7 @@ const (
 	MakeInclusiveRange
 	InitStruct
 	UpdateStructMember
+	CallBuiltinFn
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -150,6 +151,7 @@ var Definitions = map[OpCode]*InstructionDef{
 	InitStruct:         {"InitStruct", []int{2}},        // used to initialize a struct with a number of params on stack
 	AccessStructMember: {"AccessStructMember", []int{}}, // used to access member of a struct
 	UpdateStructMember: {"UpdateStructMember", []int{}}, // used to update member of a struct
+	CallBuiltinFn:      {"CallBuiltinFn", []int{2, 2}},  // used to call a builtin at an index with an argument count
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

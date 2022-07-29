@@ -3,6 +3,7 @@ package name_resolver
 import (
 	"fmt"
 	"proto/ast"
+	"proto/builtins"
 	"proto/lexer"
 	"proto/shared"
 	"strings"
@@ -169,6 +170,17 @@ func (nr *NameResolver) ContainsIdent(ident string) bool {
 
 func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 	nr.EnterScope()
+	for _, builtin := range builtins.Builtins {
+		b_token := lexer.ProtoToken{
+			Type:      lexer.IDENT,
+			Literal:   builtin.Name,
+			TokenSpan: lexer.Span{},
+		}
+		nr.DeclareName(b_token, builtin, false)
+		nr.DefineName(b_token)
+		nr.InitializeName(b_token)
+	}
+
 	for _, fn := range prog.FunctionDefs {
 		nr.DeclareName(fn.Name.Token, fn, false)
 		nr.DefineName(fn.Name.Token)

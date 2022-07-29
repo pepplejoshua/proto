@@ -1589,7 +1589,7 @@ func TestGenericForLoops(t *testing.T) {
 0009 LoadConstant 1
 0012 GetLocal 1
 0015 GreaterThanComp
-0016 JumpOnNotTrueTo 43
+0016 JumpOnNotTrueTo 42
 0019 GetLocal 0
 0022 GetLocal 1
 0025 AddI64
@@ -1622,7 +1622,7 @@ func TestGenericForLoops(t *testing.T) {
 0009 LoadConstant 1
 0012 GetLocal 1
 0015 GreaterEqualsComp
-0016 JumpOnNotTrueTo 57
+0016 JumpOnNotTrueTo 56
 0019 GetLocal 1
 0022 LoadConstant 2
 0025 ModuloI64
@@ -1689,7 +1689,7 @@ fn main() -> i64 {
 0037 GetLocal 0
 0040 GetLocal 5
 0043 GreaterThanComp
-0044 JumpOnNotTrueTo 89
+0044 JumpOnNotTrueTo 88
 0047 GetLocal 1
 0050 GetLocal 2
 0053 AddI64
@@ -2586,6 +2586,54 @@ func TestUpdatingStructMember(t *testing.T) {
 0039 MakeFn 0 3 0
 0045 GetGlobal 0
 0048 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestCompilingBuiltinFns(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = 0; println(a); }",
+			expectedConstants: []string{
+				"0",
+			},
+			expectedIns: `0000 JumpTo 21
+0003 LoadConstant 0
+0006 GetLocal 0
+0009 CallBuiltinFn 3 1
+0014 Pop
+0015 PushUnit
+0016 PopN 1
+0019 Return
+0020 Halt
+0021 MakeFn 0 3 0
+0027 GetGlobal 0
+0030 CallFn 0
+`,
+		},
+		{
+			input: `fn main() { let a = 300; let b = false; let c = sprintf("a is {#}. you cannot say this is {#}", a, b); }`,
+			expectedConstants: []string{
+				"300",
+				`"a is {#}. you cannot say this is {#}"`,
+			},
+			expectedIns: `0000 JumpTo 27
+0003 LoadConstant 0
+0006 PushBoolFalse
+0007 LoadConstant 1
+0010 GetLocal 0
+0013 GetLocal 1
+0016 CallBuiltinFn 0 3
+0021 PushUnit
+0022 PopN 3
+0025 Return
+0026 Halt
+0027 MakeFn 0 3 0
+0033 GetGlobal 0
+0036 CallFn 0
 `,
 		},
 	}

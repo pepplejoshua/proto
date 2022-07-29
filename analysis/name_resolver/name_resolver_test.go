@@ -188,3 +188,17 @@ func TestResolvingAssignments(t *testing.T) {
 		log.Fatal("Found errors during name resolution")
 	}
 }
+
+func TestResolvingBuiltinFunctions(t *testing.T) {
+	path := "../../samples/test_sources/name_resolver/builtins.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src, false)
+
+	nr := NewNameResolver()
+	nr.ResolveProgram(program)
+
+	if nr.FoundError {
+		log.Fatal("Found errors during name resolution")
+	}
+}

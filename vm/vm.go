@@ -2,6 +2,7 @@ package vm
 
 import (
 	"fmt"
+	"proto/builtins"
 	"proto/compiler"
 	"proto/opcode"
 	"proto/runtime"
@@ -493,6 +494,48 @@ func (vm *VM) Run() {
 
 			vm.PushOntoStack(strct)
 			ip += 3
+		case opcode.CallBuiltinFn:
+			builtin_index := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			arg_count := int(opcode.ReadUInt16(vm.instructions[ip+3:]))
+			builtin := builtins.Builtins[builtin_index]
+
+			args := []runtime.RuntimeObj{}
+
+			for {
+				if arg_count == 0 {
+					break
+				}
+				arg := vm.PopOffStack()
+				args = append(args, arg)
+				arg_count--
+			}
+
+			i := 0
+			j := len(args) - 1
+
+			for i < j {
+				args[i], args[j] = args[j], args[i]
+				i++
+				j--
+			}
+
+			// print(builtin.Name, "(")
+			// for index, a := range args {
+			// 	print(a.String())
+			// 	if index+1 < len(args) {
+			// 		print(", ")
+			// 	}
+			// }
+			// println(")")
+
+			if len(args) == 1 {
+				vm.PushOntoStack(builtin.Fn(args[0]))
+			} else if len(args) == 0 {
+				vm.PushOntoStack(builtin.Fn(nil))
+			} else {
+				vm.PushOntoStack(builtin.Fn(args[0], args[1:]...))
+			}
+			ip += 5
 		case opcode.Halt:
 			vm.PopOffStack()
 			return

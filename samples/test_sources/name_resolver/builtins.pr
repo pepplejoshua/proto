@@ -1,0 +1,5 @@
+let a = 300;
+
+let b: str = sprintf("some str with a number {#}.", a);
+
+printf(b);

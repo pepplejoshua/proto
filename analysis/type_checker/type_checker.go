@@ -3,6 +3,7 @@ package type_checker
 import (
 	"fmt"
 	"proto/ast"
+	"proto/builtins"
 	"proto/lexer"
 	"proto/shared"
 	"strconv"
@@ -78,7 +79,7 @@ func (tc *TypeChecker) GetTypeForNameOrFail(name lexer.ProtoToken) ast.ProtoType
 		col := name.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(name.Literal + " has not been declared.")
-		shared.ReportError("TypeChecker", msg.String())
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
 		tc.FoundError = true
 	}
 	return proto_type
@@ -212,11 +213,96 @@ func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckBuiltinFunction(call *ast.CallExpression, builtin *builtins.BuiltinFn) {
+	for _, arg := range call.Arguments {
+		tc.TypeCheck(arg)
+	}
+
+	// if lengths of call expr doesnt match with builtin
+	if builtin.HasTypeChecker {
+		tc.FoundError = builtin.TypeChecker(builtin, call)
+	}
+}
+
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
-	tc.TypeCheck(call.Callable)
+	if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
+		tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
+		builtin := builtins.GetBuiltin(name.LiteralRepr())
+		ret_type := builtin.Returns
+
+		switch ret_type {
+		case "i64":
+			call.ReturnType = &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.I64_TYPE,
+					Literal:   ret_type,
+					TokenSpan: lexer.Span{},
+				},
+			}
+		case "str":
+			call.ReturnType = &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.STRING_TYPE,
+					Literal:   ret_type,
+					TokenSpan: lexer.Span{},
+				},
+			}
+		case "char":
+			call.ReturnType = &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.CHAR_TYPE,
+					Literal:   ret_type,
+					TokenSpan: lexer.Span{},
+				},
+			}
+		case "bool":
+			call.ReturnType = &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.BOOL_TYPE,
+					Literal:   ret_type,
+					TokenSpan: lexer.Span{},
+				},
+			}
+		case "()":
+			call.ReturnType = &ast.Proto_Unit{}
+		}
+		return
+	} else {
+		tc.TypeCheck(call.Callable)
+	}
 
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Function:
+		// check the arguments
+
+		if len(call.Arguments) != len(actual.Params.InternalTypes) {
+			var msg strings.Builder
+			line := call.Start.TokenSpan.Line
+			col := call.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+				actual.TypeSignature(), len(actual.Params.InternalTypes), len(call.Arguments)))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
+
+		for index, arg := range call.Arguments {
+			tc.TypeCheck(arg)
+			param := actual.Params.InternalTypes[index]
+
+			if arg.Type().TypeSignature() != param.TypeSignature() {
+				var msg strings.Builder
+				line := call.Start.TokenSpan.Line
+				col := call.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("Expected argument %d to be typed %s but got argument of type %s.",
+					index+1, param.TypeSignature(), arg.Type().TypeSignature()))
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+		}
 		call.ReturnType = actual.Return
 	default:
 		var msg strings.Builder
@@ -224,7 +310,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 		col := call.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("%s type cannot be called.", actual.TypeSignature()))
-		shared.ReportError("TypeChecker", msg.String())
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
 		tc.FoundError = true
 		return
 	}

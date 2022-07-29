@@ -52,6 +52,7 @@ func TestMakingOpCode(t *testing.T) {
 		{InitStruct, []int{30}, []byte{byte(InitStruct), 0, 30}},
 		{AccessStructMember, []int{}, []byte{byte(AccessStructMember)}},
 		{UpdateStructMember, []int{}, []byte{byte(UpdateStructMember)}},
+		{CallBuiltinFn, []int{3, 5}, []byte{byte(CallBuiltinFn), 0, 3, 0, 5}},
 	}
 
 	for _, test := range tests {
@@ -127,6 +128,7 @@ func TestInstructionsString(t *testing.T) {
 		MakeInstruction(InitStruct, 100),
 		MakeInstruction(AccessStructMember),
 		MakeInstruction(UpdateStructMember),
+		MakeInstruction(CallBuiltinFn, 3, 4),
 		// MakeInstruction(),
 	})
 
@@ -176,6 +178,7 @@ func TestInstructionsString(t *testing.T) {
 0074 InitStruct 100
 0077 AccessStructMember
 0078 UpdateStructMember
+0079 CallBuiltinFn 3 4
 `
 
 	if ins.Disassemble() != exp {
@@ -234,6 +237,7 @@ func TestReadingOperandsOfInstruction(t *testing.T) {
 		{InitStruct, []int{250}, 2},
 		{AccessStructMember, []int{}, 0},
 		{UpdateStructMember, []int{}, 0},
+		{CallBuiltinFn, []int{5, 5}, 4},
 	}
 
 	for _, tt := range tests {

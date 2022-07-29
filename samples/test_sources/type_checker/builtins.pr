@@ -1,0 +1,24 @@
+let a = 3;
+let b: str = sprintf("some string with a number:.");
+let c: () = printf(b);
+
+println(b);
+print(b);
+
+fn test(a: i64) -> i64 {
+    a
+}
+
+fn another_test(b: bool) -> bool {
+    b
+}
+
+let d: [i64] = [1, 2, 3, 4];
+
+let a = test(d[2]);
+
+fn other_test(f: fn(i64) -> i64) -> i64 {
+    f(3)
+}
+
+a = other_test(test);

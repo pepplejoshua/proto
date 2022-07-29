@@ -55,6 +55,7 @@ const (
 
 	COMMA           = ","
 	DOT             = "."
+	VARIAD          = "..."
 	RANGE           = ".."
 	INCLUSIVE_RANGE = "..="
 	SEMI_COLON      = ";"

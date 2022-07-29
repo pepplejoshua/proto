@@ -47,7 +47,7 @@ func Start() {
 	vm.Run()
 	duration := time.Since(start)
 
-	fmt.Printf("[duration: %s]\n", duration)
+	fmt.Printf("[ran in %s]\n", duration)
 
 	if vm.FoundError {
 		println("Found errors during run of Virtual Machine.")
@@ -55,5 +55,8 @@ func Start() {
 	}
 
 	res := vm.LastPoppedElem()
-	println(res.String())
+
+	if res.String() != "()" {
+		println(res.String())
+	}
 }

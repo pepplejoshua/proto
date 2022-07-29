@@ -243,6 +243,18 @@ func (l *Lexer) Next_Token() ProtoToken {
 						End:   l.peek_pos,
 					},
 				}
+			} else if l.cur_byte == '.' {
+				l.next_char()
+				token = ProtoToken{
+					Type:    VARIAD,
+					Literal: "...",
+					TokenSpan: Span{
+						Line:  l.line,
+						Col:   l.column - 3,
+						Start: l.pos - 3,
+						End:   l.peek_pos,
+					},
+				}
 			} else {
 				token = l.make_token(RANGE, "..")
 			}

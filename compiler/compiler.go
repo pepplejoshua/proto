@@ -3,6 +3,7 @@ package compiler
 import (
 	"fmt"
 	"proto/ast"
+	"proto/builtins"
 	"proto/opcode"
 	"proto/runtime"
 	"proto/shared"
@@ -159,9 +160,16 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		loc := c.appendConstant(&runtime.I64{Value: MakeInt64(actual.LiteralRepr())})
 		c.generateBytecode(opcode.LoadConstant, loc)
 	case *ast.Char:
-		loc := c.appendConstant(&runtime.Char{
-			Value: actual.Token.Literal,
-		})
+		var loc int
+		if len(actual.LiteralRepr()) == 2 {
+			loc = c.appendConstant(&runtime.Char{
+				Value: "",
+			})
+		} else {
+			loc = c.appendConstant(&runtime.Char{
+				Value: actual.Token.Literal,
+			})
+		}
 		c.generateBytecode(opcode.LoadConstant, loc)
 	case *ast.String:
 		loc := c.appendConstant(&runtime.String{
@@ -358,11 +366,11 @@ func (c *Compiler) CompileGenericForLoop(loop *ast.GenericForLoop) {
 
 	// jump to loop start to check condition again
 	c.generateBytecode(opcode.JumpTo, LOOP_START)
+	loop_end := len(c.instructions)
 
 	// and finally exit scope
 	c.exitScope()
 
-	loop_end := len(c.instructions)
 	c.updateOperand(exit_loop, loop_end)
 	for _, _break := range BREAKS {
 		c.updateOperand(_break, loop_end)
@@ -639,8 +647,15 @@ func (c *Compiler) CompileCallExprs(call *ast.CallExpression) {
 	for _, arg := range call.Arguments {
 		c.Compile(arg)
 	}
-	c.Compile(call.Callable)
-	c.generateBytecode(opcode.CallFn, len(call.Arguments))
+
+	if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
+		arg_count := len(call.Arguments)
+		index := builtins.GetBuiltinIndex(name.LiteralRepr())
+		c.generateBytecode(opcode.CallBuiltinFn, index, arg_count)
+	} else {
+		c.Compile(call.Callable)
+		c.generateBytecode(opcode.CallFn, len(call.Arguments))
+	}
 }
 
 func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {

@@ -663,6 +663,25 @@ func TestUpdatingStructMembers(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestCallingBuiltinFns(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() { let a = 0; println(a); }",
+			expected: "()",
+		},
+		{
+			input:    "fn main() { println(); print(); }",
+			expected: "1",
+		},
+		// {
+		// 	input:    "",
+		// 	expected: "",
+		// },
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

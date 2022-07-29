@@ -95,3 +95,11 @@ func (f *Proto_Function) TypeSignature() string {
 	return "fn" + f.Params.TypeSignature() +
 		" -> " + f.Return.TypeSignature()
 }
+
+type Proto_Zero_Or_More struct {
+	Actual ProtoType
+}
+
+func (p *Proto_Zero_Or_More) TypeSignature() string {
+	return "..." + p.Actual.TypeSignature()
+}
