@@ -1,0 +1,20 @@
+struct Test {
+    a: i64
+}
+
+fn test_val_sem(a: Test) {
+    a.a = 300;
+}
+fn main() {
+    let a = 5;
+    mut b = a;
+    b += 5;
+    println(a);
+
+    // mut c = &a;
+    // c += 5;
+    // println(a);
+    mut b = Test { a };
+    test_val_sem(b);
+    println(b.a);
+}

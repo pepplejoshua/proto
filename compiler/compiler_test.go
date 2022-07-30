@@ -2615,7 +2615,7 @@ func TestCompilingBuiltinFns(t *testing.T) {
 `,
 		},
 		{
-			input: `fn main() { let a = 300; let b = false; let c = sprintf("a is {#}. you cannot say this is {#}", a, b); }`,
+			input: `fn main() { let a = 300; let b = false; let c = stringf("a is {#}. you cannot say this is {#}", a, b); }`,
 			expectedConstants: []string{
 				"300",
 				`"a is {#}. you cannot say this is {#}"`,

@@ -500,3 +500,20 @@ func TestParsingStructFunctionInits(t *testing.T) {
 		}
 	}
 }
+
+func TestParsingReferencedVariables(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/references.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source, false)
+	contents := program.Contents
+	expected := []string{
+		"",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}

@@ -230,42 +230,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 		builtin := builtins.GetBuiltin(name.LiteralRepr())
 		ret_type := builtin.Returns
 
-		switch ret_type {
-		case "i64":
-			call.ReturnType = &ast.Proto_Builtin{
-				TypeToken: lexer.ProtoToken{
-					Type:      lexer.I64_TYPE,
-					Literal:   ret_type,
-					TokenSpan: lexer.Span{},
-				},
-			}
-		case "str":
-			call.ReturnType = &ast.Proto_Builtin{
-				TypeToken: lexer.ProtoToken{
-					Type:      lexer.STRING_TYPE,
-					Literal:   ret_type,
-					TokenSpan: lexer.Span{},
-				},
-			}
-		case "char":
-			call.ReturnType = &ast.Proto_Builtin{
-				TypeToken: lexer.ProtoToken{
-					Type:      lexer.CHAR_TYPE,
-					Literal:   ret_type,
-					TokenSpan: lexer.Span{},
-				},
-			}
-		case "bool":
-			call.ReturnType = &ast.Proto_Builtin{
-				TypeToken: lexer.ProtoToken{
-					Type:      lexer.BOOL_TYPE,
-					Literal:   ret_type,
-					TokenSpan: lexer.Span{},
-				},
-			}
-		case "()":
-			call.ReturnType = &ast.Proto_Unit{}
-		}
+		call.ReturnType = ret_type
 		return
 	} else {
 		tc.TypeCheck(call.Callable)

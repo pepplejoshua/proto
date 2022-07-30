@@ -437,7 +437,7 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 
 	nr.EnterScope()
 	for _, param := range fn.ParameterList {
-		nr.DeclareName(param.Token, param, false)
+		nr.DeclareName(param.Token, param, true)
 		nr.DefineName(param.Token)
 		nr.InitializeName(param.Token)
 	}

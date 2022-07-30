@@ -3,17 +3,19 @@ package builtins
 import (
 	"fmt"
 	"proto/ast"
+	"proto/lexer"
 	"proto/runtime"
 	"proto/shared"
 	"strings"
 )
 
-func Sprintf(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeObj {
+func Stringf(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	str := args[0]
 	locations := GetFormatPositions(str.String())
-	if len(locations) != len(args) {
+	if len(locations) != len(args)-1 {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprintf("%s format expected %d arguments but is called with %d.",
-			"sprintf", len(locations), len(args)))
+			"stringf", len(locations), len(args)-1))
 		shared.ReportErrorAndExit("VM", msg.String())
 	}
 
@@ -23,13 +25,13 @@ func Sprintf(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.Runtime
 		for _, coord := range locations {
 			res += str.String()[start:coord[0]]
 
-			switch actual := args[coord[2]].(type) {
+			switch actual := args[coord[2]+1].(type) {
 			case *runtime.Char:
 				res += actual.Character()
 			case *runtime.String:
 				res += actual.Content()
 			default:
-				res += args[coord[2]].String()
+				res += args[coord[2]+1].String()
 			}
 			start = coord[1]
 		}
@@ -50,12 +52,13 @@ func Sprintf(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.Runtime
 	}
 }
 
-func Printf(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeObj {
+func Printf(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	str := args[0]
 	locations := GetFormatPositions(str.String())
-	if len(locations) != len(args) {
+	if len(locations) != len(args)-1 {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprintf("%s format expected %d arguments but is called with %d.",
-			"sprintf", len(locations), len(args)))
+			"printf", len(locations), len(args)-1))
 		shared.ReportErrorAndExit("VM", msg.String())
 	}
 
@@ -65,13 +68,13 @@ func Printf(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeO
 		for _, coord := range locations {
 			res += str.String()[start:coord[0]]
 
-			switch actual := args[coord[2]].(type) {
+			switch actual := args[coord[2]+1].(type) {
 			case *runtime.Char:
 				res += actual.Character()
 			case *runtime.String:
 				res += actual.Content()
 			default:
-				res += args[coord[2]].String()
+				res += args[coord[2]+1].String()
 			}
 			start = coord[1]
 		}
@@ -154,44 +157,47 @@ func TypeCheckFormatString(fn *BuiltinFn, call *ast.CallExpression) bool {
 	return false
 }
 
-func Print(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeObj {
-	if str == nil {
+func Print(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	if len(args) == 0 {
 		print()
 	} else {
 		var out strings.Builder
 
-		if len(args) == 0 {
-			out.WriteString(str.String())
-		} else {
-			out.WriteString(str.String() + " ")
-			for index, arg := range args {
+		for index, arg := range args {
+			switch actual := arg.(type) {
+			case *runtime.String:
+				out.WriteString(actual.Content())
+			case *runtime.Char:
+				out.WriteString(actual.Character())
+			default:
 				out.WriteString(arg.String())
-				if index+1 < len(args) {
-					out.WriteString(" ")
-				}
 			}
-
+			if index+1 < len(args) {
+				out.WriteString(" ")
+			}
 		}
 		print(out.String())
 	}
 	return &runtime.Unit{}
 }
 
-func Println(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeObj {
-	if str == nil {
-		print()
+func Println(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	if len(args) == 0 {
+		println()
 	} else {
 		var out strings.Builder
 
-		if len(args) == 0 {
-			out.WriteString(str.String())
-		} else {
-			out.WriteString(str.String() + " ")
-			for index, arg := range args {
+		for index, arg := range args {
+			switch actual := arg.(type) {
+			case *runtime.String:
+				out.WriteString(actual.Content())
+			case *runtime.Char:
+				out.WriteString(actual.Character())
+			default:
 				out.WriteString(arg.String())
-				if index+1 < len(args) {
-					out.WriteString(" ")
-				}
+			}
+			if index+1 < len(args) {
+				out.WriteString(" ")
 			}
 		}
 		println(out.String())
@@ -199,7 +205,8 @@ func Println(str runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.Runtime
 	return &runtime.Unit{}
 }
 
-func Len(arr runtime.RuntimeObj, args ...runtime.RuntimeObj) runtime.RuntimeObj {
+func Len(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	arr := args[0]
 	var length int64
 	switch actual := arr.(type) {
 	case *runtime.Array:
@@ -253,12 +260,55 @@ func TypeCheckForArrayString(fn *BuiltinFn, call *ast.CallExpression) bool {
 	return false
 }
 
-type ProtoGoFn func(runtime.RuntimeObj, ...runtime.RuntimeObj) runtime.RuntimeObj
+func Append(args ...runtime.RuntimeObj) runtime.RuntimeObj {
+	return &runtime.Unit{}
+}
+
+func TypeCheckAppend(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+
+	if len(args) != 2 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if array, ok := args[0].Type().(*ast.Proto_Array); ok {
+		item := args[1]
+		if array.InternalType.TypeSignature() != item.Type().TypeSignature() {
+			var msg strings.Builder
+			line := call.Start.TokenSpan.Line
+			col := call.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Cannot append item of type %s to an Array of %s.",
+				item.Type().TypeSignature(), array.InternalType.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			return true
+		}
+	} else {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects an Array as its first argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+	return false
+}
+
+type ProtoGoFn func(...runtime.RuntimeObj) runtime.RuntimeObj
 
 type BuiltinFn struct {
 	Fn             ProtoGoFn
 	Params         []string
-	Returns        string
+	Returns        ast.ProtoType
 	Name           string
 	HasTypeChecker bool
 	TypeChecker    func(*BuiltinFn, *ast.CallExpression) bool
@@ -266,17 +316,23 @@ type BuiltinFn struct {
 
 var Builtins = []*BuiltinFn{
 	{
-		Fn:             Sprintf,
-		Params:         []string{"str", "...AnyProtoType"},
-		Returns:        "str",
-		Name:           "sprintf",
+		Fn:     Stringf,
+		Params: []string{"str", "...AnyProtoType"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.STRING_TYPE,
+				Literal:   "str",
+				TokenSpan: lexer.Span{},
+			},
+		},
+		Name:           "stringf",
 		HasTypeChecker: true,
 		TypeChecker:    TypeCheckFormatString,
 	},
 	{
 		Fn:             Printf,
 		Params:         []string{"str", "...AnyProtoType"},
-		Returns:        "()",
+		Returns:        &ast.Proto_Unit{},
 		Name:           "printf",
 		HasTypeChecker: true,
 		TypeChecker:    TypeCheckFormatString,
@@ -284,31 +340,45 @@ var Builtins = []*BuiltinFn{
 	{
 		Fn:             Print,
 		Params:         []string{"...AnyProtoType"},
-		Returns:        "()",
+		Returns:        &ast.Proto_Unit{},
 		HasTypeChecker: false,
 		Name:           "print",
 	},
 	{
 		Fn:             Println,
 		Params:         []string{"...AnyProtoType"},
-		Returns:        "()",
+		Returns:        &ast.Proto_Unit{},
 		HasTypeChecker: false,
 		Name:           "println",
 	},
 	{
-		Fn:             Len,
-		Params:         []string{"str | Array of AnyProtoType"},
-		Returns:        "i64",
+		Fn:     Len,
+		Params: []string{"str | Array of AnyProtoType"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.I64_TYPE,
+				Literal:   "i64",
+				TokenSpan: lexer.Span{},
+			},
+		},
 		Name:           "len",
 		HasTypeChecker: true,
 		TypeChecker:    TypeCheckForArrayString,
+	},
+	{
+		Fn:             Append,
+		Params:         []string{"Array of ProtoType T", "ProtoType T"},
+		Returns:        &ast.Proto_Unit{},
+		Name:           "append",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckAppend,
 	},
 }
 
 func (bf *BuiltinFn) LiteralRepr() string {
 	return "fn " + bf.Name + "(" +
 		strings.Join(bf.Params, ", ") +
-		") -> " + bf.Returns
+		") -> " + bf.Returns.TypeSignature()
 }
 
 func IsBuiltin(name string) bool {

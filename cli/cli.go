@@ -13,6 +13,7 @@ import (
 )
 
 var file = flag.String("file", "", "Path to Proto File to be compiled")
+var show_time = flag.Bool("time", false, "Show the runtime of the code found in file.")
 
 func Start() {
 	flag.Parse()
@@ -28,7 +29,7 @@ func Start() {
 
 	tc := type_checker.NewTypeChecker()
 	tc.TypeCheckProgram(parsed_prog)
-	if nr.FoundError {
+	if tc.FoundError {
 		println("Found errors during Type Checking.")
 		return
 	}
@@ -45,9 +46,12 @@ func Start() {
 	vm := vm.NewVM(bytecode)
 	start := time.Now()
 	vm.Run()
-	duration := time.Since(start)
 
-	fmt.Printf("[ran in %s]\n", duration)
+	var duration time.Duration
+	if *show_time {
+		duration = time.Since(start)
+		fmt.Printf("[ran in %s]\n", duration)
+	}
 
 	if vm.FoundError {
 		println("Found errors during run of Virtual Machine.")

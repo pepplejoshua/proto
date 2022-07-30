@@ -114,10 +114,13 @@ func (c *Compiler) exitScope() {
 			for {
 				c.generateBytecode(opcode.Pop)
 				num_of_locals--
+				c.symbolTable.numOfStoredSymbols--
+
 				if num_of_locals == 0 {
 					break
 				}
 			}
+			c.symbolTable.store = c.symbolTable.store[0:c.symbolTable.numOfStoredSymbols]
 		}
 		c.symbolTable.CurScopeDepth--
 	} else if c.symbolTable.CurScopeDepth == 1 {

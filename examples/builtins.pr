@@ -8,16 +8,27 @@ fn sum(arr: [i64]) -> i64 {
     sum
 }
 
-fn main() -> str {
-    let a = [0, 1, 2, 3, 4, 5];
-    let fmt = "{#}"; mut out = "Array of (";
+fn main() -> [i64] {
+    let a = [0, 1, 2, 3, 4, 5, 6];
+    let fmt = "{#}"; 
+    mut out = "Array of (";
     for mut i = 0; i < len(a); i += 1 {
         let item = a[i];
-        out += sprintf(fmt, item);
+        out += stringf(fmt, item);
         if i + 1 < len(a) {
             out += ", ";
+        } else {
+            out += ")";
         }
     }
-    out += ")";
-    sprintf("The sum of {#} is {#}{#}", out, sum(a), '.')
+    
+    mut b = [1, 2];
+
+    for mut i = 0; i < len(b); i += 1 {
+        println(b[i]);
+    }
+
+    // append(b, 5);
+    // println(stringf("The sum of {#} is {#}{#}", out, sum(a), '.'));
+    a
 }

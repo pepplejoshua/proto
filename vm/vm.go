@@ -92,6 +92,15 @@ func (vm *VM) Run() {
 	// println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
+
+		// println("at instruction:", ip)
+		// for index, val := range vm.stack {
+		// 	if index >= vm.stack_index {
+		// 		break
+		// 	}
+		// 	println(index+1, val.String())
+		// }
+		// println()
 		switch op {
 		case opcode.LoadConstant:
 			cons_index := opcode.ReadUInt16(vm.instructions[ip+1:])
@@ -531,9 +540,9 @@ func (vm *VM) Run() {
 			if len(args) == 1 {
 				vm.PushOntoStack(builtin.Fn(args[0]))
 			} else if len(args) == 0 {
-				vm.PushOntoStack(builtin.Fn(nil))
+				vm.PushOntoStack(builtin.Fn())
 			} else {
-				vm.PushOntoStack(builtin.Fn(args[0], args[1:]...))
+				vm.PushOntoStack(builtin.Fn(args...))
 			}
 			ip += 5
 		case opcode.Halt:

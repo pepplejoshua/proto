@@ -23,6 +23,19 @@ func (i *Identifier) Type() ProtoType {
 	return i.Id_Type
 }
 
+type Reference struct {
+	Token      lexer.ProtoToken
+	Referenced Expression
+}
+
+func (r *Reference) LiteralRepr() string {
+	return "&" + r.Referenced.LiteralRepr()
+}
+
+func (r *Reference) Type() ProtoType {
+	return r.Referenced.Type()
+}
+
 type BinaryOp struct {
 	Left     Expression
 	Right    Expression

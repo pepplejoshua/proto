@@ -1,0 +1,3 @@
+fn map(arr: [i64], func: fn(i64) -> i64) -> [i64] {
+    
+}
