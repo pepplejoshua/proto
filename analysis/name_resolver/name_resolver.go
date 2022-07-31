@@ -79,8 +79,8 @@ func (nr *NameResolver) DefineName(name lexer.ProtoToken) {
 		line := name.TokenSpan.Line
 		col := name.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString("Undeclared variable.")
-		shared.ReportError("NameResolver", msg.String())
+		msg.WriteString("Undeclared variable '" + name.Literal + "'.")
+		shared.ReportErrorAndExit("NameResolver", msg.String())
 		nr.FoundError = true
 	}
 }
@@ -102,8 +102,8 @@ func (nr *NameResolver) InitializeName(name lexer.ProtoToken) {
 	line := name.TokenSpan.Line
 	col := name.TokenSpan.Col
 	msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-	msg.WriteString("Undeclared variable.")
-	shared.ReportError("NameResolver", msg.String())
+	msg.WriteString("Undeclared variable '" + name.Literal + "'.")
+	shared.ReportErrorAndExit("NameResolver", msg.String())
 	nr.FoundError = true
 }
 
@@ -152,8 +152,8 @@ func (nr *NameResolver) GetMutabilityAtName(name lexer.ProtoToken) bool {
 	line := name.TokenSpan.Line
 	col := name.TokenSpan.Col
 	msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-	msg.WriteString("Undeclared variable.")
-	shared.ReportError("NameResolver", msg.String())
+	msg.WriteString("Undeclared variable '" + name.Literal + "'.")
+	shared.ReportErrorAndExit("NameResolver", msg.String())
 	nr.FoundError = true
 	return false
 }
@@ -502,17 +502,22 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 
 	switch actual := assignment.Target.(type) {
 	case *ast.Identifier:
-		if !nr.GetMutabilityAtName(actual.Token) && nr.GetInitializedAtName(actual.Token) {
-			var msg strings.Builder
-			line := actual.Token.TokenSpan.Line
-			col := actual.Token.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
-			shared.ReportError("NameResolver", msg.String())
-			nr.FoundError = true
-		}
-		if !nr.GetInitializedAtName(actual.Token) {
-			nr.InitializeName(actual.Token)
+		if actual.Token.Literal == "_" && assignment.AssignmentToken.Literal == "=" {
+			// do nothing
+			return
+		} else {
+			if !nr.GetMutabilityAtName(actual.Token) && nr.GetInitializedAtName(actual.Token) {
+				var msg strings.Builder
+				line := actual.Token.TokenSpan.Line
+				col := actual.Token.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
+				shared.ReportError("NameResolver", msg.String())
+				nr.FoundError = true
+			}
+			if !nr.GetInitializedAtName(actual.Token) {
+				nr.InitializeName(actual.Token)
+			}
 		}
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual)
@@ -553,14 +558,24 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
 }
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
-	if var_def.Assigned != nil {
-		nr.Resolve(var_def.Assigned)
-		nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
-		nr.DefineName(var_def.Assignee.Token)
-		nr.InitializeName(var_def.Assignee.Token)
+	if var_def.Assignee.Token.Literal != "_" {
+		if var_def.Assigned != nil {
+			nr.Resolve(var_def.Assigned)
+			nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
+			nr.DefineName(var_def.Assignee.Token)
+			nr.InitializeName(var_def.Assignee.Token)
+		} else {
+			nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
+			nr.DefineName(var_def.Assignee.Token)
+		}
 	} else {
-		nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
-		nr.DefineName(var_def.Assignee.Token)
+		var msg strings.Builder
+		line := var_def.Assignee.Token.TokenSpan.Line
+		col := var_def.Assignee.Token.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Declaring a variable with name '_' is not allowed.")
+		shared.ReportErrorAndExit("NameResolver", msg.String())
+		nr.FoundError = true
 	}
 }
 
@@ -571,7 +586,7 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		col := ident.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Undefined variable '" + ident.LiteralRepr() + "'")
-		shared.ReportError("NameResolver", msg.String())
+		shared.ReportErrorAndExit("NameResolver", msg.String())
 		nr.FoundError = true
 	} else if !nr.GetInitializedAtName(ident.Token) {
 		var msg strings.Builder
@@ -579,7 +594,7 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		col := ident.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Use of uninitialized variable '" + ident.LiteralRepr() + "'")
-		shared.ReportError("NameResolver", msg.String())
+		shared.ReportErrorAndExit("NameResolver", msg.String())
 		nr.FoundError = true
 	}
 }

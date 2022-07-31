@@ -202,3 +202,17 @@ func TestResolvingBuiltinFunctions(t *testing.T) {
 		log.Fatal("Found errors during name resolution")
 	}
 }
+
+func TestResolvingDiscardVariable(t *testing.T) {
+	path := "../../samples/test_sources/name_resolver/discard_var.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src, false)
+
+	nr := NewNameResolver()
+	nr.ResolveProgram(program)
+
+	if nr.FoundError {
+		log.Fatal("Found errors during name resolution")
+	}
+}

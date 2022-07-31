@@ -671,12 +671,27 @@ func TestCallingBuiltinFns(t *testing.T) {
 		},
 		{
 			input:    "fn main() { println(); print(); }",
-			expected: "1",
+			expected: "()",
 		},
-		// {
-		// 	input:    "",
-		// 	expected: "",
-		// },
+		{
+			input:    `fn main() -> str { stringf("{#} + {#} = {#}", 2, 3, 2 + 3) }`,
+			expected: `"2 + 3 = 5"`,
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
+func TestDiscardVariable(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { let a = 3; _ = a + 2; a * 2 }",
+			expected: "6",
+		},
+		{
+			input:    "struct Test { a: i64 } fn main() -> Test { let a = 3; let b = Test { a }; _ = b.a; b }",
+			expected: "Test { a: 3 }",
+		},
 	}
 
 	runVmTest(t, tests)

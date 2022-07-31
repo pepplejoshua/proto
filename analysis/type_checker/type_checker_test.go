@@ -202,3 +202,17 @@ func TestTypeCheckingBuiltins(t *testing.T) {
 		log.Fatal("Found errors during type checking")
 	}
 }
+
+func TestTypeCheckingDiscardVariable(t *testing.T) {
+	path := "../../samples/test_sources/type_checker/discard_var.pr"
+	src := shared.ReadFile(path)
+
+	program := parser.Parse(src, false)
+
+	tc := NewTypeChecker()
+	tc.TypeCheckProgram(program)
+
+	if tc.FoundError {
+		log.Fatal("Found errors during type checking")
+	}
+}

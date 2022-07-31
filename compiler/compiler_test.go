@@ -2641,6 +2641,34 @@ func TestCompilingBuiltinFns(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestCompilingDiscardVariable(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = 3; _ = a + 2; }",
+			expectedConstants: []string{
+				"3",
+				"2",
+			},
+			expectedIns: `0000 JumpTo 20
+0003 LoadConstant 0
+0006 GetLocal 0
+0009 LoadConstant 1
+0012 AddI64
+0013 Pop
+0014 PushUnit
+0015 PopN 1
+0018 Return
+0019 Halt
+0020 MakeFn 0 3 0
+0026 GetGlobal 0
+0029 CallFn 0
+`,
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 

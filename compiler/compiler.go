@@ -438,15 +438,21 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 			c.generateBytecode(opcode.UpdateIndex)
 		case *ast.Identifier:
 			c.Compile(assigned)
-			sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
-			if !ok {
-				shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
-					target.LiteralRepr()))
-			}
-			if sym.ScopeDepth == 0 {
-				c.generateBytecode(opcode.SetGlobal, sym.Index)
+
+			if lhs.Token.Literal == "_" {
+				// this discards the value of assigned
+				c.generateBytecode(opcode.Pop)
 			} else {
-				c.generateBytecode(opcode.SetLocal, sym.Index)
+				sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
+				if !ok {
+					shared.ReportErrorAndExit("Compiler", fmt.Sprintf("Undefined name %s",
+						target.LiteralRepr()))
+				}
+				if sym.ScopeDepth == 0 {
+					c.generateBytecode(opcode.SetGlobal, sym.Index)
+				} else {
+					c.generateBytecode(opcode.SetLocal, sym.Index)
+				}
 			}
 		}
 	case "+=":
