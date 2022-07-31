@@ -254,7 +254,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			col := actual.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a return statement is not allowed outside of a Function.")
-			shared.ReportError("NameResolver", msg.String())
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 		}
 		if actual.Value != nil {
@@ -278,7 +278,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			col := actual.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a break statement is not allowed outside of a Loop.")
-			shared.ReportError("NameResolver", msg.String())
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 		}
 	case *ast.Continue:
@@ -289,7 +289,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			col := actual.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a continue statement is not allowed outside of a Loop.")
-			shared.ReportError("NameResolver", msg.String())
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 		}
 	case *ast.Membership:
@@ -298,7 +298,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		*ast.Unit:
 		// do nothing
 	default:
-		shared.ReportError("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
+		shared.ReportErrorAndExit("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 	}
 }
 
@@ -313,6 +313,47 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 	actual := nr.GetValueAtName(init.StructName.Token)
 	switch val := actual.(type) {
 	case *ast.Struct:
+		found_duplicate := false
+	outer:
+		for id := range init.Fields {
+			for check_id := range init.Fields {
+				if id != check_id && id.LiteralRepr() == check_id.LiteralRepr() {
+					found_duplicate = true
+					break outer
+				}
+			}
+		}
+
+		if found_duplicate {
+			var msg strings.Builder
+			line := init.Start.TokenSpan.Line
+			col := init.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d struct %s expected { ", line, col, val.Name.Token.Literal))
+			for index, mem := range val.Members {
+				msg.WriteString(mem.Token.Literal)
+				msg.WriteString(": " + mem.Type().TypeSignature())
+
+				if index+1 < len(val.Members) {
+					msg.WriteString(", ")
+				}
+			}
+			msg.WriteString(" } as members but got { ")
+
+			length := len(init.Fields)
+			index := 0
+			for id, val := range init.Fields {
+				msg.WriteString(id.Token.Literal)
+				msg.WriteString(": " + val.LiteralRepr())
+				if index+1 < length {
+					msg.WriteString(", ")
+				}
+				index++
+			}
+			msg.WriteString(" }, which contains duplicates.")
+			shared.ReportErrorAndExit("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+
 		if len(val.Members) != len(init.Fields) {
 			var msg strings.Builder
 			line := init.Start.TokenSpan.Line
@@ -320,12 +361,12 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 			msg.WriteString(fmt.Sprintf("%d:%d Expected %d ", line, col, len(val.Members)))
 			msg.WriteString(fmt.Sprintf("members but got %d.", len(init.Fields)))
 			if len(val.Members) > 1 {
-				msg.WriteString("\n" + init.StructName.LiteralRepr() + " members include: \n")
+				msg.WriteString("\n struct " + init.StructName.LiteralRepr() + " members include: \n")
 				for index, mem := range val.Members {
 					msg.WriteString(fmt.Sprintf("%d. %s: %s\n", index+1, mem.LiteralRepr(), mem.Id_Type.TypeSignature()))
 				}
 			}
-			shared.ReportError("NameResolver", msg.String())
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 		}
 
@@ -345,7 +386,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 				col := field.Token.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(field.LiteralRepr() + " is not a Struct member.")
-				shared.ReportError("NameResolver", msg.String())
+				shared.ReportErrorAndExit("NameResolver", msg.String())
 				nr.FoundError = true
 				break
 			}
@@ -357,7 +398,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 		col := init.StructName.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(init.StructName.LiteralRepr() + " is not a Struct.")
-		shared.ReportError("NameResolver", msg.String())
+		shared.ReportErrorAndExit("NameResolver", msg.String())
 		nr.FoundError = true
 	}
 }
@@ -464,7 +505,7 @@ func (nr *NameResolver) ResolveArray(array *ast.Array) {
 			col := array.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
-			shared.ReportError("TypeChecker", msg.String())
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			nr.FoundError = true
 			return
 		}
@@ -488,7 +529,7 @@ func (nr *NameResolver) ResolveArrayType(t ast.ProtoType, span lexer.Span) {
 			col := span.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
-			shared.ReportError("TypeChecker", msg.String())
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			nr.FoundError = true
 			return
 		}
@@ -512,7 +553,7 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 				col := actual.Token.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
-				shared.ReportError("NameResolver", msg.String())
+				shared.ReportErrorAndExit("NameResolver", msg.String())
 				nr.FoundError = true
 			}
 			if !nr.GetInitializedAtName(actual.Token) {
@@ -535,7 +576,7 @@ func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership
 			col := actual_obj.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("'" + actual_obj.LiteralRepr() + "' is not mutable.")
-			shared.ReportError("NameResolver", msg.String())
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 		}
 	case *ast.Membership:
