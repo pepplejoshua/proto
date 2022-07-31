@@ -114,6 +114,21 @@ mut stuff; // this will cause a compile time error
 
 _Note_: In the future, we can infer the type of a variable without annotation or initialization based on the first value they are assigned.
 
+It is allowed to redefine a variable within the same scope (having the same type or a different type):
+
+```rs
+let a = 300; // typed i64
+let b = a;
+let a: bool = a > 299 && a < 301; // typed bool
+
+if a {
+    let fmt = "{#} is less than 301 and greater than 299, so it is 300.";
+    println(stringf(fmt, 'b'));
+}
+```
+
+In the example, `a` starts out as `300`, which is typed `i64`. It is later redefined as a `bool` value.
+
 In every scope, there is a variable named `'_'` which allows you to discard values you don't have need for:
 
 ```rs
@@ -495,6 +510,36 @@ let function: fn(str, bool) -> bool = other_fn; // the annotation is not require
 ```
 
 In the above example, the type annotation can be very cumbersome to type and since it will be inferred during analysis, there is no need to type annotate the `function` variable.
+
+Proto also allows anonymous function literals, which can also be closures. Unlike regular function definitions, they are expressions. So they can be written inline:
+
+```rs
+fn multiply_by_2(num -> i64) -> i64 {
+    num * 2
+}
+
+fn main() {
+    let equal: bool = multiply_by_2(3) == fn (n -> i64) -> i64 {
+        n * 2
+    }(3); // equal is true
+}
+```
+
+Since they are expressions, they can used like expressions (passed to functions, assigned to variables, et.c).
+
+They can also close over the enclosing environment:
+
+```rs
+fn multiply(x: i64) -> fn(i64) -> i64 {
+    return fn(by: i64) -> i64 {
+        x * by
+    }
+}
+
+fn main() {
+    let six: i64 = multiply(2)(3);
+}
+```
 
 ## Structs
 
