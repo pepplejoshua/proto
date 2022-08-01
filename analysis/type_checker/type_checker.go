@@ -1097,8 +1097,12 @@ func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {
 }
 
 func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
-	tc.TypeCheck(var_def.Assigned)
+	if var_def.Assigned == nil {
+		tc.SetTypeForName(var_def.Assignee.Token, var_def.VarType)
+		return
+	}
 
+	tc.TypeCheck(var_def.Assigned)
 	if strings.Contains(var_def.VarType.TypeSignature(), "untyped") &&
 		!strings.Contains(var_def.Assigned.Type().TypeSignature(), "untyped") {
 		// not already inferred
