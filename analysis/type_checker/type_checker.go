@@ -1047,6 +1047,10 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 	}
 
 	for index, node := range block.Contents {
+		prev := tc.CurBlockType
+		if _, ok := node.(*ast.Block); ok {
+			tc.CurBlockType = NONE
+		}
 		tc.TypeCheck(node)
 
 		if index+1 == len(block.Contents) {
@@ -1087,6 +1091,7 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 				block_type = &ast.Proto_Unit{}
 			}
 		}
+		tc.CurBlockType = prev
 	}
 	block.BlockType = block_type
 	if new_env {

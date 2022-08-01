@@ -1,0 +1,86 @@
+fn main() -> str {
+    // for i in [1, 2, 3, 4] {
+    //     println(i);
+    // }
+
+    mut name: str = "";
+    for i in "joshua" {
+        name += i;
+        println(i);
+    }
+
+    // for mut i = 0; i < len("joshua"); i += 1 {
+    //     name += "joshua"[i];
+    // }
+
+    name
+
+    // let some = "3456";
+    // let arr = ["12", "34", "56"];
+    // for a in "1234" {
+    //     println(a);
+    //     mut string = a + a;
+    //     string += "testing";
+    // }
+
+    // for a in some {
+    //     println(a);
+    //     mut string = a + a;
+    //     string += "testing";
+    // }
+
+    // for a in arr[0] {
+    //     println(a);
+    //     mut string = a + a;
+    //     string += "testing";
+    // }
+
+    // for a in stringf("abc{#}", 'd') {
+    //     println(a);
+    //     mut string = a + a;
+    //     string += "testing";
+    // }
+
+    // for b in [1, 2, 3, 4] {
+    //     println(b);
+    // }
+
+    // for c in arr {
+    //     println(c);
+    // }
+
+    // for i in 1..2 {
+    //     println(i);
+    // }
+
+    // for i in 0..=10 {
+    //     println(i);
+    // }
+
+    // let s = 1;
+    // for i in s..=11 {
+    //     println(i);
+    // }
+
+    // let a = 0..5;
+    // for num in a {
+    //     println(num)
+    // }
+
+    // let a = 'a'..'e';
+    // mut string = "";
+    // for ch in a {
+    //     string += ch;
+    // }
+
+    // let a = 0..=5;
+    // for num in a {
+    //     println(num)
+    // }
+
+    // let a = 'a'..='e';
+    // mut string = "";
+    // for ch in a {
+    //     string += ch;
+    // }
+}
