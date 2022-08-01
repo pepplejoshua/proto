@@ -697,6 +697,17 @@ func TestDiscardVariable(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestUninitializedVariable(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { let a: i64; mut b = 3; a = 5; a }",
+			expected: "5",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

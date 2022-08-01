@@ -241,6 +241,7 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.InclusiveRange:
 		c.CompileInclusiveRange(actual)
 	default:
+		shared.ReportErrorAndExit("Compiler", "Unexpected node.")
 	}
 }
 
@@ -618,7 +619,12 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 }
 
 func (c *Compiler) CompileVariableDecl(actual *ast.VariableDecl) {
-	c.Compile(actual.Assigned)
+	if actual.Assigned == nil {
+		c.generateBytecode(opcode.PushUnit)
+	} else {
+		c.Compile(actual.Assigned)
+	}
+
 	sym, exists := c.symbolTable.Define(actual.Assignee.Token.Literal)
 	if c.symbolTable.CurScopeDepth > 0 {
 		if exists && sym.ScopeDepth == c.symbolTable.CurScopeDepth {

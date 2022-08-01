@@ -2669,6 +2669,21 @@ func TestCompilingDiscardVariable(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestCompilingUninitializedVariable(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a: i64; let b = 3; a = 4; }",
+			expectedConstants: []string{
+				"3",
+				"4",
+			},
+			expectedIns: "",
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 

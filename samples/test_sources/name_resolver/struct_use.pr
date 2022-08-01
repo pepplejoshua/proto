@@ -4,30 +4,30 @@ struct Result {
 }
 
 let a = 5;
-// let c = false;
+let c = false;
 
-// let b = Result {
-//     a,
-//     b: c
-// };
+let b = Result {
+    a,
+    b: c
+};
 
-// let b = 5;
+let b = 5;
 
-// let d = {
-//     struct Inner {}
-//     Inner {}
-// };
+let d = {
+    struct Inner {}
+    Inner {}
+};
 
-// let e = {
-//     fn return_i64() -> i64 {
-//         return 1;
-//     }
-//     return_i64()
-// };
+let e = {
+    fn return_i64() -> i64 {
+        return 1;
+    }
+    return_i64()
+};
 
-// let f = Result {
-//     a: 1,
-//     b: false
-// };
+let f = Result {
+    a: 1,
+    b: false
+};
 
-let g = Result { a, a: 300 };
+let g = Result { a, b: true };
