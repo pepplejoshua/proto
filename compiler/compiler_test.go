@@ -2,6 +2,7 @@ package compiler
 
 import (
 	"proto/analysis/name_resolver"
+	syntaxrewriter "proto/analysis/syntax_rewriter"
 	"proto/analysis/type_checker"
 	"proto/opcode"
 	"proto/parser"
@@ -2700,6 +2701,9 @@ func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 		if tc.FoundError {
 			t.Fatal("Found errors during type checking")
 		}
+
+		sr := &syntaxrewriter.CollectionsForLoopRewriter{}
+		sr.RewriteProgram(prog)
 
 		compiler := NewCompiler()
 		compiler.CompileProgram(prog)

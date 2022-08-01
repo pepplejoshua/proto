@@ -72,7 +72,8 @@ func (u *Proto_UserDef) TypeSignature() string {
 }
 
 type Proto_Range struct {
-	InternalType ProtoType
+	InternalType     ProtoType
+	IsInclusiveRange bool
 }
 
 func (r *Proto_Range) TypeSignature() string {

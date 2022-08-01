@@ -1,0 +1,14 @@
+fn main() {
+    // for i in "joshua" {
+    //     println(i);
+    // }
+
+    let g_rune = char_to_int('G');
+    let g_char: char = int_to_char(g_rune);
+    // println(g_char);
+
+    let a = 'a'..='z';
+    for c in a {
+        println(c);
+    }
+}

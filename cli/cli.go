@@ -4,6 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"proto/analysis/name_resolver"
+	syntaxrewriter "proto/analysis/syntax_rewriter"
 	"proto/analysis/type_checker"
 	"proto/compiler"
 	"proto/parser"
@@ -28,6 +29,21 @@ func Start() {
 	}
 
 	tc := type_checker.NewTypeChecker()
+	tc.TypeCheckProgram(parsed_prog)
+	if tc.FoundError {
+		println("Found errors during Type Checking.")
+		return
+	}
+
+	sr := &syntaxrewriter.CollectionsForLoopRewriter{}
+	sr.RewriteProgram(parsed_prog)
+
+	nr.ResolveProgram(parsed_prog)
+	if nr.FoundError {
+		println("Found errors during Name Resolution.")
+		return
+	}
+
 	tc.TypeCheckProgram(parsed_prog)
 	if tc.FoundError {
 		println("Found errors during Type Checking.")

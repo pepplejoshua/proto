@@ -228,9 +228,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
 		tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
 		builtin := builtins.GetBuiltin(name.LiteralRepr())
-		ret_type := builtin.Returns
-
-		call.ReturnType = ret_type
+		call.ReturnType = builtin.Returns
 		return
 	} else {
 		tc.TypeCheck(call.Callable)
@@ -569,6 +567,37 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 		shared.ReportErrorAndExit("TypeChecker", msg.String())
 		tc.FoundError = true
 		return
+	case *ast.Proto_Builtin:
+		if actual.TypeSignature() == "str" {
+			tc.TypeCheck(index.Index)
+			if index.Index.Type().TypeSignature() != "i64" {
+				// can only index with i64
+				var msg strings.Builder
+				line := index.Start.TokenSpan.Line
+				col := index.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Arrays take index of type i64, got " + index.Indexable.Type().TypeSignature() + " instead.")
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+			index.ValueType = &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.CHAR_TYPE,
+					Literal:   "char",
+					TokenSpan: lexer.Span{},
+				},
+			}
+		} else {
+			var msg strings.Builder
+			line := index.Start.TokenSpan.Line
+			col := index.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Indexing is not allowed for the %s type.", actual.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
 	default:
 		var msg strings.Builder
 		line := index.Start.TokenSpan.Line
@@ -623,7 +652,21 @@ func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
 		return
 	}
 
+	if ir.Start.Type().TypeSignature() == "char" && ir.Start.LiteralRepr() == "''" {
+		var msg strings.Builder
+		line := ir.Operator.TokenSpan.Line
+		col := ir.Operator.TokenSpan.Col
+		start := ir.Start.LiteralRepr()
+		past_end := ir.End.LiteralRepr()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Expected non-empty character, but got " + start + ".." + past_end + ".")
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
 	ir.RangeType.InternalType = ir.Start.Type()
+	ir.RangeType.IsInclusiveRange = true
 }
 
 func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
@@ -668,7 +711,21 @@ func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
 		return
 	}
 
+	if r.Start.Type().TypeSignature() == "char" && r.Start.LiteralRepr() == "''" {
+		var msg strings.Builder
+		line := r.Operator.TokenSpan.Line
+		col := r.Operator.TokenSpan.Col
+		start := r.Start.LiteralRepr()
+		past_end := r.PastEnd.LiteralRepr()
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Expected non-empty character, but got " + start + ".." + past_end + ".")
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+		return
+	}
+
 	r.RangeType.InternalType = r.Start.Type()
+	r.RangeType.IsInclusiveRange = false
 }
 
 func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) {
@@ -683,6 +740,25 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		tc.TypeCheckBlock(col_for.Body, false)
 		tc.CurBlockType = prev
 		tc.ExitTypeEnv()
+	case *ast.Proto_Builtin:
+		if actual.TypeSignature() == "str" {
+			tc.EnterTypeEnv()
+			tc.SetTypeForName(col_for.LoopVar.Token, actual)
+			prev := tc.CurBlockType
+			tc.CurBlockType = LOOP
+			tc.TypeCheckBlock(col_for.Body, false)
+			tc.CurBlockType = prev
+			tc.ExitTypeEnv()
+		} else {
+			var msg strings.Builder
+			line := col_for.Start.TokenSpan.Line
+			col := col_for.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Collections looping through a '%s' is not allowed.", actual.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+			return
+		}
 	case *ast.Proto_Range:
 		tc.EnterTypeEnv()
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)

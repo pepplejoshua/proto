@@ -700,8 +700,8 @@ func TestDiscardVariable(t *testing.T) {
 func TestUninitializedVariable(t *testing.T) {
 	tests := []vmTestCase{
 		{
-			input:    "fn main() -> i64 { let a: i64; mut b = 3; a = 5; a }",
-			expected: "5",
+			input:    "fn main() -> i64 { let a: i64; mut b = 3; a = 5; a + b }",
+			expected: "8",
 		},
 	}
 

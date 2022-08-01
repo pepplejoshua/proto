@@ -334,21 +334,42 @@ func (vm *VM) Run() {
 			ip += 3
 		case opcode.AccessIndex:
 			index_t := vm.PopOffStack().(*runtime.I64)
-			indexable := vm.PopOffStack().(*runtime.Array)
 
-			if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Items) {
-				if len(indexable.Items) == 0 {
-					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
-						index_t.Value, len(indexable.Items)))
-				} else if len(indexable.Items) == 1 {
-					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
-						index_t.Value, len(indexable.Items)))
-				} else {
-					shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
-						index_t.Value, len(indexable.Items), len(indexable.Items)-1))
+			indexable := vm.PopOffStack()
+			switch indexable := indexable.(type) {
+			case *runtime.Array:
+				if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Items) {
+					if len(indexable.Items) == 0 {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
+							index_t.Value, len(indexable.Items)))
+					} else if len(indexable.Items) == 1 {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
+							index_t.Value, len(indexable.Items)))
+					} else {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
+							index_t.Value, len(indexable.Items), len(indexable.Items)-1))
+					}
 				}
+				vm.PushOntoStack(indexable.Items[index_t.Value])
+			case *runtime.String:
+				if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Content()) {
+					if len(indexable.Content()) == 0 {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
+							index_t.Value, len(indexable.Content())))
+					} else if len(indexable.Content()) == 1 {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable only by 0).",
+							index_t.Value, len(indexable.Content())))
+					} else {
+						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (indexable from 0 to %d)",
+							index_t.Value, len(indexable.Content()), len(indexable.Content())-1))
+					}
+				}
+				character := string(indexable.Content()[index_t.Value])
+				vm.PushOntoStack(&runtime.Char{
+					Value: character,
+				})
 			}
-			vm.PushOntoStack(indexable.Items[index_t.Value])
+
 			ip += 1
 		case opcode.PopN:
 			N := int(opcode.ReadUInt16(vm.instructions[ip+1:]))

@@ -303,6 +303,131 @@ func TypeCheckAppend(fn *BuiltinFn, call *ast.CallExpression) bool {
 	return false
 }
 
+func Char_To_Int(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
+	char := vals[0].(*runtime.Char)
+
+	if len(char.Character()) == 0 {
+		// empty string
+		var msg strings.Builder
+		msg.WriteString("char_to_int expects a non-empty char as its only argument but got ' '.")
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+	}
+	num := &runtime.I64{
+		Value: int64(char.Character()[0]),
+	}
+	return num
+}
+
+func TypeCheckCharToInt(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+	if len(args) != 1 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if char, ok := args[0].Type().(*ast.Proto_Builtin); !ok || char.TypeSignature() != "char" {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects a char as its only argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+	return false
+}
+
+func Int_To_Char(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
+	i64 := vals[0].(*runtime.I64)
+
+	char := &runtime.Char{
+		Value: string(rune(i64.Value)),
+	}
+	return char
+}
+
+func TypeCheckIntToChar(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+	if len(args) != 1 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if i64, ok := args[0].Type().(*ast.Proto_Builtin); !ok || i64.TypeSignature() != "i64" {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects an i64 as its only argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+	return false
+}
+
+func Range_Start(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
+	var start runtime.RuntimeObj
+	if val, ok := vals[0].(*runtime.Range); ok {
+		start = val.Start
+	} else if val, ok := vals[0].(*runtime.InclusiveRange); ok {
+		start = val.Start
+	}
+	return start
+}
+
+func Range_End(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
+	var start runtime.RuntimeObj
+	if val, ok := vals[0].(*runtime.Range); ok {
+		start = val.PastEnd
+	} else if val, ok := vals[0].(*runtime.InclusiveRange); ok {
+		start = val.End
+	}
+	return start
+}
+
+func TypeCheckRange(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+
+	if len(args) != 1 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if reg, ok := args[0].Type().(*ast.Proto_Range); !ok {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects an Range<i64> or Range<char> as its only argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	} else {
+		fn.Returns = reg.InternalType
+	}
+	return false
+}
+
 type ProtoGoFn func(...runtime.RuntimeObj) runtime.RuntimeObj
 
 type BuiltinFn struct {
@@ -366,12 +491,60 @@ var Builtins = []*BuiltinFn{
 		TypeChecker:    TypeCheckForArrayString,
 	},
 	{
-		Fn:             Append,
-		Params:         []string{"Array of ProtoType T", "ProtoType T"},
-		Returns:        &ast.Proto_Unit{},
-		Name:           "append",
+		Fn:     Char_To_Int,
+		Params: []string{"char"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.I64_TYPE,
+				Literal:   "i64",
+				TokenSpan: lexer.Span{},
+			},
+		},
+		Name:           "char_to_int",
 		HasTypeChecker: true,
-		TypeChecker:    TypeCheckAppend,
+		TypeChecker:    TypeCheckCharToInt,
+	},
+	{
+		Fn:     Int_To_Char,
+		Params: []string{"int"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.CHAR_TYPE,
+				Literal:   "char",
+				TokenSpan: lexer.Span{},
+			},
+		},
+		Name:           "int_to_char",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckIntToChar,
+	},
+	{
+		Fn:     Range_Start,
+		Params: []string{"Range<i64|char>"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.CHAR_TYPE,
+				Literal:   "char",
+				TokenSpan: lexer.Span{},
+			},
+		},
+		Name:           "range_start",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckRange,
+	},
+	{
+		Fn:     Range_End,
+		Params: []string{"Range<i64|char>"},
+		Returns: &ast.Proto_Builtin{
+			TypeToken: lexer.ProtoToken{
+				Type:      lexer.CHAR_TYPE,
+				Literal:   "char",
+				TokenSpan: lexer.Span{},
+			},
+		},
+		Name:           "range_end",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckRange,
 	},
 }
 
