@@ -107,6 +107,8 @@ func (c *Compiler) exitScope() {
 		// we're not in a loop and we have locals to get rid of
 		if num_of_locals > 0 && LOOP_START == -1 {
 			c.generateBytecode(opcode.PopN, num_of_locals)
+			c.symbolTable.numOfStoredSymbols -= num_of_locals
+			c.symbolTable.store = c.symbolTable.store[0:c.symbolTable.numOfStoredSymbols]
 		} else if LOOP_START != 1 && num_of_locals > 0 {
 			// we are in a loop and have locals to get rid of
 			// we use pop instead because we don't have a return value to return

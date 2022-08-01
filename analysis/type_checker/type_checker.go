@@ -1048,8 +1048,13 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 
 	for index, node := range block.Contents {
 		prev := tc.CurBlockType
-		if _, ok := node.(*ast.Block); ok {
+		switch actual := node.(type) {
+		case *ast.Block:
 			tc.CurBlockType = NONE
+		case *ast.PromotedExpr:
+			if _, ok := actual.Expr.(*ast.Block); ok {
+				tc.CurBlockType = NONE
+			}
 		}
 		tc.TypeCheck(node)
 

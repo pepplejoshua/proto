@@ -64,13 +64,14 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				for mut idx = 0; idx < len(_loop_collection_var_); idx += 1 {
 					let %s = _loop_collection_var_[idx];
 				}
-			}
+			};
 			`, arr.LiteralRepr(), loop.LoopVar.LiteralRepr())
 
-			blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+			prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+			blk := prom_expr.Expr.(*ast.Block)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-			res = blk
+			res = prom_expr
 		} else {
 			src := fmt.Sprintf(`
 			for mut idx = 0; idx < len(%s); idx += 1 {
@@ -89,13 +90,14 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				for mut idx = 0; idx < len(_loop_collection_var_); idx += 1 {
 					let %s = _loop_collection_var_[idx];
 				}
-			}
+			};
 			`, str.LiteralRepr(), loop.LoopVar.LiteralRepr())
 
-			blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+			prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+			blk := prom_expr.Expr.(*ast.Block)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-			res = blk
+			res = prom_expr
 		} else {
 			src := fmt.Sprintf(`
 			for mut idx = 0; idx < len(%s); idx += 1 {
@@ -126,12 +128,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					for mut idx = start; idx < end; idx += 1 {
 						let %s = int_to_char(idx);
 					}
-				}
+				};
 				`, rng.Start.LiteralRepr(), rng.PastEnd.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+				prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+				blk := prom_expr.Expr.(*ast.Block)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-				res = blk
+				res = prom_expr
 			}
 		} else if irng, ok := collection.(*ast.InclusiveRange); ok {
 			switch actual.InternalType.TypeSignature() {
@@ -139,7 +142,7 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				src := fmt.Sprintf(`
 				for mut idx = %s; idx <= %s; idx += 1 {
 					let %s = idx;
-				}
+				};
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
 				generic_loop := parser.Parse(src, false).Contents[0].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
@@ -152,12 +155,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					for mut idx = start; idx <= end; idx += 1 {
 						let %s = int_to_char(idx);
 					}
-				}
+				};
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+				prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+				blk := prom_expr.Expr.(*ast.Block)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-				res = blk
+				res = prom_expr
 			}
 		} else {
 			// a range stored in some sort of expression, so need to use built-ins to access start and end fields
@@ -171,12 +175,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx < r_end; idx += 1 {
 						let %s = idx;
 						}
-					}
+					};
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+					prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+					blk := prom_expr.Expr.(*ast.Block)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = blk
+					res = prom_expr
 				case "char":
 					src := fmt.Sprintf(`
 					{
@@ -185,12 +190,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx < r_end; idx += 1 {
 							let %s = int_to_char(idx);
 						}
-					}
+					};
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+					prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+					blk := prom_expr.Expr.(*ast.Block)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = blk
+					res = prom_expr
 				}
 			} else {
 				switch actual.InternalType.TypeSignature() {
@@ -202,12 +208,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx <= r_end; idx += 1 {
 						let %s = idx;
 						}
-					}
+					};
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+					prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+					blk := prom_expr.Expr.(*ast.Block)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = blk
+					res = prom_expr
 				case "char":
 					src := fmt.Sprintf(`
 					{
@@ -216,12 +223,13 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx <= r_end; idx += 1 {
 							let %s = int_to_char(idx);
 						}
-					}
+					};
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					blk := parser.Parse(src, false).Contents[0].(*ast.Block)
+					prom_expr := parser.Parse(src, false).Contents[0].(*ast.PromotedExpr)
+					blk := prom_expr.Expr.(*ast.Block)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = blk
+					res = prom_expr
 				}
 			}
 

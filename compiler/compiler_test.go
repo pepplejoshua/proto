@@ -2637,6 +2637,33 @@ func TestCompilingBuiltinFns(t *testing.T) {
 0036 CallFn 0
 `,
 		},
+		{
+			input: `
+fn main() {
+    mut name: str = "";
+    for i in "joshua" {
+        name += i;
+        println(i);
+    }
+    
+    // mut sum = 0;
+    // let range = 1..=20;
+    // for n in range {
+    //     sum += n;
+    // }
+
+    // stringf("The sum of {#} is {#}.", range, sum)
+}
+
+			`,
+			expectedConstants: []string{
+				`""`,
+				`"joshua"`,
+				"0",
+				"1",
+			},
+			expectedIns: "",
+		},
 	}
 
 	runCompilerTest(t, tests)
@@ -2704,6 +2731,16 @@ func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 
 		sr := &syntaxrewriter.CollectionsForLoopRewriter{}
 		sr.RewriteProgram(prog)
+
+		nr.ResolveProgram(prog)
+		if nr.FoundError {
+			t.Fatal("Found errors during name resolution")
+		}
+
+		tc.TypeCheckProgram(prog)
+		if tc.FoundError {
+			t.Fatal("Found errors during type checking")
+		}
 
 		compiler := NewCompiler()
 		compiler.CompileProgram(prog)

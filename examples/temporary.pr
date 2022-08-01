@@ -4,5 +4,23 @@ fn main() -> str {
         name += i;
         println(i);
     }
-    name
+    
+    
+    mut sum = 0;
+    let range = 1..=20;
+    for n in range {
+        sum += n;
+    }
+
+    // {
+    //     let start = range_start(range);
+    //     let end = range_end(range);
+
+    //     for mut idx = start; idx <= end; idx += 1 {
+    //         let n = idx;
+    //         sum += n;
+    //     }
+    // };
+
+    stringf("The sum of {#} is {#}.", range, sum)
 }

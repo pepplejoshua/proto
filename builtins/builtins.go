@@ -31,6 +31,7 @@ func Stringf(args ...runtime.RuntimeObj) runtime.RuntimeObj {
 			case *runtime.String:
 				res += actual.Content()
 			default:
+				// println(args[coord[2]+1].String())
 				res += args[coord[2]+1].String()
 			}
 			start = coord[1]

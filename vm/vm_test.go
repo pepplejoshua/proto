@@ -2,6 +2,7 @@ package vm
 
 import (
 	"proto/analysis/name_resolver"
+	syntaxrewriter "proto/analysis/syntax_rewriter"
 	"proto/analysis/type_checker"
 	"proto/compiler"
 	"proto/parser"
@@ -677,6 +678,25 @@ func TestCallingBuiltinFns(t *testing.T) {
 			input:    `fn main() -> str { stringf("{#} + {#} = {#}", 2, 3, 2 + 3) }`,
 			expected: `"2 + 3 = 5"`,
 		},
+		{
+			input: `
+fn main() -> str {
+	mut name: str = "";
+	for i in "joshua" {
+		name += i;
+		println(i);
+	}
+	
+	mut sum = 0;
+    let range = 1..=20;
+    for n in range {
+        sum += n;
+    }
+
+    stringf("The sum of {#} is {#}.", range, sum)
+}`,
+			expected: `"The sum of 1..=20 is 210."`,
+		},
 	}
 
 	runVmTest(t, tests)
@@ -716,6 +736,19 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 		prog := parser.Parse(tt.input, true)
 		nr := name_resolver.NewNameResolver()
 		tc := type_checker.NewTypeChecker()
+		nr.ResolveProgram(prog)
+		if nr.FoundError {
+			t.Fatal("Found errors during name resolution")
+		}
+
+		tc.TypeCheckProgram(prog)
+		if tc.FoundError {
+			t.Fatal("Found errors during type checking")
+		}
+
+		sr := &syntaxrewriter.CollectionsForLoopRewriter{}
+		sr.RewriteProgram(prog)
+
 		nr.ResolveProgram(prog)
 		if nr.FoundError {
 			t.Fatal("Found errors during name resolution")
