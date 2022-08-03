@@ -12,15 +12,13 @@ fn main() -> str {
         sum += n;
     }
 
-    // {
-    //     let start = range_start(range);
-    //     let end = range_end(range);
-
-    //     for mut idx = start; idx <= end; idx += 1 {
-    //         let n = idx;
-    //         sum += n;
-    //     }
-    // };
-
+    let a = Test { a: 3 };
+    mut b = a;
+    b.a += 3;
+    println(a.a);
     stringf("The sum of {#} is {#}.", range, sum)
+}
+
+struct Test {
+    a: i64
 }

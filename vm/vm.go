@@ -33,6 +33,10 @@ func (cf *CompiledFunction) String() string {
 	return fmt.Sprintf("fn at Instruction #%d", cf.LocIP)
 }
 
+func (cf *CompiledFunction) Copy() runtime.RuntimeObj {
+	return cf
+}
+
 type CallFrame struct {
 	called_fn   *CompiledFunction
 	stack_index int
@@ -297,7 +301,7 @@ func (vm *VM) Run() {
 			ip += 3
 		case opcode.GetGlobal:
 			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-			val := vm.globals[globalIndex]
+			val := vm.globals[globalIndex].Copy()
 			vm.PushOntoStack(val)
 			ip += 3
 		case opcode.MakeArray:
@@ -380,9 +384,9 @@ func (vm *VM) Run() {
 		case opcode.GetLocal:
 			offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
 			if vm.frame_index == 0 {
-				vm.PushOntoStack(vm.stack[offset])
+				vm.PushOntoStack(vm.stack[offset].Copy())
 			} else {
-				vm.PushOntoStack(vm.stack[vm.frames[vm.frame_index-1].stack_index+offset])
+				vm.PushOntoStack(vm.stack[vm.frames[vm.frame_index-1].stack_index+offset].Copy())
 			}
 			ip += 3
 		case opcode.SetLocal:
@@ -404,7 +408,6 @@ func (vm *VM) Run() {
 			if vm.frame_index == 0 { // in global scope
 				vm.globals[storage_loc] = fn
 			} else { // in local scope
-				// why does this just work???
 				vm.PushOntoStack(fn)
 			}
 			ip += 6
