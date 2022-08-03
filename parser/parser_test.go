@@ -511,6 +511,7 @@ func TestParsingReferencedVariables(t *testing.T) {
 		"(let a: untyped (+ 3 3))",
 		"(mut ref_a: untyped &a)",
 		"(let ref_expr: &[i64] &[1, 2, 4, 5])",
+		"(let ref_ref: &i64 &a)",
 	}
 
 	for index, node := range contents {

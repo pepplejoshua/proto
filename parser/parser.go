@@ -658,6 +658,26 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 			TypeToken: p.cur,
 		}
 		p.consume(p.cur.Type)
+	case lexer.REF:
+		p.consume(p.cur.Type)
+		line := p.cur.TokenSpan.Line
+		col := p.cur.TokenSpan.Col
+		internal := p.parse_type(try)
+		if internal == nil {
+			return internal
+		}
+		switch internal.(type) {
+		case *ast.Proto_Reference:
+			// disallow a reference of a reference
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(line) + ":" + fmt.Sprint(col))
+			msg.WriteString(" References of references are not allowed.")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		default:
+			proto_type = &ast.Proto_Reference{
+				Inner: internal,
+			}
+		}
 	case lexer.OPEN_BRACKET: // we are dealing with an array
 		p.consume(p.cur.Type)
 		internal := p.parse_type(try)

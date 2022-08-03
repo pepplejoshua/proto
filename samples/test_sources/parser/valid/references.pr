@@ -2,3 +2,4 @@ let a = 3 + 3;
 mut ref_a = &a;
 
 let ref_expr = &[1, 2, 4, 5];
+let ref_ref: &i64 = &a;
