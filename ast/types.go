@@ -97,10 +97,10 @@ func (f *Proto_Function) TypeSignature() string {
 		" -> " + f.Return.TypeSignature()
 }
 
-type Proto_Zero_Or_More struct {
-	Actual ProtoType
+type Proto_Reference struct {
+	Inner ProtoType
 }
 
-func (p *Proto_Zero_Or_More) TypeSignature() string {
-	return "..." + p.Actual.TypeSignature()
+func (r *Proto_Reference) TypeSignature() string {
+	return "&" + r.Inner.TypeSignature()
 }

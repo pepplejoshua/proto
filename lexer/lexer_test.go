@@ -119,6 +119,7 @@ func TestLexingSingleOperators(t *testing.T) {
 		{QUESTION_MARK, "?"},
 		{NOT, "not"},
 		{PIPE, "|"},
+		{REF, "&"},
 	}
 
 	for _, checkable := range expected {

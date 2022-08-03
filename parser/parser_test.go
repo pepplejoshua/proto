@@ -508,7 +508,9 @@ func TestParsingReferencedVariables(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"",
+		"(let a: untyped (+ 3 3))",
+		"(mut ref_a: untyped &a)",
+		"(let ref_expr: &[i64] &[1, 2, 4, 5])",
 	}
 
 	for index, node := range contents {

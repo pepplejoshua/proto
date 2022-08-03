@@ -212,8 +212,8 @@ func (l *Lexer) Next_Token() ProtoToken {
 			token = l.make_token(AND, "&&")
 		} else { // erroneous
 			l.next_char() // skip past |
-			// token = l.make_singlechar_token(REF, cur_char)
-			token = l.make_singlechar_token(ERROR, cur_char)
+			token = l.make_singlechar_token(REF, cur_char)
+			// token = l.make_singlechar_token(ERROR, cur_char)
 		}
 	case '|':
 		if l.peek_char() == '|' {

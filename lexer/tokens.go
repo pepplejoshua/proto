@@ -26,7 +26,7 @@ const (
 	STRING = "STRING"
 	CHAR   = "CHAR"
 
-	// REF          = "&"
+	REF          = "&"
 	ASSIGN       = "="
 	PLUS         = "+"
 	PLUS_EQUAL   = "+="

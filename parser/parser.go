@@ -449,6 +449,31 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
+	case lexer.REF:
+		operator := p.cur
+		p.consume(operator.Type)
+		line := p.cur.TokenSpan.Line
+		col := p.cur.TokenSpan.Col
+		operand := p.parse_call_expression(false, false)
+
+		// check that the reference is to something valid
+		switch operand.(type) {
+		case *ast.CallExpression, *ast.IndexExpression, *ast.Membership, *ast.Identifier,
+			*ast.Tuple, *ast.Array:
+		default:
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(line) + ":" + fmt.Sprint(col))
+			msg.WriteString(" Expected a referencable value but found ")
+			msg.WriteString(operand.LiteralRepr() + ".")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		}
+		val = &ast.Reference{
+			Start: operator,
+			RefType: &ast.Proto_Reference{
+				Inner: operand.Type(),
+			},
+			Value: operand,
+		}
 	default:
 		val = p.parse_call_expression(skip_struct_expr, skip_else)
 	}

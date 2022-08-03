@@ -390,3 +390,17 @@ func (s *StructInitialization) LiteralRepr() string {
 func (s *StructInitialization) Type() ProtoType {
 	return s.StructType
 }
+
+type Reference struct {
+	Start   lexer.ProtoToken
+	RefType *Proto_Reference
+	Value   Expression
+}
+
+func (r *Reference) LiteralRepr() string {
+	return "&" + r.Value.LiteralRepr()
+}
+
+func (r *Reference) Type() ProtoType {
+	return r.RefType
+}
