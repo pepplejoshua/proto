@@ -1,0 +1,3 @@
+let a = 300;
+let b = &a;
+let c = *b + a;

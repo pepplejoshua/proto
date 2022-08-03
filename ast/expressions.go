@@ -404,3 +404,16 @@ func (r *Reference) LiteralRepr() string {
 func (r *Reference) Type() ProtoType {
 	return r.RefType
 }
+
+type Dereference struct {
+	Start lexer.ProtoToken
+	Value Expression
+}
+
+func (d *Dereference) LiteralRepr() string {
+	return "*" + d.Value.LiteralRepr()
+}
+
+func (d *Dereference) Type() ProtoType {
+	return d.Value.Type()
+}

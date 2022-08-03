@@ -501,7 +501,7 @@ func TestParsingStructFunctionInits(t *testing.T) {
 	}
 }
 
-func TestParsingReferencedVariables(t *testing.T) {
+func TestParsingReferences(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/references.pr"
 	source := shared.ReadFile(path)
 
@@ -512,6 +512,25 @@ func TestParsingReferencedVariables(t *testing.T) {
 		"(mut ref_a: untyped &a)",
 		"(let ref_expr: &[i64] &[1, 2, 4, 5])",
 		"(let ref_ref: &i64 &a)",
+	}
+
+	for index, node := range contents {
+		if expected[index] != node.LiteralRepr() {
+			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
+		}
+	}
+}
+
+func TestParsingDereferences(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/derefs.pr"
+	source := shared.ReadFile(path)
+
+	program := Parse(source, false)
+	contents := program.Contents
+	expected := []string{
+		"(let a: i64 300)",
+		"(let b: untyped &a)",
+		"(let c: untyped (+ *b a))",
 	}
 
 	for index, node := range contents {

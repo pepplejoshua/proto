@@ -474,6 +474,14 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 			},
 			Value: operand,
 		}
+	case lexer.STAR:
+		operator := p.cur
+		p.consume(operator.Type)
+		operand := p.parse_call_expression(false, false)
+		val = &ast.Dereference{
+			Start: operator,
+			Value: operand,
+		}
 	default:
 		val = p.parse_call_expression(skip_struct_expr, skip_else)
 	}
