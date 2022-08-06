@@ -243,8 +243,8 @@ func TypeCheckForArrayString(fn *BuiltinFn, call *ast.CallExpression) bool {
 			line := call.Start.TokenSpan.Line
 			col := call.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("%s expects an Array or a string.",
-				fn.Name))
+			msg.WriteString(fmt.Sprintf("%s expects an Array or a string, but was called with %s.",
+				fn.Name, actual.TypeSignature()))
 			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			return true
 		}
@@ -253,8 +253,8 @@ func TypeCheckForArrayString(fn *BuiltinFn, call *ast.CallExpression) bool {
 		line := call.Start.TokenSpan.Line
 		col := call.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString(fmt.Sprintf("%s expects an Array or a string.",
-			fn.Name))
+		msg.WriteString(fmt.Sprintf("%s expects an Array or a string, but was called with %s.",
+			fn.Name, actual.TypeSignature()))
 		shared.ReportErrorAndExit("TypeChecker", msg.String())
 		return true
 	}

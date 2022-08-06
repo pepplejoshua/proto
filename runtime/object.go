@@ -9,6 +9,7 @@ type RuntimeObj interface {
 	String() string
 	Copy() RuntimeObj
 	GetOriginal() RuntimeObj
+	Type() string
 }
 
 type I64 struct {
@@ -25,6 +26,10 @@ func (i *I64) Copy() RuntimeObj {
 		Value:    i.Value,
 		Original: i,
 	}
+}
+
+func (i *I64) Type() string {
+	return "i64"
 }
 
 func (i *I64) GetOriginal() RuntimeObj {
@@ -51,6 +56,10 @@ func (b *Bool) Copy() RuntimeObj {
 	}
 }
 
+func (b *Bool) Type() string {
+	return "bool"
+}
+
 func (b *Bool) GetOriginal() RuntimeObj {
 	return b.Original
 }
@@ -71,6 +80,10 @@ func (c *Char) Copy() RuntimeObj {
 	}
 }
 
+func (c *Char) Type() string {
+	return "char"
+}
+
 func (c *Char) GetOriginal() RuntimeObj {
 	return c.Original
 }
@@ -89,6 +102,10 @@ func (u *Unit) Copy() RuntimeObj {
 	return u
 }
 
+func (u *Unit) Type() string {
+	return "()"
+}
+
 func (u *Unit) GetOriginal() RuntimeObj {
 	return u
 }
@@ -101,6 +118,10 @@ type String struct {
 // GetOriginal implements RuntimeObj
 func (s *String) GetOriginal() RuntimeObj {
 	return s.Original
+}
+
+func (s *String) Type() string {
+	return "str"
 }
 
 func (s *String) String() string {
@@ -129,6 +150,13 @@ func (a *Array) GetOriginal() RuntimeObj {
 		return a
 	}
 	return a.Original
+}
+
+func (a *Array) Type() string {
+	if len(a.Items) == 0 {
+		return "[]"
+	}
+	return "[" + a.Items[0].Type() + "]"
 }
 
 func (a *Array) String() string {
@@ -172,6 +200,21 @@ func (t *Tuple) GetOriginal() RuntimeObj {
 	return t.Original
 }
 
+func (t *Tuple) Type() string {
+	str := "("
+
+	for index, item := range t.Items {
+		str += item.Type()
+		if index+1 < len(t.Items) {
+			str += ", "
+		} else {
+			str += ")"
+		}
+	}
+
+	return str
+}
+
 func (t *Tuple) String() string {
 	var msg strings.Builder
 	msg.WriteString("(")
@@ -207,6 +250,10 @@ func (r *Range) GetOriginal() RuntimeObj {
 	return r
 }
 
+func (r *Range) Type() string {
+	return r.Start.Type() + ".." + r.PastEnd.Type()
+}
+
 func (r *Range) String() string {
 	return r.Start.String() + ".." + r.PastEnd.String()
 }
@@ -223,6 +270,10 @@ type InclusiveRange struct {
 // GetOriginal implements RuntimeObj
 func (ir *InclusiveRange) GetOriginal() RuntimeObj {
 	return ir
+}
+
+func (ir *InclusiveRange) Type() string {
+	return ir.Start.Type() + "..=" + ir.End.Type()
 }
 
 func (ir *InclusiveRange) String() string {
@@ -281,6 +332,10 @@ func (is *InitializedStruct) Copy() RuntimeObj {
 	return n_is
 }
 
+func (is *InitializedStruct) Type() string {
+	return is.StructName
+}
+
 type Ref struct {
 	Value RuntimeObj
 }
@@ -295,4 +350,8 @@ func (r *Ref) Copy() RuntimeObj {
 
 func (r *Ref) GetOriginal() RuntimeObj {
 	return r
+}
+
+func (r *Ref) Type() string {
+	return "&" + r.Value.Type()
 }

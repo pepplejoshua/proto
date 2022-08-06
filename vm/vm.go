@@ -44,6 +44,10 @@ func (cf *CompiledFunction) Copy() runtime.RuntimeObj {
 	return cf
 }
 
+func (cf *CompiledFunction) Type() string {
+	return cf.String()
+}
+
 type CallFrame struct {
 	called_fn   *CompiledFunction
 	stack_index int
@@ -111,7 +115,7 @@ func (vm *VM) ExtractValue(potential_ref runtime.RuntimeObj) runtime.RuntimeObj 
 }
 
 func (vm *VM) UpdateRefValue(ref *runtime.Ref, assigned runtime.RuntimeObj) {
-	println(ref.String())
+	// println(ref.String())
 	switch val := ref.Value.(type) {
 	case *runtime.I64:
 		val.Value = assigned.(*runtime.I64).Value
@@ -152,10 +156,10 @@ func (vm *VM) Show_stack(start int) {
 }
 
 func (vm *VM) Run() {
-	println(vm.instructions.Disassemble())
+	// println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
-		start := ip
+		// start := ip
 
 		switch op {
 		case opcode.LoadConstant:
@@ -363,8 +367,11 @@ func (vm *VM) Run() {
 			} else {
 				// println("setting global", globalIndex, "to", assigned, assigned.String())
 				if loc != nil {
-					vm.UpdateRegularValue(loc, assigned)
-					vm.globals[globalIndex] = loc
+					if loc.Type() == assigned.Type() {
+						vm.UpdateRegularValue(loc, assigned)
+					} else {
+						vm.globals[globalIndex] = assigned
+					}
 				} else {
 					vm.globals[globalIndex] = assigned
 				}
@@ -486,8 +493,11 @@ func (vm *VM) Run() {
 						vm.UpdateRefValue(ref, assigned)
 					}
 				} else {
-					vm.UpdateRegularValue(loc, assigned)
-					// vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = assigned
+					if loc.Type() == assigned.Type() {
+						vm.UpdateRegularValue(loc, assigned)
+					} else {
+						vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = assigned
+					}
 				}
 			}
 			ip += 3
@@ -724,6 +734,6 @@ func (vm *VM) Run() {
 						def.Name, ip))
 			}
 		}
-		vm.Show_stack(start)
+		// vm.Show_stack(start)
 	}
 }

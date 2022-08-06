@@ -1,43 +1,53 @@
-// struct Test {
-//     num: i64,
-//     is_ref: bool,
-// }
+struct Test {
+    num: i64,
+    is_ref: bool,
+}
 
-// fn using_ref_to_modify(test: &Test) {
-//     test.num += 1;
-//     test.is_ref = true;
-// }
+fn using_ref_to_modify(test: &Test) {
+    test.num += 1;
+    test.is_ref = true;
+}
 
-// fn using_value_to_modify(test: Test) {
-//     test.num += 3;
-//     test.is_ref = false;
-// }
+fn using_value_to_modify(test: Test) {
+    test.num += 3;
+    test.is_ref = false;
+}
 
 fn main() {
-    // mut a = Test {
-    //     num: 1,
-    //     is_ref: false,
-    // };
-    // mut b = Test {
-    //     num: 2,
-    //     is_ref: false,
-    // };
+    mut a = Test {
+        num: 1,
+        is_ref: false,
+    };
+    mut b = Test {
+        num: 2,
+        is_ref: false,
+    };
 
-    // mut ref_b: &Test = &b;
-    // let msg_1 = stringf("b was originally {#}.", b);
-    // using_ref_to_modify(ref_b);
-    // let msg_2 = stringf("after using_ref_to_modify(&b), b is now {#}.", b);
+    mut ref_b: &Test = &b;
+    let msg_1 = stringf("b was originally {#}.", b);
+    using_ref_to_modify(ref_b);
+    let msg_2 = stringf("after using_ref_to_modify(&b), b is now {#}.", b);
 
-    // println(msg_1, msg_2);
+    println(msg_1, msg_2);
 
-    // let msg_1 = stringf("a was originally {#}.", a);
-    // using_value_to_modify(a);
-    // let msg_2 = stringf("after using_value_to_modify(a), a is still {#}.", a);
-    // println(msg_1, msg_2);
+    let msg_1 = stringf("a was originally {#}.", a);
+    using_value_to_modify(a);
+    let msg_2 = stringf("after using_value_to_modify(a), a is still {#}.", a);
+    println(msg_1, msg_2);
+    
     let a = 3;
     let b = 4;
     mut arr: [&i64] = [&a, &b];
     arr[0] += 97;
     arr[1] += 96;
     println(arr);
+
+    mut a = [1, 2, 3, 4];
+    mut arr = &a;
+
+    for mut i = 0; i < len(*arr); i += 1 {
+        (*arr)[i] += 1;
+    }
+
+    println(a);
 }
