@@ -11,6 +11,19 @@ type Lexer struct {
 	cur_byte byte
 }
 
+func NewFromLineCol(src string, line int, col int) *Lexer {
+	l := &Lexer{
+		source:   src,
+		pos:      0,
+		peek_pos: 0,
+		line:     line,
+		column:   col,
+		cur_byte: 0,
+	}
+	l.next_char()
+	return l
+}
+
 func New(src string) *Lexer {
 	l := &Lexer{
 		source:   src,

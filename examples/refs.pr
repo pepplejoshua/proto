@@ -1,25 +1,17 @@
-struct Test {
-    num: i64,
-    is_ref: bool,
+fn add_2_to_ref(num: &i64) {
+    num += 2;
 }
 
-fn using_ref_to_modify(test: &Test) {
-    test.num = 1;
-    test.is_ref = true;
+fn add_2(num: i64) {
+    num += 2;
 }
 
-fn using_by_value_to_modify(test: Test) {
-    test.num = 3;
-    test.is_ref = false;
-}
-
-fn main() -> Ref<Test> {
-    let a = Test { num: 300; is_ref: false };
-    let b = Test { num: 10; is_ref: false };
-    let ref_b: &Test = &b;
-
-    using_ref_to_modify(ref_b); // b should be Test { num: 1, is_ref: true }
-    using_by_value_to_modify(a); // a should be unchanged
-    using_by_value_to_modify(ref_b); // b should be unchanged, and ref_b should automatically dereference to b
-    ref_b
+fn main() {
+    mut a = 0;
+    mut b = &a;
+    add_2(a);
+    println(stringf("after add_2(a), a is still {#}", a));
+    add_2_to_ref(b);
+    println(stringf("after add_2_to_ref(b), a is now {#}", a));
+    println(stringf("b is also the same as a which is {#}", *b));
 }

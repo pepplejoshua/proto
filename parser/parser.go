@@ -16,6 +16,31 @@ type Parser struct {
 	tokens []lexer.ProtoToken
 }
 
+func NewWithLexer(l *lexer.Lexer) *Parser {
+	p := &Parser{
+		lex:    l,
+		index:  0,
+		tokens: []lexer.ProtoToken{},
+	}
+
+	token := l.Next_Token()
+	for token.Type != lexer.END {
+		if token.Type == lexer.ERROR {
+			// lexer error
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprintf("%d:%d ", token.TokenSpan.Line, token.TokenSpan.Col))
+			msg.WriteString(token.Literal)
+			shared.ReportErrorAndExit("Lexer", msg.String())
+		}
+		p.tokens = append(p.tokens, token)
+		token = l.Next_Token()
+	}
+	p.tokens = append(p.tokens, token)
+	p.nextToken() // initialize p.peek
+	p.nextToken() // initialize p.cur and update p.peek
+	return p
+}
+
 func New(src string) *Parser {
 	l := lexer.New(src)
 	p := &Parser{
@@ -479,8 +504,9 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 		p.consume(operator.Type)
 		operand := p.parse_call_expression(false, false)
 		val = &ast.Dereference{
-			Start: operator,
-			Value: operand,
+			Start:     operator,
+			Value:     operand,
+			DerefType: &ast.Proto_Untyped{},
 		}
 	default:
 		val = p.parse_call_expression(skip_struct_expr, skip_else)
@@ -1082,10 +1108,10 @@ func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
 
 func Parse(src string, provide_main bool) *ast.ProtoProgram {
 	parser := New(src)
-	return top_level(parser, provide_main)
+	return Top_Level(parser, provide_main)
 }
 
-func top_level(p *Parser, provide_main bool) *ast.ProtoProgram {
+func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	code := &ast.ProtoProgram{
 		Main:         &ast.FunctionDef{},
 		Contents:     []ast.ProtoNode{},

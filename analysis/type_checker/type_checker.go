@@ -130,6 +130,10 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	switch actual := node.(type) {
 	case *ast.VariableDecl:
 		tc.TypeCheckVariableDecl(actual)
+	case *ast.Reference:
+		tc.TypeCheckRef(actual)
+	case *ast.Dereference:
+		tc.TypeCheckDeref(actual)
 	case *ast.Struct:
 		tc.TypeCheckStruct(actual)
 	case *ast.StructInitialization:
@@ -181,6 +185,38 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		shared.ReportErrorAndExit("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 		tc.FoundError = true
 	}
+}
+
+func (tc *TypeChecker) TypeCheckDeref(deref *ast.Dereference) {
+	tc.TypeCheck(deref.Value)
+
+	if ref, ok := deref.Value.Type().(*ast.Proto_Reference); !ok {
+		var msg strings.Builder
+		line := deref.Start.TokenSpan.Line
+		col := deref.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Attempted to dereference a non-reference of type %s.", deref.Value.Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+	} else {
+		deref.DerefType = ref.Inner
+	}
+
+}
+
+func (tc *TypeChecker) TypeCheckRef(ref *ast.Reference) {
+	tc.TypeCheck(ref.Value)
+
+	if _, ok := ref.Value.Type().(*ast.Proto_Reference); ok {
+		var msg strings.Builder
+		line := ref.Start.TokenSpan.Line
+		col := ref.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("A reference to a reference is not allowed.")
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+	ref.RefType.Inner = ref.Value.Type()
 }
 
 func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
@@ -375,7 +411,50 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			tc.FoundError = true
 		}
-
+	case *ast.Proto_Reference:
+		switch actual := actual.Inner.(type) {
+		case *ast.Proto_UserDef:
+			switch ref := member.(type) {
+			case *ast.Identifier:
+				found := false
+				fetched := tc.GetTypeForNameOrFail(actual.Name.Token).(*ast.Proto_UserDef)
+				for _, actual_mem := range fetched.Definition.Members {
+					if ref.LiteralRepr() == actual_mem.LiteralRepr() {
+						mem.MembershipType = actual_mem.Type()
+						found = true
+						return
+					}
+				}
+				if !found {
+					var msg strings.Builder
+					line := mem.Start.TokenSpan.Line
+					col := mem.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+					msg.WriteString(fmt.Sprintf("%s is not a member of %s Struct.",
+						ref.LiteralRepr(), actual.Name.LiteralRepr()))
+					shared.ReportErrorAndExit("TypeChecker", msg.String())
+					tc.FoundError = true
+				}
+			default:
+				var msg strings.Builder
+				line := mem.Start.TokenSpan.Line
+				col := mem.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("Expected an identifier to access member of Struct but got %s, which is of type %s.",
+					mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+			}
+		default:
+			var msg strings.Builder
+			line := mem.Start.TokenSpan.Line
+			col := mem.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Expected a reference to a Struct type as target for membership operation but got %s, which is of type %s.",
+				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
 	default:
 		var msg strings.Builder
 		line := mem.Start.TokenSpan.Line
@@ -389,12 +468,13 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 }
 
 func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
-	// actual := tc.GetTypeForNameOrFail(i.StructName.Token)
-	actual := i.Type()
+	actual := tc.GetTypeForNameOrFail(i.StructName.Token)
+	// actual := i.Type()
 
 	switch sdef := actual.(type) {
 	case *ast.Proto_UserDef:
 		def := sdef.Definition
+
 		for _, mem := range def.Members {
 			for id, expr := range i.Fields {
 				if id.LiteralRepr() == mem.LiteralRepr() {
@@ -414,7 +494,6 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 				}
 			}
 		}
-		i.StructType.Definition = sdef.Definition
 	}
 }
 
@@ -423,6 +502,28 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 		Name:       &s.Name,
 		Definition: s,
 	})
+
+	for _, mem := range s.Members {
+		switch actual := mem.Id_Type.(type) {
+		case *ast.Proto_UserDef:
+			mem.Id_Type = tc.GetTypeForNameOrFail(actual.Name.Token)
+		case *ast.Proto_Reference:
+			switch inner := actual.Inner.(type) {
+			case *ast.Proto_UserDef:
+				actual.Inner = tc.GetTypeForNameOrFail(inner.Name.Token)
+			}
+		case *ast.Proto_Tuple:
+			for index, _type := range actual.InternalTypes {
+				if user_def, ok := _type.(*ast.Proto_UserDef); ok {
+					actual.InternalTypes[index] = tc.GetTypeForNameOrFail(user_def.Name.Token)
+				}
+			}
+		case *ast.Proto_Array:
+			if user_def, ok := actual.InternalType.(*ast.Proto_UserDef); ok {
+				actual.InternalType = tc.GetTypeForNameOrFail(user_def.Name.Token)
+			}
+		}
+	}
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
@@ -443,6 +544,22 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 
 	switch assign.AssignmentToken.Literal {
 	case lexer.ASSIGN:
+		switch actual := target.Type().(type) {
+		case *ast.Proto_Reference:
+			if actual.Inner.TypeSignature() != assigned.Type().TypeSignature() &&
+				actual.TypeSignature() != assigned.Type().TypeSignature() {
+				var msg strings.Builder
+				line := assign.AssignmentToken.TokenSpan.Line
+				col := assign.AssignmentToken.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s but was assigned value of type %s.",
+					target.LiteralRepr(), target.Type().TypeSignature(), assigned.Type().TypeSignature()))
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+			return
+		}
 		if target.Type().TypeSignature() != assigned.Type().TypeSignature() {
 			var msg strings.Builder
 			line := assign.AssignmentToken.TokenSpan.Line
@@ -454,69 +571,30 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 			tc.FoundError = true
 			return
 		}
-	case lexer.PLUS_EQUAL:
-		switch target.Type().TypeSignature() {
-		case "i64":
-			switch assigned.Type().TypeSignature() {
-			case "i64":
-			default:
-				var msg strings.Builder
-				line := assign.AssignmentToken.TokenSpan.Line
-				col := assign.AssignmentToken.TokenSpan.Col
-				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
-					assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
-				tc.FoundError = true
-				return
-			}
-		case "str":
-			switch assigned.Type().TypeSignature() {
-			case "char":
-			case "str":
-			default:
-				var msg strings.Builder
-				line := assign.AssignmentToken.TokenSpan.Line
-				col := assign.AssignmentToken.TokenSpan.Col
-				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
-					assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
-				tc.FoundError = true
-				return
-			}
-		default:
-			var msg strings.Builder
-			line := assign.AssignmentToken.TokenSpan.Line
-			col := assign.AssignmentToken.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s and cannot use the %s operator reserved for i64|str values.",
-				target.LiteralRepr(), target.Type().TypeSignature(), assign.AssignmentToken.Literal))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-			tc.FoundError = true
-			return
-		}
-	case lexer.MINUS_EQUAL, lexer.STAR_EQUAL,
+	case lexer.PLUS_EQUAL, lexer.MINUS_EQUAL, lexer.STAR_EQUAL,
 		lexer.SLASH_EQUAL, lexer.MODULO_EQUAL:
-		if target.Type().TypeSignature() != "i64" {
-			var msg strings.Builder
-			line := assign.AssignmentToken.TokenSpan.Line
-			col := assign.AssignmentToken.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s and cannot use the %s operator reserved for i64 values.",
-				target.LiteralRepr(), target.Type().TypeSignature(), assign.AssignmentToken.Literal))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-			tc.FoundError = true
-			return
+		ops := map[string]string{
+			"+=": "+",
+			"-=": "-",
+			"*=": "*",
+			"/=": "/",
+			"%=": "%",
+		}
+		found := false
+		for _, bin_op := range Builtin_binary_ops {
+			mapped_op := ops[assign.AssignmentToken.Literal]
+			if _, allows := bin_op.AllowsBinding(mapped_op, target.Type(), assigned.Type()); allows {
+				found = true
+			}
 		}
 
-		if assigned.Type().TypeSignature() != "i64" {
+		if !found {
 			var msg strings.Builder
 			line := assign.AssignmentToken.TokenSpan.Line
 			col := assign.AssignmentToken.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator reserved for i64  values.",
-				assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal))
+			msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
+				assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
 			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			tc.FoundError = true
 			return

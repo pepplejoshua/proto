@@ -26,6 +26,9 @@ type UnaryOpBindingPair struct {
 	returns  string
 }
 
+var Builtin_binary_ops = GetBuiltinBinaryOperators()
+var Builtin_unary_ops = GetBuiltinUnaryOperators()
+
 func (bp *UnaryOpBindingPair) AllowsBinding(operator string, operand ast.ProtoType) (string, bool) {
 	if operand.TypeSignature() == bp.operand && operator == bp.operator {
 		return bp.returns, true
@@ -66,6 +69,26 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 			operator: "+",
 			returns:  pair[2],
 		})
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    "&" + pair[1],
+			operator: "+",
+			returns:  pair[2],
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    pair[1],
+			operator: "+",
+			returns:  pair[2],
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     pair[0],
+			right:    "&" + pair[1],
+			operator: "+",
+			returns:  pair[2],
+		})
 	}
 
 	num_ops := []string{
@@ -75,6 +98,27 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
 			left:     "i64",
 			right:    "i64",
+			operator: op,
+			returns:  "i64",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&i64",
+			right:    "&i64",
+			operator: op,
+			returns:  "i64",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&i64",
+			right:    "i64",
+			operator: op,
+			returns:  "i64",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "i64",
+			right:    "&i64",
 			operator: op,
 			returns:  "i64",
 		})
@@ -98,6 +142,48 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 			operator: op,
 			returns:  "bool",
 		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&i64",
+			right:    "&i64",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&char",
+			right:    "&char",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&i64",
+			right:    "i64",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&char",
+			right:    "char",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "i64",
+			right:    "&i64",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "char",
+			right:    "&char",
+			operator: op,
+			returns:  "bool",
+		})
 	}
 
 	bool_ops := []string{"&&", "||"}
@@ -105,6 +191,27 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
 			left:     "bool",
 			right:    "bool",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&bool",
+			right:    "&bool",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&bool",
+			right:    "bool",
+			operator: op,
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "bool",
+			right:    "&bool",
 			operator: op,
 			returns:  "bool",
 		})
@@ -126,6 +233,48 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
 			left:     pair[0],
 			right:    pair[1],
+			operator: "!=",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    "&" + pair[1],
+			operator: "==",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    "&" + pair[1],
+			operator: "!=",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    pair[1],
+			operator: "==",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     "&" + pair[0],
+			right:    pair[1],
+			operator: "!=",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     pair[0],
+			right:    "&" + pair[1],
+			operator: "==",
+			returns:  "bool",
+		})
+
+		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+			left:     pair[0],
+			right:    "&" + pair[1],
 			operator: "!=",
 			returns:  "bool",
 		})

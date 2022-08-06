@@ -104,6 +104,8 @@ const (
 	InitStruct
 	UpdateStructMember
 	CallBuiltinFn
+	MakeRef
+	Deref
 )
 
 var Definitions = map[OpCode]*InstructionDef{
@@ -152,6 +154,8 @@ var Definitions = map[OpCode]*InstructionDef{
 	AccessStructMember: {"AccessStructMember", []int{}}, // used to access member of a struct
 	UpdateStructMember: {"UpdateStructMember", []int{}}, // used to update member of a struct
 	CallBuiltinFn:      {"CallBuiltinFn", []int{2, 2}},  // used to call a builtin at an index with an argument count
+	MakeRef:            {"MakeRef", []int{}},            // makes a reference from what is at top of stack
+	Deref:              {"Deref", []int{}},              // dereferences a reference
 }
 
 func MakeInstruction(op OpCode, operands ...int) []byte {

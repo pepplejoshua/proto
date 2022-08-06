@@ -1,0 +1,5 @@
+mut a = 3;
+mut b = &a;
+let c = *b + a;
+let d: [&i64] = [b, b, b, b];
+let e: i64 = *d[0];

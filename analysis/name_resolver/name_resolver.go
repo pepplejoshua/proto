@@ -205,6 +205,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveBlockExpr(actual, false)
 	case *ast.VariableDecl:
 		nr.ResolveVariableDecl(actual)
+	case *ast.Dereference:
+		nr.Resolve(actual.Value)
 	case *ast.Identifier:
 		nr.ResolveIdentifier(actual)
 	case *ast.Assignment:
@@ -246,6 +248,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.LoopTag = Loop
 		nr.ResolveBlockExpr(actual.Body, true)
 		nr.LoopTag = enclosing
+	case *ast.Reference:
+		nr.Resolve(actual.Value)
 	case *ast.Return:
 		if nr.ScopeTag != RegularFunction {
 			// can't allow return statement outside function
@@ -392,6 +396,8 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 			}
 			nr.Resolve(expr)
 		}
+		init.StructType.Definition = val
+
 	default:
 		var msg strings.Builder
 		line := init.StructName.Token.TokenSpan.Line
@@ -494,24 +500,7 @@ func (nr *NameResolver) ResolveTuple(tuple *ast.Tuple) {
 }
 
 func (nr *NameResolver) ResolveArray(array *ast.Array) {
-	switch actual := array.ArrayType.InternalType.(type) {
-	case *ast.Proto_UserDef:
-		val := nr.GetValueAtName(actual.Name.Token)
-		switch val.(type) {
-		case *ast.Struct:
-		default:
-			var msg strings.Builder
-			line := array.Token.TokenSpan.Line
-			col := array.Token.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-			nr.FoundError = true
-			return
-		}
-	case *ast.Proto_Array:
-		nr.ResolveArrayType(actual.InternalType, array.Token.TokenSpan)
-	}
+	nr.ResolveArrayType(array.ArrayType, array.Token.TokenSpan)
 	for _, item := range array.Items {
 		nr.Resolve(item)
 	}
@@ -528,8 +517,8 @@ func (nr *NameResolver) ResolveArrayType(t ast.ProtoType, span lexer.Span) {
 			line := span.Line
 			col := span.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("Cannot use Non-Struct '%s' as type annotation for Array.", actual.Name.LiteralRepr()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			msg.WriteString(fmt.Sprintf("Undefined name '%s' inferred as Array type.", actual.Name.LiteralRepr()))
+			shared.ReportErrorAndExit("NameResolver", msg.String())
 			nr.FoundError = true
 			return
 		}
@@ -560,11 +549,75 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 				nr.InitializeName(actual.Token)
 			}
 		}
+	case *ast.Dereference:
+		var msg strings.Builder
+		line := actual.Start.TokenSpan.Line
+		col := actual.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Assigning to a dereferenced value '" + actual.LiteralRepr() + "' is not allowed as it has no effect.")
+		shared.ReportErrorAndExit("NameResolver", msg.String())
+		nr.FoundError = true
+	case *ast.Reference:
+		var msg strings.Builder
+		line := actual.Start.TokenSpan.Line
+		col := actual.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Assigning to a reference value '" + actual.LiteralRepr() + "' is not allowed.")
+		shared.ReportErrorAndExit("NameResolver", msg.String())
+		nr.FoundError = true
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual)
+	case *ast.IndexExpression:
+		nr.CheckIndexExprForMutability(actual)
 	default:
+		var msg strings.Builder
+		line := assignment.AssignmentToken.TokenSpan.Line
+		col := assignment.AssignmentToken.TokenSpan.Line
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Assigning to '" + actual.LiteralRepr() + "' is not allowed.")
+		shared.ReportErrorAndExit("NameResolver", msg.String())
+		nr.FoundError = true
 	}
 	nr.Resolve(assignment.Target)
+}
+
+func (nr *NameResolver) CheckIndexExprForMutability(arr *ast.IndexExpression) {
+	switch actual := arr.Indexable.(type) {
+	case *ast.IndexExpression:
+		nr.CheckIndexExprForMutability(actual)
+	case *ast.Identifier:
+		if !nr.GetMutabilityAtName(actual.Token) && nr.GetInitializedAtName(actual.Token) {
+			var msg strings.Builder
+			line := actual.Token.TokenSpan.Line
+			col := actual.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
+			shared.ReportErrorAndExit("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+	case *ast.Membership:
+		nr.CheckObjectOfMembershipForMutability(actual)
+	}
+}
+
+func (nr *NameResolver) CheckReferenceForMutability(ref *ast.Reference) {
+	switch actual := ref.Value.(type) {
+	case *ast.Identifier:
+		if !nr.GetMutabilityAtName(actual.Token) && nr.GetInitializedAtName(actual.Token) {
+			var msg strings.Builder
+			line := actual.Token.TokenSpan.Line
+			col := actual.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
+			shared.ReportErrorAndExit("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+	case *ast.Array:
+	case *ast.IndexExpression:
+		nr.CheckIndexExprForMutability(actual)
+	case *ast.Membership:
+		nr.CheckObjectOfMembershipForMutability(actual)
+	}
 }
 
 func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership) {
@@ -581,6 +634,8 @@ func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership
 		}
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual_obj)
+	case *ast.IndexExpression:
+		nr.CheckIndexExprForMutability(actual_obj)
 	}
 }
 

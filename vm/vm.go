@@ -29,6 +29,13 @@ type CompiledFunction struct {
 	Arity int
 }
 
+// let n = [1, 2, 3]; // n's original is itself
+// let m = n; // m's original is now n, but it should be m
+// GetOriginal implements runtime.RuntimeObj
+func (cf *CompiledFunction) GetOriginal() runtime.RuntimeObj {
+	return cf
+}
+
 func (cf *CompiledFunction) String() string {
 	return fmt.Sprintf("fn at Instruction #%d", cf.LocIP)
 }
@@ -92,33 +99,79 @@ func (vm *VM) PopOffStack() runtime.RuntimeObj {
 	return item
 }
 
+func (vm *VM) ExtractValue(potential_ref runtime.RuntimeObj) runtime.RuntimeObj {
+	var val runtime.RuntimeObj
+	switch actual := potential_ref.(type) {
+	case *runtime.Ref:
+		val = actual.Value
+	default:
+		val = actual
+	}
+	return val
+}
+
+func (vm *VM) UpdateRefValue(ref *runtime.Ref, assigned runtime.RuntimeObj) {
+	println(ref.String())
+	switch val := ref.Value.(type) {
+	case *runtime.I64:
+		val.Value = assigned.(*runtime.I64).Value
+	case *runtime.Bool:
+		val.Value = assigned.(*runtime.Bool).Value
+	case *runtime.Char:
+		val.Value = assigned.(*runtime.Char).Value
+	case *runtime.String:
+		val.Value = assigned.String()
+	}
+}
+
+func (vm *VM) UpdateRegularValue(reg runtime.RuntimeObj, assigned runtime.RuntimeObj) {
+	switch val := reg.(type) {
+	case *runtime.I64:
+		val.Value = assigned.(*runtime.I64).Value
+	case *runtime.Bool:
+		val.Value = assigned.(*runtime.Bool).Value
+	case *runtime.Char:
+		val.Value = assigned.(*runtime.Char).Value
+	case *runtime.String:
+		val.Value = assigned.String()
+	case *runtime.InitializedStruct:
+		val.Members = assigned.(*runtime.InitializedStruct).Members
+		val.Original = assigned.(*runtime.InitializedStruct).Original
+	}
+}
+
+func (vm *VM) Show_stack(start int) {
+	println("at instruction:", start)
+	for index, val := range vm.stack {
+		if index >= vm.stack_index {
+			break
+		}
+		println(index+1, val.String())
+	}
+	println()
+}
+
 func (vm *VM) Run() {
 	// println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
+		// start := ip
 
-		// println("at instruction:", ip)
-		// for index, val := range vm.stack {
-		// 	if index >= vm.stack_index {
-		// 		break
-		// 	}
-		// 	println(index+1, val.String())
-		// }
-		// println()
 		switch op {
 		case opcode.LoadConstant:
 			cons_index := opcode.ReadUInt16(vm.instructions[ip+1:])
-			vm.PushOntoStack(vm.constants[cons_index])
+			// println("Loading", vm.constants[cons_index].String())
+			vm.PushOntoStack(vm.constants[cons_index].Copy())
 			ip += 3
 		case opcode.PushBoolTrue:
-			vm.PushOntoStack(TRUE)
+			vm.PushOntoStack(TRUE.Copy())
 			ip += 1
 		case opcode.PushBoolFalse:
-			vm.PushOntoStack(FALSE)
+			vm.PushOntoStack(FALSE.Copy())
 			ip += 1
 		case opcode.AddI64, opcode.SubI64, opcode.MultI64:
-			rhs := vm.PopOffStack().(*runtime.I64)
-			lhs := vm.PopOffStack().(*runtime.I64)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
 			var n_val int64
 			if op == opcode.AddI64 {
 				n_val = lhs.Value + rhs.Value
@@ -133,8 +186,8 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.AddChar:
-			rhs := vm.PopOffStack().(*runtime.Char)
-			lhs := vm.PopOffStack().(*runtime.Char)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.Char)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.Char)
 			n_val := "\"" + lhs.Character() + rhs.Character() + "\""
 			val := &runtime.String{
 				Value: n_val,
@@ -142,8 +195,8 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.AddStr:
-			rhs := vm.PopOffStack().(*runtime.String)
-			lhs := vm.PopOffStack().(*runtime.String)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.String)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.String)
 			n_val := "\"" + lhs.Content() +
 				rhs.Content() + "\""
 			val := &runtime.String{
@@ -152,8 +205,8 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.AddStrChar:
-			rhs := vm.PopOffStack().(*runtime.Char)
-			lhs := vm.PopOffStack().(*runtime.String)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.Char)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.String)
 			n_val := "\"" + lhs.Content() +
 				rhs.Character() + "\""
 			val := &runtime.String{
@@ -165,8 +218,8 @@ func (vm *VM) Run() {
 			vm.stack_index--
 			ip += 1
 		case opcode.DivI64, opcode.ModuloI64:
-			rhs := vm.PopOffStack().(*runtime.I64)
-			lhs := vm.PopOffStack().(*runtime.I64)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
 			if rhs.Value == 0 {
 				var err strings.Builder
 				err.WriteString("Division/Modulo by 0 is not allowed.")
@@ -184,7 +237,7 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.NegateI64:
-			op := vm.PopOffStack().(*runtime.I64)
+			op := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
 			n_val := -op.Value
 			val := &runtime.I64{
 				Value: n_val,
@@ -192,7 +245,7 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.NegateBool:
-			op := vm.PopOffStack().(*runtime.Bool)
+			op := vm.ExtractValue(vm.PopOffStack()).(*runtime.Bool)
 			if op.Value {
 				vm.PushOntoStack(FALSE)
 			} else {
@@ -243,8 +296,8 @@ func (vm *VM) Run() {
 			}
 			ip += 1
 		case opcode.GreaterEqualsComp:
-			rhs := vm.PopOffStack()
-			lhs := vm.PopOffStack()
+			rhs := vm.ExtractValue(vm.PopOffStack())
+			lhs := vm.ExtractValue(vm.PopOffStack())
 
 			switch lhs.(type) {
 			case *runtime.Char:
@@ -266,8 +319,8 @@ func (vm *VM) Run() {
 			}
 			ip += 1
 		case opcode.And, opcode.Or:
-			rhs := vm.PopOffStack().(*runtime.Bool)
-			lhs := vm.PopOffStack().(*runtime.Bool)
+			rhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.Bool)
+			lhs := vm.ExtractValue(vm.PopOffStack()).(*runtime.Bool)
 
 			var boolean_val bool
 			if op == opcode.And {
@@ -282,7 +335,7 @@ func (vm *VM) Run() {
 			}
 			ip += 1
 		case opcode.JumpOnNotTrueTo:
-			val := vm.PopOffStack().(*runtime.Bool)
+			val := vm.ExtractValue(vm.PopOffStack()).(*runtime.Bool)
 			if !val.Value {
 				new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
 				ip = int(new_ip)
@@ -297,11 +350,30 @@ func (vm *VM) Run() {
 			ip += 1
 		case opcode.SetGlobal:
 			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-			vm.globals[globalIndex] = vm.PopOffStack()
+			assigned := vm.PopOffStack()
+			loc := vm.globals[globalIndex]
+
+			if ref, ok := loc.(*runtime.Ref); ok {
+				if _, ok := assigned.(*runtime.Ref); ok {
+					vm.globals[globalIndex] = assigned.(*runtime.Ref)
+				} else {
+					vm.UpdateRefValue(ref, assigned)
+				}
+			} else {
+				// println("setting global", globalIndex, "to", assigned, assigned.String())
+				if loc != nil {
+					vm.UpdateRegularValue(loc, assigned)
+					vm.globals[globalIndex] = loc
+				} else {
+					vm.globals[globalIndex] = assigned
+				}
+				// ref.Value = assigned
+			}
 			ip += 3
 		case opcode.GetGlobal:
 			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-			val := vm.globals[globalIndex].Copy()
+			val := vm.globals[globalIndex]
+			// println("Getting global", globalIndex, "which is", val, val.String())
 			vm.PushOntoStack(val)
 			ip += 3
 		case opcode.MakeArray:
@@ -337,9 +409,9 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(tuple)
 			ip += 3
 		case opcode.AccessIndex:
-			index_t := vm.PopOffStack().(*runtime.I64)
+			index_t := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
 
-			indexable := vm.PopOffStack()
+			indexable := vm.ExtractValue(vm.PopOffStack())
 			switch indexable := indexable.(type) {
 			case *runtime.Array:
 				if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Items) {
@@ -384,17 +456,36 @@ func (vm *VM) Run() {
 		case opcode.GetLocal:
 			offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
 			if vm.frame_index == 0 {
-				vm.PushOntoStack(vm.stack[offset].Copy())
+				local := vm.stack[offset].Copy()
+				// println("getting local", local, local.String())
+				vm.PushOntoStack(local)
 			} else {
-				vm.PushOntoStack(vm.stack[vm.frames[vm.frame_index-1].stack_index+offset].Copy())
+				local := vm.stack[vm.frames[vm.frame_index-1].stack_index+offset].Copy()
+				// println("getting local", local, local.String())
+				vm.PushOntoStack(local)
 			}
 			ip += 3
 		case opcode.SetLocal:
 			offset := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
+			assigned := vm.PopOffStack()
 			if vm.frame_index == 0 {
-				vm.stack[offset] = vm.PopOffStack()
+				// fix this for { } scopes in global scope
+				vm.stack[offset] = assigned
 			} else {
-				vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = vm.PopOffStack()
+				loc := vm.stack[vm.frames[vm.frame_index-1].stack_index+offset]
+
+				// check if loc is a ref, if it is, then update the value it holds
+				if ref, ok := loc.(*runtime.Ref); ok {
+					if assigned_ref, ok := assigned.(*runtime.Ref); ok {
+						ref.Value = assigned_ref.Value
+						// vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = ref
+					} else {
+						vm.UpdateRefValue(ref, assigned)
+					}
+				} else {
+					vm.UpdateRegularValue(loc, assigned)
+					// vm.stack[vm.frames[vm.frame_index-1].stack_index+offset] = assigned
+				}
 			}
 			ip += 3
 		case opcode.MakeFn:
@@ -408,6 +499,7 @@ func (vm *VM) Run() {
 			if vm.frame_index == 0 { // in global scope
 				vm.globals[storage_loc] = fn
 			} else { // in local scope
+				// why does this just work???
 				vm.PushOntoStack(fn)
 			}
 			ip += 6
@@ -422,6 +514,21 @@ func (vm *VM) Run() {
 		case opcode.CallFn:
 			arg_count := opcode.ReadUInt16(vm.instructions[ip+1:])
 			fn := vm.PopOffStack().(*CompiledFunction)
+
+			// num := arg_count
+			// args := []runtime.RuntimeObj{}
+			// for {
+			// 	if num == 0 {
+			// 		break
+			// 	}
+			// 	args = append(args, vm.PopOffStack().Copy())
+			// 	num--
+			// }
+
+			// for i := len(args) - 1; i >= 0; i-- {
+			// 	vm.PushOntoStack(args[i].Copy())
+			// }
+
 			new_frame := &CallFrame{
 				called_fn:   fn,
 				stack_index: vm.stack_index - int(arg_count),
@@ -432,8 +539,8 @@ func (vm *VM) Run() {
 			ip = new_frame.called_fn.LocIP
 		case opcode.UpdateIndex:
 			assigned := vm.PopOffStack()
-			index := vm.PopOffStack().(*runtime.I64)
-			array := vm.PopOffStack().(*runtime.Array)
+			index := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
+			array := vm.ExtractValue(vm.PopOffStack()).(*runtime.Array)
 
 			if int(index.Value) < 0 || int(index.Value) >= len(array.Items) {
 				if len(array.Items) == 0 {
@@ -453,27 +560,36 @@ func (vm *VM) Run() {
 		case opcode.UpdateStructMember:
 			assigned := vm.PopOffStack()
 			mem := vm.PopOffStack().(*runtime.String)
-			strct := vm.PopOffStack().(*runtime.InitializedStruct)
+			strct := vm.ExtractValue(vm.PopOffStack()).(*runtime.InitializedStruct)
 
-			strct.Members[mem.Value] = assigned
+			mem_obj := strct.Members[mem.Value]
+			if ref, ok := mem_obj.(*runtime.Ref); ok {
+				if a_ref, ok := assigned.(*runtime.Ref); ok {
+					ref.Value = a_ref.Value
+				} else {
+					vm.UpdateRefValue(ref, assigned)
+				}
+			} else {
+				vm.UpdateRegularValue(strct.GetOriginal().(*runtime.InitializedStruct).Members[mem.Value], assigned)
+			}
 			ip += 1
 		case opcode.AccessTupleMember:
 			index := vm.PopOffStack().(*runtime.I64)
-			obj := vm.PopOffStack().(*runtime.Tuple)
+			obj := vm.ExtractValue(vm.PopOffStack()).(*runtime.Tuple)
 
 			val := obj.Items[index.Value]
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.AccessStructMember:
 			mem := vm.PopOffStack().(*runtime.String)
-			obj := vm.PopOffStack().(*runtime.InitializedStruct)
+			obj := vm.ExtractValue(vm.PopOffStack()).(*runtime.InitializedStruct)
 
 			val := obj.Members[mem.Value]
 			vm.PushOntoStack(val)
 			ip += 1
 		case opcode.MakeRange:
-			past_end := vm.PopOffStack()
-			start := vm.PopOffStack()
+			past_end := vm.ExtractValue(vm.PopOffStack())
+			start := vm.ExtractValue(vm.PopOffStack())
 
 			if past_end.String() <= start.String() {
 				var msg strings.Builder
@@ -488,8 +604,8 @@ func (vm *VM) Run() {
 			vm.PushOntoStack(rng)
 			ip += 1
 		case opcode.MakeInclusiveRange:
-			end := vm.PopOffStack()
-			start := vm.PopOffStack()
+			end := vm.ExtractValue(vm.PopOffStack())
+			start := vm.ExtractValue(vm.PopOffStack())
 
 			if end.String() <= start.String() {
 				var msg strings.Builder
@@ -569,6 +685,20 @@ func (vm *VM) Run() {
 				vm.PushOntoStack(builtin.Fn(args...))
 			}
 			ip += 5
+		case opcode.MakeRef:
+			val := vm.PopOffStack()
+			// println("referencing", val, val.String())
+			ref := &runtime.Ref{
+				Value: val.GetOriginal(),
+			}
+
+			vm.PushOntoStack(ref)
+			ip += 1
+		case opcode.Deref:
+			ref := vm.PopOffStack().(*runtime.Ref)
+			// println("dereferencing to", ref.Value, ref.Value.String())
+			vm.PushOntoStack(ref.Value.Copy())
+			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()
 			return
@@ -581,5 +711,6 @@ func (vm *VM) Run() {
 						def.Name, ip))
 			}
 		}
+		// vm.Show_stack(start)
 	}
 }

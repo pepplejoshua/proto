@@ -406,8 +406,9 @@ func (r *Reference) Type() ProtoType {
 }
 
 type Dereference struct {
-	Start lexer.ProtoToken
-	Value Expression
+	Start     lexer.ProtoToken
+	Value     Expression
+	DerefType ProtoType
 }
 
 func (d *Dereference) LiteralRepr() string {
@@ -415,5 +416,5 @@ func (d *Dereference) LiteralRepr() string {
 }
 
 func (d *Dereference) Type() ProtoType {
-	return d.Value.Type()
+	return d.DerefType
 }

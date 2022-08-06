@@ -728,6 +728,17 @@ func TestUninitializedVariable(t *testing.T) {
 	runVmTest(t, tests)
 }
 
+func TestReferences(t *testing.T) {
+	tests := []vmTestCase{
+		{
+			input:    "fn main() -> i64 { mut a = 3; mut b = &a; mut c = &a; b = c; a += 7; c = b + 3; a }",
+			expected: "13",
+		},
+	}
+
+	runVmTest(t, tests)
+}
+
 func runVmTest(t *testing.T, tests []vmTestCase) {
 	t.Helper()
 

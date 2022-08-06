@@ -161,6 +161,12 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.PromotedExpr:
 		c.Compile(actual.Expr)
 		c.generateBytecode(opcode.Pop)
+	case *ast.Reference:
+		c.Compile(actual.Value)
+		c.generateBytecode(opcode.MakeRef)
+	case *ast.Dereference:
+		c.Compile(actual.Value)
+		c.generateBytecode(opcode.Deref)
 	case *ast.I64:
 		loc := c.appendConstant(&runtime.I64{Value: MakeInt64(actual.LiteralRepr())})
 		c.generateBytecode(opcode.LoadConstant, loc)
@@ -423,7 +429,7 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Tuples are immutable by default.")
 				shared.ReportErrorAndExit("Compiler", msg.String())
-			case *ast.Proto_UserDef:
+			case *ast.Proto_UserDef, *ast.Proto_Reference:
 				c.Compile(lhs.Object)
 				actual := lhs.Member.(*ast.Identifier)
 				member := &runtime.String{
@@ -469,7 +475,7 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Tuples are immutable by default.")
 				shared.ReportErrorAndExit("Compiler", msg.String())
-			case *ast.Proto_UserDef:
+			case *ast.Proto_UserDef, *ast.Proto_Reference:
 				c.Compile(lhs.Object)
 				actual := lhs.Member.(*ast.Identifier)
 				member := &runtime.String{
@@ -520,13 +526,13 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 			c.generateBytecode(opcode.UpdateIndex)
 		case *ast.Identifier:
 			switch target.Type().TypeSignature() {
-			case "str":
+			case "str", "&str":
 				c.Compile(target)
 				c.Compile(assigned)
 				switch assigned.Type().TypeSignature() {
-				case "char":
+				case "char", "&char":
 					c.generateBytecode(opcode.AddStrChar)
-				case "str":
+				case "str", "&str":
 					c.generateBytecode(opcode.AddStr)
 				}
 				sym, ok := c.symbolTable.Resolve(target.LiteralRepr())
@@ -539,7 +545,7 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 				} else {
 					c.generateBytecode(opcode.SetLocal, sym.Index)
 				}
-			case "i64":
+			case "i64", "&i64":
 				c.Compile(target)
 				c.Compile(assigned)
 				c.generateBytecode(opcode.AddI64)
@@ -572,7 +578,7 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Tuples are immutable by default.")
 				shared.ReportErrorAndExit("Compiler", msg.String())
-			case *ast.Proto_UserDef:
+			case *ast.Proto_UserDef, *ast.Proto_Reference:
 				c.Compile(lhs.Object)
 				actual := lhs.Member.(*ast.Identifier)
 				member := &runtime.String{

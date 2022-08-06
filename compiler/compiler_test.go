@@ -2712,6 +2712,42 @@ func TestCompilingUninitializedVariable(t *testing.T) {
 	runCompilerTest(t, tests)
 }
 
+func TestCompilingReferences(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() { let a = 3; let b = &a; }",
+			expectedConstants: []string{
+				"3",
+			},
+			expectedIns: "",
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
+func TestCompilingDereferences(t *testing.T) {
+	tests := []compilerTestCase{
+		{
+			input: "fn main() -> i64 { mut a = 3; mut b = &a; mut c = &a; b = c; a += 7; c = b + 3; a }",
+			expectedConstants: []string{
+				"3",
+				"7",
+			},
+			expectedIns: "",
+		},
+		{
+			input: "fn main() { mut a = 3; mut b = &a; let c = *b + a; b = 3; }",
+			expectedConstants: []string{
+				"3",
+			},
+			expectedIns: "",
+		},
+	}
+
+	runCompilerTest(t, tests)
+}
+
 func runCompilerTest(t *testing.T, tests []compilerTestCase) {
 	t.Helper()
 
