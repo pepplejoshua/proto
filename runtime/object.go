@@ -147,12 +147,15 @@ func (a *Array) String() string {
 
 func (a *Array) Copy() RuntimeObj {
 	arr := &Array{
-		Items: []RuntimeObj{},
+		Items: make([]RuntimeObj, len(a.Items)),
 	}
 
 	arr.Original = a
 
-	copy(arr.Items, a.Items)
+	for index, item := range a.Items {
+		arr.Items[index] = item.Copy()
+	}
+	// copy(arr.Items, a.Items)
 	return arr
 }
 

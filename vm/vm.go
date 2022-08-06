@@ -152,10 +152,10 @@ func (vm *VM) Show_stack(start int) {
 }
 
 func (vm *VM) Run() {
-	// println(vm.instructions.Disassemble())
+	println(vm.instructions.Disassemble())
 	for ip := 0; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
-		// start := ip
+		start := ip
 
 		switch op {
 		case opcode.LoadConstant:
@@ -354,8 +354,9 @@ func (vm *VM) Run() {
 			loc := vm.globals[globalIndex]
 
 			if ref, ok := loc.(*runtime.Ref); ok {
-				if _, ok := assigned.(*runtime.Ref); ok {
-					vm.globals[globalIndex] = assigned.(*runtime.Ref)
+				if assigned_ref, ok := assigned.(*runtime.Ref); ok {
+					ref.Value = assigned_ref.Value
+					// vm.globals[globalIndex] = assigned.(*runtime.Ref)
 				} else {
 					vm.UpdateRefValue(ref, assigned)
 				}
@@ -372,7 +373,7 @@ func (vm *VM) Run() {
 			ip += 3
 		case opcode.GetGlobal:
 			globalIndex := int(opcode.ReadUInt16(vm.instructions[ip+1:]))
-			val := vm.globals[globalIndex]
+			val := vm.globals[globalIndex].Copy()
 			// println("Getting global", globalIndex, "which is", val, val.String())
 			vm.PushOntoStack(val)
 			ip += 3
@@ -389,6 +390,7 @@ func (vm *VM) Run() {
 				array.Items[i-start] = val
 			}
 
+			// println("making array with length", len(array.Items))
 			vm.stack_index = start
 			vm.PushOntoStack(array)
 			ip += 3
@@ -414,6 +416,7 @@ func (vm *VM) Run() {
 			indexable := vm.ExtractValue(vm.PopOffStack())
 			switch indexable := indexable.(type) {
 			case *runtime.Array:
+				// println(len(indexable.Items), "with index", index_t.Value)
 				if index_t.Value < 0 || int(index_t.Value) >= len(indexable.Items) {
 					if len(indexable.Items) == 0 {
 						shared.ReportErrorAndExit("VM", fmt.Sprintf("Provided index %d is out of range, as Array has %d items (and is not indexable).",
@@ -555,7 +558,17 @@ func (vm *VM) Run() {
 				}
 			}
 
-			array.Items[index.Value] = assigned
+			loc := array.Items[index.Value]
+			if ref, ok := loc.(*runtime.Ref); ok {
+				if a_ref, ok := assigned.(*runtime.Ref); ok {
+					ref.Value = a_ref.Value
+				} else {
+					vm.UpdateRefValue(ref, assigned)
+				}
+			} else {
+				vm.UpdateRegularValue(loc.GetOriginal(), assigned)
+			}
+			// array.Items[index.Value] = assigned
 			ip += 1
 		case opcode.UpdateStructMember:
 			assigned := vm.PopOffStack()
@@ -711,6 +724,6 @@ func (vm *VM) Run() {
 						def.Name, ip))
 			}
 		}
-		// vm.Show_stack(start)
+		vm.Show_stack(start)
 	}
 }

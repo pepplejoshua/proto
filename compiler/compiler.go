@@ -513,14 +513,14 @@ func (c *Compiler) CompileAssignment(assign *ast.Assignment) {
 			c.generateBytecode(opcode.AccessIndex)
 			c.Compile(assigned)
 			switch arr.InternalType.TypeSignature() {
-			case "str":
+			case "str", "&str":
 				switch assigned.Type().TypeSignature() {
-				case "char":
+				case "char", "&char":
 					c.generateBytecode(opcode.AddStrChar)
-				case "str":
+				case "str", "&str":
 					c.generateBytecode(opcode.AddStr)
 				}
-			case "i64":
+			case "i64", "&i64":
 				c.generateBytecode(opcode.AddI64)
 			}
 			c.generateBytecode(opcode.UpdateIndex)
