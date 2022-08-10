@@ -11,14 +11,15 @@ fn sum(arr: [i64]) -> i64 {
 fn main() -> [i64] {
     let a = [0, 1, 2, 3, 4, 5, 6];
     let fmt = "{#}"; 
-    mut out = "Array of (";
+    mut out = "an array containing ";
+
     for mut i = 0; i < len(a); i += 1 {
         let item = a[i];
         out += stringf(fmt, item);
-        if i + 1 < len(a) {
+        if i + 1 < len(a) - 1{
             out += ", ";
-        } else {
-            out += ")";
+        } else if i + 1 == len(a) - 1 {
+            out += " and ";
         }
     }
     
@@ -28,7 +29,6 @@ fn main() -> [i64] {
         println(b[i]);
     }
 
-    // append(b, 5);
-    // println(stringf("The sum of {#} is {#}{#}", out, sum(a), '.'));
+    println(stringf("The sum of {#} is {#}{#}", out, sum(a), '.'));
     a
 }

@@ -5,7 +5,7 @@ fn fib_loop(n: i64) -> i64 {
         mut x = 0;
         mut y = 1;
         mut z = 0;
-        for i in  1.  .n {
+        for i in  1..n {
             z = x + y;
             x = y;
             y = z;

@@ -160,7 +160,7 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				src := fmt.Sprintf(`
 				for mut idx = %s; idx <= %s; idx += 1 {
 					let %s = idx;
-				};
+				}
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
 				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 				p := parser.NewWithLexer(lex)
@@ -176,7 +176,7 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					for mut idx = start; idx <= end; idx += 1 {
 						let %s = int_to_char(idx);
 					}
-				};
+				}
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
 				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 				p := parser.NewWithLexer(lex)
@@ -196,9 +196,9 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						let r_start = range_start(%s);
 						let r_end = range_end(%s);
 						for mut idx = r_start; idx < r_end; idx += 1 {
-						let %s = idx;
+							let %s = idx;
 						}
-					};
+					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
@@ -215,7 +215,7 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx < r_end; idx += 1 {
 							let %s = int_to_char(idx);
 						}
-					};
+					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
@@ -233,9 +233,9 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						let r_start = range_start(%s);
 						let r_end = range_end(%s);
 						for mut idx = r_start; idx <= r_end; idx += 1 {
-						let %s = idx;
+							let %s = idx;
 						}
-					};
+					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
