@@ -201,8 +201,10 @@ func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 
 func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	switch actual := node.(type) {
-	case *ast.Block:
+	case *ast.BlockExpr:
 		nr.ResolveBlockExpr(actual, false)
+	case *ast.BlockStmt:
+		nr.ResolveBlockStmt(actual, true)
 	case *ast.VariableDecl:
 		nr.ResolveVariableDecl(actual)
 	case *ast.Dereference:
@@ -221,8 +223,10 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveFunctionDef(actual, RegularFunction)
 	case *ast.CallExpression:
 		nr.ResolveCallExpr(actual)
-	case *ast.IfConditional:
-		nr.ResolveIfConditional(actual)
+	case *ast.IfExpr:
+		nr.ResolveIfExpr(actual)
+	case *ast.IfStmt:
+		nr.ResolveIfStmt(actual)
 	case *ast.BinaryOp:
 		nr.Resolve(actual.Left)
 		nr.Resolve(actual.Right)
@@ -246,7 +250,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.InfiniteLoop:
 		enclosing := nr.LoopTag
 		nr.LoopTag = Loop
-		nr.ResolveBlockExpr(actual.Body, true)
+		nr.ResolveBlockStmt(actual.Body, true)
 		nr.LoopTag = enclosing
 	case *ast.Reference:
 		nr.Resolve(actual.Value)
@@ -434,7 +438,7 @@ func (nr *NameResolver) ResolveCollectionsForLoop(cfor *ast.CollectionsForLoop) 
 	nr.Resolve(cfor.Collection)
 	nr.DefineName(cfor.LoopVar.Token)
 	nr.InitializeName(cfor.LoopVar.Token)
-	nr.ResolveBlockExpr(cfor.Body, false)
+	nr.ResolveBlockStmt(cfor.Body, false)
 	nr.ExitScope()
 }
 
@@ -443,18 +447,29 @@ func (nr *NameResolver) ResolveGenericForLoop(gfor *ast.GenericForLoop) {
 	nr.ResolveVariableDecl(gfor.Init)
 	nr.Resolve(gfor.LoopCondition)
 	nr.Resolve(gfor.Update)
-	nr.ResolveBlockExpr(gfor.Body, false)
+	nr.ResolveBlockStmt(gfor.Body, false)
 	nr.ExitScope()
 }
 
 func (nr *NameResolver) ResolveWhileLoop(while *ast.WhileLoop) {
 	nr.Resolve(while.LoopCondition)
 	nr.EnterScope()
-	nr.ResolveBlockExpr(while.Body, false)
+	nr.ResolveBlockStmt(while.Body, false)
 	nr.ExitScope()
 }
 
-func (nr *NameResolver) ResolveIfConditional(if_ *ast.IfConditional) {
+func (nr *NameResolver) ResolveIfStmt(if_ *ast.IfStmt) {
+	nr.Resolve(if_.Condition)
+	nr.EnterScope()
+	nr.ResolveBlockStmt(if_.ThenBody, false)
+	nr.ExitScope()
+
+	if if_.ElseBody != nil {
+		nr.Resolve(if_.ElseBody)
+	}
+}
+
+func (nr *NameResolver) ResolveIfExpr(if_ *ast.IfExpr) {
 	nr.Resolve(if_.Condition)
 	nr.EnterScope()
 	nr.ResolveBlockExpr(if_.ThenBody, false)
@@ -639,7 +654,21 @@ func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership
 	}
 }
 
-func (nr *NameResolver) ResolveBlockExpr(block *ast.Block, new_scope bool) {
+func (nr *NameResolver) ResolveBlockStmt(block *ast.BlockStmt, new_scope bool) {
+	if new_scope {
+		nr.EnterScope()
+	}
+
+	for _, node := range block.Contents {
+		nr.Resolve(node)
+	}
+
+	if new_scope {
+		nr.ExitScope()
+	}
+}
+
+func (nr *NameResolver) ResolveBlockExpr(block *ast.BlockExpr, new_scope bool) {
 	if new_scope {
 		nr.EnterScope()
 	}

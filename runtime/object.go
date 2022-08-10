@@ -231,11 +231,14 @@ func (t *Tuple) String() string {
 
 func (t *Tuple) Copy() RuntimeObj {
 	tup := &Tuple{
-		Items: []RuntimeObj{},
+		Items: make([]RuntimeObj, len(t.Items)),
 	}
 
 	tup.Original = t
-	copy(t.Items, tup.Items)
+
+	for index, item := range t.Items {
+		tup.Items[index] = item.Copy()
+	}
 
 	return tup
 }

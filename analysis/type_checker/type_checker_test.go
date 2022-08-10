@@ -38,8 +38,8 @@ func TestTypeCheckingUnaryOps(t *testing.T) {
 	TypeCheckerTestRunner(t, path)
 }
 
-func TestTypeCheckingIfExprs(t *testing.T) {
-	path := "../../samples/test_sources/type_checker/if_exprs.pr"
+func TestTypeCheckingIfConds(t *testing.T) {
+	path := "../../samples/test_sources/type_checker/if_conds.pr"
 
 	TypeCheckerTestRunner(t, path)
 }

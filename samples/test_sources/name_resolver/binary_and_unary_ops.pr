@@ -6,9 +6,9 @@ let c = 1;
 let d = 2;
 
 if a - b == c {
-    print(c)
+    print(c);
 } else {
-    print(d)
+    print(d);
 }
 
 struct Struct {

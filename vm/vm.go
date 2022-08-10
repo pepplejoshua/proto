@@ -49,9 +49,10 @@ func (cf *CompiledFunction) Type() string {
 }
 
 type CallFrame struct {
-	called_fn   *CompiledFunction
-	stack_index int
-	return_ip   int
+	called_fn            *CompiledFunction
+	original_stack_index int
+	stack_index          int
+	return_ip            int
 }
 
 type VM struct {
@@ -343,9 +344,9 @@ func (vm *VM) Run() {
 			if !val.Value {
 				new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
 				ip = int(new_ip)
-				continue
+			} else {
+				ip += 3
 			}
-			ip += 3
 		case opcode.JumpTo:
 			new_ip := opcode.ReadUInt16(vm.instructions[ip+1:])
 			ip = int(new_ip)
@@ -419,7 +420,6 @@ func (vm *VM) Run() {
 			ip += 3
 		case opcode.AccessIndex:
 			index_t := vm.ExtractValue(vm.PopOffStack()).(*runtime.I64)
-
 			indexable := vm.ExtractValue(vm.PopOffStack())
 			switch indexable := indexable.(type) {
 			case *runtime.Array:
@@ -519,10 +519,12 @@ func (vm *VM) Run() {
 		case opcode.Return:
 			ret_loc := vm.frames[vm.frame_index-1].return_ip
 			vm.frame_index--
-			if vm.frame_index == 0 {
-				ip += 1
-				continue
+			res := vm.stack[vm.stack_index-1]
+			if vm.frame_index-1 >= 0 && vm.frames[vm.frame_index-1] != nil {
+				vm.stack_index = vm.frames[vm.frame_index].original_stack_index
+				vm.PushOntoStack(res)
 			}
+
 			ip = ret_loc
 		case opcode.CallFn:
 			arg_count := opcode.ReadUInt16(vm.instructions[ip+1:])
@@ -543,9 +545,10 @@ func (vm *VM) Run() {
 			// }
 
 			new_frame := &CallFrame{
-				called_fn:   fn,
-				stack_index: vm.stack_index - int(arg_count),
-				return_ip:   ip + 3,
+				called_fn:            fn,
+				original_stack_index: vm.stack_index - int(arg_count),
+				stack_index:          vm.stack_index - int(arg_count),
+				return_ip:            ip + 3,
 			}
 			vm.frames[vm.frame_index] = new_frame
 			vm.frame_index++

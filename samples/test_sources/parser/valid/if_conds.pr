@@ -1,13 +1,13 @@
 if true {
-    1
+    1;
 } else {
-    3
+    3;
 }
 
 if a == b {
-    "same"
+    "same";
 } else {
-    "different"
+    "different";
 }
 
 let a = if 200 - 1 == 199 {
@@ -19,9 +19,9 @@ let a = if 200 - 1 == 199 {
 if true { }
 
 if stuff {
-    'a'
+    'a';
 } else {
-    400
+    400;
 }
 
 let b = if true {
@@ -33,22 +33,10 @@ let b = if true {
 };
 
 if true {
-    1 + 2
+    1 + 2;
 } else {
-    1
+    1;
 }
-
-if false {
-    1 + 2
-} else {
-    3 * 4
-}
-
-let f = if true {
-    1
-} else {
-    2
-};
 
 while if true { true } else { false } {
     

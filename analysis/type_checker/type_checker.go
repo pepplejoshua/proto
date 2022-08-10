@@ -146,14 +146,18 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckArray(actual)
 	case *ast.PromotedExpr:
 		tc.TypeCheck(actual.Expr)
-	case *ast.Block:
-		tc.TypeCheckBlock(actual, true)
+	case *ast.BlockExpr:
+		tc.TypeCheckBlockExpr(actual, true)
+	case *ast.BlockStmt:
+		tc.TypeCheckBlockStmt(actual, true)
 	case *ast.BinaryOp:
 		tc.TypeCheckBinaryOp(actual)
 	case *ast.UnaryOp:
 		tc.TypeCheckUnaryOp(actual)
-	case *ast.IfConditional:
+	case *ast.IfExpr:
 		tc.TypeCheckIfExpr(actual)
+	case *ast.IfStmt:
+		tc.TypeCheckIfStmt(actual)
 	case *ast.WhileLoop:
 		tc.TypeCheckWhileLoop(actual)
 	case *ast.InfiniteLoop:
@@ -342,7 +346,7 @@ func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	}
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
-	tc.TypeCheckBlock(fn.Body, false)
+	tc.TypeCheckBlockExpr(fn.Body, false)
 	tc.CurBlockType = prev
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
@@ -396,8 +400,9 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 				line := mem.Start.TokenSpan.Line
 				col := mem.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("Tuple has %d item (indexed from 0 to %d), so provided index(%d) is out of range.",
+				msg.WriteString(fmt.Sprintf("Tuple has %d item (indexed from 0 to %d), so provided index (%d) is out of range.",
 					tup_len, tup_len-1, num))
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
 				tc.FoundError = true
 			}
 			mem.MembershipType = actual.InternalTypes[num]
@@ -815,7 +820,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
 		prev := tc.CurBlockType
 		tc.CurBlockType = LOOP
-		tc.TypeCheckBlock(col_for.Body, false)
+		tc.TypeCheckBlockStmt(col_for.Body, false)
 		tc.CurBlockType = prev
 		tc.ExitTypeEnv()
 	case *ast.Proto_Builtin:
@@ -824,7 +829,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 			tc.SetTypeForName(col_for.LoopVar.Token, actual)
 			prev := tc.CurBlockType
 			tc.CurBlockType = LOOP
-			tc.TypeCheckBlock(col_for.Body, false)
+			tc.TypeCheckBlockStmt(col_for.Body, false)
 			tc.CurBlockType = prev
 			tc.ExitTypeEnv()
 		} else {
@@ -842,7 +847,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		tc.SetTypeForName(col_for.LoopVar.Token, actual.InternalType)
 		prev := tc.CurBlockType
 		tc.CurBlockType = LOOP
-		tc.TypeCheckBlock(col_for.Body, false)
+		tc.TypeCheckBlockStmt(col_for.Body, false)
 		tc.CurBlockType = prev
 		tc.ExitTypeEnv()
 	case *ast.Proto_Tuple:
@@ -886,7 +891,7 @@ func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
 	tc.TypeCheck(loop.Update)
 	prev := tc.CurBlockType
 	tc.CurBlockType = LOOP
-	tc.TypeCheckBlock(loop.Body, false)
+	tc.TypeCheckBlockStmt(loop.Body, false)
 	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
 }
@@ -894,7 +899,7 @@ func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
 func (tc *TypeChecker) TypeCheckInfiniteLoop(loop *ast.InfiniteLoop) {
 	prev := tc.CurBlockType
 	tc.CurBlockType = LOOP
-	tc.TypeCheckBlock(loop.Body, true)
+	tc.TypeCheckBlockStmt(loop.Body, true)
 	tc.CurBlockType = prev
 }
 
@@ -913,11 +918,11 @@ func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
 	}
 	prev := tc.CurBlockType
 	tc.CurBlockType = LOOP
-	tc.TypeCheckBlock(loop.Body, true)
+	tc.TypeCheckBlockStmt(loop.Body, true)
 	tc.CurBlockType = prev
 }
 
-func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
+func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfExpr) {
 	tc.TypeCheck(cond.Condition)
 
 	if cond.Condition.Type().TypeSignature() != "bool" {
@@ -934,7 +939,7 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 	tc.EnterTypeEnv()
 	prev := tc.CurBlockType
 	tc.CurBlockType = IF_EXPR
-	tc.TypeCheckBlock(cond.ThenBody, false)
+	tc.TypeCheckBlockExpr(cond.ThenBody, false)
 	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
 
@@ -944,22 +949,68 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfConditional) {
 		tc.TypeCheck(cond.ElseBody)
 		tc.CurBlockType = prev
 
-		if cond.ThenBody.Type().TypeSignature() != cond.ElseBody.Type().TypeSignature() {
-			// unexpected return type
-			var msg strings.Builder
-			line := cond.Start.TokenSpan.Line
-			col := cond.Start.TokenSpan.Col
-			then := cond.ThenBody.BlockType.TypeSignature()
-			else_ := cond.ElseBody.Type().TypeSignature()
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ". ")
-			msg.WriteString("Please fix inconsistent types.")
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-			tc.FoundError = true
-			return
+		if expr, ok := cond.ElseBody.(ast.Expression); ok {
+			if cond.ThenBody.Type().TypeSignature() != expr.Type().TypeSignature() {
+				// unexpected return type
+				var msg strings.Builder
+				line := cond.Start.TokenSpan.Line
+				col := cond.Start.TokenSpan.Col
+				then := cond.ThenBody.BlockType.TypeSignature()
+				else_ := expr.Type().TypeSignature()
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("Then expression block is typed " + then + " and Else block is typed " + else_ + ". ")
+				msg.WriteString("Please fix inconsistent types.")
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
+		} else {
+			if cond.ThenBody.Type().TypeSignature() != "()" {
+				// unexpected return type
+				var msg strings.Builder
+				line := cond.Start.TokenSpan.Line
+				col := cond.Start.TokenSpan.Col
+				then := cond.ThenBody.BlockType.TypeSignature()
+				else_ := "()"
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ". ")
+				msg.WriteString("Please fix inconsistent types.")
+				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				tc.FoundError = true
+				return
+			}
 		}
 	}
 	cond.IfType = cond.ThenBody.BlockType
+}
+
+func (tc *TypeChecker) TypeCheckIfStmt(cond *ast.IfStmt) {
+	tc.TypeCheck(cond.Condition)
+
+	if cond.Condition.Type().TypeSignature() != "bool" {
+		var msg strings.Builder
+		line := cond.Start.TokenSpan.Line
+		col := cond.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Condition for If expression should be of type boolean")
+		msg.WriteString(" but got " + cond.Condition.Type().TypeSignature() + ".")
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
+
+	tc.EnterTypeEnv()
+	prev := tc.CurBlockType
+	tc.CurBlockType = IF_EXPR
+	tc.TypeCheckBlockStmt(cond.ThenBody, false)
+	tc.CurBlockType = prev
+	tc.ExitTypeEnv()
+
+	if cond.ElseBody != nil {
+		prev := tc.CurBlockType
+		tc.CurBlockType = IF_EXPR
+		tc.TypeCheck(cond.ElseBody)
+		tc.CurBlockType = prev
+	}
 }
 
 func (tc *TypeChecker) TypeCheckUnaryOp(uop *ast.UnaryOp) {
@@ -1118,21 +1169,17 @@ Loop:
 	}
 }
 
-func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
-	var block_type ast.ProtoType = block.BlockType
+func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
+	var block_type ast.ProtoType = &ast.Proto_Unit{}
 	if new_env {
 		tc.EnterTypeEnv()
 	}
 
 	for index, node := range block.Contents {
 		prev := tc.CurBlockType
-		switch actual := node.(type) {
-		case *ast.Block:
+		switch node.(type) {
+		case *ast.BlockStmt:
 			tc.CurBlockType = NONE
-		case *ast.PromotedExpr:
-			if _, ok := actual.Expr.(*ast.Block); ok {
-				tc.CurBlockType = NONE
-			}
 		}
 		tc.TypeCheck(node)
 
@@ -1177,6 +1224,40 @@ func (tc *TypeChecker) TypeCheckBlock(block *ast.Block, new_env bool) {
 		tc.CurBlockType = prev
 	}
 	block.BlockType = block_type
+	if new_env {
+		tc.ExitTypeEnv()
+	}
+}
+
+func (tc *TypeChecker) TypeCheckBlockStmt(block *ast.BlockStmt, new_env bool) {
+	if new_env {
+		tc.EnterTypeEnv()
+	}
+
+	for _, node := range block.Contents {
+		prev := tc.CurBlockType
+		switch node.(type) {
+		case *ast.BlockStmt:
+			tc.CurBlockType = NONE
+		}
+		tc.TypeCheck(node)
+		tc.CurBlockType = prev
+	}
+
+	if tc.CurReturnType != nil {
+		// we are in a function
+		if tc.CurBlockType == FUNCTION && tc.CurReturnType.TypeSignature() != "()" {
+			var msg strings.Builder
+			line := tc.FnDefSpan.Line
+			col := tc.FnDefSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("implicit return type () does not match function return type, which is %s.",
+				tc.CurReturnType.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+	}
+
 	if new_env {
 		tc.ExitTypeEnv()
 	}

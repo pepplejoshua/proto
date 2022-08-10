@@ -11,12 +11,12 @@ while cond {
 }
 
 for mut i = 0; i < 3; i += 1 {
-    print(i)
+    print(i);
 }
 
 let arr = [1, 2, 3, 4, a];
 for item in arr {
-    print(item)
+    print(item);
 }
 
 mut i = 0;

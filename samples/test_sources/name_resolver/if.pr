@@ -3,16 +3,16 @@ let b = 5;
 let c = 3;
 
 if a {
-    b
+    b;
 } else {
-    c
+    c;
 }
 
 if a {
     let d = c;
-    d
+    d;
 } else if not a {
-    c
+    c;
 } {
-    b - c
+    b - c;
 }

@@ -6,10 +6,25 @@ let c: i64 = if a * b > 8 {
     8
 };
 
+if true {
+    a;
+} else {
+    b;
+}
+
 let d: char = if a > 8 || 0 < a {
+    if true {
+        'a';
+    } else {
+        'b';
+    }
     { 'a' }
 } else if b > a {
-    'b'
+    if true {
+        'b'
+    } else {
+        'b'
+    }
 } else if c > b {
     'c'
 } else {

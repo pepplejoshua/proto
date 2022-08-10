@@ -2,14 +2,9 @@ package parser
 
 import (
 	"log"
-	"proto/ast"
 	"proto/shared"
 	"testing"
 )
-
-type Pair struct {
-	a, b string
-}
 
 func TestParsingBinaryOperations(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/binary_operations.pr"
@@ -18,21 +13,21 @@ func TestParsingBinaryOperations(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 2);",
-		"(- 3 1);",
-		"(* 3 2);",
-		"(/ 3 4);",
-		"(% 4 2);",
-		"(< 1 2);",
-		"(> 3 1);",
-		"(>= 3 3);",
-		"(<= 2 3);",
-		"(!= 2 3);",
-		"(== 1 2);",
-		"(|| true false);",
-		"(&& false true);",
-		"(== true true);",
-		"(!= false true);",
+		"1 + 2;",
+		"3 - 1;",
+		"3 * 2;",
+		"3 / 4;",
+		"4 % 2;",
+		"1 < 2;",
+		"3 > 1;",
+		"3 >= 3;",
+		"2 <= 3;",
+		"2 != 3;",
+		"1 == 2;",
+		"true || false;",
+		"false && true;",
+		"true == true;",
+		"false != true;",
 	}
 
 	for index, node := range contents {
@@ -74,15 +69,15 @@ func TestParsingParenthesizedExpressions(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 2);",
+		"1 + 2;",
 		"1;",
-		"(- 2);",
+		"- 2;",
 		"true;",
 		"\"str\";",
 		"'c';",
-		"(== a b);",
+		"a == b;",
 		"id;",
-		"(not false);",
+		"not false;",
 	}
 
 	for index, node := range contents {
@@ -99,9 +94,9 @@ func TestParsingStructs(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(struct Person { name: str, age: i64 })",
-		"(struct Token { literal: str, line: i64, col: i64 })",
-		"(struct BasketBall { HomePoints: i64, AwayPoints: i64, HomePlayers: [Person], AwayPlayers: [Person], MVP: Person })",
+		"struct Person { name: str, age: i64 }",
+		"struct Token { literal: str, line: i64, col: i64 }",
+		"struct BasketBall { HomePoints: i64, AwayPoints: i64, HomePlayers: [Person], AwayPlayers: [Person], MVP: Person }",
 	}
 
 	for index, node := range contents {
@@ -118,9 +113,9 @@ func TestParsingUnaryOperations(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(- 300);",
-		"(not true);",
-		"(not false);",
+		"- 300;",
+		"not true;",
+		"not false;",
 	}
 
 	for index, node := range contents {
@@ -137,24 +132,24 @@ func TestParsingVariableDeclarations(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(let a: i64 3)",
-		"(let b: str \"string\")",
-		"(let c: char 'c')",
-		"(mut d: [i64])",
-		"(mut e: (i64, char, bool))",
-		"(let f: bool true)",
-		"(mut g: [i64] [1, 2, 3, 4])",
-		"(let h: (i64, char, bool) (1, '2', false))",
-		"(mut i: (char, str, i64, bool, [i64]) ('c', \"str\", 24, true, [1, 2, 3, 4]))",
-		"(let j: [i64] [1, 2, 3, 4])",
-		"(mut k: untyped [1, '2', true])",
-		"(let l: untyped (+ 1 2))",
-		"(mut m: [(i64, i64, char)] [(1, 2, 'a'), (2, 3, 'b')])",
-		"(let n: UserDefined)",
-		"(mut o: ())",
-		"(mut p: () ())",
-		"(let q: fn(i64, bool) -> char)",
-		"(let r: fn(fn(i64, bool) -> bool, fn(char, str) -> ()) -> fn(i64, str) -> ())",
+		"let a = 3",
+		"let b = \"string\"",
+		"let c = 'c'",
+		"mut d",
+		"mut e",
+		"let f = true",
+		"mut g = [1, 2, 3, 4]",
+		"let h = (1, '2', false)",
+		"mut i = ('c', \"str\", 24, true, [1, 2, 3, 4])",
+		"let j = [1, 2, 3, 4]",
+		"mut k = [1, '2', true]",
+		"let l = 1 + 2",
+		"mut m = [(1, 2, 'a'), (2, 3, 'b')]",
+		"let n",
+		"mut o",
+		"mut p = ()",
+		"let q",
+		"let r",
 	}
 
 	for index, node := range contents {
@@ -171,16 +166,16 @@ func TestParsingAssignment(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(a = 3)",
-		"(some_ident = true)",
-		"(array = [1, 2, 3])",
-		"(tuple = (1, true, 'c'))",
-		"(string = \"str\")",
-		"(a += 3)",
-		"(b -= 2)",
-		"(c *= 4)",
-		"(d /= 2)",
-		"(e %= 2)",
+		"a = 3",
+		"some_ident = true",
+		"array = [1, 2, 3]",
+		"tuple = (1, true, 'c')",
+		"string = \"str\"",
+		"a += 3",
+		"b -= 2",
+		"c *= 4",
+		"d /= 2",
+		"e %= 2",
 	}
 
 	for index, node := range contents {
@@ -190,22 +185,22 @@ func TestParsingAssignment(t *testing.T) {
 	}
 }
 
-func TestParsingBlockExpressions(t *testing.T) {
+func TestParsingBlocks(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/blocks.pr"
 	source := shared.ReadFile(path)
 
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"{ 1; }: i64",
-		"{ (1, true, 'c'); }: (i64, bool, char)",
-		"{ [1, 2, 3, 4]; }: [i64]",
-		"{ 1; }: ()",
-		"{ (let a: i64 2) }: ()",
-		"{ (mut c: bool) }: ()",
-		"{ (+ 1 2); (let a: bool true) (a = (* a 2)) \"string\"; }: str",
-		"{ (let a: i64 3) (mut b: i64 5) (* a b); }: untyped",
-		"{  }: ()",
+		"{ 1; }",
+		"{ (1, true, 'c'); }",
+		"{ [1, 2, 3, 4]; }",
+		"{ 1; }",
+		"{ let a = 2 }",
+		"{ mut c }",
+		"{ 1 + 2; let a = true a = a * 2 \"string\"; }",
+		"{ let a = 3 mut b = 5 a * b; }",
+		"{  }",
 	}
 
 	for index, node := range contents {
@@ -215,25 +210,23 @@ func TestParsingBlockExpressions(t *testing.T) {
 	}
 }
 
-func TestParsingIfExpressions(t *testing.T) {
-	path := "../samples/test_sources/parser/valid/if_expressions.pr"
+func TestParsingIfConditionals(t *testing.T) {
+	path := "../samples/test_sources/parser/valid/if_conds.pr"
 	source := shared.ReadFile(path)
 
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(if true { 1; }: i64 else { 3; }: i64): i64",
-		"(if (== a b) { \"same\"; }: str else { \"different\"; }: str): str",
-		"(let a: char (if (== (- 200 1) 199) { 'a' }: char else { 'b' }: char): char)",
-		"(if true {  }: ()): ()",
-		"(if stuff { 'a'; }: char else { 400; }: i64): untyped",
-		"(let b: i64 (if true { 1 }: i64 else (if (not false) { 2 }: i64 else { 3 }: i64): i64): i64)",
-		"(if true { (+ 1 2); }: untyped else { 1; }: i64): untyped",
-		"(if false { (+ 1 2); }: untyped else { (* 3 4); }: untyped): untyped",
-		"(let f: i64 (if true { 1 }: i64 else { 2 }: i64): i64)",
-		"(while (if true { true }: bool else { false }: bool): bool {  }: ())",
-		"(a = (if b { 1 }: i64 else { 2 }: i64): i64)",
-		"(not (if true { 1 }: i64 else { 2 }: i64): i64);",
+		"if true { 1; } else { 3; }",
+		"if a == b { \"same\"; } else { \"different\"; }",
+		"let a = if 200 - 1 == 199 { 'a' } else { 'b' }",
+		"if true {  }",
+		"if stuff { 'a'; } else { 400; }",
+		"let b = if true { 1 } else if not false { 2 } else { 3 }",
+		"if true { 1 + 2; } else { 1; }",
+		"while if true { true } else { false } {  }",
+		"a = if b { 1 } else { 2 }",
+		"not if true { 1 } else { 2 };",
 	}
 
 	for index, node := range contents {
@@ -249,38 +242,25 @@ func TestParsingComplexTypes(t *testing.T) {
 
 	program := Parse(source, false)
 	contents := program.Contents
-	expected := []Pair{
-		{"[1, 2, 3, 4, 5];", "[i64]"},
-		{"(3, );", "(i64)"},
-		{"(1, 2, 'c', false);", "(i64, i64, char, bool)"},
-		{"[];", "[i64]"},
-		{"[[1, 2, 3], [3, 4, 5]];", "[[i64]]"},
-		{"([1, 2], (1, 'b'), false);", "([i64], (i64, char), bool)"},
-		{"[1, 2, 3];", "[i64]"},
-		{"[];", "[Person]"},
-		{"[a, b, c];", "[untyped]"},
-		{"[1];", "[i64]"},
-		{"[[a], 1, 2];", "[untyped]"},
-		{"[1, 2];", "[untyped]"},
+	expected := []string{
+		"[1, 2, 3, 4, 5];",
+		"(3, );",
+		"(1, 2, 'c', false);",
+		"[];",
+		"[[1, 2, 3], [3, 4, 5]];",
+		"([1, 2], (1, 'b'), false);",
+		"[1, 2, 3];",
+		"[];",
+		"[a, b, c];",
+		"[1];",
+		"[[a], 1, 2];",
+		"[1, 2];",
 	}
 
 	for index, node := range contents {
-		literal := expected[index].a
-		node_type := expected[index].b
-
+		literal := expected[index]
 		if literal != node.LiteralRepr() {
 			log.Fatalf("[%d] Expected literal [%s] but got [%s]", index, expected[index], node.LiteralRepr())
-		}
-
-		switch v := node.(type) {
-		case ast.Expression:
-			if v.Type().TypeSignature() != node_type {
-				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Type().TypeSignature())
-			}
-		case *ast.PromotedExpr:
-			if v.Expr.Type().TypeSignature() != node_type {
-				log.Fatalf("[%d] Expected type [%s] but got [%s]", index, node_type, v.Expr.Type().TypeSignature())
-			}
 		}
 	}
 }
@@ -292,10 +272,10 @@ func TestParsingGenericForLoops(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(for (mut a: i64 0) (< a 5) (a = (+ a 1)) {  }: ())",
-		"(for (mut b: bool true) b (!= b false) {  }: ())",
-		"(for (mut c: i64 3) (== (% c 3) 0) (c = (+ c 3)) { 300 }: i64)",
-		"(for (mut i: i64 0) (< i 30) (+ i 30) { 300 }: i64)",
+		"for mut a = 0 a < 5 a = a + 1 {  }",
+		"for mut b = true b b != false {  }",
+		"for mut c = 3 c % 3 == 0 c = c + 3 { 300; }",
+		"for mut i = 0 i < 30 i + 30 { 300; }",
 	}
 
 	for index, node := range contents {
@@ -312,8 +292,8 @@ func TestParsingCollectionsForLoops(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(for a in [1, 2, 3, 4, 5] {  }: ())",
-		"(for chr in ('c', 'd', 'e') {  }: ())",
+		"for a in [1, 2, 3, 4, 5] {  }",
+		"for chr in ('c', 'd', 'e') {  }",
 	}
 
 	for index, node := range contents {
@@ -330,10 +310,10 @@ func TestParsingInfiniteLoops(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(loop { (let a: i64 5) (+ a a) }: untyped)",
-		"(loop {  }: ())",
-		"(loop { (if (< 3 2) { (break) }: ()): () (continue) }: ())",
-		"(loop { 300 }: i64)",
+		"loop { let a = 5 a + a; }",
+		"loop {  }",
+		"loop { if 3 < 2 { break; } continue; }",
+		"loop { 300; }",
 	}
 
 	for index, node := range contents {
@@ -350,12 +330,12 @@ func TestParsingFunctionDefinitions(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(fn is_even(n: i64) -> bool { (== (% n 2) 0) }: untyped)",
-		"(fn negate(value: bool) -> bool { (not value) }: untyped)",
-		"(fn do_nothing() -> () { (return) }: ())",
-		"(fn no_params() -> char { 'a' }: char)",
-		"(fn three_params(m: i64, n: bool, o: [str]) -> () { m }: untyped)",
-		"(fn closure(c: char, b: bool) -> fn(char, bool) -> str {  }: ())",
+		"fn is_even(n: i64) -> bool { n % 2 == 0 }",
+		"fn negate(value: bool) -> bool { not value }",
+		"fn do_nothing() -> () { return; }",
+		"fn no_params() -> char { 'a' }",
+		"fn three_params(m: i64, n: bool, o: [str]) -> () { m }",
+		"fn closure(c: char, b: bool) -> fn(char, bool) -> str {  }",
 	}
 
 	for index, node := range contents {
@@ -375,7 +355,7 @@ func TestParsingFunctionCalls(t *testing.T) {
 		"is_even(2);",
 		"do_stuff([1, 2, 3, 4]);",
 		"no_params();",
-		"(let a: untyped is_even(3))",
+		"let a = is_even(3)",
 		"closure(1)(2);",
 	}
 
@@ -396,7 +376,7 @@ func TestParsingIndexingExpressions(t *testing.T) {
 		"[1, 2, 3, 4][0];",
 		"some_arr[2];",
 		"function_call([1, 2, 3, 4])[3];",
-		"(let a: untyped (1, 'b', true, \"stringed\")[3])",
+		"let a = (1, 'b', true, \"stringed\")[3]",
 		"[[1, 2, 3], [3, 4, 5], [5, 6, 7]][1][2];",
 		"[1, 2, 3][get_index()];",
 	}
@@ -415,13 +395,13 @@ func TestParsingRanges(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"a..b: Range<untyped>;",
-		"1..=2: Range<i64>;",
-		"3..5: Range<i64>;",
-		"'a'..'z': Range<char>;",
-		"'a'..='e': Range<char>;",
-		"300..end: Range<untyped>;",
-		"(let range: Range<i64> 1..5: Range<i64>)",
+		"a..b;",
+		"1..=2;",
+		"3..5;",
+		"'a'..'z';",
+		"'a'..='e';",
+		"300..end;",
+		"let range = 1..5",
 	}
 
 	for index, node := range contents {
@@ -463,15 +443,15 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(+ 1 (* 2 3));",
-		"(|| 1 2)..(&& 3 4): Range<untyped>;",
-		"(|| (&& 1 2) (&& 3 4));",
-		"(* (+ 1 2) 3);",
-		"(|| (&& (== 1 2) (!= 3 3)) false);",
-		"(>= (+ 1 2) 3);",
-		"(* 1 (- 3));",
-		"(== true (not false));",
-		"(&& some_boolean() some_boolean());",
+		"1 + 2 * 3;",
+		"1 || 2..3 && 4;",
+		"1 && 2 || 3 && 4;",
+		"1 + 2 * 3;",
+		"1 == 2 && 3 != 3 || false;",
+		"1 + 2 >= 3;",
+		"1 * - 3;",
+		"true == not false;",
+		"some_boolean() && some_boolean();",
 	}
 
 	for index, node := range contents {
@@ -481,17 +461,17 @@ func TestParsingBinaryOperationsPrecedences(t *testing.T) {
 	}
 }
 
-func TestParsingStructFunctionInits(t *testing.T) {
+func TestParsingStructInits(t *testing.T) {
 	path := "../samples/test_sources/parser/valid/struct_inits.pr"
 	source := shared.ReadFile(path)
 
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(struct Person { name: str, age: i64, hobbies: [str], sex: char })",
-		"(let joshua: Person Person { name: \"Joshua\", age: 23, hobbies: [\"programming\", \"cooking\", \"gaming\"], sex: 'M' })",
-		"(let adult: i64 18)",
-		"(let msg: str (if (>= joshua.age adult) { \"you are old enough\" }: str else { \"you are underage\" }: str): str)",
+		"struct Person { name: str, age: i64, hobbies: [str], sex: char }",
+		"let joshua = Person { name: \"Joshua\", age: 23, hobbies: [\"programming\", \"cooking\", \"gaming\"], sex: 'M' }",
+		"let adult = 18",
+		"let msg = if joshua.age >= adult { \"you are old enough\" } else { \"you are underage\" }",
 	}
 
 	for index, node := range contents {
@@ -508,10 +488,10 @@ func TestParsingReferences(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(let a: untyped (+ 3 3))",
-		"(mut ref_a: untyped &a)",
-		"(let ref_expr: &[i64] &[1, 2, 4, 5])",
-		"(let ref_ref: &i64 &a)",
+		"let a = 3 + 3",
+		"mut ref_a = &a",
+		"let ref_expr = &[1, 2, 4, 5]",
+		"let ref_ref = &a",
 	}
 
 	for index, node := range contents {
@@ -528,9 +508,9 @@ func TestParsingDereferences(t *testing.T) {
 	program := Parse(source, false)
 	contents := program.Contents
 	expected := []string{
-		"(let a: i64 300)",
-		"(let b: untyped &a)",
-		"(let c: untyped (+ *b a))",
+		"let a = 300",
+		"let b = &a",
+		"let c = *b + a",
 	}
 
 	for index, node := range contents {

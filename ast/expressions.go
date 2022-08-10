@@ -33,10 +33,9 @@ type BinaryOp struct {
 func (b *BinaryOp) LiteralRepr() string {
 	var msg strings.Builder
 
-	msg.WriteString("(")
-	msg.WriteString(b.Operator.Literal)
-	msg.WriteString(" " + b.Left.LiteralRepr())
-	msg.WriteString(" " + b.Right.LiteralRepr() + ")")
+	msg.WriteString(b.Left.LiteralRepr())
+	msg.WriteString(" " + b.Operator.Literal)
+	msg.WriteString(" " + b.Right.LiteralRepr())
 
 	return msg.String()
 }
@@ -54,9 +53,8 @@ type UnaryOp struct {
 func (u *UnaryOp) LiteralRepr() string {
 	var msg strings.Builder
 
-	msg.WriteString("(")
 	msg.WriteString(u.Operator.Literal)
-	msg.WriteString(" " + u.Operand.LiteralRepr() + ")")
+	msg.WriteString(" " + u.Operand.LiteralRepr())
 
 	return msg.String()
 }
@@ -202,13 +200,13 @@ func (t *Tuple) Type() ProtoType {
 	return t.TupleType
 }
 
-type Block struct {
+type BlockExpr struct {
 	Start     lexer.ProtoToken
 	Contents  []ProtoNode
 	BlockType ProtoType
 }
 
-func (b *Block) LiteralRepr() string {
+func (b *BlockExpr) LiteralRepr() string {
 	var str strings.Builder
 
 	str.WriteString("{ ")
@@ -220,28 +218,27 @@ func (b *Block) LiteralRepr() string {
 		}
 	}
 
-	str.WriteString(" }: ")
-	str.WriteString(b.Type().TypeSignature())
+	str.WriteString(" }")
 
 	return str.String()
 }
 
-func (b *Block) Type() ProtoType {
+func (b *BlockExpr) Type() ProtoType {
 	return b.BlockType
 }
 
-type IfConditional struct {
+type IfExpr struct {
 	Start     lexer.ProtoToken
 	Condition Expression
-	ThenBody  *Block
-	ElseBody  Expression
+	ThenBody  *BlockExpr
+	ElseBody  ProtoNode
 	IfType    ProtoType
 }
 
-func (i *IfConditional) LiteralRepr() string {
+func (i *IfExpr) LiteralRepr() string {
 	var str strings.Builder
 
-	str.WriteString("(if ")
+	str.WriteString("if ")
 	str.WriteString(i.Condition.LiteralRepr() + " ")
 	str.WriteString(i.ThenBody.LiteralRepr())
 
@@ -249,12 +246,10 @@ func (i *IfConditional) LiteralRepr() string {
 		str.WriteString(" else " + i.ElseBody.LiteralRepr())
 	}
 
-	str.WriteString("): " + i.IfType.TypeSignature())
-
 	return str.String()
 }
 
-func (i *IfConditional) Type() ProtoType {
+func (i *IfExpr) Type() ProtoType {
 	return i.IfType
 }
 
@@ -313,8 +308,7 @@ type Range struct {
 }
 
 func (r *Range) LiteralRepr() string {
-	return r.Start.LiteralRepr() + ".." + r.PastEnd.LiteralRepr() +
-		": " + r.RangeType.TypeSignature()
+	return r.Start.LiteralRepr() + ".." + r.PastEnd.LiteralRepr()
 }
 
 func (r *Range) Type() ProtoType {
@@ -329,8 +323,7 @@ type InclusiveRange struct {
 }
 
 func (i *InclusiveRange) LiteralRepr() string {
-	return i.Start.LiteralRepr() + "..=" + i.End.LiteralRepr() +
-		": " + i.RangeType.TypeSignature()
+	return i.Start.LiteralRepr() + "..=" + i.End.LiteralRepr()
 }
 
 func (i *InclusiveRange) Type() ProtoType {

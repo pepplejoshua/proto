@@ -1,0 +1,10 @@
+fn main() -> str {
+    let a = true;
+    if a {
+        println(stringf("a is {#}.", a));
+    }
+
+    let b = if a { "true" } else { "false" };
+
+    b
+}

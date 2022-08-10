@@ -15,19 +15,16 @@ type VariableDecl struct {
 func (v *VariableDecl) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(")
 	if v.Mutable {
 		repr.WriteString("mut ")
 	} else {
 		repr.WriteString("let ")
 	}
 
-	repr.WriteString(v.Assignee.LiteralRepr() + ": ")
-	repr.WriteString(v.VarType.TypeSignature())
+	repr.WriteString(v.Assignee.LiteralRepr())
 	if v.Assigned != nil {
-		repr.WriteString(" " + v.Assigned.LiteralRepr())
+		repr.WriteString(" = " + v.Assigned.LiteralRepr())
 	}
-	repr.WriteString(")")
 
 	return repr.String()
 }
@@ -41,7 +38,7 @@ type Struct struct {
 func (s *Struct) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(struct ")
+	repr.WriteString("struct ")
 	repr.WriteString(s.Name.LiteralRepr() + " { ")
 
 	for index, mem := range s.Members {
@@ -52,7 +49,7 @@ func (s *Struct) LiteralRepr() string {
 			repr.WriteString(", ")
 		}
 	}
-	repr.WriteString(" })")
+	repr.WriteString(" }")
 
 	return repr.String()
 }
@@ -66,11 +63,9 @@ type Assignment struct {
 func (a *Assignment) LiteralRepr() string {
 	var str strings.Builder
 
-	str.WriteString("(")
 	str.WriteString(a.Target.LiteralRepr())
 	str.WriteString(" " + a.AssignmentToken.Literal + " ")
 	str.WriteString(a.Assigned.LiteralRepr())
-	str.WriteString(")")
 	return str.String()
 }
 
@@ -88,17 +83,17 @@ type GenericForLoop struct {
 	Init          *VariableDecl
 	LoopCondition Expression
 	Update        ProtoNode
-	Body          *Block
+	Body          *BlockStmt
 }
 
 func (g *GenericForLoop) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(for ")
+	repr.WriteString("for ")
 	repr.WriteString(g.Init.LiteralRepr() + " ")
 	repr.WriteString(g.LoopCondition.LiteralRepr() + " ")
 	repr.WriteString(g.Update.LiteralRepr() + " ")
-	repr.WriteString(g.Body.LiteralRepr() + ")")
+	repr.WriteString(g.Body.LiteralRepr())
 
 	return repr.String()
 }
@@ -107,37 +102,37 @@ type CollectionsForLoop struct {
 	Start      lexer.ProtoToken
 	LoopVar    Identifier
 	Collection Expression
-	Body       *Block
+	Body       *BlockStmt
 }
 
 func (c *CollectionsForLoop) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(for ")
+	repr.WriteString("for ")
 	repr.WriteString(c.LoopVar.LiteralRepr() + " in ")
 	repr.WriteString(c.Collection.LiteralRepr() + " ")
-	repr.WriteString(c.Body.LiteralRepr() + ")")
+	repr.WriteString(c.Body.LiteralRepr())
 
 	return repr.String()
 }
 
 type InfiniteLoop struct {
 	Start lexer.ProtoToken
-	Body  *Block
+	Body  *BlockStmt
 }
 
 func (i *InfiniteLoop) LiteralRepr() string {
-	return "(loop " + i.Body.LiteralRepr() + ")"
+	return "loop " + i.Body.LiteralRepr()
 }
 
 type WhileLoop struct {
 	Start         lexer.ProtoToken
 	LoopCondition Expression
-	Body          *Block
+	Body          *BlockStmt
 }
 
 func (w *WhileLoop) LiteralRepr() string {
-	return "(while " + w.LoopCondition.LiteralRepr() + " " + w.Body.LiteralRepr() + ")"
+	return "while " + w.LoopCondition.LiteralRepr() + " " + w.Body.LiteralRepr()
 }
 
 type FunctionDef struct {
@@ -145,14 +140,14 @@ type FunctionDef struct {
 	Name                  *Identifier
 	ParameterList         []*Identifier
 	ReturnType            ProtoType
-	Body                  *Block
+	Body                  *BlockExpr
 	FunctionTypeSignature *Proto_Function
 }
 
 func (fn *FunctionDef) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(fn " + fn.Name.LiteralRepr() + "(")
+	repr.WriteString("fn " + fn.Name.LiteralRepr() + "(")
 
 	for indx, id := range fn.ParameterList {
 		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())
@@ -164,7 +159,7 @@ func (fn *FunctionDef) LiteralRepr() string {
 	repr.WriteString(") -> ")
 	repr.WriteString(fn.ReturnType.TypeSignature() + " ")
 
-	repr.WriteString(fn.Body.LiteralRepr() + ")")
+	repr.WriteString(fn.Body.LiteralRepr())
 
 	return repr.String()
 }
@@ -177,11 +172,11 @@ type Return struct {
 func (r *Return) LiteralRepr() string {
 	var repr strings.Builder
 
-	repr.WriteString("(return")
+	repr.WriteString("return")
 	if r.Value != nil {
-		repr.WriteString(" " + r.Value.LiteralRepr() + ")")
+		repr.WriteString(" " + r.Value.LiteralRepr() + ";")
 	} else {
-		repr.WriteString(")")
+		repr.WriteString(";")
 	}
 
 	return repr.String()
@@ -192,7 +187,7 @@ type Break struct {
 }
 
 func (b *Break) LiteralRepr() string {
-	return "(break)"
+	return "break;"
 }
 
 type Continue struct {
@@ -200,5 +195,47 @@ type Continue struct {
 }
 
 func (c *Continue) LiteralRepr() string {
-	return "(continue)"
+	return "continue;"
+}
+
+type BlockStmt struct {
+	Start    lexer.ProtoToken
+	Contents []ProtoNode
+}
+
+func (b *BlockStmt) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("{ ")
+	for index, node := range b.Contents {
+		str.WriteString(node.LiteralRepr())
+
+		if index+1 < len(b.Contents) {
+			str.WriteString(" ")
+		}
+	}
+
+	str.WriteString(" }")
+
+	return str.String()
+}
+
+type IfStmt struct {
+	Start     lexer.ProtoToken
+	Condition Expression
+	ThenBody  *BlockStmt
+	ElseBody  ProtoNode
+}
+
+func (i *IfStmt) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("if ")
+	str.WriteString(i.Condition.LiteralRepr() + " ")
+	str.WriteString(i.ThenBody.LiteralRepr())
+
+	if i.ElseBody != nil {
+		str.WriteString(" else " + i.ElseBody.LiteralRepr())
+	}
+	return str.String()
 }

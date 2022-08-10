@@ -32,12 +32,16 @@ func (flr *CollectionsForLoopRewriter) Rewrite(node ast.ProtoNode) ast.ProtoNode
 		*ast.Return, *ast.InclusiveRange, *ast.Range, *ast.IndexExpression, *ast.Struct,
 		*ast.StructInitialization, *ast.Break, *ast.Continue, *ast.Membership, *ast.I64,
 		*ast.String, *ast.Char, *ast.Boolean, *ast.Unit, *ast.Dereference, *ast.Reference:
-	case *ast.Block:
-		node = flr.RewriteBlock(actual)
+	case *ast.BlockExpr:
+		node = flr.RewriteBlockExpr(actual)
+	case *ast.BlockStmt:
+		node = flr.RewriteBlockStmt(actual)
 	case *ast.FunctionDef:
 		node = flr.RewriteFunctionDef(actual)
-	case *ast.IfConditional:
-		node = flr.RewriteIfConditional(actual)
+	case *ast.IfExpr:
+		node = flr.RewriteIfExpr(actual)
+	case *ast.IfStmt:
+		node = flr.RewriteIfStmt(actual)
 	case *ast.WhileLoop:
 		node = flr.RewriteWhileLoop(actual)
 	case *ast.GenericForLoop:
@@ -65,16 +69,15 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				for mut idx = 0; idx < len(_loop_collection_var_); idx += 1 {
 					let %s = _loop_collection_var_[idx];
 				}
-			};
+			}
 			`, arr.LiteralRepr(), loop.LoopVar.LiteralRepr())
 			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 			p := parser.NewWithLexer(lex)
 			prog := parser.Top_Level(p, false)
-			prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-			blk := prom_expr.Expr.(*ast.Block)
+			blk := prog.Contents[0].(*ast.BlockStmt)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-			res = prom_expr
+			res = blk
 		} else {
 			src := fmt.Sprintf(`
 			for mut idx = 0; idx < len(%s); idx += 1 {
@@ -96,16 +99,15 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				for mut idx = 0; idx < len(_loop_collection_var_); idx += 1 {
 					let %s = _loop_collection_var_[idx];
 				}
-			};
+			}
 			`, str.LiteralRepr(), loop.LoopVar.LiteralRepr())
 			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 			p := parser.NewWithLexer(lex)
 			prog := parser.Top_Level(p, false)
-			prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-			blk := prom_expr.Expr.(*ast.Block)
+			blk := prog.Contents[0].(*ast.BlockStmt)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-			res = prom_expr
+			res = blk
 		} else {
 			src := fmt.Sprintf(`
 			for mut idx = 0; idx < len(%s); idx += 1 {
@@ -142,16 +144,15 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					for mut idx = start; idx < end; idx += 1 {
 						let %s = int_to_char(idx);
 					}
-				};
+				}
 				`, rng.Start.LiteralRepr(), rng.PastEnd.LiteralRepr(), loop.LoopVar.LiteralRepr())
 				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 				p := parser.NewWithLexer(lex)
 				prog := parser.Top_Level(p, false)
-				prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-				blk := prom_expr.Expr.(*ast.Block)
+				blk := prog.Contents[0].(*ast.BlockStmt)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-				res = prom_expr
+				res = blk
 			}
 		} else if irng, ok := collection.(*ast.InclusiveRange); ok {
 			switch actual.InternalType.TypeSignature() {
@@ -180,11 +181,10 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 				p := parser.NewWithLexer(lex)
 				prog := parser.Top_Level(p, false)
-				prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-				blk := prom_expr.Expr.(*ast.Block)
+				blk := prog.Contents[0].(*ast.BlockStmt)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-				res = prom_expr
+				res = blk
 			}
 		} else {
 			// a range stored in some sort of expression, so need to use built-ins to access start and end fields
@@ -203,11 +203,10 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
 					prog := parser.Top_Level(p, false)
-					prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-					blk := prom_expr.Expr.(*ast.Block)
+					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = prom_expr
+					res = blk
 				case "char":
 					src := fmt.Sprintf(`
 					{
@@ -221,11 +220,10 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
 					prog := parser.Top_Level(p, false)
-					prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-					blk := prom_expr.Expr.(*ast.Block)
+					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = prom_expr
+					res = blk
 				}
 			} else {
 				switch actual.InternalType.TypeSignature() {
@@ -242,11 +240,10 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
 					prog := parser.Top_Level(p, false)
-					prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-					blk := prom_expr.Expr.(*ast.Block)
+					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = prom_expr
+					res = blk
 				case "char":
 					src := fmt.Sprintf(`
 					{
@@ -255,16 +252,15 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						for mut idx = r_start; idx <= r_end; idx += 1 {
 							let %s = int_to_char(idx);
 						}
-					};
+					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
 					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
 					p := parser.NewWithLexer(lex)
 					prog := parser.Top_Level(p, false)
-					prom_expr := prog.Contents[0].(*ast.PromotedExpr)
-					blk := prom_expr.Expr.(*ast.Block)
+					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
 					generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
-					res = prom_expr
+					res = blk
 				}
 			}
 
@@ -294,7 +290,14 @@ func (flr *CollectionsForLoopRewriter) RewriteWhileLoop(while *ast.WhileLoop) *a
 	return while
 }
 
-func (flr *CollectionsForLoopRewriter) RewriteBlock(blk *ast.Block) *ast.Block {
+func (flr *CollectionsForLoopRewriter) RewriteBlockExpr(blk *ast.BlockExpr) *ast.BlockExpr {
+	for index, node := range blk.Contents {
+		blk.Contents[index] = flr.Rewrite(node)
+	}
+	return blk
+}
+
+func (flr *CollectionsForLoopRewriter) RewriteBlockStmt(blk *ast.BlockStmt) *ast.BlockStmt {
 	for index, node := range blk.Contents {
 		blk.Contents[index] = flr.Rewrite(node)
 	}
@@ -308,17 +311,34 @@ func (flr *CollectionsForLoopRewriter) RewriteFunctionDef(fn *ast.FunctionDef) *
 	return fn
 }
 
-func (flr *CollectionsForLoopRewriter) RewriteIfConditional(if_ *ast.IfConditional) *ast.IfConditional {
+func (flr *CollectionsForLoopRewriter) RewriteIfExpr(if_ *ast.IfExpr) *ast.IfExpr {
 	for index, node := range if_.ThenBody.Contents {
 		if_.ThenBody.Contents[index] = flr.Rewrite(node)
 	}
 
 	if if_.ElseBody != nil {
 		switch actual := if_.ElseBody.(type) {
-		case *ast.Block:
-			if_.ElseBody = flr.RewriteBlock(actual)
-		case *ast.IfConditional:
-			if_.ElseBody = flr.RewriteIfConditional(actual)
+		case *ast.BlockExpr:
+			if_.ElseBody = flr.RewriteBlockExpr(actual)
+		case *ast.IfExpr:
+			if_.ElseBody = flr.RewriteIfExpr(actual)
+		}
+	}
+
+	return if_
+}
+
+func (flr *CollectionsForLoopRewriter) RewriteIfStmt(if_ *ast.IfStmt) *ast.IfStmt {
+	for index, node := range if_.ThenBody.Contents {
+		if_.ThenBody.Contents[index] = flr.Rewrite(node)
+	}
+
+	if if_.ElseBody != nil {
+		switch actual := if_.ElseBody.(type) {
+		case *ast.BlockStmt:
+			if_.ElseBody = flr.RewriteBlockStmt(actual)
+		case *ast.IfStmt:
+			if_.ElseBody = flr.RewriteIfStmt(actual)
 		}
 	}
 

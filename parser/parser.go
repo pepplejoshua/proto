@@ -111,101 +111,193 @@ func (p *Parser) parse_identifier() *ast.Identifier {
 	return ident
 }
 
-func (p *Parser) parse_block() *ast.Block {
+func (p *Parser) parse_general_block(allow_end_expr bool) ast.ProtoNode {
 	start := p.cur
 	p.consume(lexer.OPEN_CURLY)
 	var contents []ast.ProtoNode
+	is_expr_block := false
 	for p.cur.Type != lexer.CLOSE_CURLY {
-		node := p.parse_protonode(true)
-		switch actual := node.(type) {
-		case ast.Expression:
-			switch actual.(type) {
-			case *ast.Block, *ast.IfConditional:
-				contents = append(contents, node)
-			default:
-				if p.cur.Type != lexer.CLOSE_CURLY {
-					// if this is not the last portion of the block, disallow an expression
+		n_start := p.cur.TokenSpan
+		node := p.parse_protonode(allow_end_expr)
+		if _, ok := node.(ast.Expression); ok {
+			if p.cur.Type != lexer.CLOSE_CURLY {
+				if allow_end_expr {
+					// if this is not the last node in the block, disallow an expression
 					var msg strings.Builder
-					msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+					msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 					msg.WriteString(" Expressions are only allowed as the last line of the block.")
 					shared.ReportErrorAndExit("Parser", msg.String())
 				} else {
-					contents = append(contents, node)
+					var msg strings.Builder
+					msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
+					msg.WriteString(" Expressions are not allowed in statement block.")
+					shared.ReportErrorAndExit("Parser", msg.String())
 				}
+			} else if allow_end_expr {
+				is_expr_block = true
+				contents = append(contents, node)
+			} else {
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
+				msg.WriteString(" Expressions are not allowed in statement block.")
+				shared.ReportErrorAndExit("Parser", msg.String())
 			}
-		default:
+		} else {
 			contents = append(contents, node)
 		}
 	}
 	p.consume(lexer.CLOSE_CURLY)
 
-	var block_type ast.ProtoType
-	if len(contents) > 0 {
-		last := contents[len(contents)-1]
-
-		switch actual := last.(type) {
-		case ast.Expression:
-			block_type = actual.Type()
-		default:
-			block_type = &ast.Proto_Unit{}
+	if allow_end_expr && is_expr_block {
+		return &ast.BlockExpr{
+			Start:     start,
+			Contents:  contents,
+			BlockType: nil,
 		}
 	} else {
-		block_type = &ast.Proto_Unit{}
-	}
-
-	return &ast.Block{
-		Start:     start,
-		Contents:  contents,
-		BlockType: block_type,
+		return &ast.BlockStmt{
+			Start:    start,
+			Contents: contents,
+		}
 	}
 }
 
-func (p *Parser) parse_if_conditional(skip_else bool) *ast.IfConditional {
+func (p *Parser) parse_block_expr() *ast.BlockExpr {
+	start := p.cur
+	p.consume(lexer.OPEN_CURLY)
+	var contents []ast.ProtoNode
+	for p.cur.Type != lexer.CLOSE_CURLY {
+		n_start := p.cur.TokenSpan
+		node := p.parse_protonode(true)
+		if _, ok := node.(ast.Expression); ok {
+			if p.cur.Type != lexer.CLOSE_CURLY {
+				// if this is not the last node in the block, disallow an expression
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
+				msg.WriteString(" Expressions are only allowed as the last line of the block.")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			} else {
+				contents = append(contents, node)
+			}
+		} else {
+			contents = append(contents, node)
+		}
+	}
+	p.consume(lexer.CLOSE_CURLY)
+
+	return &ast.BlockExpr{
+		Start:     start,
+		Contents:  contents,
+		BlockType: nil,
+	}
+}
+
+func (p *Parser) parse_block_stmt() *ast.BlockStmt {
+	start := p.cur
+	p.consume(lexer.OPEN_CURLY)
+	var contents []ast.ProtoNode
+	for p.cur.Type != lexer.CLOSE_CURLY {
+		n_start := p.cur.TokenSpan
+		node := p.parse_protonode(false)
+		if _, ok := node.(ast.Expression); ok {
+			// if this is not the last node in the block, disallow an expression
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
+			msg.WriteString(" Expressions are not allowed in a statement block.")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		} else {
+			contents = append(contents, node)
+		}
+	}
+	p.consume(lexer.CLOSE_CURLY)
+
+	return &ast.BlockStmt{
+		Start:    start,
+		Contents: contents,
+	}
+}
+
+func (p *Parser) parse_general_if(allow_general_block bool) ast.ProtoNode {
+	start := p.cur
+	p.consume(start.Type)
+
+	condition := p.parse_expr(true)
+
+	is_expr_if := false
+
+	then_body := p.parse_general_block(allow_general_block)
+	if _, ok := then_body.(*ast.BlockExpr); ok {
+		is_expr_if = true
+	}
+
+	var elsebody ast.ProtoNode = nil
+
+	if p.cur.Type == lexer.ELSE {
+		p.consume(p.cur.Type)
+
+		if p.cur.Type == lexer.IF {
+			elsebody = p.parse_general_if(is_expr_if)
+		} else {
+			elsebody = p.parse_general_block(is_expr_if)
+		}
+	}
+
+	if is_expr_if {
+		res := &ast.IfExpr{
+			Start:     start,
+			Condition: condition,
+			ThenBody:  then_body.(*ast.BlockExpr),
+			ElseBody:  elsebody,
+			IfType:    nil,
+		}
+		return res
+	} else {
+		res := &ast.IfStmt{
+			Start:     start,
+			Condition: condition,
+			ThenBody:  then_body.(*ast.BlockStmt),
+			ElseBody:  elsebody,
+		}
+		return res
+	}
+}
+
+func (p *Parser) parse_if_expr() *ast.IfExpr {
 	start := p.cur
 	p.consume(p.cur.Type)
 
-	condition := p.parse_expr(true, skip_else)
+	condition := p.parse_expr(true)
 
-	thenbody := p.parse_block()
+	thenbody := p.parse_block_expr()
 
 	var elsebody ast.Expression = nil
 	if p.cur.Type == lexer.ELSE {
 		p.consume(p.cur.Type)
 
 		if p.cur.Type == lexer.IF {
-			elsebody = p.parse_if_conditional(skip_else)
+			elsebody = p.parse_if_expr()
 		} else {
-			elsebody = p.parse_block()
+			elsebody = p.parse_block_expr()
 		}
-	} else if !skip_else {
+	} else {
 		var msg strings.Builder
 		line := p.cur.TokenSpan.Line
 		col := p.cur.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString("If conditional requires an else statement.")
+		msg.WriteString("If conditional expression requires an else statement.")
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
 
-	var if_type ast.ProtoType
-	if (elsebody != nil &&
-		thenbody.Type().TypeSignature() == elsebody.Type().TypeSignature()) ||
-		elsebody == nil {
-		// if we can infer 2 matching types for the blocks, then use it
-		if_type = thenbody.Type()
-	} else {
-		if_type = &ast.Proto_Untyped{}
-	}
-
-	return &ast.IfConditional{
+	return &ast.IfExpr{
 		Start:     start,
 		Condition: condition,
 		ThenBody:  thenbody,
 		ElseBody:  elsebody,
-		IfType:    if_type,
+		IfType:    nil,
 	}
 }
 
-func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expression {
+func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 	var val ast.Expression
 	switch p.cur.Type {
 	case lexer.I64:
@@ -253,7 +345,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 				} else {
 					// if we have colon, consume it
 					p.consume(p.cur.Type)
-					init := p.parse_expr(false, false)
+					init := p.parse_expr(false)
 					fields[field] = init
 				}
 
@@ -287,7 +379,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 				Token: start,
 			}
 		} else {
-			val = p.parse_expr(false, false)
+			val = p.parse_expr(false)
 			if p.cur.Type == lexer.COMMA { // we will parse a tuple instead
 				p.consume(p.cur.Type)
 				var items []ast.Expression
@@ -295,7 +387,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 				items = append(items, val)
 				types = append(types, val.Type())
 				for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_PAREN {
-					expr := p.parse_expr(false, false)
+					expr := p.parse_expr(false)
 					items = append(items, expr)
 					types = append(types, expr.Type())
 					if p.cur.Type != lexer.CLOSE_PAREN {
@@ -346,7 +438,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 			}
 
 			if expr == nil {
-				expr = p.parse_expr(false, false)
+				expr = p.parse_expr(false)
 			}
 			items = append(items, expr)
 
@@ -379,9 +471,9 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 		}
 		val = arr
 	case lexer.OPEN_CURLY:
-		val = p.parse_block()
+		val = p.parse_block_expr()
 	case lexer.IF:
-		val = p.parse_if_conditional(skip_else)
+		val = p.parse_if_expr()
 	default:
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
@@ -392,8 +484,8 @@ func (p *Parser) parse_primary(skip_struct_expr bool, skip_else bool) ast.Expres
 	return val
 }
 
-func (p *Parser) parse_call_expression(skip_struct_expr bool, skip_else bool) ast.Expression {
-	call := p.parse_primary(skip_struct_expr, skip_else)
+func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
+	call := p.parse_primary(skip_struct_expr)
 
 	for {
 		if p.cur.Type == lexer.OPEN_PAREN {
@@ -407,7 +499,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool, skip_else bool) as
 					msg.WriteString(" Function Calls only allows 255 arguments.")
 					shared.ReportErrorAndExit("Parser", msg.String())
 				}
-				args = append(args, p.parse_expr(false, false))
+				args = append(args, p.parse_expr(false))
 				if p.cur.Type != lexer.CLOSE_PAREN {
 					p.consume(lexer.COMMA)
 				}
@@ -424,7 +516,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool, skip_else bool) as
 			start := p.cur
 			p.consume(p.cur.Type)
 
-			index := p.parse_expr(false, false)
+			index := p.parse_expr(false)
 			p.consume(lexer.CLOSE_BRACKET)
 
 			call = &ast.IndexExpression{
@@ -438,7 +530,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool, skip_else bool) as
 			p.consume(p.cur.Type)
 
 			if p.cur.Type == lexer.IDENT || p.cur.Type == lexer.I64 {
-				member := p.parse_primary(false, false)
+				member := p.parse_primary(false)
 
 				call = &ast.Membership{
 					Start:          start,
@@ -462,13 +554,13 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool, skip_else bool) as
 	return call
 }
 
-func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expression {
+func (p *Parser) parse_unary(skip_struct_expr bool) ast.Expression {
 	var val ast.Expression
 	switch p.cur.Type {
 	case lexer.NOT, lexer.MINUS:
 		operator := p.cur
 		p.consume(operator.Type)
-		operand := p.parse_unary(skip_struct_expr, false)
+		operand := p.parse_unary(skip_struct_expr)
 		val = &ast.UnaryOp{
 			Operand:  operand,
 			Operator: operator,
@@ -479,7 +571,7 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 		p.consume(operator.Type)
 		line := p.cur.TokenSpan.Line
 		col := p.cur.TokenSpan.Col
-		operand := p.parse_call_expression(false, false)
+		operand := p.parse_call_expression(false)
 
 		// check that the reference is to something valid
 		switch operand.(type) {
@@ -502,20 +594,20 @@ func (p *Parser) parse_unary(skip_struct_expr bool, skip_else bool) ast.Expressi
 	case lexer.STAR:
 		operator := p.cur
 		p.consume(operator.Type)
-		operand := p.parse_call_expression(false, false)
+		operand := p.parse_call_expression(false)
 		val = &ast.Dereference{
 			Start:     operator,
 			Value:     operand,
 			DerefType: &ast.Proto_Untyped{},
 		}
 	default:
-		val = p.parse_call_expression(skip_struct_expr, skip_else)
+		val = p.parse_call_expression(skip_struct_expr)
 	}
 	return val
 }
 
-func (p *Parser) parse_factor(skip_struct_expr bool, skip_else bool) ast.Expression {
-	factor := p.parse_unary(skip_struct_expr, skip_else)
+func (p *Parser) parse_factor(skip_struct_expr bool) ast.Expression {
+	factor := p.parse_unary(skip_struct_expr)
 
 	for p.cur.Type == lexer.STAR || p.cur.Type == lexer.SLASH ||
 		p.cur.Type == lexer.MODULO {
@@ -523,7 +615,7 @@ func (p *Parser) parse_factor(skip_struct_expr bool, skip_else bool) ast.Express
 		p.consume(operator.Type)
 		factor = &ast.BinaryOp{
 			Left:     factor,
-			Right:    p.parse_unary(skip_struct_expr, skip_else),
+			Right:    p.parse_unary(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -531,15 +623,15 @@ func (p *Parser) parse_factor(skip_struct_expr bool, skip_else bool) ast.Express
 	return factor
 }
 
-func (p *Parser) parse_term(skip_struct_expr bool, skip_else bool) ast.Expression {
-	term := p.parse_factor(skip_struct_expr, skip_else)
+func (p *Parser) parse_term(skip_struct_expr bool) ast.Expression {
+	term := p.parse_factor(skip_struct_expr)
 
 	for p.cur.Type == lexer.PLUS || p.cur.Type == lexer.MINUS {
 		operator := p.cur
 		p.consume(operator.Type)
 		term = &ast.BinaryOp{
 			Left:     term,
-			Right:    p.parse_factor(skip_struct_expr, skip_else),
+			Right:    p.parse_factor(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -547,8 +639,8 @@ func (p *Parser) parse_term(skip_struct_expr bool, skip_else bool) ast.Expressio
 	return term
 }
 
-func (p *Parser) parse_comparison(skip_struct_expr bool, skip_else bool) ast.Expression {
-	comp := p.parse_term(skip_struct_expr, skip_else)
+func (p *Parser) parse_comparison(skip_struct_expr bool) ast.Expression {
+	comp := p.parse_term(skip_struct_expr)
 
 	for p.cur.Type == lexer.GREATER_THAN || p.cur.Type == lexer.GREATER_OR_EQUAL ||
 		p.cur.Type == lexer.LESS_THAN || p.cur.Type == lexer.LESS_OR_EQUAL {
@@ -556,7 +648,7 @@ func (p *Parser) parse_comparison(skip_struct_expr bool, skip_else bool) ast.Exp
 		p.consume(operator.Type)
 		comp = &ast.BinaryOp{
 			Left:     comp,
-			Right:    p.parse_term(skip_struct_expr, skip_else),
+			Right:    p.parse_term(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -564,15 +656,15 @@ func (p *Parser) parse_comparison(skip_struct_expr bool, skip_else bool) ast.Exp
 	return comp
 }
 
-func (p *Parser) parse_equality(skip_struct_expr bool, skip_else bool) ast.Expression {
-	eq := p.parse_comparison(skip_struct_expr, skip_else)
+func (p *Parser) parse_equality(skip_struct_expr bool) ast.Expression {
+	eq := p.parse_comparison(skip_struct_expr)
 
 	for p.cur.Type == lexer.IS_EQUAL_TO || p.cur.Type == lexer.NOT_EQUAL_TO {
 		operator := p.cur
 		p.consume(operator.Type)
 		eq = &ast.BinaryOp{
 			Left:     eq,
-			Right:    p.parse_comparison(skip_struct_expr, skip_else),
+			Right:    p.parse_comparison(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -580,15 +672,15 @@ func (p *Parser) parse_equality(skip_struct_expr bool, skip_else bool) ast.Expre
 	return eq
 }
 
-func (p *Parser) parse_and(skip_struct_expr bool, skip_else bool) ast.Expression {
-	and := p.parse_equality(skip_struct_expr, skip_else)
+func (p *Parser) parse_and(skip_struct_expr bool) ast.Expression {
+	and := p.parse_equality(skip_struct_expr)
 
 	for p.cur.Type == lexer.AND {
 		operator := p.cur
 		p.consume(operator.Type)
 		and = &ast.BinaryOp{
 			Left:     and,
-			Right:    p.parse_equality(skip_struct_expr, skip_else),
+			Right:    p.parse_equality(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -596,15 +688,15 @@ func (p *Parser) parse_and(skip_struct_expr bool, skip_else bool) ast.Expression
 	return and
 }
 
-func (p *Parser) parse_or(skip_struct_expr bool, skip_else bool) ast.Expression {
-	or := p.parse_and(skip_struct_expr, skip_else)
+func (p *Parser) parse_or(skip_struct_expr bool) ast.Expression {
+	or := p.parse_and(skip_struct_expr)
 
 	for p.cur.Type == lexer.OR {
 		operator := p.cur
 		p.consume(operator.Type)
 		or = &ast.BinaryOp{
 			Left:     or,
-			Right:    p.parse_and(skip_struct_expr, skip_else),
+			Right:    p.parse_and(skip_struct_expr),
 			Operator: operator,
 			Op_Type:  &ast.Proto_Untyped{},
 		}
@@ -612,15 +704,15 @@ func (p *Parser) parse_or(skip_struct_expr bool, skip_else bool) ast.Expression 
 	return or
 }
 
-func (p *Parser) parse_range(skip_struct_expr bool, skip_else bool) ast.Expression {
-	range_start := p.parse_or(skip_struct_expr, skip_else)
+func (p *Parser) parse_range(skip_struct_expr bool) ast.Expression {
+	range_start := p.parse_or(skip_struct_expr)
 
 	if p.cur.Type == lexer.RANGE ||
 		p.cur.Type == lexer.INCLUSIVE_RANGE {
 		operator := p.cur
 		p.consume(p.cur.Type)
 
-		end := p.parse_or(skip_struct_expr, skip_else)
+		end := p.parse_or(skip_struct_expr)
 
 		var range_type ast.ProtoType = &ast.Proto_Untyped{}
 		if range_start.Type().TypeSignature() == end.Type().TypeSignature() &&
@@ -652,12 +744,12 @@ func (p *Parser) parse_range(skip_struct_expr bool, skip_else bool) ast.Expressi
 	return range_start
 }
 
-func (p *Parser) parse_expr(skip_struct_expr bool, skip_else bool) ast.Expression {
-	return p.parse_range(skip_struct_expr, skip_else)
+func (p *Parser) parse_expr(skip_struct_expr bool) ast.Expression {
+	return p.parse_range(skip_struct_expr)
 }
 
-func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool, skip_else bool) ast.ProtoNode {
-	target := p.parse_expr(skip_struct_expr, skip_else)
+func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool) ast.ProtoNode {
+	target := p.parse_expr(skip_struct_expr)
 
 	if p.cur.Type == lexer.ASSIGN ||
 		p.cur.Type == lexer.PLUS_EQUAL ||
@@ -667,7 +759,7 @@ func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool, sk
 		p.cur.Type == lexer.MODULO_EQUAL {
 		operator := p.cur
 		p.consume(p.cur.Type)
-		assigned := p.parse_expr(false, false)
+		assigned := p.parse_expr(false)
 		assignment := &ast.Assignment{
 			Target:          target,
 			AssignmentToken: operator,
@@ -850,7 +942,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	var assigned_expr ast.Expression = nil
 	if p.cur.Type == lexer.ASSIGN {
 		p.consume(lexer.ASSIGN)
-		assigned_expr = p.parse_expr(false, false)
+		assigned_expr = p.parse_expr(false)
 	}
 
 	p.consume(lexer.SEMI_COLON)
@@ -861,10 +953,6 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 		msg.WriteString(fmt.Sprint(ident.Token.TokenSpan.Line) + ":" + fmt.Sprint(ident.Token.TokenSpan.Col))
 		msg.WriteString(fmt.Sprintf(" Expected '%s' to be typed or initialized.", ident.LiteralRepr()))
 		shared.ReportErrorAndExit("Parser", msg.String())
-	}
-
-	if strings.Contains(var_type.TypeSignature(), "untyped") && assigned_expr != nil && !strings.Contains(assigned_expr.Type().TypeSignature(), "untyped") {
-		var_type = assigned_expr.Type()
 	}
 
 	declaration := &ast.VariableDecl{
@@ -929,10 +1017,10 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 			shared.ReportErrorAndExit("Parser", msg.String())
 		}
 
-		loop_condition := p.parse_expr(false, false)
+		loop_condition := p.parse_expr(false)
 		p.consume(lexer.SEMI_COLON)
-		update := p.parse_assignment(false, true, false)
-		body := p.parse_block()
+		update := p.parse_assignment(false, true)
+		body := p.parse_block_stmt()
 
 		node = &ast.GenericForLoop{
 			Start:         start,
@@ -950,8 +1038,8 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 		// we have a collections for loop
 		loop_var := p.parse_identifier()
 		p.consume(lexer.IN)
-		collection := p.parse_expr(true, false)
-		body := p.parse_block()
+		collection := p.parse_expr(true)
+		body := p.parse_block_stmt()
 
 		node = &ast.CollectionsForLoop{
 			Start:      start,
@@ -972,7 +1060,7 @@ func (p *Parser) parse_infinite_loop() *ast.InfiniteLoop {
 	start := p.cur
 	p.consume(p.cur.Type)
 
-	body := p.parse_block()
+	body := p.parse_block_stmt()
 
 	return &ast.InfiniteLoop{
 		Start: start,
@@ -984,8 +1072,8 @@ func (p *Parser) parse_while_loop() *ast.WhileLoop {
 	start := p.cur
 	p.consume(p.cur.Type)
 
-	loop_condition := p.parse_expr(true, false)
-	body := p.parse_block()
+	loop_condition := p.parse_expr(true)
+	body := p.parse_block_stmt()
 
 	return &ast.WhileLoop{
 		Start:         start,
@@ -1024,7 +1112,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		p.consume(p.cur.Type)
 		return_type = p.parse_type(false)
 	}
-	body := p.parse_block()
+	body := p.parse_block_expr()
 	fn_def := &ast.FunctionDef{
 		Start:         start,
 		Name:          name,
@@ -1048,7 +1136,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	return fn_def
 }
 
-func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
+func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 	var node ast.ProtoNode
 	switch p.cur.Type {
 	case lexer.LET, lexer.MUT:
@@ -1075,7 +1163,7 @@ func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
 		}
 		p.consume(p.cur.Type)
 		if p.cur.Type != lexer.SEMI_COLON {
-			return_statement.Value = p.parse_expr(false, skip_else)
+			return_statement.Value = p.parse_expr(false)
 		}
 		p.consume(lexer.SEMI_COLON)
 		node = return_statement
@@ -1085,11 +1173,32 @@ func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
 		}
 		p.consume(p.cur.Type)
 		p.consume(lexer.SEMI_COLON)
+	case lexer.IF:
+		node = p.parse_general_if(allow_general_block)
+		if expr, ok := node.(*ast.IfExpr); ok && p.cur.Type == lexer.SEMI_COLON {
+			node = &ast.PromotedExpr{
+				Start: p.cur,
+				Expr:  expr,
+			}
+			p.consume(p.cur.Type)
+		}
+	case lexer.OPEN_CURLY:
+		if allow_general_block {
+			node = p.parse_general_block(allow_general_block)
+			if expr, ok := node.(*ast.BlockExpr); ok && p.cur.Type == lexer.SEMI_COLON {
+				node = &ast.PromotedExpr{
+					Start: p.cur,
+					Expr:  expr,
+				}
+				p.consume(p.cur.Type)
+			}
+		} else {
+			node = p.parse_block_stmt()
+		}
 	default:
-		potential_expr := p.parse_assignment(true, false, skip_else)
+		potential_expr := p.parse_assignment(true, false)
 
-		switch actual := potential_expr.(type) {
-		case ast.Expression:
+		if actual, ok := potential_expr.(ast.Expression); ok {
 			if p.cur.Type == lexer.SEMI_COLON { // allow semi-colon to promote expr to statement
 				p.consume(p.cur.Type)
 				node = &ast.PromotedExpr{
@@ -1098,7 +1207,7 @@ func (p *Parser) parse_protonode(skip_else bool) ast.ProtoNode {
 			} else {
 				node = actual
 			}
-		default:
+		} else {
 			node = potential_expr
 		}
 	}
@@ -1122,7 +1231,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	has_main := false
 	var main_def_loc lexer.Span
 	for p.cur.Type != lexer.END {
-		node := p.parse_protonode(true)
+		node := p.parse_protonode(false)
 		switch actual := node.(type) {
 		case *ast.FunctionDef:
 			code.FunctionDefs = append(code.FunctionDefs, actual)
@@ -1147,19 +1256,10 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			code.Structs = append(code.Structs, actual)
 			code.Contents = append(code.Contents, node)
 		case ast.Expression:
-			switch actual := actual.(type) {
-			case *ast.IfConditional:
-				promote_expr(actual)
-				code.Contents = append(code.Contents, actual)
-			case *ast.Block:
-				promote_block_last(actual)
-				code.Contents = append(code.Contents, actual)
-			default:
-				var msg strings.Builder
-				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
-				msg.WriteString(" Expressions are not allowed in the global scope of the program.")
-				shared.ReportErrorAndExit("Parser", msg.String())
-			}
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+			msg.WriteString(" Expressions are not allowed in the global scope of the program.")
+			shared.ReportErrorAndExit("Parser", msg.String())
 		default:
 			code.Contents = append(code.Contents, node)
 		}
@@ -1174,35 +1274,35 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	return code
 }
 
-func promote_block_last(blk *ast.Block) {
-	if len(blk.Contents) > 0 {
-		switch last := blk.Contents[len(blk.Contents)-1].(type) {
-		case *ast.IfConditional:
-			promote_expr(last)
-		case *ast.Block:
-			promote_block_last(last)
-		case ast.Expression:
-			up_last := &ast.PromotedExpr{
-				Expr: last,
-			}
-			blk.Contents[len(blk.Contents)-1] = up_last
-		}
-	}
-}
+// func promote_block_last(blk *ast.Block) {
+// 	if len(blk.Contents) > 0 {
+// 		switch last := blk.Contents[len(blk.Contents)-1].(type) {
+// 		case *ast.IfConditional:
+// 			promote_expr(last)
+// 		case *ast.Block:
+// 			promote_block_last(last)
+// 		case ast.Expression:
+// 			up_last := &ast.PromotedExpr{
+// 				Expr: last,
+// 			}
+// 			blk.Contents[len(blk.Contents)-1] = up_last
+// 		}
+// 	}
+// }
 
-func promote_expr(cond *ast.IfConditional) {
-	then := cond.ThenBody
-	if len(then.Contents) > 0 {
-		promote_block_last(then)
-	}
+// func promote_expr(cond *ast.IfConditional) {
+// 	then := cond.ThenBody
+// 	if len(then.Contents) > 0 {
+// 		promote_block_last(then)
+// 	}
 
-	if cond.ElseBody != nil {
-		else_b := cond.ElseBody
-		switch else_b := else_b.(type) {
-		case *ast.Block:
-			promote_block_last(else_b)
-		case *ast.IfConditional:
-			promote_expr(else_b)
-		}
-	}
-}
+// 	if cond.ElseBody != nil {
+// 		else_b := cond.ElseBody
+// 		switch else_b := else_b.(type) {
+// 		case *ast.Block:
+// 			promote_block_last(else_b)
+// 		case *ast.IfConditional:
+// 			promote_expr(else_b)
+// 		}
+// 	}
+// }

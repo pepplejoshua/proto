@@ -209,10 +209,14 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 		c.CompileCallExprs(actual)
 	case *ast.Identifier:
 		c.CompileIdentifier(actual)
-	case *ast.IfConditional:
-		c.CompileIfConditional(actual)
-	case *ast.Block:
-		c.CompileBlock(actual, true)
+	case *ast.IfExpr:
+		c.CompileIfExpr(actual)
+	case *ast.IfStmt:
+		c.CompileIfStmt(actual)
+	case *ast.BlockStmt:
+		c.CompileBlockStmt(actual, true)
+	case *ast.BlockExpr:
+		c.CompileBlockExpr(actual, true)
 	case *ast.Boolean:
 		if actual.Value {
 			c.generateBytecode(opcode.PushBoolTrue)
@@ -222,7 +226,7 @@ func (c *Compiler) Compile(node ast.ProtoNode) {
 	case *ast.Break:
 		BREAKS = append(BREAKS, c.generateBytecode(opcode.JumpTo, 9999))
 	case *ast.Continue:
-		CONTINUES = append(CONTINUES, c.generateBytecode(opcode.JumpTo, LOOP_START))
+		CONTINUES = append(CONTINUES, c.generateBytecode(opcode.JumpTo, 9999))
 	case *ast.UnaryOp:
 		c.CompileUnaryOp(actual)
 	case *ast.BinaryOp:
@@ -336,12 +340,19 @@ func (c *Compiler) CompileWhileLoop(loop *ast.WhileLoop) {
 	c.Compile(loop.LoopCondition)
 	// exit loop if condition fails
 	exit_loop := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
-	c.CompileBlock(loop.Body, true)
+	c.enterScope()
+	c.CompileBlockStmt(loop.Body, false)
+	clean_up_loc := len(c.instructions)
+	c.exitScope()
 	c.generateBytecode(opcode.JumpTo, LOOP_START)
 	loop_end := len(c.instructions)
 	c.updateOperand(exit_loop, loop_end)
 	for _, _break := range BREAKS {
 		c.updateOperand(_break, loop_end)
+	}
+
+	for _, _continue := range CONTINUES {
+		c.updateOperand(_continue, clean_up_loc)
 	}
 	BREAKS = prev_breaks
 	CONTINUES = prev_continues
@@ -370,8 +381,12 @@ func (c *Compiler) CompileGenericForLoop(loop *ast.GenericForLoop) {
 	// then compile body and track location of update part of loop so continues
 	// can jump there
 	// it has its own scope so the init variable outlives the variables in the scope
-	c.CompileBlock(loop.Body, true)
-	update_loc := len(c.instructions)
+	c.enterScope()
+	c.CompileBlockStmt(loop.Body, false)
+	clean_up_loc := len(c.instructions)
+	c.exitScope()
+
+	// it should do a clean up of any values declared inside the block
 
 	// then compile update statement
 	c.Compile(loop.Update)
@@ -389,7 +404,7 @@ func (c *Compiler) CompileGenericForLoop(loop *ast.GenericForLoop) {
 	}
 
 	for _, _continue := range CONTINUES {
-		c.updateOperand(_continue, update_loc)
+		c.updateOperand(_continue, clean_up_loc)
 	}
 	BREAKS = prev_breaks
 	CONTINUES = prev_continues
@@ -403,11 +418,18 @@ func (c *Compiler) CompileInfiniteLoop(loop *ast.InfiniteLoop) {
 	LOOP_START = len(c.instructions)
 	BREAKS = []int{}
 	CONTINUES = []int{}
-	c.CompileBlock(loop.Body, true)
+	c.enterScope()
+	c.CompileBlockStmt(loop.Body, false)
+	clean_up_loc := len(c.instructions)
+	c.exitScope()
 	c.generateBytecode(opcode.JumpTo, LOOP_START)
 	loop_end := len(c.instructions)
 	for _, _break := range BREAKS {
 		c.updateOperand(_break, loop_end)
+	}
+
+	for _, _continue := range CONTINUES {
+		c.updateOperand(_continue, clean_up_loc)
 	}
 	BREAKS = prev_breaks
 	CONTINUES = prev_continues
@@ -696,7 +718,7 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 		for _, param := range fn.ParameterList {
 			new_comp.symbolTable.Define(param.LiteralRepr())
 		}
-		new_comp.CompileBlock(fn.Body, false)
+		new_comp.CompileBlockExpr(fn.Body, false)
 		new_comp.exitScope()
 		if _, ok := fn.Body.Contents[len(fn.Body.Contents)-1].(*ast.Return); !ok {
 			new_comp.generateBytecode(opcode.Return)
@@ -718,7 +740,7 @@ func (c *Compiler) CompileFunctionDef(fn *ast.FunctionDef) {
 	c.updateOperand(start, fn_def)
 }
 
-func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
+func (c *Compiler) CompileBlockExpr(blk *ast.BlockExpr, makeScope bool) {
 	if makeScope {
 		c.enterScope()
 	}
@@ -744,13 +766,38 @@ func (c *Compiler) CompileBlock(blk *ast.Block, makeScope bool) {
 	}
 }
 
-func (c *Compiler) CompileIfConditional(actual *ast.IfConditional) {
+func (c *Compiler) CompileBlockStmt(blk *ast.BlockStmt, makeScope bool) {
+	if makeScope {
+		c.enterScope()
+	}
+
+	for _, node := range blk.Contents {
+		c.Compile(node)
+		// if index+1 == len(blk.Contents) {
+		// 	switch node.(type) {
+		// 	case ast.Expression:
+		// 	case *ast.Return:
+		// 	case *ast.Continue, *ast.Break:
+		// 	default:
+		// 		if LOOP_START == -1 {
+		// 			c.generateBytecode(opcode.PushUnit)
+		// 		}
+		// 	}
+		// }
+	}
+
+	if makeScope {
+		c.exitScope()
+	}
+}
+
+func (c *Compiler) CompileIfExpr(actual *ast.IfExpr) {
 	c.Compile(actual.Condition)
 	// jump instruction with an operand to be updated later
 	jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
 
 	// compile the then body of if conditional
-	c.CompileBlock(actual.ThenBody, true)
+	c.CompileBlockExpr(actual.ThenBody, true)
 
 	// store the jump instruction to be updated later
 	// it allows the then body jump past the rest of the else statement
@@ -762,13 +809,46 @@ func (c *Compiler) CompileIfConditional(actual *ast.IfConditional) {
 	c.updateOperand(jump_not_true, jump_not_true_target)
 
 	// if there is no else body, then push a unit onto stack
-	if actual.ElseBody == nil {
-		c.enterScope()
-		c.generateBytecode(opcode.PushUnit)
-		c.exitScope()
-	} else {
+	// if actual.ElseBody == nil {
+	// 	c.enterScope()
+	// 	c.generateBytecode(opcode.PushUnit)
+	// 	c.exitScope()
+	// } else {
+	c.Compile(actual.ElseBody)
+	// }
+
+	// set jump to target for then body to be past the end of the if statement
+	jump_to_target := len(c.instructions)
+	c.updateOperand(jump_to, jump_to_target)
+}
+
+func (c *Compiler) CompileIfStmt(actual *ast.IfStmt) {
+	c.Compile(actual.Condition)
+	// jump instruction with an operand to be updated later
+	jump_not_true := c.generateBytecode(opcode.JumpOnNotTrueTo, 9999)
+
+	// compile the then body of if conditional
+	c.CompileBlockStmt(actual.ThenBody, true)
+
+	// store the jump instruction to be updated later
+	// it allows the then body jump past the rest of the else statement
+	jump_to := c.generateBytecode(opcode.JumpTo, 9999)
+	// the jump to else target is the instruction after the then body of the if conditional
+	// update that with the right location
+	jump_not_true_target := len(c.instructions)
+
+	c.updateOperand(jump_not_true, jump_not_true_target)
+
+	// if there is no else body, then push a unit onto stack
+	// if actual.ElseBody == nil {
+	// 	c.enterScope()
+	// 	c.generateBytecode(opcode.PushUnit)
+	// 	c.exitScope()
+	// } else {
+	if actual.ElseBody != nil {
 		c.Compile(actual.ElseBody)
 	}
+	// }
 
 	// set jump to target for then body to be past the end of the if statement
 	jump_to_target := len(c.instructions)

@@ -74,8 +74,7 @@ func Start() {
 		return
 	}
 
-	res := vm.LastPoppedElem()
-
+	res := vm.StackTop()
 	if res.String() != "()" {
 		println(res.String())
 	}

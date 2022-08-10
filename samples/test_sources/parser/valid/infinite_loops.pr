@@ -1,6 +1,6 @@
 loop {
     let a = 5;
-    a + a
+    a + a;
 }
 
 loop { }
@@ -13,5 +13,5 @@ loop {
 }
 
 loop {
-    300
+    300;
 }
