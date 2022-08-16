@@ -145,8 +145,8 @@ func (vm *VM) UpdateRegularValue(reg runtime.RuntimeObj, assigned runtime.Runtim
 	}
 }
 
-func (vm *VM) Show_stack(start int) {
-	println("at instruction:", start)
+func (vm *VM) Show_stack() {
+	println("stack contains:")
 	for index, val := range vm.stack {
 		if index >= vm.stack_index {
 			break
@@ -156,11 +156,33 @@ func (vm *VM) Show_stack(start int) {
 	println()
 }
 
-func (vm *VM) Run() {
-	// println(vm.instructions.Disassemble())
-	for ip := 0; ip < len(vm.instructions); {
+func (vm *VM) Show_globals() {
+	println("has globals:")
+	for index, g := range vm.globals {
+		if g == nil {
+			break
+		}
+		println(index+1, g.String())
+	}
+	println()
+}
+
+func (vm *VM) Debug(ip int) int {
+	println(vm.instructions.Disassemble())
+	ip = vm.Run(true, ip)
+	return ip
+}
+
+func (vm *VM) Run(is_debugging bool, provided_ip int) int {
+	var insp int
+	if is_debugging {
+		insp = provided_ip
+	} else {
+		insp = 0
+	}
+
+	for ip := insp; ip < len(vm.instructions); {
 		op := opcode.OpCode(vm.instructions[ip])
-		// start := ip
 
 		switch op {
 		case opcode.LoadConstant:
@@ -727,7 +749,7 @@ func (vm *VM) Run() {
 			ip += 1
 		case opcode.Halt:
 			vm.PopOffStack()
-			return
+			return ip
 		default:
 			if def, err := opcode.LookupInstructionDef(opcode.OpCode(op)); err != nil {
 				shared.ReportErrorAndExit("VM", err.Error())
@@ -737,6 +759,9 @@ func (vm *VM) Run() {
 						def.Name, ip))
 			}
 		}
-		// vm.Show_stack(start)
+		if is_debugging {
+			return ip
+		}
 	}
+	return len(vm.instructions)
 }

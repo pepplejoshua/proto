@@ -16,6 +16,7 @@ fn main() -> str {
     mut b = a;
     b.a += 3;
     println(a.a);
+    println(b.a);
     stringf("The sum of {#} is {#}.", range, sum)
 }
 

@@ -780,7 +780,7 @@ func runVmTest(t *testing.T, tests []vmTestCase) {
 		bc := compiler.ByteCode()
 		vm := NewVM(bc)
 		// println(vm.instructions.Disassemble())
-		vm.Run()
+		vm.Run(false, 0)
 
 		if vm.FoundError {
 			t.Fatal("Found errors during virtual machine execution")
