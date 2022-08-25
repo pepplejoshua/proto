@@ -767,7 +767,10 @@ func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool) as
 		}
 
 		if check_for_semi {
+			assignment.HasSemiColon = true
 			p.consume(lexer.SEMI_COLON)
+		} else {
+			assignment.HasSemiColon = false
 		}
 		return assignment
 	}
@@ -1113,6 +1116,8 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		return_type = p.parse_type(false)
 	}
 	body := p.parse_block_expr()
+
+	
 	fn_def := &ast.FunctionDef{
 		Start:         start,
 		Name:          name,

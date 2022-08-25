@@ -23,6 +23,14 @@ func (i *Identifier) Type() ProtoType {
 	return i.Id_Type
 }
 
+func (i *Identifier) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(i.LiteralRepr(), use_tab)
+	} else {
+		c.Write(i.LiteralRepr(), use_tab, false)
+	}
+}
+
 type BinaryOp struct {
 	Left     Expression
 	Right    Expression
@@ -44,6 +52,16 @@ func (b *BinaryOp) Type() ProtoType {
 	return b.Op_Type
 }
 
+func (b *BinaryOp) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(b.LiteralRepr(), use_tab)
+	} else {
+		b.Left.AsCppCode(c, false, false)
+		c.Write(b.Operator.Literal+" ", false, true)
+		b.Right.AsCppCode(c, false, false)
+	}
+}
+
 type UnaryOp struct {
 	Operand  Expression
 	Operator lexer.ProtoToken
@@ -63,12 +81,25 @@ func (u *UnaryOp) Type() ProtoType {
 	return u.Op_Type
 }
 
+func (u *UnaryOp) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if u.Operator.Literal == "not" {
+		c.Write("!", false, true)
+	} else {
+		c.Write(u.Operator.Literal, false, true)
+	}
+	u.Operand.AsCppCode(c, false, false)
+}
+
 type Unit struct {
 	Token lexer.ProtoToken
 }
 
 func (u *Unit) LiteralRepr() string {
 	return "()"
+}
+
+func (u *Unit) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.WriteLine("Proto_Unit()", false)
 }
 
 func (u *Unit) Type() ProtoType {
@@ -81,6 +112,14 @@ type I64 struct {
 
 func (i *I64) LiteralRepr() string {
 	return i.Token.Literal
+}
+
+func (i *I64) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(i.LiteralRepr(), use_tab)
+	} else {
+		c.Write(i.LiteralRepr(), use_tab, false)
+	}
 }
 
 func (i *I64) Type() ProtoType {
@@ -101,6 +140,14 @@ func (c *Char) LiteralRepr() string {
 	return "'" + c.Token.Literal + "'"
 }
 
+func (ch *Char) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(ch.LiteralRepr(), use_tab)
+	} else {
+		c.Write(ch.LiteralRepr(), use_tab, false)
+	}
+}
+
 func (c *Char) Type() ProtoType {
 	return &Proto_Builtin{
 		TypeToken: lexer.ProtoToken{
@@ -117,6 +164,15 @@ type String struct {
 
 func (s *String) LiteralRepr() string {
 	return s.Token.Literal
+}
+
+func (s *String) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(s.LiteralRepr(), use_tab)
+	} else {
+		c.Write(s.LiteralRepr(), use_tab, false)
+	}
+	c.AddInclude("string")
 }
 
 func (s *String) Type() ProtoType {
@@ -138,6 +194,14 @@ func (b *Boolean) LiteralRepr() string {
 	return b.Token.Literal
 }
 
+func (b *Boolean) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(b.LiteralRepr(), use_tab)
+	} else {
+		c.Write(b.LiteralRepr(), use_tab, false)
+	}
+}
+
 func (b *Boolean) Type() ProtoType {
 	return &Proto_Builtin{
 		TypeToken: lexer.ProtoToken{
@@ -152,6 +216,19 @@ type Array struct {
 	Items     []Expression
 	Token     lexer.ProtoToken
 	ArrayType *Proto_Array
+}
+
+func (a *Array) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("vector<"+a.ArrayType.InternalType.CppTypeSignature()+">{", use_tab, true)
+	for index, item := range a.Items {
+		item.AsCppCode(c, false, false)
+
+		if index+1 < len(a.Items) {
+			c.Write(", ", false, false)
+		}
+	}
+	c.WriteLine(" }", false)
+	c.AddInclude("vector")
 }
 
 func (a *Array) LiteralRepr() string {
@@ -180,6 +257,28 @@ type Tuple struct {
 	TupleType *Proto_Tuple
 }
 
+func (t *Tuple) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	tuple_items := NewCodeGenerator()
+	if newline {
+		c.WriteLine("tuple <", use_tab)
+	} else {
+		c.Write("tuple <", use_tab, true)
+	}
+	for index, item := range t.Items {
+		c.Write(item.Type().CppTypeSignature(), false, false)
+		item.AsCppCode(tuple_items, false, false)
+		if index+1 < len(t.Items) {
+			c.Write(", ", false, false)
+			tuple_items.Write(", ", false, false)
+		}
+	}
+	c.Write("> ("+tuple_items.CollectString()+")", false, false)
+	c.AddInclude("tuple")
+	for k := range tuple_items.includes {
+		c.AddInclude(k)
+	}
+}
+
 func (t *Tuple) LiteralRepr() string {
 	var str strings.Builder
 
@@ -204,6 +303,15 @@ type BlockExpr struct {
 	Start     lexer.ProtoToken
 	Contents  []ProtoNode
 	BlockType ProtoType
+}
+
+func (b *BlockExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.WriteLine("[&](){", use_tab)
+	generate_code_from_block_expr(c, b)
+	c.Write("}()", true, false)
+	if newline {
+		c.NewLine()
+	}
 }
 
 func (b *BlockExpr) LiteralRepr() string {
@@ -253,6 +361,37 @@ func (i *IfExpr) Type() ProtoType {
 	return i.IfType
 }
 
+func (i *IfExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.WriteLine("[&]() {", false)
+	c.Indent()
+	c.Write("if (", true, false)
+	i.Condition.AsCppCode(c, false, false)
+	c.WriteLine(") {", false)
+
+	generate_code_from_block_expr(c, i.ThenBody)
+	c.Write("}", true, false)
+
+	switch actual := i.ElseBody.(type) {
+	case *BlockExpr:
+		c.WriteLine(" else {", false)
+		generate_code_from_block_expr(c, actual)
+		c.WriteLine("}", true)
+	case *IfExpr:
+		c.WriteLine(" else {", false)
+		c.Write("return ", true, false)
+		c.Indent()
+		actual.AsCppCode(c, false, false)
+		c.Dedent()
+		c.WriteLine("}", true)
+	}
+	c.Dedent()
+	c.Write("}()", true, false)
+
+	if newline {
+		c.NewLine()
+	}
+}
+
 type CallExpression struct {
 	Start      lexer.ProtoToken
 	Callable   Expression
@@ -276,6 +415,22 @@ func (c *CallExpression) LiteralRepr() string {
 	return repr.String()
 }
 
+func (cl *CallExpression) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	cl.Callable.AsCppCode(c, use_tab, false)
+	c.Write("(", false, false)
+	for index, arg := range cl.Arguments {
+		arg.AsCppCode(c, false, false)
+
+		if index+1 < len(cl.Arguments) {
+			c.Write(", ", false, false)
+		}
+	}
+	c.Write(")", false, false)
+	if newline {
+		c.NewLine()
+	}
+}
+
 func (c *CallExpression) Type() ProtoType {
 	return c.ReturnType
 }
@@ -296,6 +451,16 @@ func (i *IndexExpression) LiteralRepr() string {
 	return repr.String()
 }
 
+func (i *IndexExpression) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	i.Indexable.AsCppCode(c, use_tab, false)
+	c.Write("[", false, false)
+	i.Index.AsCppCode(c, false, false)
+	c.Write("]", false, false)
+	if newline {
+		c.NewLine()
+	}
+}
+
 func (i *IndexExpression) Type() ProtoType {
 	return i.ValueType
 }
@@ -311,6 +476,14 @@ func (r *Range) LiteralRepr() string {
 	return r.Start.LiteralRepr() + ".." + r.PastEnd.LiteralRepr()
 }
 
+func (r *Range) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(r.LiteralRepr(), use_tab)
+	} else {
+		c.Write(r.LiteralRepr(), use_tab, false)
+	}
+}
+
 func (r *Range) Type() ProtoType {
 	return r.RangeType
 }
@@ -324,6 +497,14 @@ type InclusiveRange struct {
 
 func (i *InclusiveRange) LiteralRepr() string {
 	return i.Start.LiteralRepr() + "..=" + i.End.LiteralRepr()
+}
+
+func (i *InclusiveRange) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(i.LiteralRepr(), use_tab)
+	} else {
+		c.Write(i.LiteralRepr(), use_tab, false)
+	}
 }
 
 func (i *InclusiveRange) Type() ProtoType {
@@ -344,6 +525,14 @@ func (m *Membership) LiteralRepr() string {
 	repr.WriteString(m.Member.LiteralRepr())
 
 	return repr.String()
+}
+
+func (m *Membership) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(m.LiteralRepr(), use_tab)
+	} else {
+		c.Write(m.LiteralRepr(), use_tab, false)
+	}
 }
 
 func (m *Membership) Type() ProtoType {
@@ -380,6 +569,29 @@ func (s *StructInitialization) LiteralRepr() string {
 	return repr.String()
 }
 
+func (s *StructInitialization) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write(s.StructName.LiteralRepr()+"{ ", use_tab, false)
+
+	index := 0
+	len_ := len(s.Fields)
+
+	// maintains the order in the struct definition
+	// to allow correct c++ code gen
+	for _, mem := range s.StructType.Definition.Members {
+		for id, expr := range s.Fields {
+			if id.LiteralRepr() == mem.LiteralRepr() {
+				expr.AsCppCode(c, false, false)
+				break
+			}
+		}
+		if index+1 < len_ {
+			c.Write(", ", false, false)
+		}
+		index += 1
+	}
+	c.WriteLine(" }", false)
+}
+
 func (s *StructInitialization) Type() ProtoType {
 	return s.StructType
 }
@@ -388,6 +600,15 @@ type Reference struct {
 	Start   lexer.ProtoToken
 	RefType *Proto_Reference
 	Value   Expression
+}
+
+func (r *Reference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("&", true, false)
+	if newline {
+		r.Value.AsCppCode(c, false, true)
+	} else {
+		r.Value.AsCppCode(c, false, false)
+	}
 }
 
 func (r *Reference) LiteralRepr() string {
@@ -402,6 +623,15 @@ type Dereference struct {
 	Start     lexer.ProtoToken
 	Value     Expression
 	DerefType ProtoType
+}
+
+func (d *Dereference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("*", true, false)
+	if newline {
+		d.Value.AsCppCode(c, false, true)
+	} else {
+		d.Value.AsCppCode(c, false, false)
+	}
 }
 
 func (d *Dereference) LiteralRepr() string {

@@ -555,6 +555,10 @@ func (bf *BuiltinFn) LiteralRepr() string {
 		") -> " + bf.Returns.TypeSignature()
 }
 
+func (bf *BuiltinFn) AsCppCode(c *ast.CodeGenerator, use_tab bool, newline bool) {
+	c.WriteLine(bf.LiteralRepr(), use_tab)
+}
+
 func IsBuiltin(name string) bool {
 	for _, b := range Builtins {
 		if name == b.Name {

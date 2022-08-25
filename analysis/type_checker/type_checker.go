@@ -479,7 +479,7 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 	switch sdef := actual.(type) {
 	case *ast.Proto_UserDef:
 		def := sdef.Definition
-
+		i.StructType.Definition = def
 		for _, mem := range def.Members {
 			for id, expr := range i.Fields {
 				if id.LiteralRepr() == mem.LiteralRepr() {

@@ -2,81 +2,74 @@
 
 ---
 
-- [ ] Fix early return
+To compile Proto to C++, I need to figure out:
 
-  - [ ] between ripping out Halt and making use of implicit behaviour of return opcode and doing some hacky stuff to jump to halt on early return from main(). I prefer the first. 1 less opcode. I'd really just need to fix tests.
+- [ ] equivalent C++ type for all Proto types
+  - Tuple can be a vector of \_Type
+  - Array is a regular static C++ array
+  - Unit is a type that inherits \_Type
+  - i64 is int64_t
+  - char, bool and string are the builtin C++ types char and string
+- [ ] importing external Proto modules
+- [ ] compiling a module (main or external) into its corresponding .cpp file
+- [ ] handle variadic functions
+- [ ] implementing core library directly in Proto, to be compiled to C++
+- [ ] when to convert a builtin converted type (e.g: i64 to int64_t) to a \_Type object of equivalent value
+- [ ] what the minimum amount of C++ code required is to start of compilation, taking into account the last point
 
-- [ ] Update READMe
+## Examples of compiling Proto to C++:
 
-  - [ ] include structs and initialization
-  - [ ] include function definitions and use
+### loop-based fibonacci solution:
 
-- [x] replace make_token() with lexer.make_token()
+Proto:
 
-- [x] write remaining tests for lexer
-
-- [x] work on structs
-
-  - [x] struct initialization expression
-  - [ ] struct member function definition
-
-- [x] begin work on parser
-
-  - [x] finish variable declaration
-  - [x] work on parsing function calls
-  - [x] work on parsing . expressions (e.g a.b, struct.member)
-  - [x] work on parsing types
-
-- [x] add double arithmetic operators like +=, -=, \*=, /= and others
-
-- [x] write parser tests
-
-  - [x] use s-exprs to make testing parsing easier
-
-- [x] implement range using `..` and `..=`.
-
-- [ ] make sure all block contents are ; terminated (in Parser) except for the last line (which is allowed to not be terminated)
-
-- [ ] implement traits/interface
-
-  - [x] implement collections based loops. e.g:
-
-  ```rust
-    let a = [1, 2, 3, 4]
-    for item in a {
-
+```rs
+fn fib_loop(n: i64) -> i64 {
+    if n <= 1 {
+        n
+    } else {
+        mut x = 0;
+        mut y = 1;
+        mut z = 0;
+        for i in  1..n {
+            z = x + y;
+            x = y;
+            y = z;
+        }
+        z
     }
-
-    // or
-
-    for index, item in a.enumerate() {
-
-    }
-  ```
-
-```rust
-let a = 2;
-
-fn stuff() -> i64 {
-  1
 }
 
-fn main() {
-  a = stuff();
+fn main() -> i64 {
+    fib_loop(32)
 }
+```
 
-// TODO
+Generated C++:
 
-fn accept_i64(a: i64) -> bool {
-  if a > 2 {
-    false
+```cpp
+int64_t fib_loop(int64_t n) {
+  if (n <= 1) {
+    return n;
   } else {
-    true
+    int64_t x = 0;
+    int64_t y = 1;
+    int64_t z = 0;
+    for (int64_t i = 1; i < n; i += 1) {
+      z = x + y;
+      x = y;
+      y = z;
+    }
+    return z;
   }
 }
 
-fn main() {
-  let a = 2;
-  let b = accept_i64(a);
+int64_t _main() {
+  return fib_loop(32);
+}
+
+int main() {
+  cout << _main() << endl;
+  return 0;
 }
 ```
