@@ -2,6 +2,7 @@ package parser
 
 import (
 	"fmt"
+	"path/filepath"
 	"proto/ast"
 	"proto/lexer"
 	"proto/shared"
@@ -9,18 +10,22 @@ import (
 )
 
 type Parser struct {
-	lex    *lexer.Lexer
-	cur    lexer.ProtoToken
-	peek   lexer.ProtoToken
-	index  int
-	tokens []lexer.ProtoToken
+	lex     *lexer.Lexer
+	cur     lexer.ProtoToken
+	peek    lexer.ProtoToken
+	index   int
+	tokens  []lexer.ProtoToken
+	file    string
+	dir     string
+	Program *ast.ProtoProgram
 }
 
-func NewWithLexer(l *lexer.Lexer) *Parser {
+func NewWithLexer(file string, l *lexer.Lexer) *Parser {
 	p := &Parser{
 		lex:    l,
 		index:  0,
 		tokens: []lexer.ProtoToken{},
+		file:   file,
 	}
 
 	token := l.Next_Token()
@@ -41,12 +46,14 @@ func NewWithLexer(l *lexer.Lexer) *Parser {
 	return p
 }
 
-func New(src string) *Parser {
-	l := lexer.New(src)
+func New(dir, file, src string) *Parser {
+	l := lexer.New(file, src)
 	p := &Parser{
 		lex:    l,
 		index:  0,
 		tokens: []lexer.ProtoToken{},
+		file:   file,
+		dir:    dir,
 	}
 
 	token := l.Next_Token()
@@ -417,7 +424,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_BRACKET {
 			if arr_type == nil && !tried_annotation {
 				// see if array is type annotated
-				potential := p.parse_type(true)
+				potential := p.parse_type(true, false)
 				tried_annotation = true
 				if potential != nil {
 					if p.cur.Type != lexer.SEMI_COLON {
@@ -778,7 +785,7 @@ func (p *Parser) parse_assignment(check_for_semi bool, skip_struct_expr bool) as
 	return target
 }
 
-func (p *Parser) parse_type(try bool) ast.ProtoType {
+func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 	var proto_type ast.ProtoType
 
 	switch p.cur.Type {
@@ -791,7 +798,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		p.consume(p.cur.Type)
 		line := p.cur.TokenSpan.Line
 		col := p.cur.TokenSpan.Col
-		internal := p.parse_type(try)
+		internal := p.parse_type(try, false)
 		if internal == nil {
 			return internal
 		}
@@ -809,7 +816,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		}
 	case lexer.OPEN_BRACKET: // we are dealing with an array
 		p.consume(p.cur.Type)
-		internal := p.parse_type(try)
+		internal := p.parse_type(try, false)
 		if internal == nil {
 			return internal
 		}
@@ -821,7 +828,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		p.consume(p.cur.Type)
 		p.consume(lexer.LESS_THAN)
 		start := p.cur
-		inner_type := p.parse_type(try)
+		inner_type := p.parse_type(try, false)
 		switch actual := inner_type.(type) {
 		case *ast.Proto_Builtin:
 			if actual.TypeToken.Literal != "i64" && actual.TypeToken.Literal != "char" {
@@ -842,11 +849,26 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		proto_type = &ast.Proto_Range{
 			InternalType: inner_type,
 		}
+	case lexer.VARIAD:
+		start := p.cur
+		if allow_variad {
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
+			msg.WriteString(" Variadic type is only allowed in function definition.")
+			shared.ReportErrorAndExit("Parser", msg.String())
+		}
+		p.consume(start.Type)
+		// actual_type := p.parse_type(true, false)
+		// if actual_type == nil {
+		// 	// we have an any type
+		// } else {
+		// 	// we have a variadic type allowing 0 or more of actual_type
+		// }
 	case lexer.OPEN_PAREN:
 		p.consume(p.cur.Type)
 		var contained []ast.ProtoType
 		for p.cur.Type != lexer.CLOSE_PAREN && p.cur.Type != lexer.END {
-			item := p.parse_type(try)
+			item := p.parse_type(try, false)
 			if item == nil {
 				return item
 			}
@@ -871,7 +893,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 		}
 	case lexer.FN:
 		p.consume(p.cur.Type)
-		tuple_type := p.parse_type(try)
+		tuple_type := p.parse_type(try, allow_variad)
 
 		switch actual := tuple_type.(type) {
 		case *ast.Proto_Tuple:
@@ -879,7 +901,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 
 			if p.cur.Type == lexer.ARROW {
 				p.consume(lexer.ARROW)
-				return_type = p.parse_type(try)
+				return_type = p.parse_type(try, false)
 			} else {
 				return_type = &ast.Proto_Unit{}
 			}
@@ -893,7 +915,7 @@ func (p *Parser) parse_type(try bool) ast.ProtoType {
 
 			if p.cur.Type == lexer.ARROW {
 				p.consume(lexer.ARROW)
-				return_type = p.parse_type(try)
+				return_type = p.parse_type(try, false)
 			} else {
 				return_type = &ast.Proto_Unit{}
 			}
@@ -939,7 +961,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	if p.cur.Type == lexer.COLON {
 		p.consume(p.cur.Type)
 		// handle parsing type
-		var_type = p.parse_type(false)
+		var_type = p.parse_type(false, false)
 	}
 
 	var assigned_expr ast.Expression = nil
@@ -984,7 +1006,7 @@ func (p *Parser) parse_struct() *ast.Struct {
 	for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_CURLY {
 		mem := p.parse_identifier()
 		p.consume(lexer.COLON)
-		mem_type := p.parse_type(false)
+		mem_type := p.parse_type(false, false)
 		mem.Id_Type = mem_type
 		members = append(members, mem)
 		if p.cur.Type != lexer.CLOSE_CURLY {
@@ -1085,6 +1107,205 @@ func (p *Parser) parse_while_loop() *ast.WhileLoop {
 	}
 }
 
+func (p *Parser) parse_module() *ast.Module {
+	start := p.cur
+	p.consume(start.Type)
+
+	name := p.parse_identifier()
+	body := p.parse_block_stmt()
+	mod := &ast.Module{
+		Start: start,
+		Body:  body,
+		Name:  name,
+	}
+
+	return mod
+}
+
+func (p *Parser) parse_use_statement() *ast.UseStmt {
+	use_stmt := &ast.UseStmt{
+		Start: p.cur,
+		Paths: []*ast.Path{},
+	}
+	p.consume(p.cur.Type)
+
+	// tree := p.parse_use_tree(lexer.SEMI_COLON)
+	// process_tree(p.Dir)
+	use_stmt.Paths = p.parse_paths()
+	// paths := use_stmt.Tree.ShowAllPaths()
+	// println(strings.Join(paths, "\n"))
+	p.consume(lexer.SEMI_COLON)
+	// println(use_stmt.LiteralRepr())
+	p.Program.Imports = append(p.Program.Imports, use_stmt)
+	return use_stmt
+}
+
+func (p *Parser) parse_paths() []*ast.Path {
+	paths := []*ast.Path{}
+
+	start := p.cur
+	path := &ast.Path{
+		Start:  &start,
+		Pieces: []ast.UsePath{},
+	}
+
+	switch p.cur.Type {
+	case lexer.IDENT:
+		for p.cur.Type == lexer.IDENT {
+			id := p.parse_identifier()
+			path.Pieces = append(path.Pieces, &ast.PathIDNode{
+				Id: id,
+			})
+			if p.cur.Type == lexer.PATH_SEP && p.peek.Type == lexer.IDENT {
+				p.consume(p.cur.Type)
+			}
+		}
+		if p.cur.Type == lexer.AS {
+			p.consume(p.cur.Type)
+			as_id := p.parse_identifier()
+			as_node := &ast.UseAs{
+				As: as_id,
+			}
+			path.Pieces = append(path.Pieces, as_node)
+			paths = append(paths, path)
+			return paths
+		}
+		if p.cur.Type == lexer.PATH_SEP {
+			p.consume(p.cur.Type)
+			switch p.cur.Type {
+			case lexer.STAR:
+				path.Pieces = append(path.Pieces, &ast.PathIDNode{
+					Id: &ast.Identifier{
+						Token:   p.cur,
+						Id_Type: nil,
+					},
+				})
+				p.consume(p.cur.Type)
+				paths = append(paths, path)
+				return paths
+			case lexer.OPEN_BRACKET:
+				p.consume(p.cur.Type)
+				for p.cur.Type != lexer.CLOSE_BRACKET && p.cur.Type != lexer.END {
+					tree_path := p.parse_paths()
+					for _, t_path := range tree_path {
+						pieces := []ast.UsePath{}
+						pieces = append(pieces, path.Pieces...)
+						pieces = append(pieces, t_path.Pieces...)
+						paths = append(paths, &ast.Path{
+							Start:  &start,
+							Pieces: pieces,
+						})
+					}
+					if p.cur.Type == lexer.COMMA {
+						p.consume(p.cur.Type)
+					}
+				}
+				p.consume(lexer.CLOSE_BRACKET)
+				return paths
+			default:
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+				msg.WriteString(" Unexpected token " + p.cur.Literal + ".")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			}
+		}
+	default:
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+		msg.WriteString(" Expected an identifier but got token " + p.cur.Literal + ".")
+		shared.ReportErrorAndExit("Parser", msg.String())
+	}
+	paths = append(paths, path)
+	return paths
+}
+
+// func (p *Parser) parse_use_tree(terminator lexer.TokenType) *ast.UseTree {
+// 	use_tree := &ast.UseTree{}
+// 	start := p.cur
+// 	start_path := p.parse_simple_path()
+// 	var final_node ast.UsePath
+// 	switch p.cur.Type {
+// 	case lexer.AS:
+// 		p.consume(p.cur.Type) // skip over the 'as'
+// 		as_id := p.parse_identifier()
+// 		as_node := &ast.UseAs{
+// 			StartPath: start_path,
+// 			As:        as_id,
+// 		}
+// 		final_node = as_node
+// 	case lexer.PATH_SEP:
+// 		switch p.peek.Type {
+// 		case lexer.STAR:
+// 			p.consume(lexer.PATH_SEP)
+// 			p.consume(p.cur.Type)
+// 			// ::*
+// 			all_node := &ast.UseAll{
+// 				StartPath: start_path,
+// 			}
+// 			final_node = all_node
+// 		case lexer.OPEN_BRACKET:
+// 			p.consume(lexer.PATH_SEP)
+// 			p.consume(p.cur.Type)
+// 			// ::{
+// 			trees := []*ast.UseTree{}
+// 			for p.cur.Type != lexer.CLOSE_BRACKET {
+// 				tree := p.parse_use_tree(lexer.CLOSE_BRACKET)
+// 				trees = append(trees, tree)
+
+// 				if p.cur.Type == lexer.COMMA {
+// 					p.consume(p.cur.Type)
+// 				}
+// 			}
+// 			//}
+
+// 			p.consume(lexer.CLOSE_BRACKET)
+// 			simple_to_trees := &ast.UseSimpleToTrees{
+// 				StartPath: start_path,
+// 				Trees:     trees,
+// 			}
+// 			final_node = simple_to_trees
+// 		}
+// 	default:
+// 		final_node = start_path
+// 		// if p.cur.Type == terminator {
+// 		// 	final_node = start_path
+// 		// 	break
+// 		// } else {
+// 		// 	var msg strings.Builder
+// 		// 	msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+// 		// 	msg.WriteString(" Expected " + string(terminator) + " but got " + p.cur.Literal + ".")
+// 		// 	shared.ReportErrorAndExit("Parser", msg.String())
+// 		// }
+// 	}
+// 	use_tree.StartToken = start
+// 	use_tree.StartPath = final_node
+// 	return use_tree
+// }
+
+// func (p *Parser) parse_simple_path() *ast.UseSimplePath {
+// 	ids := []*ast.Identifier{}
+
+// 	if p.cur.Type != lexer.IDENT {
+// 		var msg strings.Builder
+// 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+// 		msg.WriteString(" Expected an identifier but got " + string(p.cur.Type) + ".")
+// 		shared.ReportErrorAndExit("Parser", msg.String())
+// 	}
+
+// 	for p.cur.Type == lexer.IDENT {
+// 		id := p.parse_identifier()
+// 		ids = append(ids, id)
+// 		// there is an id to consume afer
+// 		if p.cur.Type == lexer.PATH_SEP && p.peek.Type == lexer.IDENT {
+// 			p.consume(p.cur.Type)
+// 		}
+// 	}
+// 	path := &ast.UseSimplePath{
+// 		Ids: ids,
+// 	}
+// 	return path
+// }
+
 func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	start := p.cur
 	p.consume(p.cur.Type)
@@ -1102,7 +1323,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		}
 		ident := p.parse_identifier()
 		p.consume(lexer.COLON)
-		ident.Id_Type = p.parse_type(false)
+		ident.Id_Type = p.parse_type(false, false)
 		paramslist = append(paramslist, ident)
 		if p.cur.Type != lexer.CLOSE_PAREN {
 			p.consume(lexer.COMMA)
@@ -1110,14 +1331,16 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	}
 	p.consume(lexer.CLOSE_PAREN)
 
+	// check for proper use of variadic type
+	// only last parameter can use variadic type
+
 	var return_type ast.ProtoType = &ast.Proto_Unit{}
 	if p.cur.Type == lexer.ARROW {
 		p.consume(p.cur.Type)
-		return_type = p.parse_type(false)
+		return_type = p.parse_type(false, false)
 	}
 	body := p.parse_block_expr()
 
-	
 	fn_def := &ast.FunctionDef{
 		Start:         start,
 		Name:          name,
@@ -1187,6 +1410,8 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 			}
 			p.consume(p.cur.Type)
 		}
+	case lexer.MOD:
+		node = p.parse_module()
 	case lexer.OPEN_CURLY:
 		if allow_general_block {
 			node = p.parse_general_block(allow_general_block)
@@ -1200,6 +1425,8 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 		} else {
 			node = p.parse_block_stmt()
 		}
+	case lexer.USE:
+		node = p.parse_use_statement()
 	default:
 		potential_expr := p.parse_assignment(true, false)
 
@@ -1220,19 +1447,24 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 	return node
 }
 
-func Parse(src string, provide_main bool) *ast.ProtoProgram {
-	parser := New(src)
+func Parse(file string, provide_main bool) *ast.ProtoProgram {
+	src := shared.ReadFile(file)
+	dir := filepath.Dir(shared.Get_abs_path("Parser", file))
+	parser := New(dir, file, src)
 	return Top_Level(parser, provide_main)
 }
 
 func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	code := &ast.ProtoProgram{
+		Path:         "",
 		Main:         &ast.FunctionDef{},
 		Contents:     []ast.ProtoNode{},
 		FunctionDefs: []*ast.FunctionDef{},
 		Structs:      []*ast.Struct{},
+		Imports:      []*ast.UseStmt{},
 	}
 
+	p.Program = code
 	has_main := false
 	var main_def_loc lexer.Span
 	for p.cur.Type != lexer.END {
@@ -1275,39 +1507,6 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 		msg.WriteString("Expected a main function to act as code entry point.")
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
-
+	code.Path = p.file
 	return code
 }
-
-// func promote_block_last(blk *ast.Block) {
-// 	if len(blk.Contents) > 0 {
-// 		switch last := blk.Contents[len(blk.Contents)-1].(type) {
-// 		case *ast.IfConditional:
-// 			promote_expr(last)
-// 		case *ast.Block:
-// 			promote_block_last(last)
-// 		case ast.Expression:
-// 			up_last := &ast.PromotedExpr{
-// 				Expr: last,
-// 			}
-// 			blk.Contents[len(blk.Contents)-1] = up_last
-// 		}
-// 	}
-// }
-
-// func promote_expr(cond *ast.IfConditional) {
-// 	then := cond.ThenBody
-// 	if len(then.Contents) > 0 {
-// 		promote_block_last(then)
-// 	}
-
-// 	if cond.ElseBody != nil {
-// 		else_b := cond.ElseBody
-// 		switch else_b := else_b.(type) {
-// 		case *ast.Block:
-// 			promote_block_last(else_b)
-// 		case *ast.IfConditional:
-// 			promote_expr(else_b)
-// 		}
-// 	}
-// }

@@ -1,6 +1,9 @@
 package lexer
 
-import "strconv"
+import (
+	"fmt"
+	"strconv"
+)
 
 type Lexer struct {
 	source   string
@@ -9,9 +12,10 @@ type Lexer struct {
 	line     int
 	column   int
 	cur_byte byte
+	file     string
 }
 
-func NewFromLineCol(src string, line int, col int) *Lexer {
+func NewFromLineCol(file, src string, line int, col int) *Lexer {
 	l := &Lexer{
 		source:   src,
 		pos:      0,
@@ -24,7 +28,7 @@ func NewFromLineCol(src string, line int, col int) *Lexer {
 	return l
 }
 
-func New(src string) *Lexer {
+func New(file, src string) *Lexer {
 	l := &Lexer{
 		source:   src,
 		pos:      0,
@@ -86,14 +90,23 @@ func (l *Lexer) skip_comments_and_whitespace() {
 			} else if l.peek_char() == '*' { // multi line
 				l.next_char() // move to the *
 				l.next_char() // move past the *
+				nested_level := 0
 				for !l.is_at_end() {
-					if l.cur_byte == '*' {
+					if l.cur_byte == '/' {
+						if l.peek_char() == '*' {
+							l.next_char()
+							l.next_char()
+							nested_level += 1
+						}
+					} else if l.cur_byte == '*' {
 						// we might be potentially at the end of the comment
 						if l.peek_char() == '/' {
 							// we are at the end of the comment
 							l.next_char() // advance to the / character
 							l.next_char() // advance past the / character
-							break
+							if nested_level == 0 {
+								break
+							}
 						} else { // we are not at the end of the loop so move past the *
 							l.next_char()
 						}
@@ -103,6 +116,9 @@ func (l *Lexer) skip_comments_and_whitespace() {
 					} else { // skip past comment content
 						l.next_char()
 					}
+				}
+				if l.is_at_end() && nested_level != 0 {
+
 				}
 			} else {
 				return
@@ -280,8 +296,14 @@ func (l *Lexer) Next_Token() ProtoToken {
 		l.next_char()
 		token = l.make_singlechar_token(SEMI_COLON, cur_char)
 	case ':':
-		l.next_char()
-		token = l.make_singlechar_token(COLON, cur_char)
+		if l.peek_char() == ':' {
+			l.next_char()
+			l.next_char()
+			token = l.make_token(PATH_SEP, "::")
+		} else {
+			l.next_char()
+			token = l.make_singlechar_token(COLON, cur_char)
+		}
 	case '?':
 		l.next_char()
 		token = l.make_singlechar_token(QUESTION_MARK, cur_char)
@@ -311,7 +333,7 @@ func (l *Lexer) Next_Token() ProtoToken {
 			token = l.read_number()
 		} else {
 			l.next_char()
-			token = l.make_singlechar_token(ERROR, cur_char)
+			token = l.make_token(ERROR, fmt.Sprintf("Unknown character: '%b'.", cur_char))
 		}
 	}
 
@@ -362,7 +384,7 @@ func (l *Lexer) read_string() ProtoToken {
 	if l.is_at_end() || l.cur_byte != '"' {
 		return ProtoToken{
 			Type:    ERROR,
-			Literal: "Unterminated string literal",
+			Literal: "Unterminated string literal.",
 			TokenSpan: Span{
 				Line:  l.line,
 				Col:   l.column - 1,
@@ -408,7 +430,7 @@ func (l *Lexer) read_character() ProtoToken {
 		if l.cur_byte != '\'' { // character is either too long or unterminated
 			return ProtoToken{
 				Type:    ERROR,
-				Literal: "Character literal unterminated (or contains more than 1 character)",
+				Literal: "Unterminated character literal.",
 				TokenSpan: Span{
 					Line:  l.line,
 					Col:   col,
@@ -480,7 +502,7 @@ func (l *Lexer) read_number() ProtoToken {
 	} else {
 		return ProtoToken{
 			Type:    ERROR,
-			Literal: slice + " isn't i64",
+			Literal: slice + " isn't i64.",
 			TokenSpan: Span{
 				Line:  l.line,
 				Col:   col,

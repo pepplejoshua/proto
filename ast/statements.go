@@ -395,6 +395,93 @@ func (b *BlockStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	}
 }
 
+type UseStmt struct {
+	Start lexer.ProtoToken
+	Paths []*Path
+}
+
+func (us *UseStmt) LiteralRepr() string {
+	var msg strings.Builder
+
+	for _, path := range us.Paths {
+		msg.WriteString("use ")
+		msg.WriteString(path.String() + ";\n")
+	}
+	return msg.String()
+}
+
+func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine("", use_tab)
+	}
+	for _, path := range us.Paths {
+		c.WriteLine("use "+path.String()+";", use_tab)
+	}
+}
+
+type UsePath interface {
+	String() string
+}
+
+type Path struct {
+	Start  *lexer.ProtoToken
+	Pieces []UsePath
+}
+
+func (p *Path) String() string {
+	var str strings.Builder
+
+	for index, item := range p.Pieces {
+		str.WriteString(item.String())
+		if index+1 == len(p.Pieces)-1 {
+			switch p.Pieces[index+1].(type) {
+			case *PathIDNode:
+				str.WriteString("::")
+			case *UseAs:
+				str.WriteString(" ")
+			}
+		} else if index+1 < len(p.Pieces)-1 {
+			str.WriteString("::")
+		}
+	}
+	return str.String()
+}
+
+type PathIDNode struct {
+	Id *Identifier
+}
+
+func (n *PathIDNode) String() string {
+	return n.Id.LiteralRepr()
+}
+
+// use parent::child_a::kid as grandchild
+type UseAs struct {
+	As *Identifier
+}
+
+func (as *UseAs) String() string {
+	return "as " + as.As.LiteralRepr()
+}
+
+type Module struct {
+	Start lexer.ProtoToken
+	Body  *BlockStmt
+	Name  *Identifier
+}
+
+func (m *Module) LiteralRepr() string {
+	var str strings.Builder
+	str.WriteString("mod " + m.Name.LiteralRepr() + "\n")
+	str.WriteString(m.Body.LiteralRepr())
+	return str.String()
+}
+
+func (m *Module) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("namespace "+m.Name.LiteralRepr(), use_tab, false)
+	m.Body.AsCppCode(c, true, true)
+}
+
 type IfStmt struct {
 	Start     lexer.ProtoToken
 	Condition Expression

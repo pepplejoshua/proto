@@ -1,0 +1,31 @@
+fn returns_1() -> i64 {
+    1
+}
+
+namespace nested {
+    fn boolean_val() -> bool {
+        true
+    }
+
+    namespace nested_level_2 {
+        mut a = 300;
+    }
+}
+/*
+C++ version might look like:
+namespace imported_1 {
+    int64_t returns_1() {
+        return 1;
+    }
+
+    namespace nested {
+        bool boolean_val() {
+            return true;
+        }
+        
+        namespace nested_level_2 {
+            int64_t a = 300;
+        }
+    }
+}
+*/

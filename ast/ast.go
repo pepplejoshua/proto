@@ -9,10 +9,12 @@ type ProtoNode interface {
 
 // a proto program just contains a bunch of ProtoNodes
 type ProtoProgram struct {
+	Path         string
 	Main         *FunctionDef
 	Contents     []ProtoNode
 	FunctionDefs []*FunctionDef
 	Structs      []*Struct
+	Imports      []*UseStmt
 }
 
 type CodeGenerator struct {

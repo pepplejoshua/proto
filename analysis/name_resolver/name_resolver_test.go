@@ -3,15 +3,12 @@ package name_resolver
 import (
 	"log"
 	"proto/parser"
-	"proto/shared"
 	"testing"
 )
 
 func TestResolvingVariableDeclaration(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/variable_decl.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -23,9 +20,7 @@ func TestResolvingVariableDeclaration(t *testing.T) {
 
 func TestResolvingBlocks(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/blocks.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -37,9 +32,7 @@ func TestResolvingBlocks(t *testing.T) {
 
 func TestResolvingTuplesAndArrays(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/tuples_and_arrays.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -51,9 +44,7 @@ func TestResolvingTuplesAndArrays(t *testing.T) {
 
 func TestResolvingFunctionUse(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/function_use.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -65,9 +56,7 @@ func TestResolvingFunctionUse(t *testing.T) {
 
 func TestResolvingIfConditional(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/if.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -79,9 +68,7 @@ func TestResolvingIfConditional(t *testing.T) {
 
 func TestResolvingBinaryAndUnaryOps(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/binary_and_unary_ops.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -93,9 +80,7 @@ func TestResolvingBinaryAndUnaryOps(t *testing.T) {
 
 func TestResolvingLoops(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/loops.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -107,9 +92,7 @@ func TestResolvingLoops(t *testing.T) {
 
 func TestResolvingRanges(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/ranges.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -121,9 +104,7 @@ func TestResolvingRanges(t *testing.T) {
 
 func TestResolvingIndexExpr(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/index_expr.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -135,9 +116,7 @@ func TestResolvingIndexExpr(t *testing.T) {
 
 func TestResolvingStructUse(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/struct_use.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -149,9 +128,7 @@ func TestResolvingStructUse(t *testing.T) {
 
 func TestResolvingMembership(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/membership.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -163,9 +140,7 @@ func TestResolvingMembership(t *testing.T) {
 
 func TestResolvingLetSingleAssignment(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/let_single_assignment.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -177,9 +152,7 @@ func TestResolvingLetSingleAssignment(t *testing.T) {
 
 func TestResolvingAssignments(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/assignment.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -191,9 +164,7 @@ func TestResolvingAssignments(t *testing.T) {
 
 func TestResolvingBuiltinFunctions(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/builtins.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -205,9 +176,7 @@ func TestResolvingBuiltinFunctions(t *testing.T) {
 
 func TestResolvingDiscardVariable(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/discard_var.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)
@@ -219,9 +188,7 @@ func TestResolvingDiscardVariable(t *testing.T) {
 
 func TestResolvingReferences(t *testing.T) {
 	path := "../../samples/test_sources/name_resolver/references.pr"
-	src := shared.ReadFile(path)
-
-	program := parser.Parse(src, false)
+	program := parser.Parse(path, false)
 
 	nr := NewNameResolver()
 	nr.ResolveProgram(program)

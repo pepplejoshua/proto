@@ -1,0 +1,17 @@
+// use some_file
+// use some_dir/some_other_file
+// use #[cpp] some_cpp_dir/some_cpp_file
+
+fn ret_int(i: i64) -> i64 {
+    i + 2
+}
+
+fn main() -> i64 {
+    let if_expr = if ret_int(3) % 2 == 0 { 3 } else { 3 - 1 };
+    let blk_expr = { ret_int(1 + 2) };
+
+    let b = "some str";
+    // if_expr
+    blk_expr
+    // len(b)
+}

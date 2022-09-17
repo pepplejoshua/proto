@@ -1,0 +1,29 @@
+fn returns_2() -> i64 {
+    2
+}
+
+fn returns_300() -> i64 {
+    300
+}
+
+namespace nested {
+    fn some_char() -> char {
+        'z'
+    }
+
+    fn some_str() -> str {
+        "2345"
+    }
+}
+
+/*
+C++ version might look like:
+namespace imported_2 {
+    int64_t returns_2() {
+        return 2;
+    }
+    int64_t returns_300() {
+        return 300;
+    }
+}
+*/

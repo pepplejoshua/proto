@@ -1,0 +1,11 @@
+mod test {
+    fn add_1(a: i64) -> i64 {
+        a + 1
+    }
+
+    fn string() -> str {
+        "123"
+    }
+}
+
+fn main() {}

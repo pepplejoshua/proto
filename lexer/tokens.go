@@ -54,6 +54,11 @@ const (
 	IS_EQUAL_TO  = "=="
 	NOT_EQUAL_TO = "!="
 
+	USE      = "use"
+	PATH_SEP = "::"
+	AS       = "as"
+	MOD      = "mod"
+
 	COMMA           = ","
 	DOT             = "."
 	VARIAD          = "..."
@@ -115,6 +120,9 @@ var keywords = map[string]TokenType{
 	"bool":     BOOL_TYPE,
 	"i64":      I64_TYPE,
 	"Range":    RANGE_TYPE,
+	"use":      USE,
+	"as":       AS,
+	"mod":      MOD,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {

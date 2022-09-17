@@ -1,0 +1,39 @@
+/*
+To implement generics in Proto, we need to be able to:
+* generate code specific to call sites and include them in the body of the code. e.g:
+Proto:
+fn append<T>(array: mut Array<T>, item: T) {
+    array.append(item);
+}
+
+fn my_println<T>(items: ...T) {
+    for mut i = 0; i < len(items); i += 1 {
+        let item = items[i];
+        print(iitem, " ");
+    }
+    println();
+}
+
+used as:
+mut arr = Array<i64>;
+append(arr, 3);
+append(arr, 4);
+append(arr, 5);
+my_println(arr, 1, 2, 'a', "some str");
+
+C++:
+Proto_Unit append__i64(Array<int64_t> array, int64_t item) {
+    for (auto i : items) {
+        array.append(item);
+    }
+}
+
+void my_println__variad__1(tuple<Array<int64_t>, int64_t, int64_t, char, string> items) {
+    for (int i = 0; i < len(items); i += 1) {
+        auto item = items[i];
+        print(item, " ");
+    }
+    println();
+}
+
+*/

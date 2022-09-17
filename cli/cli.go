@@ -1,20 +1,9 @@
 package cli
 
 import (
-	"bufio"
 	"flag"
-	"fmt"
-	"log"
-	"os"
-	"os/exec"
-	"path/filepath"
-	"proto/analysis/name_resolver"
-	syntaxrewriter "proto/analysis/syntax_rewriter"
-	"proto/analysis/type_checker"
-	"proto/cpp_compiler"
-	"proto/parser"
+	compilemanager "proto/compile_manager"
 	"proto/shared"
-	"strings"
 )
 
 var file = flag.String("file", "", "Path to Proto File to be compiled")
@@ -30,82 +19,86 @@ func Start() {
 		shared.ReportErrorAndExit("FileReader", "No file provided")
 	}
 
-	src := shared.ReadFile(*file)
+	// src := shared.ReadFile(*file)
 
-	parsed_prog := parser.Parse(src, false)
-	nr := name_resolver.NewNameResolver()
-	nr.ResolveProgram(parsed_prog)
-	if nr.FoundError {
-		println("Found errors during Name Resolution.")
-		return
-	}
+	// parsed_prog := parser.Parse(src, false)
+	// nr := name_resolver.NewNameResolver()
+	// nr.ResolveProgram(parsed_prog)
+	// if nr.FoundError {
+	// 	println("Found errors during Name Resolution.")
+	// 	return
+	// }
 
-	tc := type_checker.NewTypeChecker()
-	tc.TypeCheckProgram(parsed_prog)
-	if tc.FoundError {
-		println("Found errors during Type Checking.")
-		return
-	}
+	// tc := type_checker.NewTypeChecker()
+	// tc.TypeCheckProgram(parsed_prog)
+	// if tc.FoundError {
+	// 	println("Found errors during Type Checking.")
+	// 	return
+	// }
 
-	sr := &syntaxrewriter.CollectionsForLoopRewriter{}
-	sr.RewriteProgram(parsed_prog)
+	// sr := &syntaxrewriter.CollectionsForLoopRewriter{}
+	// sr.RewriteProgram(parsed_prog)
 
-	nr.ResolveProgram(parsed_prog)
-	if nr.FoundError {
-		println("Found errors during Name Resolution.")
-		return
-	}
+	// nr.ResolveProgram(parsed_prog)
+	// if nr.FoundError {
+	// 	println("Found errors during Name Resolution.")
+	// 	return
+	// }
 
-	tc.TypeCheckProgram(parsed_prog)
-	if tc.FoundError {
-		println("Found errors during Type Checking.")
-		return
-	}
+	// tc.TypeCheckProgram(parsed_prog)
+	// if tc.FoundError {
+	// 	println("Found errors during Type Checking.")
+	// 	return
+	// }
 
-	cpp_comp := cpp_compiler.NewCppCompiler(*file, true)
+	man := compilemanager.NewManager(*file, *clean)
+	man.Compile()
+	// cpp_comp := cpp_compiler.NewCppCompiler(*file, true)
 
-	cpp_src := cpp_comp.CompileProgram(parsed_prog)
+	// cpp_src := cpp_comp.CompileProgram(parsed_prog)
 	// println(cpp_src)
-	abs_path, _ := filepath.Abs(*file)
-	base_name := filepath.Base(abs_path)
-	file_name := strings.Split(base_name, ".")[0]
-	fname := file_name + ".cpp"
-	comp_loc := filepath.Dir(abs_path)
-	exe_loc := filepath.Join(comp_loc, file_name)
-	final_ := filepath.Join(comp_loc, fname)
+	// abs_path, _ := filepath.Abs(*file)
+	// base_name := filepath.Base(abs_path)
+	// file_name := strings.Split(base_name, ".")[0]
+	// fname := file_name + ".cpp"
+	// comp_loc := filepath.Dir(abs_path)
+	// exe_loc := filepath.Join(comp_loc, file_name)
+	// final_ := filepath.Join(comp_loc, fname)
 
-	destination, _ := os.Create(final_)
+	// destination, _ := os.Create(final_)
 
-	defer destination.Close()
-	fmt.Fprintln(destination, cpp_src)
-	println("written to", final_)
+	// defer destination.Close()
+	// fmt.Fprintln(destination, cpp_src)
+	// println("written to", final_)
 
-	if *clean {
-		defer os.RemoveAll(final_)
-	}
+	// if *clean {
+	// 	defer os.RemoveAll(final_)
+	// }
 
-	clang_format := exec.Command("clang-format", "\""+final_+"\"", ">", final_)
-	format_output, _ := clang_format.Output()
-	clang_format.Run()
-	println("formatted source at", final_)
+	// clang_format := exec.Command("clang-format", "\""+final_+"\"", ">", final_)
+	// format_output, _ := clang_format.Output()
+	// clang_format.Run()
+	// println("formatted source at", final_)
 
-	destination, _ = os.Create(final_)
+	// destination, _ = os.Create(final_)
 
-	defer destination.Close()
-	fmt.Fprintln(destination, string(format_output))
-	println("updated", final_)
+	// defer destination.Close()
+	// fmt.Fprintln(destination, string(format_output))
+	// println("updated", final_)
 
-	clangpp_cmd := exec.Command("g++", "-o", exe_loc, final_, "-std=c++14")
-	stderr, _ := clangpp_cmd.StderrPipe()
-	if err := clangpp_cmd.Start(); err != nil {
-		log.Fatal(err)
-	}
+	// println(string(format_output))
 
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		fmt.Println(scanner.Text())
-	}
-	println("compiled to", exe_loc)
+	// clangpp_cmd := exec.Command("g++", "-o", exe_loc, final_, "-std=c++14")
+	// stderr, _ := clangpp_cmd.StderrPipe()
+	// if err := clangpp_cmd.Start(); err != nil {
+	// 	log.Fatal(err)
+	// }
+
+	// scanner := bufio.NewScanner(stderr)
+	// for scanner.Scan() {
+	// 	fmt.Println(scanner.Text())
+	// }
+	// println("compiled to", exe_loc)
 
 	// compiler := compiler.NewCompiler()
 	// compiler.CompileProgram(parsed_prog)

@@ -1,0 +1,53 @@
+// regular imports
+// will be compiled to:
+// #include "imported_1.h", with imported_1 being a namespace inside this file where everything is written into
+// #include "imported_2.h", with imported_2 being a namespace inside this file where everything is written into
+// using namespace imported_1; which provides everything in the imported_1 file under the imported_1 variable
+// using namespace imported_2; which provides everything in the imported_2 file under the imported_2 variable
+
+// use importable::imported_3;
+// use imported_2;
+
+// importing an item inside the file namespace
+// will get compiled to:
+// #include "imported_2.h"
+// the using statement provides the returns_2 name to be useable without qualifying it with the namespace name
+// other items in the namespace are still accessible by qualifying them with the namespace name
+// eg: while returns_2 function can be simply called without `imported_2::`, returns_300 can be called but as imported_2::returns_300().
+// use imported_2::returns_2;
+
+// importing multiple items inside the namespace is also allowed, using the below syntax
+// use imported_2::[returns_2, returns_300];
+
+// some files might have nested namespaces
+// this will be compiled to:
+// #include "imported_1.h"
+// use imported_2::nested::[some_char, some_str];
+
+// if the value at the end of the nested import chain is a namespace, like
+// nested_level_2 in this case, then it will be compiled as:
+// #include "imported_1.h"
+// using imported_1::nested::boolean_val
+// namespace nested_level_2 = imported_1::nested::nested_level_2;
+// since C++ doesn't support applying using directly onto a namespace
+// the below imports allows the user to say nested_level_2::a and get access to 300
+use imported_1::nested::[boolean_val, nested_level_2];
+
+// use a::b::[self as ab, c, d::[e::f]];
+// some point of thoughts include:
+// 1. use of pub (or public) keyword to specify what items are exportable (or available)
+//    to imports. This could be solved with anonymous namespaces containing all the private
+//    members. Will think about it
+// 2. can full paths to module be specified using this method? e.g:
+//    import grandparent::parent::[child_a, child_b], where the paths are:
+//    * ./grandparent/parent/child_a
+//    * ./grandparent/parent/child_b
+// 3. For the multiple imports, can there be nested multiple imports with those? e.g:
+//    import parent::[child_a::son_a, child_b::daughter_b::[grand_child_b, grand_child_b2]];
+//    if so, what will it compile to? And how will it relate to file paths
+fn main() -> i64 {
+    use imported_1;
+    // imported_1::returns_1() + returns_2()
+}
+
+// should print 3 from C++

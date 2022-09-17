@@ -182,6 +182,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckMembership(actual)
 	case *ast.Return:
 		tc.TypeCheckReturn(actual)
+	case *ast.Module:
+		tc.TypeCheckModule(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit, *ast.Break, *ast.Continue:
 		// do nothing
@@ -189,6 +191,10 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		shared.ReportErrorAndExit("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 		tc.FoundError = true
 	}
+}
+
+func (tc *TypeChecker) TypeCheckModule(mod *ast.Module) {
+	tc.TypeCheckBlockStmt(mod.Body, true)
 }
 
 func (tc *TypeChecker) TypeCheckDeref(deref *ast.Dereference) {

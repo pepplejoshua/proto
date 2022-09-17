@@ -302,12 +302,30 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		}
 	case *ast.Membership:
 		nr.ResolveMembership(actual)
+	case *ast.Module:
+		nr.ResolveModule(actual)
+	case *ast.UseStmt:
+		nr.ResolveUseStmt(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 	}
+}
+
+func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
+	// need to generate permanent info to be used by all passes
+	// so name resolver can have all symbols resolved in imported files
+	// here and type checker can verify types of symbols from imported files
+}
+
+func (nr *NameResolver) ResolveModule(mod *ast.Module) {
+	nr.ResolveBlockStmt(mod.Body, true)
+	// declare name after checking whole module
+	nr.DeclareName(mod.Name.Token, mod, false)
+	nr.DefineName(mod.Name.Token)
+	nr.InitializeName(mod.Name.Token)
 }
 
 func (nr *NameResolver) ResolveStruct(str *ast.Struct) {

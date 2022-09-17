@@ -17,7 +17,9 @@ import (
 // irange: start at start till end
 // the same ways will work on regular
 
-type CollectionsForLoopRewriter struct{}
+type CollectionsForLoopRewriter struct {
+	prog *ast.ProtoProgram
+}
 
 func (flr *CollectionsForLoopRewriter) RewriteProgram(prog *ast.ProtoProgram) {
 	for index, node := range prog.Contents {
@@ -34,6 +36,8 @@ func (flr *CollectionsForLoopRewriter) Rewrite(node ast.ProtoNode) ast.ProtoNode
 		*ast.String, *ast.Char, *ast.Boolean, *ast.Unit, *ast.Dereference, *ast.Reference:
 	case *ast.BlockExpr:
 		node = flr.RewriteBlockExpr(actual)
+	case *ast.Module:
+		node = flr.RewriteModule(actual)
 	case *ast.BlockStmt:
 		node = flr.RewriteBlockStmt(actual)
 	case *ast.FunctionDef:
@@ -56,6 +60,11 @@ func (flr *CollectionsForLoopRewriter) Rewrite(node ast.ProtoNode) ast.ProtoNode
 	return node
 }
 
+func (flr *CollectionsForLoopRewriter) RewriteModule(mod *ast.Module) *ast.Module {
+	mod.Body = flr.RewriteBlockStmt(mod.Body)
+	return mod
+}
+
 func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.CollectionsForLoop) ast.ProtoNode {
 	collection := loop.Collection
 	var res ast.ProtoNode
@@ -71,8 +80,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				}
 			}
 			`, arr.LiteralRepr(), loop.LoopVar.LiteralRepr())
-			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-			p := parser.NewWithLexer(lex)
+			lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+			p := parser.NewWithLexer(flr.prog.Path, lex)
 			prog := parser.Top_Level(p, false)
 			blk := prog.Contents[0].(*ast.BlockStmt)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
@@ -83,8 +92,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 			for mut idx = 0; idx < len(%s); idx += 1 {
 				let %s = %s[idx];
 			}`, collection.LiteralRepr(), loop.LoopVar.LiteralRepr(), collection.LiteralRepr())
-			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-			p := parser.NewWithLexer(lex)
+			lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+			p := parser.NewWithLexer(flr.prog.Path, lex)
 			prog := parser.Top_Level(p, false)
 			generic_loop := prog.Contents[0].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
@@ -101,8 +110,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				}
 			}
 			`, str.LiteralRepr(), loop.LoopVar.LiteralRepr())
-			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-			p := parser.NewWithLexer(lex)
+			lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+			p := parser.NewWithLexer(flr.prog.Path, lex)
 			prog := parser.Top_Level(p, false)
 			blk := prog.Contents[0].(*ast.BlockStmt)
 			generic_loop := blk.Contents[1].(*ast.GenericForLoop)
@@ -114,8 +123,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 				let %s = %s[idx];
 			}
 			`, collection.LiteralRepr(), loop.LoopVar.LiteralRepr(), collection.LiteralRepr())
-			lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-			p := parser.NewWithLexer(lex)
+			lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+			p := parser.NewWithLexer(flr.prog.Path, lex)
 			prog := parser.Top_Level(p, false)
 			generic_loop := prog.Contents[0].(*ast.GenericForLoop)
 			generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
@@ -130,8 +139,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					let %s = idx;
 				}
 				`, rng.Start.LiteralRepr(), rng.PastEnd.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-				p := parser.NewWithLexer(lex)
+				lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+				p := parser.NewWithLexer(flr.prog.Path, lex)
 				prog := parser.Top_Level(p, false)
 				generic_loop := prog.Contents[0].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
@@ -146,8 +155,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					}
 				}
 				`, rng.Start.LiteralRepr(), rng.PastEnd.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-				p := parser.NewWithLexer(lex)
+				lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+				p := parser.NewWithLexer(flr.prog.Path, lex)
 				prog := parser.Top_Level(p, false)
 				blk := prog.Contents[0].(*ast.BlockStmt)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
@@ -162,8 +171,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					let %s = idx;
 				}
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-				p := parser.NewWithLexer(lex)
+				lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+				p := parser.NewWithLexer(flr.prog.Path, lex)
 				prog := parser.Top_Level(p, false)
 				generic_loop := prog.Contents[0].(*ast.GenericForLoop)
 				generic_loop.Body.Contents = append(generic_loop.Body.Contents, loop.Body.Contents...)
@@ -178,8 +187,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 					}
 				}
 				`, irng.Start.LiteralRepr(), irng.End.LiteralRepr(), loop.LoopVar.LiteralRepr())
-				lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-				p := parser.NewWithLexer(lex)
+				lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+				p := parser.NewWithLexer(flr.prog.Path, lex)
 				prog := parser.Top_Level(p, false)
 				blk := prog.Contents[0].(*ast.BlockStmt)
 				generic_loop := blk.Contents[2].(*ast.GenericForLoop)
@@ -200,8 +209,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						}
 					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-					p := parser.NewWithLexer(lex)
+					lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+					p := parser.NewWithLexer(flr.prog.Path, lex)
 					prog := parser.Top_Level(p, false)
 					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
@@ -217,8 +226,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						}
 					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-					p := parser.NewWithLexer(lex)
+					lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+					p := parser.NewWithLexer(flr.prog.Path, lex)
 					prog := parser.Top_Level(p, false)
 					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
@@ -237,8 +246,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						}
 					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-					p := parser.NewWithLexer(lex)
+					lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+					p := parser.NewWithLexer(flr.prog.Path, lex)
 					prog := parser.Top_Level(p, false)
 					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
@@ -254,8 +263,8 @@ func (flr *CollectionsForLoopRewriter) RewriteCollectionsForLoop(loop *ast.Colle
 						}
 					}
 					`, collection.LiteralRepr(), collection.LiteralRepr(), loop.LoopVar.LiteralRepr())
-					lex := lexer.NewFromLineCol(src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
-					p := parser.NewWithLexer(lex)
+					lex := lexer.NewFromLineCol(flr.prog.Path, src, loop.Start.TokenSpan.Line, loop.Start.TokenSpan.Col)
+					p := parser.NewWithLexer(flr.prog.Path, lex)
 					prog := parser.Top_Level(p, false)
 					blk := prog.Contents[0].(*ast.BlockStmt)
 					generic_loop := blk.Contents[2].(*ast.GenericForLoop)
