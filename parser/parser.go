@@ -202,25 +202,40 @@ func (p *Parser) parse_block_expr() *ast.BlockExpr {
 func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 	start := p.cur
 	p.consume(lexer.OPEN_CURLY)
+	modules := []*ast.Module{}
+	funcs := []*ast.FunctionDef{}
+	var_decls := []*ast.VariableDecl{}
+
 	var contents []ast.ProtoNode
 	for p.cur.Type != lexer.CLOSE_CURLY {
 		n_start := p.cur.TokenSpan
 		node := p.parse_protonode(false)
-		if _, ok := node.(ast.Expression); ok {
+		switch actual := node.(type) {
+		case ast.Expression:
 			// if this is not the last node in the block, disallow an expression
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 			msg.WriteString(" Expressions are not allowed in a statement block.")
 			shared.ReportErrorAndExit("Parser", msg.String())
-		} else {
-			contents = append(contents, node)
+		case *ast.Module:
+			modules = append(modules, actual)
+		case *ast.FunctionDef:
+			funcs = append(funcs, actual)
+		case *ast.VariableDecl:
+			var_decls = append(var_decls, actual)
 		}
+		contents = append(contents, node)
 	}
+	end := p.cur
 	p.consume(lexer.CLOSE_CURLY)
 
 	return &ast.BlockStmt{
-		Start:    start,
-		Contents: contents,
+		Start:         start,
+		End:           end,
+		Contents:      contents,
+		Modules:       modules,
+		Functions:     funcs,
+		VariableDecls: var_decls,
 	}
 }
 
@@ -552,6 +567,24 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 				msg.WriteString(string(lexer.IDENT) + " or " + string(lexer.I64) + " but found ")
 				msg.WriteString(string(p.cur.Type) + ".")
 				shared.ReportErrorAndExit("Parser", msg.String())
+			}
+		} else if p.cur.Type == lexer.PATH_SEP {
+			start := p.cur
+			p.consume(p.cur.Type)
+
+			if p.cur.Type != lexer.IDENT {
+				var msg strings.Builder
+				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+				msg.WriteString(" Expected token of type ")
+				msg.WriteString(string(lexer.IDENT) + " or " + string(lexer.I64) + " but found ")
+				msg.WriteString(string(p.cur.Type) + ".")
+				shared.ReportErrorAndExit("Parser", msg.String())
+			}
+			call = &ast.ModuleAccess{
+				Start:      start,
+				Mod:        call,
+				Member:     p.parse_primary(false),
+				MemberType: &ast.Proto_Untyped{},
 			}
 		} else {
 			break
@@ -1129,13 +1162,8 @@ func (p *Parser) parse_use_statement() *ast.UseStmt {
 	}
 	p.consume(p.cur.Type)
 
-	// tree := p.parse_use_tree(lexer.SEMI_COLON)
-	// process_tree(p.Dir)
 	use_stmt.Paths = p.parse_paths()
-	// paths := use_stmt.Tree.ShowAllPaths()
-	// println(strings.Join(paths, "\n"))
 	p.consume(lexer.SEMI_COLON)
-	// println(use_stmt.LiteralRepr())
 	p.Program.Imports = append(p.Program.Imports, use_stmt)
 	return use_stmt
 }
@@ -1456,17 +1484,23 @@ func Parse(file string, provide_main bool) *ast.ProtoProgram {
 
 func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	code := &ast.ProtoProgram{
-		Path:         "",
-		Main:         &ast.FunctionDef{},
-		Contents:     []ast.ProtoNode{},
-		FunctionDefs: []*ast.FunctionDef{},
-		Structs:      []*ast.Struct{},
-		Imports:      []*ast.UseStmt{},
+		Start:         lexer.ProtoToken{},
+		End:           lexer.ProtoToken{},
+		Path:          "",
+		Main:          &ast.FunctionDef{},
+		Contents:      []ast.ProtoNode{},
+		FunctionDefs:  []*ast.FunctionDef{},
+		Structs:       []*ast.Struct{},
+		Imports:       []*ast.UseStmt{},
+		Modules:       []*ast.Module{},
+		VariableDecls: []*ast.VariableDecl{},
 	}
 
 	p.Program = code
 	has_main := false
 	var main_def_loc lexer.Span
+
+	start := p.cur
 	for p.cur.Type != lexer.END {
 		node := p.parse_protonode(false)
 		switch actual := node.(type) {
@@ -1492,6 +1526,12 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 		case *ast.Struct:
 			code.Structs = append(code.Structs, actual)
 			code.Contents = append(code.Contents, node)
+		case *ast.Module:
+			code.Modules = append(code.Modules, actual)
+			code.Contents = append(code.Contents, actual)
+		case *ast.VariableDecl:
+			code.VariableDecls = append(code.VariableDecls, actual)
+			code.Contents = append(code.Contents, actual)
 		case ast.Expression:
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
@@ -1501,6 +1541,8 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			code.Contents = append(code.Contents, node)
 		}
 	}
+	end := p.cur
+	p.consume(lexer.END)
 
 	if provide_main && !has_main {
 		var msg strings.Builder
@@ -1508,5 +1550,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 		shared.ReportErrorAndExit("Parser", msg.String())
 	}
 	code.Path = p.file
+	code.Start = start
+	code.End = end
 	return code
 }

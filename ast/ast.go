@@ -1,6 +1,9 @@
 package ast
 
-import "strings"
+import (
+	"proto/lexer"
+	"strings"
+)
 
 type ProtoNode interface {
 	LiteralRepr() string
@@ -9,12 +12,16 @@ type ProtoNode interface {
 
 // a proto program just contains a bunch of ProtoNodes
 type ProtoProgram struct {
-	Path         string
-	Main         *FunctionDef
-	Contents     []ProtoNode
-	FunctionDefs []*FunctionDef
-	Structs      []*Struct
-	Imports      []*UseStmt
+	Start         lexer.ProtoToken
+	End           lexer.ProtoToken
+	Path          string
+	Main          *FunctionDef
+	Contents      []ProtoNode
+	FunctionDefs  []*FunctionDef
+	Structs       []*Struct
+	Imports       []*UseStmt
+	Modules       []*Module
+	VariableDecls []*VariableDecl
 }
 
 type CodeGenerator struct {

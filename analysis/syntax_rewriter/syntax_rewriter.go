@@ -33,7 +33,8 @@ func (flr *CollectionsForLoopRewriter) Rewrite(node ast.ProtoNode) ast.ProtoNode
 		*ast.Tuple, *ast.Array, *ast.CallExpression, *ast.BinaryOp, *ast.UnaryOp,
 		*ast.Return, *ast.InclusiveRange, *ast.Range, *ast.IndexExpression, *ast.Struct,
 		*ast.StructInitialization, *ast.Break, *ast.Continue, *ast.Membership, *ast.I64,
-		*ast.String, *ast.Char, *ast.Boolean, *ast.Unit, *ast.Dereference, *ast.Reference:
+		*ast.String, *ast.Char, *ast.Boolean, *ast.Unit, *ast.Dereference, *ast.Reference, *ast.UseStmt,
+		*ast.ModuleAccess:
 	case *ast.BlockExpr:
 		node = flr.RewriteBlockExpr(actual)
 	case *ast.Module:

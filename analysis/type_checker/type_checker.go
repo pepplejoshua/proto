@@ -30,6 +30,7 @@ type TypeChecker struct {
 	CurReturnType ast.ProtoType
 	FnDefSpan     *lexer.Span
 	CurBlockType  BlockType
+	ImportInfo    map[string]ast.ProtoNode
 }
 
 func NewTypeChecker() *TypeChecker {
@@ -39,6 +40,18 @@ func NewTypeChecker() *TypeChecker {
 		CurReturnType: nil,
 		FnDefSpan:     nil,
 		CurBlockType:  NONE,
+		ImportInfo:    map[string]ast.ProtoNode{},
+	}
+}
+
+func NewTypeCheckerWithImportInfo(info map[string]ast.ProtoNode) *TypeChecker {
+	return &TypeChecker{
+		TypeEnvs:      []map[string]ast.ProtoType{},
+		FoundError:    false,
+		CurReturnType: nil,
+		FnDefSpan:     nil,
+		CurBlockType:  NONE,
+		ImportInfo:    info,
 	}
 }
 
@@ -184,12 +197,125 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckReturn(actual)
 	case *ast.Module:
 		tc.TypeCheckModule(actual)
+	case *ast.UseStmt:
+		tc.TypeCheckUseStmt(actual)
+	case *ast.ModuleAccess:
+		tc.TypeCheckModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit, *ast.Break, *ast.Continue:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
 		tc.FoundError = true
+	}
+}
+
+func (tc *TypeChecker) TypeCheckModuleAccess(access *ast.ModuleAccess) {
+	tc.TypeCheck(access.Mod)
+
+	mem := access.Member
+
+	switch ac := access.Mod.Type().(type) {
+	case *ast.Proto_Module:
+		mod := ac.Mod
+		for _, m := range mod.Body.Modules {
+			if m.Name.LiteralRepr() == mem.LiteralRepr() {
+				access.MemberType = &ast.Proto_Module{
+					Mod: m,
+				}
+				return
+			}
+		}
+
+		for _, fn := range mod.Body.Functions {
+			if fn.Name.LiteralRepr() == mem.LiteralRepr() {
+				access.MemberType = fn.FunctionTypeSignature
+				return
+			}
+		}
+
+		for _, decl := range mod.Body.VariableDecls {
+			if decl.Assignee.LiteralRepr() == mem.LiteralRepr() {
+				access.MemberType = decl.VarType
+				return
+			}
+		}
+	}
+}
+
+func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
+	for _, path := range use.Paths {
+		last_node := path.Pieces[len(path.Pieces)-1]
+		name := last_node.String()
+		import_all := false
+		if name == "*" {
+			import_all = true
+			name = path.Pieces[len(path.Pieces)-2].String()
+		}
+
+		tags := []string{}
+		for i := 0; i < len(path.Pieces)-1; i++ {
+			tags = append(tags, path.Pieces[i].String())
+		}
+		tag := strings.Join(tags, "::")
+		tag += "::"
+		if import_all {
+			mod := tc.ImportInfo[tag+name].(*ast.Module)
+
+			for _, m := range mod.Body.Modules {
+				tc.SetTypeForName(m.Name.Token, &ast.Proto_Module{
+					Mod: m,
+				})
+			}
+
+			for _, fn := range mod.Body.Functions {
+				tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
+			}
+
+			for _, decl := range mod.Body.VariableDecls {
+				tc.SetTypeForName(decl.Assignee.Token, decl.VarType)
+			}
+		} else {
+			if len(path.Pieces) > 1 {
+				if as, ok := last_node.(*ast.UseAs); ok {
+					val := tc.ImportInfo[tag+as.As.LiteralRepr()]
+					switch actual := val.(type) {
+					case *ast.Module:
+						tc.SetTypeForName(as.As.Token, &ast.Proto_Module{
+							Mod: actual,
+						})
+					case *ast.VariableDecl:
+						tc.SetTypeForName(as.As.Token, actual.VarType)
+					case *ast.FunctionDef:
+						tc.SetTypeForName(as.As.Token, actual.FunctionTypeSignature)
+					}
+				} else {
+					val := tc.ImportInfo[tag+name]
+					switch actual := val.(type) {
+					case *ast.Module:
+						tc.SetTypeForName(actual.Name.Token, &ast.Proto_Module{
+							Mod: actual,
+						})
+					case *ast.VariableDecl:
+						tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
+					case *ast.FunctionDef:
+						tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
+					}
+				}
+			} else {
+				val := tc.ImportInfo[tag+name]
+				switch actual := val.(type) {
+				case *ast.Module:
+					tc.SetTypeForName(actual.Name.Token, &ast.Proto_Module{
+						Mod: actual,
+					})
+				case *ast.VariableDecl:
+					tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
+				case *ast.FunctionDef:
+					tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
+				}
+			}
+		}
 	}
 }
 
@@ -1229,6 +1355,16 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 		}
 		tc.CurBlockType = prev
 	}
+	if tc.CurBlockType == FUNCTION && block_type.TypeSignature() != tc.CurReturnType.TypeSignature() {
+		var msg strings.Builder
+		line := tc.FnDefSpan.Line
+		col := tc.FnDefSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("implicit return type %s does not match function return type, which is %s.",
+			block_type.TypeSignature(), tc.CurReturnType.TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		tc.FoundError = true
+	}
 	block.BlockType = block_type
 	if new_env {
 		tc.ExitTypeEnv()
@@ -1339,7 +1475,7 @@ func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {
 		line := ident.Token.TokenSpan.Line
 		col := ident.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString("Undefined variable '" + ident.LiteralRepr() + "'")
+		msg.WriteString("Undefined identifier '" + ident.LiteralRepr() + "'")
 		shared.ReportErrorAndExit("TypeChecker", msg.String())
 		tc.FoundError = true
 	} else {

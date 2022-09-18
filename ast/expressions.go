@@ -539,6 +539,34 @@ func (m *Membership) Type() ProtoType {
 	return m.MembershipType
 }
 
+type ModuleAccess struct {
+	Start      lexer.ProtoToken
+	Mod        Expression
+	Member     Expression
+	MemberType ProtoType
+}
+
+func (m *ModuleAccess) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString(m.Mod.LiteralRepr() + "::")
+	repr.WriteString(m.Member.LiteralRepr())
+
+	return repr.String()
+}
+
+func (m *ModuleAccess) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.WriteLine(m.LiteralRepr(), use_tab)
+	} else {
+		c.Write(m.LiteralRepr(), use_tab, false)
+	}
+}
+
+func (m *ModuleAccess) Type() ProtoType {
+	return m.MemberType
+}
+
 type StructInitialization struct {
 	Start      lexer.ProtoToken
 	StructName *Identifier

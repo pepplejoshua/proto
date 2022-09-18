@@ -355,8 +355,12 @@ func (b *Continue) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 }
 
 type BlockStmt struct {
-	Start    lexer.ProtoToken
-	Contents []ProtoNode
+	Start         lexer.ProtoToken
+	End           lexer.ProtoToken
+	Contents      []ProtoNode
+	Modules       []*Module
+	Functions     []*FunctionDef
+	VariableDecls []*VariableDecl
 }
 
 func (b *BlockStmt) LiteralRepr() string {
@@ -424,8 +428,11 @@ type UsePath interface {
 }
 
 type Path struct {
-	Start  *lexer.ProtoToken
-	Pieces []UsePath
+	Start      *lexer.ProtoToken
+	Pieces     []UsePath
+	PathSrcLoc string
+	UseSrcLoc  string
+	Matchable  []UsePath
 }
 
 func (p *Path) String() string {

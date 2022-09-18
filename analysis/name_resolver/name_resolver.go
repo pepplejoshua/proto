@@ -28,6 +28,7 @@ type NameResolver struct {
 	Scopes     []map[string]*Pair
 	ScopeTag   EnclosingScopeTag
 	LoopTag    EnclosingScopeTag
+	ImportInfo map[string]ast.ProtoNode
 	FoundError bool
 }
 
@@ -36,6 +37,17 @@ func NewNameResolver() *NameResolver {
 		Scopes:     []map[string]*Pair{},
 		ScopeTag:   None,
 		LoopTag:    None,
+		ImportInfo: map[string]ast.ProtoNode{},
+		FoundError: false,
+	}
+}
+
+func NewNameResolverWithImportInfo(info map[string]ast.ProtoNode) *NameResolver {
+	return &NameResolver{
+		Scopes:     []map[string]*Pair{},
+		ScopeTag:   None,
+		LoopTag:    None,
+		ImportInfo: info,
 		FoundError: false,
 	}
 }
@@ -306,6 +318,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveModule(actual)
 	case *ast.UseStmt:
 		nr.ResolveUseStmt(actual)
+	case *ast.ModuleAccess:
+		nr.ResolveModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit:
 		// do nothing
@@ -314,10 +328,92 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	}
 }
 
+func (nr *NameResolver) ResolveModuleAccess(access *ast.ModuleAccess) {
+	nr.Resolve(access.Mod)
+}
+
 func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 	// need to generate permanent info to be used by all passes
 	// so name resolver can have all symbols resolved in imported files
 	// here and type checker can verify types of symbols from imported files
+	for _, path := range use.Paths {
+		last_node := path.Pieces[len(path.Pieces)-1]
+		name := last_node.String()
+		import_all := false
+		if name == "*" {
+			import_all = true
+			name = path.Pieces[len(path.Pieces)-2].String()
+		}
+
+		tags := []string{}
+		for i := 0; i < len(path.Pieces)-1; i++ {
+			tags = append(tags, path.Pieces[i].String())
+		}
+		tag := strings.Join(tags, "::")
+		tag += "::"
+		if import_all {
+			mod := nr.ImportInfo[tag+name].(*ast.Module)
+
+			for _, m := range mod.Body.Modules {
+				nr.DeclareName(m.Name.Token, m, false)
+				nr.DefineName(m.Name.Token)
+				nr.InitializeName(m.Name.Token)
+			}
+
+			for _, fn := range mod.Body.Functions {
+				nr.DeclareName(fn.Name.Token, fn, false)
+				nr.DefineName(fn.Name.Token)
+				nr.InitializeName(fn.Name.Token)
+			}
+
+			for _, decl := range mod.Body.VariableDecls {
+				nr.DeclareName(decl.Assignee.Token, decl, false)
+				nr.DefineName(decl.Assignee.Token)
+				nr.DefineName(decl.Assignee.Token)
+			}
+		} else {
+			if len(path.Pieces) > 1 {
+				if as, ok := last_node.(*ast.UseAs); ok {
+					val := nr.ImportInfo[tag+as.As.LiteralRepr()]
+					nr.DeclareName(as.As.Token, val, false)
+					nr.DefineName(as.As.Token)
+					nr.InitializeName(as.As.Token)
+				} else {
+					val := nr.ImportInfo[tag+name]
+					switch actual := val.(type) {
+					case *ast.Module:
+						nr.DeclareName(actual.Name.Token, actual, false)
+						nr.DefineName(actual.Name.Token)
+						nr.InitializeName(actual.Name.Token)
+					case *ast.VariableDecl:
+						nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
+						nr.DefineName(actual.Assignee.Token)
+						nr.DefineName(actual.Assignee.Token)
+					case *ast.FunctionDef:
+						nr.DeclareName(actual.Name.Token, actual, false)
+						nr.DefineName(actual.Name.Token)
+						nr.InitializeName(actual.Name.Token)
+					}
+				}
+			} else {
+				val := nr.ImportInfo[tag+name]
+				switch actual := val.(type) {
+				case *ast.Module:
+					nr.DeclareName(actual.Name.Token, actual, false)
+					nr.DefineName(actual.Name.Token)
+					nr.InitializeName(actual.Name.Token)
+				case *ast.VariableDecl:
+					nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
+					nr.DefineName(actual.Assignee.Token)
+					nr.DefineName(actual.Assignee.Token)
+				case *ast.FunctionDef:
+					nr.DeclareName(actual.Name.Token, actual, false)
+					nr.DefineName(actual.Name.Token)
+					nr.InitializeName(actual.Name.Token)
+				}
+			}
+		}
+	}
 }
 
 func (nr *NameResolver) ResolveModule(mod *ast.Module) {
@@ -728,7 +824,7 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		line := ident.Token.TokenSpan.Line
 		col := ident.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-		msg.WriteString("Undefined variable '" + ident.LiteralRepr() + "'")
+		msg.WriteString("Undefined name '" + ident.LiteralRepr() + "'")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
 		nr.FoundError = true
 	} else if !nr.GetInitializedAtName(ident.Token) {

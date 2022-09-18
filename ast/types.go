@@ -177,14 +177,26 @@ func (r *Proto_Reference) CppTypeSignature() string {
 	return "&" + r.Inner.CppTypeSignature()
 }
 
-type Proto_Variad struct {
-	Inner ProtoType
+type Proto_Module struct {
+	Mod *Module
 }
 
-func (v *Proto_Variad) TypeSignature() string {
-	return "..." + v.Inner.TypeSignature()
+func (m *Proto_Module) TypeSignature() string {
+	return "mod " + m.Mod.Name.LiteralRepr()
 }
 
-func (v *Proto_Variad) CppTypeSignature() string {
-	return v.TypeSignature()
+func (m *Proto_Module) CppTypeSignature() string {
+	return m.TypeSignature()
 }
+
+// type Proto_Variad struct {
+// 	Inner ProtoType
+// }
+
+// func (v *Proto_Variad) TypeSignature() string {
+// 	return "..." + v.Inner.TypeSignature()
+// }
+
+// func (v *Proto_Variad) CppTypeSignature() string {
+// 	return v.TypeSignature()
+// }
