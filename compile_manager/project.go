@@ -384,7 +384,6 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 	code := &cpp_compiler.Compiler{}
 	gen_src := code.CompileProgram(prog, compile)
 
-	// println(gen_src)
 	src_path := shared.Make_src_path(file, compile)
 	destination, _ := os.Create(src_path)
 	fmt.Fprintln(destination, gen_src)
@@ -392,7 +391,7 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 	println("generated c++ written to", src_path)
 
 	if po.CleanSrc {
-		defer os.RemoveAll(src_path)
+		po.compiled_files = append(po.compiled_files, src_path)
 	} else {
 		clang_format := exec.Command("clang-format", src_path)
 		stdout, err := clang_format.StdoutPipe()
@@ -479,6 +478,7 @@ func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
 		// println("HERE11")
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 	}
+
 	println("compiled to", exe_loc)
 }
 
@@ -501,6 +501,12 @@ func (po *ProjectOrganizer) BuildProject() {
 	// then do analysis for ast_prog using all the pieces taken from imported files
 	po.AnalyseAST(ast_prog, info_loc)
 	po.GenerateCppFor(po.startfile, ast_prog, true)
+
+	if po.CleanSrc {
+		for _, src_path := range po.compiled_files {
+			os.RemoveAll(src_path)
+		}
+	}
 }
 
 func (po *ProjectOrganizer) find_file(dir string, path *ast.Path) (bool, string, *ast.Path) {
