@@ -499,9 +499,9 @@ func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			c.WriteLine(using, use_tab)
 		}
 	}
-	if newline {
-		c.WriteLine("", use_tab)
-	}
+	// if newline {
+	// 	c.WriteLine("", use_tab)
+	// }
 }
 
 type UsePath interface {
