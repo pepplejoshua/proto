@@ -24,6 +24,13 @@ func (i *Identifier) Type() ProtoType {
 }
 
 func (i *Identifier) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if strings.Contains(i.Id_Type.CppTypeSignature(), "vector") {
+		c.AddInclude("<vector>")
+	} else if strings.Contains(i.Id_Type.CppTypeSignature(), "string") {
+		c.AddInclude("<string>")
+	} else if strings.Contains(i.Id_Type.CppTypeSignature(), "tuple") {
+		c.AddInclude("<tuple>")
+	}
 	if newline {
 		c.WriteLine(i.LiteralRepr(), use_tab)
 	} else {
@@ -172,7 +179,7 @@ func (s *String) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	} else {
 		c.Write(s.LiteralRepr(), use_tab, false)
 	}
-	c.AddInclude("string")
+	c.AddInclude("<string>")
 }
 
 func (s *String) Type() ProtoType {
@@ -228,7 +235,7 @@ func (a *Array) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		}
 	}
 	c.WriteLine(" }", false)
-	c.AddInclude("vector")
+	c.AddInclude("<vector>")
 }
 
 func (a *Array) LiteralRepr() string {
@@ -273,7 +280,7 @@ func (t *Tuple) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		}
 	}
 	c.Write("> ("+tuple_items.CollectString()+")", false, false)
-	c.AddInclude("tuple")
+	c.AddInclude("<tuple>")
 	for k := range tuple_items.includes {
 		c.AddInclude(k)
 	}

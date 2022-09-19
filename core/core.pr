@@ -1,7 +1,0 @@
-use #cpp core
-
-// type annotation ... means variadic. it can only occur last
-// #cpp means get from included c++ header
-fn println(args: ...) #cpp; 
-fn stringf(args ...) #cpp;
-fn show() -> i64 #cpp;

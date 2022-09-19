@@ -2,44 +2,41 @@ package compilemanager
 
 import (
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"proto/analysis/name_resolver"
 	syntaxrewriter "proto/analysis/syntax_rewriter"
 	"proto/analysis/type_checker"
 	"proto/ast"
+	"proto/cpp_compiler"
 	"proto/lexer"
 	"proto/parser"
 	"proto/shared"
 	"strings"
 )
 
-type Project struct {
-	Files []string
-}
-
-func (p *Project) AddFile(file string) {
-	p.Files = append(p.Files, file)
-}
-
 type ProjectOrganizer struct {
 	startfile              string
 	dir                    string
-	project                *Project
 	cache                  map[string]*ast.ProtoProgram
 	files_and_dependencies map[string][]string
 	files_and_resolvables  map[string][]*ast.Path
+	compiled_files         []string
+	CleanSrc               bool
 }
 
-func NewProjectManager(file string) *ProjectOrganizer {
+func NewProjectManager(file string, clean_src bool) *ProjectOrganizer {
 	abs, _ := filepath.Abs(file)
 	return &ProjectOrganizer{
 		startfile:              abs,
 		dir:                    filepath.Dir(abs),
-		project:                &Project{Files: []string{}},
 		cache:                  map[string]*ast.ProtoProgram{},
 		files_and_dependencies: map[string][]string{},
 		files_and_resolvables:  map[string][]*ast.Path{},
+		compiled_files:         []string{},
+		CleanSrc:               clean_src,
 	}
 }
 
@@ -90,22 +87,19 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 		for dep_file, res_paths := range files_and_remnants {
 			// prevent duplication of resolvable paths
 			if paths, ok := files_and_resolvables[dep_file]; ok {
-				// println(file)
 				for _, r_p := range res_paths {
-					r_p.Start = &i.Start
-					// println("\t" + r_p.String())
-					duplicate := false
-					for _, p := range paths {
-						// println("\t\t" + p.String())
-						if r_p.String() == p.String() {
-							duplicate = true
-							break
-						}
-					}
-					if !duplicate {
-						paths = append(paths, r_p)
-						files_and_resolvables[dep_file] = paths
-					}
+					// r_p.Start = &i.Start
+					// duplicate := false
+					// for _, p := range paths {
+					// 	if r_p.String() == p.String() {
+					// 		duplicate = true
+					// 		break
+					// 	}
+					// }
+					// if !duplicate {
+					paths = append(paths, r_p)
+					files_and_resolvables[dep_file] = paths
+					// }
 				}
 			} else {
 				files_and_resolvables[dep_file] = res_paths
@@ -113,33 +107,22 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 
 			// prevent duplication of dependencies
 			if dependencies, ok := po.files_and_dependencies[file]; ok {
-				duplicate := false
-				for _, dep := range dependencies {
-					if dep == dep_file {
-						duplicate = true
-						break
-					}
-				}
-				if !duplicate {
-					dependencies = append(dependencies, dep_file)
-					po.files_and_dependencies[file] = dependencies
-				}
+				// duplicate := false
+				// for _, dep := range dependencies {
+				// 	if dep == dep_file {
+				// 		duplicate = true
+				// 		break
+				// 	}
+				// }
+				// if !duplicate {
+				dependencies = append(dependencies, dep_file)
+				po.files_and_dependencies[file] = dependencies
+				// }
 			} else {
 				po.files_and_dependencies[file] = []string{dep_file}
 			}
 		}
 	}
-
-	// for file, paths := range files_and_resolvables {
-	// 	println(fmt.Sprintf("%s:", file))
-	// 	for _, p := range paths {
-	// 		println(fmt.Sprintf("\t%s", p.String()))
-	// 	}
-	// 	if len(paths) > 0 {
-	// 		println()
-
-	// 	}
-	// }
 
 	return files_and_resolvables, file_ast
 }
@@ -152,6 +135,9 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 		mod_name := path.Pieces[0]
 		for _, module := range prog.Modules {
 			if module.Name.LiteralRepr() == mod_name.String() {
+				piece := path.Pieces[0]
+				id, _ := piece.(*ast.PathIDNode)
+				id.Type = lexer.MOD
 				cur_mod = module
 				break
 			}
@@ -171,18 +157,13 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 			piece := path.Pieces[index]
 
 			if piece.String() == "*" {
-				if item == nil {
-					item = cur_mod
-					break
-				}
+				id, _ := piece.(*ast.PathIDNode)
+				id.Type = lexer.STAR
 				break
 			}
 
-			if _, ok := piece.(*ast.UseAs); ok {
-				if item == nil {
-					item = cur_mod
-					break
-				}
+			if as, ok := piece.(*ast.UseAs); ok {
+				as.PType = lexer.AS
 				break
 			}
 
@@ -191,45 +172,63 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 				for _, mod := range ac.Body.Modules {
 					if mod.Name.LiteralRepr() == piece.String() {
 						item = mod
+						id, _ := piece.(*ast.PathIDNode)
+						id.Type = lexer.MOD
 						if index+1 < len(path.Pieces) {
 							next := path.Pieces[index+1]
-							if _, ok := next.(*ast.UseAs); ok {
+							if as, ok := next.(*ast.UseAs); ok {
+								as.PType = lexer.AS
 								index++
 								break loop
 							}
 						}
-						continue
+						continue loop
 					}
 				}
 
 				for _, fn := range ac.Body.Functions {
 					if fn.Name.LiteralRepr() == piece.String() {
 						item = fn
+						id, _ := piece.(*ast.PathIDNode)
+						id.Type = lexer.FN
 						// there are still more pieces to process
 						if index+1 < len(path.Pieces) {
 							next := path.Pieces[index+1]
-							if _, ok := next.(*ast.UseAs); ok {
+							if as, ok := next.(*ast.UseAs); ok {
+								as.PType = lexer.AS
 								index++
 								break loop
 							}
 						}
-						continue
+						continue loop
 					}
 				}
 
 				for _, decl := range ac.Body.VariableDecls {
 					if decl.Assignee.LiteralRepr() == piece.String() {
 						item = decl
+						id, _ := piece.(*ast.PathIDNode)
+						id.Type = lexer.LET
 						if index+1 < len(path.Pieces) {
 							next := path.Pieces[index+1]
-							if _, ok := next.(*ast.UseAs); ok {
+							if as, ok := next.(*ast.UseAs); ok {
+								as.PType = lexer.AS
 								index++
 								break loop
 							}
 						}
-						continue
+						continue loop
 					}
 				}
+
+				// not found in module
+				var msg strings.Builder
+				user := path.UseSrcLoc
+				line := path.Start.TokenSpan.Line
+				col := path.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+				msg.WriteString(fmt.Sprintf("Unable to find identifier '%s' in module '%s'.", piece.String(), ac.Name.LiteralRepr()))
+				shared.ReportErrorAndExit("ProjectOrganizer", msg.String())
 			case *ast.FunctionDef:
 				var msg strings.Builder
 				user := path.UseSrcLoc
@@ -257,52 +256,47 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 		}
 		tag := strings.Join(tags, "::")
 		tag += "::"
-		// no additional items to process except the module name
-		if item == nil {
-			item = cur_mod
-			res[tag+mod_name.String()] = item
+
+		// there are additional pieces to be processed for this path
+		if index < len(path.Pieces) {
+			piece := path.Pieces[index]
+			if piece.String() == "*" {
+				if mod, ok := item.(*ast.Module); ok {
+					name := tag + mod.Name.LiteralRepr()
+					res[name] = mod
+				} else if decl, ok := item.(*ast.VariableDecl); ok {
+					// cannot use * operator on non-module
+					var msg strings.Builder
+					loc := path.PathSrcLoc
+					user := path.UseSrcLoc
+					line := path.Start.TokenSpan.Line
+					col := path.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing variable '%s' from '%s' is not valid.", decl.Assignee.LiteralRepr(), loc))
+					shared.ReportErrorAndExit("ProjectManager", msg.String())
+				} else if fn, ok := item.(*ast.FunctionDef); ok {
+					var msg strings.Builder
+					loc := path.PathSrcLoc
+					user := path.UseSrcLoc
+					line := path.Start.TokenSpan.Line
+					col := path.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing '%s' function from '%s' is not valid.", fn.Name.LiteralRepr(), loc))
+					shared.ReportErrorAndExit("ProjectManager", msg.String())
+				}
+			} else if as, ok := piece.(*ast.UseAs); ok {
+				alias := as.As.LiteralRepr()
+				res[tag+alias] = item
+			}
 		} else {
-			// there are additional pieces to be processed for this path
-			if index < len(path.Pieces) {
-				piece := path.Pieces[index]
-				if piece.String() == "*" {
-					if mod, ok := item.(*ast.Module); ok {
-						name := tag + mod.Name.LiteralRepr()
-						res[name] = mod
-					} else if decl, ok := item.(*ast.VariableDecl); ok {
-						// cannot use * operator on non-module
-						var msg strings.Builder
-						loc := path.PathSrcLoc
-						user := path.UseSrcLoc
-						line := path.Start.TokenSpan.Line
-						col := path.Start.TokenSpan.Col
-						msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-						msg.WriteString(fmt.Sprintf("Using '*' when importing variable '%s' from '%s' is not valid.", decl.Assignee.LiteralRepr(), loc))
-						shared.ReportErrorAndExit("ProjectManager", msg.String())
-					} else if fn, ok := item.(*ast.FunctionDef); ok {
-						var msg strings.Builder
-						loc := path.PathSrcLoc
-						user := path.UseSrcLoc
-						line := path.Start.TokenSpan.Line
-						col := path.Start.TokenSpan.Col
-						msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-						msg.WriteString(fmt.Sprintf("Using '*' when importing '%s' function from '%s' is not valid.", fn.Name.LiteralRepr(), loc))
-						shared.ReportErrorAndExit("ProjectManager", msg.String())
-					}
-				} else if as, ok := piece.(*ast.UseAs); ok {
-					alias := as.As.LiteralRepr()
-					res[tag+alias] = item
-				}
-			} else {
-				// there are no pieces to process
-				switch actual := item.(type) {
-				case *ast.FunctionDef:
-					res[tag+actual.Name.LiteralRepr()] = item
-				case *ast.Module:
-					res[tag+actual.Name.LiteralRepr()] = item
-				case *ast.VariableDecl:
-					res[tag+actual.Assignee.LiteralRepr()] = item
-				}
+			// there are no pieces to process
+			switch actual := item.(type) {
+			case *ast.FunctionDef:
+				res[tag+actual.Name.LiteralRepr()] = item
+			case *ast.Module:
+				res[tag+actual.Name.LiteralRepr()] = item
+			case *ast.VariableDecl:
+				res[tag+actual.Assignee.LiteralRepr()] = item
 			}
 		}
 	}
@@ -368,6 +362,7 @@ func (po *ProjectOrganizer) ProcessImports(queue []string, file string, has_main
 	// so the caller can take the fully analysed tree and take what they need from it
 	// using ast.SearchFor()
 	po.AnalyseAST(file_ast, info_loc)
+	po.GenerateCppFor(file, file_ast, false)
 	return file_ast
 }
 
@@ -385,7 +380,109 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 	tc.TypeCheckProgram(prog)
 }
 
-func (po *ProjectOrganizer) BuildProject() *Project {
+func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, compile bool) {
+	code := &cpp_compiler.Compiler{}
+	gen_src := code.CompileProgram(prog, compile)
+
+	// println(gen_src)
+	src_path := shared.Make_src_path(file, compile)
+	destination, _ := os.Create(src_path)
+	fmt.Fprintln(destination, gen_src)
+	destination.Close()
+	println("generated c++ written to", src_path)
+
+	if po.CleanSrc {
+		defer os.RemoveAll(src_path)
+	} else {
+		clang_format := exec.Command("clang-format", src_path)
+		stdout, err := clang_format.StdoutPipe()
+		if err != nil {
+			// println("HERE1")
+			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+		}
+		stderr, err := clang_format.StderrPipe()
+		if err != nil {
+			// println("HERE2")
+			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+		}
+
+		if err = clang_format.Start(); err != nil {
+			// println("HERE3")
+			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+		}
+
+		data, err := io.ReadAll(stderr)
+		if err != nil {
+			// println("HERE4")
+			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+		}
+
+		errout := string(data)
+		if errout != "" {
+			// println("HERE5")
+			msg := fmt.Sprintf("Error '%s' while formatting %s.", strings.TrimSpace(errout), src_path)
+			shared.ReportErrorAndExit("ProjectOrganizer", msg)
+		}
+
+		output, err := io.ReadAll(stdout)
+		if err != nil {
+			// println("HERE6")
+			msg := fmt.Sprintf("Error while reading format output. Error: %s", output)
+			shared.ReportErrorAndExit("ProjectOrganizer", msg)
+		}
+
+		if err := clang_format.Wait(); err != nil {
+			// println("HERE7")
+			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+		}
+
+		format_output := output
+		// println(string(format_output))
+		println("formatted source at", src_path)
+
+		destination, _ := os.Create(src_path)
+		defer destination.Close()
+		fmt.Fprintln(destination, string(format_output))
+		println("updated with formatted output", src_path)
+	}
+
+	if compile {
+		po.CompileFile(src_path, shared.Make_exe_path(file))
+	}
+}
+
+func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
+	compile_cmd := exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14")
+	stderr, err := compile_cmd.StderrPipe()
+	if err != nil {
+		// println("HERE8")
+		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+	}
+	if err := compile_cmd.Start(); err != nil {
+		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+	}
+
+	data, err := io.ReadAll(stderr)
+	if err != nil {
+		// println("HERE9")
+		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+	}
+
+	errout := string(data)
+	if errout != "" {
+		// println("HERE10")
+		msg := fmt.Sprintf("Error '%s' while compiling %s.", strings.TrimSpace(errout), src_path)
+		shared.ReportErrorAndExit("ProjectOrganizer", msg)
+	}
+
+	if err := compile_cmd.Wait(); err != nil {
+		// println("HERE11")
+		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
+	}
+	println("compiled to", exe_loc)
+}
+
+func (po *ProjectOrganizer) BuildProject() {
 	// add the source file that was used to start the compilation of the project
 	file_imported_bundle, ast_prog := po.ProcessSourceFile(po.startfile, true)
 
@@ -403,7 +500,7 @@ func (po *ProjectOrganizer) BuildProject() *Project {
 
 	// then do analysis for ast_prog using all the pieces taken from imported files
 	po.AnalyseAST(ast_prog, info_loc)
-	return po.project
+	po.GenerateCppFor(po.startfile, ast_prog, true)
 }
 
 func (po *ProjectOrganizer) find_file(dir string, path *ast.Path) (bool, string, *ast.Path) {

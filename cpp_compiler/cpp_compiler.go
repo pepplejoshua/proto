@@ -35,7 +35,7 @@ type Compiler struct{}
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string {
 	code_gen := ast.NewCodeGenerator()
 
-	code_gen.AddInclude("iostream")
+	code_gen.AddInclude("<iostream>")
 	for _, node := range prog.Contents {
 		node.AsCppCode(code_gen, true, true)
 	}

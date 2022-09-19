@@ -105,7 +105,7 @@ func (c *CodeGenerator) AddInclude(include string) {
 func (c *CodeGenerator) GetIncludesAsString() string {
 	var includes strings.Builder
 	for inc := range c.includes {
-		includes.WriteString("#include <" + inc + ">\n")
+		includes.WriteString("#include " + inc + "\n")
 	}
 
 	return includes.String()

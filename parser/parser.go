@@ -1247,93 +1247,6 @@ func (p *Parser) parse_paths() []*ast.Path {
 	return paths
 }
 
-// func (p *Parser) parse_use_tree(terminator lexer.TokenType) *ast.UseTree {
-// 	use_tree := &ast.UseTree{}
-// 	start := p.cur
-// 	start_path := p.parse_simple_path()
-// 	var final_node ast.UsePath
-// 	switch p.cur.Type {
-// 	case lexer.AS:
-// 		p.consume(p.cur.Type) // skip over the 'as'
-// 		as_id := p.parse_identifier()
-// 		as_node := &ast.UseAs{
-// 			StartPath: start_path,
-// 			As:        as_id,
-// 		}
-// 		final_node = as_node
-// 	case lexer.PATH_SEP:
-// 		switch p.peek.Type {
-// 		case lexer.STAR:
-// 			p.consume(lexer.PATH_SEP)
-// 			p.consume(p.cur.Type)
-// 			// ::*
-// 			all_node := &ast.UseAll{
-// 				StartPath: start_path,
-// 			}
-// 			final_node = all_node
-// 		case lexer.OPEN_BRACKET:
-// 			p.consume(lexer.PATH_SEP)
-// 			p.consume(p.cur.Type)
-// 			// ::{
-// 			trees := []*ast.UseTree{}
-// 			for p.cur.Type != lexer.CLOSE_BRACKET {
-// 				tree := p.parse_use_tree(lexer.CLOSE_BRACKET)
-// 				trees = append(trees, tree)
-
-// 				if p.cur.Type == lexer.COMMA {
-// 					p.consume(p.cur.Type)
-// 				}
-// 			}
-// 			//}
-
-// 			p.consume(lexer.CLOSE_BRACKET)
-// 			simple_to_trees := &ast.UseSimpleToTrees{
-// 				StartPath: start_path,
-// 				Trees:     trees,
-// 			}
-// 			final_node = simple_to_trees
-// 		}
-// 	default:
-// 		final_node = start_path
-// 		// if p.cur.Type == terminator {
-// 		// 	final_node = start_path
-// 		// 	break
-// 		// } else {
-// 		// 	var msg strings.Builder
-// 		// 	msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
-// 		// 	msg.WriteString(" Expected " + string(terminator) + " but got " + p.cur.Literal + ".")
-// 		// 	shared.ReportErrorAndExit("Parser", msg.String())
-// 		// }
-// 	}
-// 	use_tree.StartToken = start
-// 	use_tree.StartPath = final_node
-// 	return use_tree
-// }
-
-// func (p *Parser) parse_simple_path() *ast.UseSimplePath {
-// 	ids := []*ast.Identifier{}
-
-// 	if p.cur.Type != lexer.IDENT {
-// 		var msg strings.Builder
-// 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
-// 		msg.WriteString(" Expected an identifier but got " + string(p.cur.Type) + ".")
-// 		shared.ReportErrorAndExit("Parser", msg.String())
-// 	}
-
-// 	for p.cur.Type == lexer.IDENT {
-// 		id := p.parse_identifier()
-// 		ids = append(ids, id)
-// 		// there is an id to consume afer
-// 		if p.cur.Type == lexer.PATH_SEP && p.peek.Type == lexer.IDENT {
-// 			p.consume(p.cur.Type)
-// 		}
-// 	}
-// 	path := &ast.UseSimplePath{
-// 		Ids: ids,
-// 	}
-// 	return path
-// }
-
 func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	start := p.cur
 	p.consume(p.cur.Type)
@@ -1370,11 +1283,13 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	body := p.parse_block_expr()
 
 	fn_def := &ast.FunctionDef{
-		Start:         start,
-		Name:          name,
-		ParameterList: paramslist,
-		ReturnType:    return_type,
-		Body:          body,
+		Start:                 start,
+		Name:                  name,
+		ParameterList:         paramslist,
+		ReturnType:            return_type,
+		Body:                  body,
+		IsMain:                false,
+		FunctionTypeSignature: &ast.Proto_Function{},
 	}
 	type_params := &ast.Proto_Tuple{
 		InternalTypes: []ast.ProtoType{},
@@ -1509,6 +1424,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			if provide_main {
 				if actual.Name.LiteralRepr() == "main" && !has_main {
 					has_main = true
+					actual.IsMain = true
 					main_def_loc = actual.Name.Token.TokenSpan
 					code.Main = actual
 				} else if actual.Name.LiteralRepr() == "main" && has_main {

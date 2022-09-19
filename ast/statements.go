@@ -2,6 +2,7 @@ package ast
 
 import (
 	"proto/lexer"
+	"proto/shared"
 	"strings"
 )
 
@@ -249,6 +250,7 @@ type FunctionDef struct {
 	ParameterList         []*Identifier
 	ReturnType            ProtoType
 	Body                  *BlockExpr
+	IsMain                bool
 	FunctionTypeSignature *Proto_Function
 }
 
@@ -275,7 +277,7 @@ func (fn *FunctionDef) LiteralRepr() string {
 func (fn *FunctionDef) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.Write(fn.ReturnType.CppTypeSignature(), true, false)
 
-	if fn.Name.LiteralRepr() == "main" {
+	if fn.Name.LiteralRepr() == "main" && fn.IsMain {
 		c.Write("__main", false, true)
 	} else {
 		c.Write(fn.Name.LiteralRepr(), false, true)
@@ -415,11 +417,90 @@ func (us *UseStmt) LiteralRepr() string {
 }
 
 func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	for _, path := range us.Paths {
+		// decide what steps are required to compile a use statement
+		// into C++ include/using syntax
+		file := shared.Make_src_path(path.PathSrcLoc, false)
+		c.AddInclude("\"" + file + "\"")
+		if len(path.Pieces) == 1 {
+			continue
+		}
+		// first of all, detect how much of the pieces left are modules
+		index := 0
+		import_all := false
+		alias_import := false
+		var last_name *PathIDNode
+	loop:
+		for in, piece := range path.Pieces {
+			switch ac := piece.(type) {
+			case *PathIDNode:
+				if ac.Type == lexer.STAR {
+					// println("*", ac.Type)
+					import_all = true
+					last_name = path.Pieces[in-1].(*PathIDNode)
+					index = in
+					break loop
+				} else {
+					// println(ac.String(), ac.Type)
+					index = in
+					continue
+				}
+			case *UseAs:
+				// println(ac.String(), ac.PType)
+				alias_import = true
+				index = in
+				last_name = path.Pieces[in-1].(*PathIDNode)
+				break loop
+			}
+		}
+		// include_line := fmt.Sprintf("#include '%s'", file)
+		// c.WriteLine(include_line, use_tab)
+		using_line := "using "
+		accum := []string{}
+		has_func_or_var := false
+		for in, piece := range path.Pieces {
+			id := piece.(*PathIDNode)
+			if id.Type == lexer.FN || id.Type == lexer.LET {
+				has_func_or_var = true
+				accum = append(accum, piece.String()+";")
+				break
+			}
+			if in == index {
+				if !import_all && !alias_import {
+					accum = append(accum, piece.String())
+				}
+				if len(accum)-1 >= 0 {
+					accum[len(accum)-1] += ";"
+				}
+				break
+			}
+			if in < index {
+				accum = append(accum, piece.String())
+			}
+		}
+
+		if has_func_or_var {
+			using_line += strings.Join(accum, "::")
+		} else {
+			using_line += "namespace " + strings.Join(accum, "::")
+		}
+
+		c.WriteLine(using_line, use_tab)
+
+		// we still have nodes to process
+		// which would be a *, or an as new_id
+		piece := path.Pieces[index]
+		if import_all && index < len(path.Pieces)-1 {
+			using := "using namespace " + last_name.String() + ";"
+			c.WriteLine(using, use_tab)
+		} else if alias_import {
+			as := piece.(*UseAs)
+			using := "auto " + as.As.LiteralRepr() + " = " + last_name.String() + ";"
+			c.WriteLine(using, use_tab)
+		}
+	}
 	if newline {
 		c.WriteLine("", use_tab)
-	}
-	for _, path := range us.Paths {
-		c.WriteLine("use "+path.String()+";", use_tab)
 	}
 }
 
@@ -455,7 +536,8 @@ func (p *Path) String() string {
 }
 
 type PathIDNode struct {
-	Id *Identifier
+	Id   *Identifier
+	Type string
 }
 
 func (n *PathIDNode) String() string {
@@ -464,7 +546,9 @@ func (n *PathIDNode) String() string {
 
 // use parent::child_a::kid as grandchild
 type UseAs struct {
-	As *Identifier
+	As    *Identifier
+	Type  ProtoType
+	PType string
 }
 
 func (as *UseAs) String() string {
