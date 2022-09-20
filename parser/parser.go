@@ -90,8 +90,7 @@ func (p *Parser) consume(expected lexer.TokenType) {
 		p.nextToken() // move to next token
 	} else {
 		var msg strings.Builder
-		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
-		msg.WriteString(" Expected token of type ")
+		msg.WriteString(fmt.Sprintf("%s %d:%d Expected token of type ", p.file, p.cur.TokenSpan.Line, p.cur.TokenSpan.Col))
 		msg.WriteString(string(expected) + " but found ")
 		msg.WriteString(string(p.cur.Type) + ".")
 		shared.ReportErrorAndExit("Parser", msg.String())
@@ -205,6 +204,7 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 	modules := []*ast.Module{}
 	funcs := []*ast.FunctionDef{}
 	var_decls := []*ast.VariableDecl{}
+	structs := []*ast.Struct{}
 
 	var contents []ast.ProtoNode
 	for p.cur.Type != lexer.CLOSE_CURLY {
@@ -223,6 +223,8 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 			funcs = append(funcs, actual)
 		case *ast.VariableDecl:
 			var_decls = append(var_decls, actual)
+		case *ast.Struct:
+			structs = append(structs, actual)
 		}
 		contents = append(contents, node)
 	}
@@ -236,6 +238,7 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 		Modules:       modules,
 		Functions:     funcs,
 		VariableDecls: var_decls,
+		Structs:       structs,
 	}
 }
 
@@ -552,7 +555,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 			p.consume(p.cur.Type)
 
 			if p.cur.Type == lexer.IDENT || p.cur.Type == lexer.I64 {
-				member := p.parse_primary(false)
+				member := p.parse_primary(true)
 
 				call = &ast.Membership{
 					Start:          start,
@@ -583,7 +586,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 			call = &ast.ModuleAccess{
 				Start:      start,
 				Mod:        call,
-				Member:     p.parse_primary(false),
+				Member:     p.parse_primary(true),
 				MemberType: &ast.Proto_Untyped{},
 			}
 		} else {
@@ -1307,6 +1310,34 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	return fn_def
 }
 
+func (p *Parser) parse_cpp_literal() *ast.CppLiteral {
+	literal := &ast.CppLiteral{
+		Start: p.cur,
+		Lines: []string{},
+	}
+
+	p.consume(lexer.CPP)
+	p.consume(lexer.OPEN_CURLY)
+	lines := []string{}
+	line := ""
+	start := p.cur
+	for p.cur.Type != lexer.CLOSE_CURLY && p.cur.Type != lexer.END {
+		if p.cur.TokenSpan.Line != start.TokenSpan.Line {
+			start = p.cur
+			lines = append(lines, line)
+			line = p.cur.Literal
+			p.consume(p.cur.Type)
+			continue
+		}
+		line += p.cur.Literal
+		p.consume(p.cur.Type)
+	}
+	lines = append(lines, line)
+	p.consume(lexer.CLOSE_CURLY)
+	literal.Lines = lines
+	return literal
+}
+
 func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 	var node ast.ProtoNode
 	switch p.cur.Type {
@@ -1353,6 +1384,8 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 			}
 			p.consume(p.cur.Type)
 		}
+	case lexer.CPP:
+		node = p.parse_cpp_literal()
 	case lexer.MOD:
 		node = p.parse_module()
 	case lexer.OPEN_CURLY:
@@ -1441,7 +1474,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			code.Contents = append(code.Contents, node)
 		case *ast.Struct:
 			code.Structs = append(code.Structs, actual)
-			code.Contents = append(code.Contents, node)
+			code.Contents = append(code.Contents, actual)
 		case *ast.Module:
 			code.Modules = append(code.Modules, actual)
 			code.Contents = append(code.Contents, actual)

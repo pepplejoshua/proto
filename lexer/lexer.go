@@ -2,7 +2,9 @@ package lexer
 
 import (
 	"fmt"
+	"proto/shared"
 	"strconv"
+	"strings"
 )
 
 type Lexer struct {
@@ -23,6 +25,7 @@ func NewFromLineCol(file, src string, line int, col int) *Lexer {
 		line:     line,
 		column:   col,
 		cur_byte: 0,
+		file:     file,
 	}
 	l.next_char()
 	return l
@@ -41,7 +44,7 @@ func New(file, src string) *Lexer {
 	return l
 }
 
-func (l *Lexer) is_at_end() bool {
+func (l *Lexer) Is_at_end() bool {
 	return l.pos >= len(l.source)
 }
 
@@ -69,8 +72,8 @@ func (l *Lexer) peek_char() byte {
 	}
 }
 
-func (l *Lexer) skip_comments_and_whitespace() {
-	for !l.is_at_end() {
+func (l *Lexer) Skip_comments_and_whitespace() {
+	for !l.Is_at_end() {
 		if l.cur_byte == ' ' ||
 			l.cur_byte == '\t' ||
 			l.cur_byte == '\n' ||
@@ -82,7 +85,7 @@ func (l *Lexer) skip_comments_and_whitespace() {
 		} else if l.cur_byte == '/' { // if we have seen a /
 			if l.peek_char() == '/' { // and seen another /, then single line comment
 				l.next_char() // move to the second /
-				for !l.is_at_end() && l.cur_byte != '\n' {
+				for !l.Is_at_end() && l.cur_byte != '\n' {
 					l.next_char()
 				}
 				l.advance_line()
@@ -91,7 +94,7 @@ func (l *Lexer) skip_comments_and_whitespace() {
 				l.next_char() // move to the *
 				l.next_char() // move past the *
 				nested_level := 0
-				for !l.is_at_end() {
+				for !l.Is_at_end() {
 					if l.cur_byte == '/' {
 						if l.peek_char() == '*' {
 							l.next_char()
@@ -104,7 +107,8 @@ func (l *Lexer) skip_comments_and_whitespace() {
 							// we are at the end of the comment
 							l.next_char() // advance to the / character
 							l.next_char() // advance past the / character
-							if nested_level == 0 {
+							nested_level -= 1
+							if nested_level < 0 {
 								break
 							}
 						} else { // we are not at the end of the loop so move past the *
@@ -117,8 +121,13 @@ func (l *Lexer) skip_comments_and_whitespace() {
 						l.next_char()
 					}
 				}
-				if l.is_at_end() && nested_level != 0 {
-
+				if l.Is_at_end() && nested_level >= 0 {
+					var msg strings.Builder
+					msg.WriteString("")
+					line := l.line
+					col := l.column
+					msg.WriteString(fmt.Sprintf("%d:%d Unterminated comments.", line, col))
+					shared.ReportErrorAndExit("Lexer", msg.String())
 				}
 			} else {
 				return
@@ -130,9 +139,9 @@ func (l *Lexer) skip_comments_and_whitespace() {
 }
 
 func (l *Lexer) Next_Token() ProtoToken {
-	l.skip_comments_and_whitespace()
+	l.Skip_comments_and_whitespace()
 	var token ProtoToken
-	if l.is_at_end() {
+	if l.Is_at_end() {
 		token = l.make_token(END, "EOF")
 		token.TokenSpan = Span{
 			Line:  l.line,
@@ -328,6 +337,7 @@ func (l *Lexer) Next_Token() ProtoToken {
 	default: // handle digits, keywords and identifiers
 		if is_alphabet(cur_char) || cur_char == '_' { // check for identifier/keywords
 			token = l.read_identifier()
+
 		} else if is_digit(cur_char) {
 			// handle _ error later
 			token = l.read_number()
@@ -338,6 +348,41 @@ func (l *Lexer) Next_Token() ProtoToken {
 	}
 
 	return token
+}
+
+func (l *Lexer) CurrentByte() byte {
+	return l.cur_byte
+}
+
+func (l *Lexer) CheckForByte(char byte) {
+	if l.CurrentByte() != char {
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '%s' but got '%s'.", l.file, l.line, l.column, string(char), string(l.cur_byte)))
+		shared.ReportErrorAndExit("Lexer", msg.String())
+	}
+	l.next_char()
+}
+
+func (l *Lexer) Read_cpp_literal_line() string {
+	if l.cur_byte != '{' {
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '{' but got '%s'.", l.file, l.line, l.column, string(l.cur_byte)))
+		shared.ReportErrorAndExit("Lexer", msg.String())
+	}
+	l.next_char()
+
+	line := ""
+	for !l.Is_at_end() && l.cur_byte != '\n' && l.cur_byte != '}' {
+		line += string(l.cur_byte)
+		l.next_char()
+	}
+	if l.cur_byte != '\n' && l.cur_byte != '}' {
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("%s %d:%d Unterminated cpp block.", l.file, l.line, l.column))
+		shared.ReportErrorAndExit("Lexer", msg.String())
+	}
+
+	return line
 }
 
 func (l *Lexer) make_token(tokentype TokenType, literal string) ProtoToken {
@@ -370,7 +415,7 @@ func (l *Lexer) read_string() ProtoToken {
 	start := l.pos
 	col := l.column
 	l.next_char()
-	for !l.is_at_end() && l.cur_byte != '"' {
+	for !l.Is_at_end() && l.cur_byte != '"' {
 		ch := l.cur_byte
 		if ch == '\\' && l.peek_char() == '"' { // an escaped char
 			l.next_char() // move to the ", will be skipped in the next_char() call below
@@ -381,7 +426,7 @@ func (l *Lexer) read_string() ProtoToken {
 		l.next_char()
 	}
 
-	if l.is_at_end() || l.cur_byte != '"' {
+	if l.Is_at_end() || l.cur_byte != '"' {
 		return ProtoToken{
 			Type:    ERROR,
 			Literal: "Unterminated string literal.",
@@ -458,7 +503,7 @@ func (l *Lexer) read_identifier() ProtoToken {
 	start := l.pos
 	col := l.column
 	l.next_char() // move to next character
-	for !l.is_at_end() &&
+	for !l.Is_at_end() &&
 		(is_alphabet(l.cur_byte) ||
 			is_digit(l.cur_byte) ||
 			l.cur_byte == '_') {
@@ -466,6 +511,7 @@ func (l *Lexer) read_identifier() ProtoToken {
 	}
 	slice := l.source[start:l.pos]
 	tokentype := CheckPotentialKeyword(slice)
+
 	return ProtoToken{
 		Type:    tokentype,
 		Literal: slice,

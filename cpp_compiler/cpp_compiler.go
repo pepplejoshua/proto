@@ -35,10 +35,6 @@ type Compiler struct{}
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string {
 	code_gen := ast.NewCodeGenerator()
 
-	if !has_main {
-		code_gen.WriteLine("#pragma once", false)
-	}
-
 	code_gen.AddInclude("<iostream>")
 	for _, node := range prog.Contents {
 		node.AsCppCode(code_gen, true, true)
@@ -65,6 +61,9 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 	}
 
 	std_namespace := "using namespace std;\n"
-
-	return code_gen.GetIncludesAsString() + std_namespace + code_gen.CollectString()
+	if has_main {
+		return code_gen.GetIncludesAsString() + std_namespace + code_gen.CollectString()
+	} else {
+		return "#pragma once\n\n" + code_gen.GetIncludesAsString() + std_namespace + code_gen.CollectString()
+	}
 }

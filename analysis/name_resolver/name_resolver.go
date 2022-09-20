@@ -321,7 +321,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.ModuleAccess:
 		nr.ResolveModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit:
+		*ast.Unit, *ast.CppLiteral:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
@@ -369,7 +369,15 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 			for _, decl := range mod.Body.VariableDecls {
 				nr.DeclareName(decl.Assignee.Token, decl, false)
 				nr.DefineName(decl.Assignee.Token)
-				nr.DefineName(decl.Assignee.Token)
+				nr.InitializeName(decl.Assignee.Token)
+
+			}
+
+			for _, struct_ := range mod.Body.Structs {
+				nr.DeclareName(struct_.Name.Token, struct_, false)
+				nr.DefineName(struct_.Name.Token)
+				nr.InitializeName(struct_.Name.Token)
+
 			}
 		} else {
 			if len(path.Pieces) > 1 {
@@ -388,8 +396,12 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 					case *ast.VariableDecl:
 						nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
 						nr.DefineName(actual.Assignee.Token)
-						nr.DefineName(actual.Assignee.Token)
+						nr.InitializeName(actual.Assignee.Token)
 					case *ast.FunctionDef:
+						nr.DeclareName(actual.Name.Token, actual, false)
+						nr.DefineName(actual.Name.Token)
+						nr.InitializeName(actual.Name.Token)
+					case *ast.Struct:
 						nr.DeclareName(actual.Name.Token, actual, false)
 						nr.DefineName(actual.Name.Token)
 						nr.InitializeName(actual.Name.Token)
@@ -405,8 +417,12 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 				case *ast.VariableDecl:
 					nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
 					nr.DefineName(actual.Assignee.Token)
-					nr.DefineName(actual.Assignee.Token)
+					nr.InitializeName(actual.Assignee.Token)
 				case *ast.FunctionDef:
+					nr.DeclareName(actual.Name.Token, actual, false)
+					nr.DefineName(actual.Name.Token)
+					nr.InitializeName(actual.Name.Token)
+				case *ast.Struct:
 					nr.DeclareName(actual.Name.Token, actual, false)
 					nr.DefineName(actual.Name.Token)
 					nr.InitializeName(actual.Name.Token)

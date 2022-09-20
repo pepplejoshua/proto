@@ -605,7 +605,7 @@ func (s *StructInitialization) LiteralRepr() string {
 }
 
 func (s *StructInitialization) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.Write(s.StructName.LiteralRepr()+"{ ", use_tab, false)
+	c.Write(s.StructName.LiteralRepr()+" { ", use_tab, false)
 
 	index := 0
 	len_ := len(s.Fields)

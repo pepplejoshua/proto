@@ -202,7 +202,7 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	case *ast.ModuleAccess:
 		tc.TypeCheckModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit, *ast.Break, *ast.Continue:
+		*ast.Unit, *ast.Break, *ast.Continue, *ast.CppLiteral:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
@@ -275,6 +275,13 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 			for _, decl := range mod.Body.VariableDecls {
 				tc.SetTypeForName(decl.Assignee.Token, decl.VarType)
 			}
+
+			for _, struct_ := range mod.Body.Structs {
+				tc.SetTypeForName(struct_.Name.Token, &ast.Proto_UserDef{
+					Name:       &struct_.Name,
+					Definition: struct_,
+				})
+			}
 		} else {
 			if len(path.Pieces) > 1 {
 				if as, ok := last_node.(*ast.UseAs); ok {
@@ -288,6 +295,11 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 						tc.SetTypeForName(as.As.Token, actual.VarType)
 					case *ast.FunctionDef:
 						tc.SetTypeForName(as.As.Token, actual.FunctionTypeSignature)
+					case *ast.Struct:
+						tc.SetTypeForName(as.As.Token, &ast.Proto_UserDef{
+							Name:       &actual.Name,
+							Definition: actual,
+						})
 					}
 				} else {
 					val := tc.ImportInfo[tag+name]
@@ -300,6 +312,11 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 						tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
 					case *ast.FunctionDef:
 						tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
+					case *ast.Struct:
+						tc.SetTypeForName(actual.Name.Token, &ast.Proto_UserDef{
+							Name:       &actual.Name,
+							Definition: actual,
+						})
 					}
 				}
 			} else {
@@ -313,6 +330,11 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 					tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
 				case *ast.FunctionDef:
 					tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
+				case *ast.Struct:
+					tc.SetTypeForName(actual.Name.Token, &ast.Proto_UserDef{
+						Name:       &actual.Name,
+						Definition: actual,
+					})
 				}
 			}
 		}
@@ -451,31 +473,42 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	}
 }
 
+func (tc *TypeChecker) VerifyType(ptype ast.ProtoType, span lexer.Span) {
+	switch ac := ptype.(type) {
+	case *ast.Proto_UserDef:
+		found_type := tc.GetTypeForName(ac.Name.Token)
+		if found_type == nil {
+			var msg strings.Builder
+			line := span.Line
+			col := span.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Type '%s' is not defined.", ac.TypeSignature()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+		}
+	case *ast.Proto_Array:
+		tc.VerifyType(ac.InternalType, span)
+	case *ast.Proto_Tuple:
+		for _, inner := range ac.InternalTypes {
+			tc.VerifyType(inner, span)
+		}
+	default:
+		return
+	}
+}
+
 func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
 	tc.EnterTypeEnv()
 	for _, param := range fn.ParameterList {
+		tc.VerifyType(param.Id_Type, param.Token.TokenSpan)
 		tc.SetTypeForName(param.Token, param.Id_Type)
 	}
 	prevFnDefSpan := tc.FnDefSpan
 	prevCurReturnType := tc.CurReturnType
 	tc.FnDefSpan = &fn.Start.TokenSpan
 
-	switch ret_type := fn.ReturnType.(type) {
-	case *ast.Proto_UserDef:
-		found_type := tc.GetTypeForName(ret_type.Name.Token)
-		if found_type == nil {
-			var msg strings.Builder
-			line := fn.Body.Start.TokenSpan.Line
-			col := fn.Body.Start.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("Function return type '%s' is not defined.", ret_type.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-		}
-		tc.CurReturnType = fn.ReturnType
-	default:
-		tc.CurReturnType = fn.ReturnType
-	}
+	tc.VerifyType(fn.ReturnType, fn.Body.Start.TokenSpan)
+	tc.CurReturnType = fn.ReturnType
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlockExpr(fn.Body, false)
@@ -1307,6 +1340,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 		tc.EnterTypeEnv()
 	}
 
+	is_return := false
 	for index, node := range block.Contents {
 		prev := tc.CurBlockType
 		switch node.(type) {
@@ -1335,6 +1369,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 				}
 				block_type = actual.Type()
 			case *ast.Return:
+				is_return = true
 				// do nothing, since it has been checked
 			default:
 				if tc.CurReturnType != nil {
@@ -1355,7 +1390,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 		}
 		tc.CurBlockType = prev
 	}
-	if tc.CurBlockType == FUNCTION && block_type.TypeSignature() != tc.CurReturnType.TypeSignature() {
+	if tc.CurBlockType == FUNCTION && !is_return && block_type.TypeSignature() != tc.CurReturnType.TypeSignature() {
 		var msg strings.Builder
 		line := tc.FnDefSpan.Line
 		col := tc.FnDefSpan.Col

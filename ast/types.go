@@ -174,7 +174,7 @@ func (r *Proto_Reference) TypeSignature() string {
 }
 
 func (r *Proto_Reference) CppTypeSignature() string {
-	return "&" + r.Inner.CppTypeSignature()
+	return r.Inner.CppTypeSignature() + "&"
 }
 
 type Proto_Module struct {

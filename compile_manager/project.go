@@ -54,6 +54,7 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 				Modules:       file_ast.Modules,
 				Functions:     file_ast.FunctionDefs,
 				VariableDecls: file_ast.VariableDecls,
+				Structs:       file_ast.Structs,
 			},
 			Name: &ast.Identifier{
 				Token: lexer.ProtoToken{
@@ -186,6 +187,24 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 					}
 				}
 
+				for _, struct_ := range ac.Body.Structs {
+					if struct_.Name.LiteralRepr() == piece.String() {
+						item = struct_
+						id, _ := piece.(*ast.PathIDNode)
+						id.Type = lexer.STRUCT
+						// there are still more pieces to process
+						if index+1 < len(path.Pieces) {
+							next := path.Pieces[index+1]
+							if as, ok := next.(*ast.UseAs); ok {
+								as.PType = lexer.AS
+								index++
+								break loop
+							}
+						}
+						continue loop
+					}
+				}
+
 				for _, fn := range ac.Body.Functions {
 					if fn.Name.LiteralRepr() == piece.String() {
 						item = fn
@@ -247,6 +266,15 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 				msg.WriteString(fmt.Sprintf("Accessing member '%s' on variable '%s' is not valid.", piece.String(),
 					ac.Assignee.LiteralRepr()))
 				shared.ReportErrorAndExit("ProjectManager", msg.String())
+			case *ast.Struct:
+				var msg strings.Builder
+				user := path.UseSrcLoc
+				line := path.Start.TokenSpan.Line
+				col := path.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+				msg.WriteString(fmt.Sprintf("Accessing member '%s' on struct '%s' is not valid.", piece.String(),
+					ac.Name.LiteralRepr()))
+				shared.ReportErrorAndExit("ProjectManager", msg.String())
 			}
 		}
 
@@ -281,7 +309,16 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 					line := path.Start.TokenSpan.Line
 					col := path.Start.TokenSpan.Col
 					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-					msg.WriteString(fmt.Sprintf("Using '*' when importing '%s' function from '%s' is not valid.", fn.Name.LiteralRepr(), loc))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing function '%s' from '%s' is not valid.", fn.Name.LiteralRepr(), loc))
+					shared.ReportErrorAndExit("ProjectManager", msg.String())
+				} else if struct_, ok := item.(*ast.Struct); ok {
+					var msg strings.Builder
+					loc := path.PathSrcLoc
+					user := path.UseSrcLoc
+					line := path.Start.TokenSpan.Line
+					col := path.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing struct '%s' from '%s' is not valid.", struct_.Name.LiteralRepr(), loc))
 					shared.ReportErrorAndExit("ProjectManager", msg.String())
 				}
 			} else if as, ok := piece.(*ast.UseAs); ok {
@@ -297,6 +334,8 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 				res[tag+actual.Name.LiteralRepr()] = item
 			case *ast.VariableDecl:
 				res[tag+actual.Assignee.LiteralRepr()] = item
+			case *ast.Struct:
+				res[tag+actual.Name.LiteralRepr()] = item
 			}
 		}
 	}
@@ -373,7 +412,9 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 	tc := type_checker.NewTypeCheckerWithImportInfo(import_info)
 	tc.TypeCheckProgram(prog)
 
-	sr := syntaxrewriter.CollectionsForLoopRewriter{}
+	sr := syntaxrewriter.CollectionsForLoopRewriter{
+		Prog: prog,
+	}
 	sr.RewriteProgram(prog)
 
 	nr.ResolveProgram(prog)

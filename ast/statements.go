@@ -6,6 +6,31 @@ import (
 	"strings"
 )
 
+type CppLiteral struct {
+	Start lexer.ProtoToken
+	Lines []string
+}
+
+func (cl *CppLiteral) LiteralRepr() string {
+	var msg strings.Builder
+	msg.WriteString("cpp {")
+	for _, line := range cl.Lines {
+		msg.WriteString("  " + line)
+	}
+	msg.WriteString("}")
+	return msg.String()
+}
+
+func (cl *CppLiteral) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	for _, line := range cl.Lines {
+		c.WriteLine(line, use_tab)
+	}
+
+	if newline {
+		c.WriteLine("", use_tab)
+	}
+}
+
 type VariableDecl struct {
 	Assignee Identifier
 	Assigned Expression
@@ -77,11 +102,11 @@ func (s *Struct) LiteralRepr() string {
 }
 
 func (s *Struct) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.Write(s.Name.LiteralRepr()+" {", use_tab, false)
+	c.Write("struct "+s.Name.LiteralRepr()+" {", use_tab, false)
 
 	c.Indent()
 	for _, item := range s.Members {
-		c.Write(item.Id_Type.CppTypeSignature(), true, false)
+		c.Write(item.Id_Type.CppTypeSignature()+" ", true, false)
 		item.AsCppCode(c, false, false)
 		c.WriteLine(";", false)
 	}
@@ -363,6 +388,7 @@ type BlockStmt struct {
 	Modules       []*Module
 	Functions     []*FunctionDef
 	VariableDecls []*VariableDecl
+	Structs       []*Struct
 }
 
 func (b *BlockStmt) LiteralRepr() string {
@@ -457,11 +483,11 @@ func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		// c.WriteLine(include_line, use_tab)
 		using_line := "using "
 		accum := []string{}
-		has_func_or_var := false
+		has_func_var_struct := false
 		for in, piece := range path.Pieces {
 			id := piece.(*PathIDNode)
-			if id.Type == lexer.FN || id.Type == lexer.LET {
-				has_func_or_var = true
+			if id.Type == lexer.FN || id.Type == lexer.LET || id.Type == lexer.STRUCT {
+				has_func_var_struct = true
 				accum = append(accum, piece.String()+";")
 				break
 			}
@@ -479,7 +505,7 @@ func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			}
 		}
 
-		if has_func_or_var {
+		if has_func_var_struct {
 			using_line += strings.Join(accum, "::")
 		} else {
 			using_line += "namespace " + strings.Join(accum, "::")
@@ -499,9 +525,9 @@ func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			c.WriteLine(using, use_tab)
 		}
 	}
-	// if newline {
-	// 	c.WriteLine("", use_tab)
-	// }
+	if newline {
+		c.WriteLine("", use_tab)
+	}
 }
 
 type UsePath interface {
@@ -602,16 +628,13 @@ func (i *IfStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.Write(") ", false, false)
 	i.ThenBody.AsCppCode(c, true, true)
 
-	c.Write("else", true, true)
-	switch actual := i.ElseBody.(type) {
-	case *BlockStmt:
-		actual.AsCppCode(c, true, true)
-	case *IfStmt:
-		actual.AsCppCode(c, true, true)
-	case nil:
+	if i.ElseBody != nil {
+		c.Write("else", true, true)
+		switch actual := i.ElseBody.(type) {
+		case *BlockStmt:
+			actual.AsCppCode(c, true, true)
+		case *IfStmt:
+			actual.AsCppCode(c, true, true)
+		}
 	}
-	// if i.ElseBody != nil {
-	// 	c.Write(" else ")
-	// 	code.WriteString(" else " + i.ElseBody.AsCppCode(tab))
-	// }
 }

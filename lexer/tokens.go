@@ -40,6 +40,7 @@ const (
 	MODULO_EQUAL = "%="
 	APOSTROPHE   = "'"
 	PIPE         = "|"
+	CPP          = "cpp"
 
 	LESS_THAN        = "<"
 	GREATER_THAN     = ">"
@@ -123,6 +124,7 @@ var keywords = map[string]TokenType{
 	"use":      USE,
 	"as":       AS,
 	"mod":      MOD,
+	"cpp":      CPP,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {
