@@ -60,13 +60,17 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 
 			is_printable := false
 			for _, printable := range printables {
-				if main.ReturnType.CppTypeSignature() == printable {
+				if main.ReturnType.TypeSignature() == printable {
 					is_printable = true
 				}
 			}
 
 			if is_printable {
-				code_gen.IndentThenWriteline("cout << __main() << endl;")
+				if main.ReturnType.TypeSignature() == "bool" {
+					code_gen.IndentThenWriteline("cout << boolalpha << __main() << endl;")
+				} else {
+					code_gen.IndentThenWriteline("cout << __main() << endl;")
+				}
 			} else {
 				code_gen.IndentThenWriteline("__main();")
 			}

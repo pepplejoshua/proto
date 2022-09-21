@@ -492,7 +492,7 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 }
 
 func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
-	compile_cmd := exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++03", "-Wno-unused-value")
+	compile_cmd := exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value")
 	stderr, err := compile_cmd.StderrPipe()
 	if err != nil {
 		// println("HERE8")

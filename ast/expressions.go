@@ -266,11 +266,8 @@ type Tuple struct {
 
 func (t *Tuple) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	tuple_items := NewCodeGenerator()
-	if newline {
-		c.WriteLine("tuple <", use_tab)
-	} else {
-		c.Write("tuple <", use_tab, true)
-	}
+	c.Write("tuple<", use_tab, false)
+
 	for index, item := range t.Items {
 		c.Write(item.Type().CppTypeSignature(), false, false)
 		item.AsCppCode(tuple_items, false, false)
@@ -279,10 +276,15 @@ func (t *Tuple) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			tuple_items.Write(", ", false, false)
 		}
 	}
+
 	c.Write("> ("+tuple_items.CollectString()+")", false, false)
 	c.AddInclude("<tuple>")
 	for k := range tuple_items.includes {
 		c.AddInclude(k)
+	}
+
+	if newline {
+		c.WriteLine("", false)
 	}
 }
 
@@ -535,13 +537,17 @@ func (m *Membership) LiteralRepr() string {
 }
 
 func (m *Membership) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	// if _, ok := m.Object.Type().(*Proto_Reference); ok {
-	m.Object.AsCppCode(c, use_tab, false)
-	c.Write(".", false, false)
-	m.Member.AsCppCode(c, false, false)
-	// } else {
-	// c.WriteLine(m.LiteralRepr(), use_tab)
-	// }
+	if _, ok := m.Object.Type().(*Proto_Tuple); ok {
+		mem := m.Member.LiteralRepr()
+		c.Write("get<"+mem+">(", use_tab, false)
+		m.Object.AsCppCode(c, false, false)
+		c.Write(")", false, newline)
+		c.AddInclude("<tuple>")
+	} else {
+		m.Object.AsCppCode(c, use_tab, false)
+		c.Write(".", false, false)
+		m.Member.AsCppCode(c, false, false)
+	}
 }
 
 func (m *Membership) Type() ProtoType {
