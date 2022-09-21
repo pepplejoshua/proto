@@ -134,6 +134,6 @@ func generate_code_from_block_expr(c *CodeGenerator, blk *BlockExpr) {
 	}
 
 	if len(blk.Contents) == 0 {
-		c.IndentThenWriteline("return Proto_Unit()")
+		c.IndentThenWriteline("return Proto_Unit();")
 	}
 }

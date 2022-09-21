@@ -188,15 +188,3 @@ func (m *Proto_Module) TypeSignature() string {
 func (m *Proto_Module) CppTypeSignature() string {
 	return m.TypeSignature()
 }
-
-// type Proto_Variad struct {
-// 	Inner ProtoType
-// }
-
-// func (v *Proto_Variad) TypeSignature() string {
-// 	return "..." + v.Inner.TypeSignature()
-// }
-
-// func (v *Proto_Variad) CppTypeSignature() string {
-// 	return v.TypeSignature()
-// }

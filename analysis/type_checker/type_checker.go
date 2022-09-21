@@ -1539,8 +1539,6 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(literal + " is not annotated and cannot infer type for " + actual + ".")
 		shared.ReportErrorAndExit("TypeChecker", msg.String())
-		tc.FoundError = true
-		return
 	}
 
 	if var_def.VarType.TypeSignature() != var_def.Assigned.Type().TypeSignature() {
@@ -1554,8 +1552,7 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 		msg.WriteString(literal + " is annotated as " + expected + " type ")
 		msg.WriteString("but is assigned value of type " + actual + ".")
 		shared.ReportErrorAndExit("TypeChecker", msg.String())
-		tc.FoundError = true
-		return
 	}
+
 	tc.SetTypeForName(var_def.Assignee.Token, var_def.VarType)
 }

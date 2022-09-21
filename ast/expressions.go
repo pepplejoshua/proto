@@ -535,11 +535,13 @@ func (m *Membership) LiteralRepr() string {
 }
 
 func (m *Membership) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	if newline {
-		c.WriteLine(m.LiteralRepr(), use_tab)
-	} else {
-		c.Write(m.LiteralRepr(), use_tab, false)
-	}
+	// if _, ok := m.Object.Type().(*Proto_Reference); ok {
+	m.Object.AsCppCode(c, use_tab, false)
+	c.Write(".", false, false)
+	m.Member.AsCppCode(c, false, false)
+	// } else {
+	// c.WriteLine(m.LiteralRepr(), use_tab)
+	// }
 }
 
 func (m *Membership) Type() ProtoType {
@@ -605,7 +607,7 @@ func (s *StructInitialization) LiteralRepr() string {
 }
 
 func (s *StructInitialization) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.Write(s.StructName.LiteralRepr()+" { ", use_tab, false)
+	c.Write(s.StructName.LiteralRepr()+"(", use_tab, false)
 
 	index := 0
 	len_ := len(s.Fields)
@@ -624,7 +626,7 @@ func (s *StructInitialization) AsCppCode(c *CodeGenerator, use_tab bool, newline
 		}
 		index += 1
 	}
-	c.WriteLine(" }", false)
+	c.WriteLine(")", false)
 }
 
 func (s *StructInitialization) Type() ProtoType {
@@ -638,12 +640,17 @@ type Reference struct {
 }
 
 func (r *Reference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.Write("&", true, false)
-	if newline {
-		r.Value.AsCppCode(c, false, true)
-	} else {
-		r.Value.AsCppCode(c, false, false)
-	}
+	r.Value.AsCppCode(c, use_tab, newline)
+	// c.Write("make_shared<"+r.RefType.Inner.CppTypeSignature()+">",
+	// 	use_tab, false)
+	// c.Write("(", false, false)
+	// if newline {
+	// 	r.Value.AsCppCode(c, false, true)
+	// } else {
+	// 	r.Value.AsCppCode(c, false, false)
+	// }
+	// c.Write(")", false, false)
+	// c.AddInclude("<memory>")
 }
 
 func (r *Reference) LiteralRepr() string {

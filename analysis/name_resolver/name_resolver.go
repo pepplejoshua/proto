@@ -814,6 +814,16 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.BlockExpr, new_scope bool) {
 
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
 	if var_def.Assignee.Token.Literal != "_" {
+		if _, ok := var_def.VarType.(*ast.Proto_Reference); ok && var_def.Assigned == nil {
+			var msg strings.Builder
+			line := var_def.Assignee.Token.TokenSpan.Line
+			col := var_def.Assignee.Token.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString("References must be initialized on declaration.")
+			shared.ReportErrorAndExit("NameResolver", msg.String())
+			nr.FoundError = true
+		}
+
 		if var_def.Assigned != nil {
 			nr.Resolve(var_def.Assigned)
 			nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)

@@ -36,6 +36,7 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 	code_gen := ast.NewCodeGenerator()
 
 	code_gen.AddInclude("<iostream>")
+	code_gen.AddInclude("\"" + "/Users/iwarilama/go/src/proto/prelude/prelude.hpp" + "\"")
 	for _, node := range prog.Contents {
 		node.AsCppCode(code_gen, true, true)
 	}
@@ -50,10 +51,24 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 
 		code_gen.WriteLine("int main() {", false)
 		if len(prog.Contents) > 0 {
-			if main.ReturnType.CppTypeSignature() == "Proto_Unit" {
-				code_gen.IndentThenWriteline("__main();")
-			} else {
+			printables := []string{
+				"str",
+				"i64",
+				"char",
+				"bool",
+			}
+
+			is_printable := false
+			for _, printable := range printables {
+				if main.ReturnType.CppTypeSignature() == printable {
+					is_printable = true
+				}
+			}
+
+			if is_printable {
 				code_gen.IndentThenWriteline("cout << __main() << endl;")
+			} else {
+				code_gen.IndentThenWriteline("__main();")
 			}
 		}
 		code_gen.IndentThenWriteline("return 0;")

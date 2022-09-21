@@ -63,6 +63,7 @@ func (v *VariableDecl) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	// if we haven't assigned anything to it, then we need the actual
 	// type, not auto
 	c.Write(v.VarType.CppTypeSignature(), false, true)
+
 	c.Write(v.Assignee.LiteralRepr(), false, true)
 	if v.Assigned != nil {
 		c.Write("= ", false, true)
@@ -105,11 +106,31 @@ func (s *Struct) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.Write("struct "+s.Name.LiteralRepr()+" {", use_tab, false)
 
 	c.Indent()
-	for _, item := range s.Members {
+	constructor := s.Name.LiteralRepr() + "("
+	lines := []string{}
+	for index, item := range s.Members {
 		c.Write(item.Id_Type.CppTypeSignature()+" ", true, false)
 		item.AsCppCode(c, false, false)
+		alias := s.Name.LiteralRepr() + "__" + item.LiteralRepr()
+		constructor += item.Id_Type.CppTypeSignature() + " " + alias
+		if index+1 < len(s.Members) {
+			constructor += ", "
+		} else {
+			constructor += ") {"
+		}
+
+		lines = append(lines, item.LiteralRepr()+" = "+alias+";")
 		c.WriteLine(";", false)
 	}
+	// insert constructor function
+	c.WriteLine("", use_tab)
+	c.WriteLine(constructor, use_tab)
+	c.Indent()
+	for _, line := range lines {
+		c.WriteLine(line, use_tab)
+	}
+	c.Dedent()
+	c.WriteLine("}", use_tab)
 	c.Dedent()
 
 	c.WriteLine("};", true)

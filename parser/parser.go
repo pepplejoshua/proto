@@ -615,7 +615,6 @@ func (p *Parser) parse_unary(skip_struct_expr bool) ast.Expression {
 		line := p.cur.TokenSpan.Line
 		col := p.cur.TokenSpan.Col
 		operand := p.parse_call_expression(false)
-
 		// check that the reference is to something valid
 		switch operand.(type) {
 		case *ast.CallExpression, *ast.IndexExpression, *ast.Membership, *ast.Identifier,
