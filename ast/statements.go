@@ -7,6 +7,19 @@ import (
 	"strings"
 )
 
+type CppInclude struct {
+	Start lexer.ProtoToken
+	File  string
+}
+
+func (ci *CppInclude) LiteralRepr() string {
+	return "#include " + ci.File
+}
+
+func (ci *CppInclude) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.AddInclude(ci.File)
+}
+
 type CppLiteral struct {
 	Start lexer.ProtoToken
 	Lines []string
@@ -135,10 +148,19 @@ func (s *Struct) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	line := "os << "
 	line += fmt.Sprintf("\"%s {\"", s.Name.LiteralRepr())
 	line += " << "
-	for _, mem := range s.Members {
+	for index, mem := range s.Members {
 		tag := fmt.Sprintf("\" %s: \"", mem.LiteralRepr())
 		line += tag + " << "
-		line += instance_name + "." + mem.LiteralRepr()
+
+		if arr, ok := mem.Id_Type.(*Proto_Array); ok {
+			line += "\"" + arr.TypeSignature() + "\""
+		} else {
+			line += instance_name + "." + mem.LiteralRepr()
+		}
+
+		if index+1 < len(s.Members) {
+			line += " << " + "\", \""
+		}
 		line += " << "
 	}
 	line += "\" }\";"

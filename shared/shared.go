@@ -81,3 +81,8 @@ func ReportErrorAndExit(component, msg string) {
 	log.Printf("\u001b[31;1m%s Error:\n\u001b[0m %s", component, msg)
 	os.Exit(0)
 }
+
+func ReportErrorWithPathAndExit(component, file, msg string) {
+	log.Printf("\u001b[31;1m%s Error:\n\u001b[0m %s %s", component, file, msg)
+	os.Exit(0)
+}

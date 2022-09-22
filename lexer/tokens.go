@@ -40,6 +40,8 @@ const (
 	MODULO_EQUAL = "%="
 	APOSTROPHE   = "'"
 	PIPE         = "|"
+	HASH         = "#"
+	CPP_CODE     = "CPP_CODE"
 	CPP          = "cpp"
 
 	LESS_THAN        = "<"

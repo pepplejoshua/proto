@@ -321,7 +321,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.ModuleAccess:
 		nr.ResolveModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit, *ast.CppLiteral:
+		*ast.Unit, *ast.CppLiteral, *ast.CppInclude:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("NameResolver", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))

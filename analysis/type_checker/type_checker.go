@@ -202,7 +202,7 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	case *ast.ModuleAccess:
 		tc.TypeCheckModuleAccess(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
-		*ast.Unit, *ast.Break, *ast.Continue, *ast.CppLiteral:
+		*ast.Unit, *ast.Break, *ast.Continue, *ast.CppLiteral, *ast.CppInclude:
 		// do nothing
 	default:
 		shared.ReportErrorAndExit("TypeChecker", fmt.Sprintf("Unexpected node: %s", node.LiteralRepr()))
@@ -991,7 +991,13 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 	case *ast.Proto_Builtin:
 		if actual.TypeSignature() == "str" {
 			tc.EnterTypeEnv()
-			tc.SetTypeForName(col_for.LoopVar.Token, actual)
+			tc.SetTypeForName(col_for.LoopVar.Token, &ast.Proto_Builtin{
+				TypeToken: lexer.ProtoToken{
+					Type:      lexer.CHAR_TYPE,
+					Literal:   "char",
+					TokenSpan: actual.TypeToken.TokenSpan,
+				},
+			})
 			prev := tc.CurBlockType
 			tc.CurBlockType = LOOP
 			tc.TypeCheckBlockStmt(col_for.Body, false)

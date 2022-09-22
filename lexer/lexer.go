@@ -127,7 +127,7 @@ func (l *Lexer) Skip_comments_and_whitespace() {
 					line := l.line
 					col := l.column
 					msg.WriteString(fmt.Sprintf("%d:%d Unterminated comments.", line, col))
-					shared.ReportErrorAndExit("Lexer", msg.String())
+					shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 				}
 			} else {
 				return
@@ -313,6 +313,9 @@ func (l *Lexer) Next_Token() ProtoToken {
 			l.next_char()
 			token = l.make_singlechar_token(COLON, cur_char)
 		}
+	case '#':
+		l.next_char()
+		token = l.make_singlechar_token(HASH, cur_char)
 	case '?':
 		l.next_char()
 		token = l.make_singlechar_token(QUESTION_MARK, cur_char)
@@ -335,9 +338,8 @@ func (l *Lexer) Next_Token() ProtoToken {
 		l.next_char()
 		token = l.make_singlechar_token(CLOSE_CURLY, cur_char)
 	default: // handle digits, keywords and identifiers
-		if is_alphabet(cur_char) || cur_char == '_' { // check for identifier/keywords
+		if is_alphabet(cur_char) || cur_char == '_' { // check for identifier/keywords/cpp block
 			token = l.read_identifier()
-
 		} else if is_digit(cur_char) {
 			// handle _ error later
 			token = l.read_number()
@@ -358,32 +360,69 @@ func (l *Lexer) CheckForByte(char byte) {
 	if l.CurrentByte() != char {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '%s' but got '%s'.", l.file, l.line, l.column, string(char), string(l.cur_byte)))
-		shared.ReportErrorAndExit("Lexer", msg.String())
+		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 	}
 	l.next_char()
 }
 
-func (l *Lexer) Read_cpp_literal_line() string {
+func (l *Lexer) Read_Cpp_Lines() string {
 	if l.cur_byte != '{' {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '{' but got '%s'.", l.file, l.line, l.column, string(l.cur_byte)))
-		shared.ReportErrorAndExit("Lexer", msg.String())
+		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 	}
 	l.next_char()
 
-	line := ""
-	for !l.Is_at_end() && l.cur_byte != '\n' && l.cur_byte != '}' {
-		line += string(l.cur_byte)
+	lines := ""
+	curly_count := 1
+	for !l.Is_at_end() {
+		if l.cur_byte == '}' {
+			curly_count--
+			if curly_count == 0 {
+				break
+			}
+			lines += string(l.cur_byte)
+			l.next_char()
+			continue
+		}
+
+		if l.cur_byte == '{' {
+			curly_count++
+		}
+
+		lines += string(l.cur_byte)
 		l.next_char()
 	}
-	if l.cur_byte != '\n' && l.cur_byte != '}' {
+	if l.cur_byte != '}' {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprintf("%s %d:%d Unterminated cpp block.", l.file, l.line, l.column))
-		shared.ReportErrorAndExit("Lexer", msg.String())
+		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 	}
-
-	return line
+	l.next_char()
+	return lines
 }
+
+// func (l *Lexer) Read_cpp_literal_line() string {
+// 	if l.cur_byte != '{' {
+// 		var msg strings.Builder
+// 		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '{' but got '%s'.", l.file, l.line, l.column, string(l.cur_byte)))
+// 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
+// 	}
+// 	l.next_char()
+
+// 	line := ""
+// 	for !l.Is_at_end() && l.cur_byte != '\n' && l.cur_byte != '}' {
+// 		line += string(l.cur_byte)
+// 		l.next_char()
+// 	}
+// 	if l.cur_byte != '\n' && l.cur_byte != '}' {
+// 		var msg strings.Builder
+// 		msg.WriteString(fmt.Sprintf("%s %d:%d Unterminated cpp block.", l.file, l.line, l.column))
+// 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
+// 	}
+
+// 	return line
+// }
 
 func (l *Lexer) make_token(tokentype TokenType, literal string) ProtoToken {
 	return ProtoToken{
@@ -512,15 +551,30 @@ func (l *Lexer) read_identifier() ProtoToken {
 	slice := l.source[start:l.pos]
 	tokentype := CheckPotentialKeyword(slice)
 
-	return ProtoToken{
-		Type:    tokentype,
-		Literal: slice,
-		TokenSpan: Span{
-			Line:  l.line,
-			Col:   col,
-			Start: start,
-			End:   l.pos,
-		},
+	if tokentype == CPP {
+		l.Skip_comments_and_whitespace()
+		cpp_code := l.Read_Cpp_Lines()
+		return ProtoToken{
+			Type:    CPP_CODE,
+			Literal: cpp_code,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   col,
+				Start: start,
+				End:   l.pos,
+			},
+		}
+	} else {
+		return ProtoToken{
+			Type:    tokentype,
+			Literal: slice,
+			TokenSpan: Span{
+				Line:  l.line,
+				Col:   col,
+				Start: start,
+				End:   l.pos,
+			},
+		}
 	}
 }
 

@@ -35,7 +35,7 @@ func NewWithLexer(file string, l *lexer.Lexer) *Parser {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprintf("%d:%d ", token.TokenSpan.Line, token.TokenSpan.Col))
 			msg.WriteString(token.Literal)
-			shared.ReportErrorAndExit("Lexer", msg.String())
+			shared.ReportErrorWithPathAndExit("Lexer", file, msg.String())
 		}
 		p.tokens = append(p.tokens, token)
 		token = l.Next_Token()
@@ -63,7 +63,7 @@ func New(dir, file, src string) *Parser {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprintf("%d:%d ", token.TokenSpan.Line, token.TokenSpan.Col))
 			msg.WriteString(token.Literal)
-			shared.ReportErrorAndExit("Lexer", msg.String())
+			shared.ReportErrorWithPathAndExit("Lexer", file, msg.String())
 		}
 		p.tokens = append(p.tokens, token)
 		token = l.Next_Token()
@@ -93,7 +93,7 @@ func (p *Parser) consume(expected lexer.TokenType) {
 		msg.WriteString(fmt.Sprintf("%s %d:%d Expected token of type ", p.file, p.cur.TokenSpan.Line, p.cur.TokenSpan.Col))
 		msg.WriteString(string(expected) + " but found ")
 		msg.WriteString(string(p.cur.Type) + ".")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 }
 
@@ -112,7 +112,7 @@ func (p *Parser) parse_identifier() *ast.Identifier {
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 		msg.WriteString(" Expected an identifier but found ")
 		msg.WriteString(string(p.cur.Type) + ".")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 	return ident
 }
@@ -132,12 +132,12 @@ func (p *Parser) parse_general_block(allow_end_expr bool) ast.ProtoNode {
 					var msg strings.Builder
 					msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 					msg.WriteString(" Expressions are only allowed as the last line of the block.")
-					shared.ReportErrorAndExit("Parser", msg.String())
+					shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 				} else {
 					var msg strings.Builder
 					msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 					msg.WriteString(" Expressions are not allowed in statement block.")
-					shared.ReportErrorAndExit("Parser", msg.String())
+					shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 				}
 			} else if allow_end_expr {
 				is_expr_block = true
@@ -146,7 +146,7 @@ func (p *Parser) parse_general_block(allow_end_expr bool) ast.ProtoNode {
 				var msg strings.Builder
 				msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 				msg.WriteString(" Expressions are not allowed in statement block.")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			}
 		} else {
 			contents = append(contents, node)
@@ -181,7 +181,7 @@ func (p *Parser) parse_block_expr() *ast.BlockExpr {
 				var msg strings.Builder
 				msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 				msg.WriteString(" Expressions are only allowed as the last line of the block.")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			} else {
 				contents = append(contents, node)
 			}
@@ -216,7 +216,7 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(n_start.Line) + ":" + fmt.Sprint(n_start.Col))
 			msg.WriteString(" Expressions are not allowed in a statement block.")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		case *ast.Module:
 			modules = append(modules, actual)
 		case *ast.FunctionDef:
@@ -310,7 +310,7 @@ func (p *Parser) parse_if_expr() *ast.IfExpr {
 		col := p.cur.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("If conditional expression requires an else statement.")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 
 	return &ast.IfExpr{
@@ -504,7 +504,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 		msg.WriteString(" Expected an expression but found ")
 		msg.WriteString(string(p.cur.Type) + ".")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 	return val
 }
@@ -522,7 +522,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 					var msg strings.Builder
 					msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 					msg.WriteString(" Function Calls only allows 255 arguments.")
-					shared.ReportErrorAndExit("Parser", msg.String())
+					shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 				}
 				args = append(args, p.parse_expr(false))
 				if p.cur.Type != lexer.CLOSE_PAREN {
@@ -569,7 +569,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 				msg.WriteString(" Expected token of type ")
 				msg.WriteString(string(lexer.IDENT) + " or " + string(lexer.I64) + " but found ")
 				msg.WriteString(string(p.cur.Type) + ".")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			}
 		} else if p.cur.Type == lexer.PATH_SEP {
 			start := p.cur
@@ -581,7 +581,7 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 				msg.WriteString(" Expected token of type ")
 				msg.WriteString(string(lexer.IDENT) + " or " + string(lexer.I64) + " but found ")
 				msg.WriteString(string(p.cur.Type) + ".")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			}
 			call = &ast.ModuleAccess{
 				Start:      start,
@@ -624,7 +624,7 @@ func (p *Parser) parse_unary(skip_struct_expr bool) ast.Expression {
 			msg.WriteString(fmt.Sprint(line) + ":" + fmt.Sprint(col))
 			msg.WriteString(" Expected a referencable value but found ")
 			msg.WriteString(operand.LiteralRepr() + ".")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
 		val = &ast.Reference{
 			Start: operator,
@@ -843,7 +843,7 @@ func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(line) + ":" + fmt.Sprint(col))
 			msg.WriteString(" References of references are not allowed.")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		default:
 			proto_type = &ast.Proto_Reference{
 				Inner: internal,
@@ -871,14 +871,14 @@ func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 				msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
 				msg.WriteString(" Expected Range type signature to contain i64 or char type but got ")
 				msg.WriteString(inner_type.TypeSignature() + ".")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			}
 		default:
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
 			msg.WriteString(" Expected Range type signature to contain i64 or char type but got ")
 			msg.WriteString(inner_type.TypeSignature() + ".")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
 		p.consume(lexer.GREATER_THAN)
 		proto_type = &ast.Proto_Range{
@@ -890,7 +890,7 @@ func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(start.TokenSpan.Line) + ":" + fmt.Sprint(start.TokenSpan.Col))
 			msg.WriteString(" Variadic type is only allowed in function definition.")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
 		p.consume(start.Type)
 		// actual_type := p.parse_type(true, false)
@@ -967,7 +967,7 @@ func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 				msg.WriteString(" Expected function type signature to contain tuple of parameter types but found ")
 				msg.WriteString(actual.TypeSignature() + ".")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			} else {
 				return nil
 			}
@@ -978,7 +978,7 @@ func (p *Parser) parse_type(try bool, allow_variad bool) ast.ProtoType {
 			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 			msg.WriteString(" Expected type signature but found ")
 			msg.WriteString(string(p.cur.Type) + ".")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		} else {
 			return nil
 		}
@@ -1012,7 +1012,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(ident.Token.TokenSpan.Line) + ":" + fmt.Sprint(ident.Token.TokenSpan.Col))
 		msg.WriteString(fmt.Sprintf(" Expected '%s' to be typed or initialized.", ident.LiteralRepr()))
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 
 	declaration := &ast.VariableDecl{
@@ -1074,7 +1074,7 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(init.Assignee.Token.TokenSpan.Line) + ":" + fmt.Sprint(init.Assignee.Token.TokenSpan.Col))
 			msg.WriteString(fmt.Sprintf(" Expected '%s' to be initialized.", init.Assignee.LiteralRepr()))
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
 
 		loop_condition := p.parse_expr(false)
@@ -1093,7 +1093,7 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 		msg.WriteString(" Loop Variables have to be mutable (change let to mut).")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	} else if p.cur.Type == lexer.IDENT && p.peek.Type == lexer.IN {
 		// we have a collections for loop
 		loop_var := p.parse_identifier()
@@ -1111,7 +1111,7 @@ func (p *Parser) parse_for_loop() ast.ProtoNode {
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 		msg.WriteString(" Incorrectly formatted for loop.")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 	return node
 }
@@ -1236,14 +1236,14 @@ func (p *Parser) parse_paths() []*ast.Path {
 				var msg strings.Builder
 				msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 				msg.WriteString(" Unexpected token " + p.cur.Literal + ".")
-				shared.ReportErrorAndExit("Parser", msg.String())
+				shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 			}
 		}
 	default:
 		var msg strings.Builder
 		msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 		msg.WriteString(" Expected an identifier but got token " + p.cur.Literal + ".")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 	paths = append(paths, path)
 	return paths
@@ -1262,7 +1262,7 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 			msg.WriteString(" Function Definitions only allows 255 parameters.")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
 		ident := p.parse_identifier()
 		p.consume(lexer.COLON)
@@ -1309,32 +1309,27 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 	return fn_def
 }
 
-func (p *Parser) parse_cpp_literal() *ast.CppLiteral {
+func (p *Parser) parse_cpp_code() *ast.CppLiteral {
 	literal := &ast.CppLiteral{
 		Start: p.cur,
 		Lines: []string{},
 	}
-
-	p.consume(lexer.CPP)
-	p.consume(lexer.OPEN_CURLY)
-	lines := []string{}
-	line := ""
-	start := p.cur
-	for p.cur.Type != lexer.CLOSE_CURLY && p.cur.Type != lexer.END {
-		if p.cur.TokenSpan.Line != start.TokenSpan.Line {
-			start = p.cur
-			lines = append(lines, line)
-			line = p.cur.Literal
-			p.consume(p.cur.Type)
-			continue
-		}
-		line += p.cur.Literal
-		p.consume(p.cur.Type)
-	}
-	lines = append(lines, line)
-	p.consume(lexer.CLOSE_CURLY)
-	literal.Lines = lines
+	literal.Lines = strings.Split(p.cur.Literal, "\n")
+	p.consume(p.cur.Type)
 	return literal
+}
+
+func (p *Parser) parse_cpp_include() *ast.CppInclude {
+	start := p.cur
+	p.consume(lexer.HASH)
+	p.consume(lexer.IDENT)
+
+	file := p.cur.Literal
+	p.consume(p.cur.Type)
+	return &ast.CppInclude{
+		Start: start,
+		File:  file,
+	}
 }
 
 func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
@@ -1383,8 +1378,10 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 			}
 			p.consume(p.cur.Type)
 		}
-	case lexer.CPP:
-		node = p.parse_cpp_literal()
+	case lexer.CPP_CODE:
+		node = p.parse_cpp_code()
+	case lexer.HASH:
+		node = p.parse_cpp_include()
 	case lexer.MOD:
 		node = p.parse_module()
 	case lexer.OPEN_CURLY:
@@ -1467,7 +1464,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 					msg.WriteString(fmt.Sprintf("%d:%d", line, col))
 					msg.WriteString(fmt.Sprintf(" Provided duplicate main function. First definition is found at %d:%d.",
 						main_def_loc.Line, main_def_loc.Col))
-					shared.ReportErrorAndExit("Parser", msg.String())
+					shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 				}
 			}
 			code.Contents = append(code.Contents, node)
@@ -1484,7 +1481,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			var msg strings.Builder
 			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 			msg.WriteString(" Expressions are not allowed in the global scope of the program.")
-			shared.ReportErrorAndExit("Parser", msg.String())
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		default:
 			code.Contents = append(code.Contents, node)
 		}
@@ -1495,7 +1492,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	if provide_main && !has_main {
 		var msg strings.Builder
 		msg.WriteString("Expected a main function to act as code entry point.")
-		shared.ReportErrorAndExit("Parser", msg.String())
+		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 	}
 	code.Path = p.file
 	code.Start = start
