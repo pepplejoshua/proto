@@ -647,16 +647,6 @@ type Reference struct {
 
 func (r *Reference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	r.Value.AsCppCode(c, use_tab, newline)
-	// c.Write("make_shared<"+r.RefType.Inner.CppTypeSignature()+">",
-	// 	use_tab, false)
-	// c.Write("(", false, false)
-	// if newline {
-	// 	r.Value.AsCppCode(c, false, true)
-	// } else {
-	// 	r.Value.AsCppCode(c, false, false)
-	// }
-	// c.Write(")", false, false)
-	// c.AddInclude("<memory>")
 }
 
 func (r *Reference) LiteralRepr() string {

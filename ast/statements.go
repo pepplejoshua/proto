@@ -497,26 +497,21 @@ func (us *UseStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			switch ac := piece.(type) {
 			case *PathIDNode:
 				if ac.Type == lexer.STAR {
-					// println("*", ac.Type)
 					import_all = true
 					last_name = path.Pieces[in-1].(*PathIDNode)
 					index = in
 					break loop
 				} else {
-					// println(ac.String(), ac.Type)
 					index = in
 					continue
 				}
 			case *UseAs:
-				// println(ac.String(), ac.PType)
 				alias_import = true
 				index = in
 				last_name = path.Pieces[in-1].(*PathIDNode)
 				break loop
 			}
 		}
-		// include_line := fmt.Sprintf("#include '%s'", file)
-		// c.WriteLine(include_line, use_tab)
 		using_line := "using "
 		accum := []string{}
 		has_func_var_struct := false

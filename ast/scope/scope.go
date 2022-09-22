@@ -14,7 +14,6 @@ type RuntimeFunctionWithEnvironment struct {
 type BindingTuple struct {
 	Defined bool
 	Expr    ast.Expression
-	Type    ast.ProtoType // used by typechecker
 	Mutable bool
 }
 
