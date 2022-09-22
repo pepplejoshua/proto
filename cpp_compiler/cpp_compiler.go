@@ -51,29 +51,29 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 
 		code_gen.WriteLine("int main() {", false)
 		if len(prog.Contents) > 0 {
-			printables := []string{
-				"str",
-				"i64",
-				"char",
-				"bool",
-			}
+			// printables := []string{
+			// 	"str",
+			// 	"i64",
+			// 	"char",
+			// 	"bool",
+			// }
 
-			is_printable := false
-			for _, printable := range printables {
-				if main.ReturnType.TypeSignature() == printable {
-					is_printable = true
-				}
-			}
+			// is_printable := false
+			// for _, printable := range printables {
+			// 	if main.ReturnType.TypeSignature() == printable {
+			// 		is_printable = true
+			// 	}
+			// }
 
-			if is_printable {
-				if main.ReturnType.TypeSignature() == "bool" {
-					code_gen.IndentThenWriteline("cout << boolalpha << __main() << endl;")
-				} else {
-					code_gen.IndentThenWriteline("cout << __main() << endl;")
-				}
+			// if is_printable {
+			if main.ReturnType.TypeSignature() == "bool" {
+				code_gen.IndentThenWriteline("cout << boolalpha << __main() << endl;")
 			} else {
-				code_gen.IndentThenWriteline("__main();")
+				code_gen.IndentThenWriteline("cout << __main() << endl;")
 			}
+			// } else {
+			// code_gen.IndentThenWriteline("__main();")
+			// }
 		}
 		code_gen.IndentThenWriteline("return 0;")
 		code_gen.WriteLine("}", false)

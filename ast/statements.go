@@ -1,6 +1,7 @@
 package ast
 
 import (
+	"fmt"
 	"proto/lexer"
 	"proto/shared"
 	"strings"
@@ -63,7 +64,6 @@ func (v *VariableDecl) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	// if we haven't assigned anything to it, then we need the actual
 	// type, not auto
 	c.Write(v.VarType.CppTypeSignature(), false, true)
-
 	c.Write(v.Assignee.LiteralRepr(), false, true)
 	if v.Assigned != nil {
 		c.Write("= ", false, true)
@@ -107,30 +107,45 @@ func (s *Struct) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 
 	c.Indent()
 	constructor := s.Name.LiteralRepr() + "("
-	lines := []string{}
+	cons_line := ""
 	for index, item := range s.Members {
 		c.Write(item.Id_Type.CppTypeSignature()+" ", true, false)
 		item.AsCppCode(c, false, false)
 		alias := s.Name.LiteralRepr() + "__" + item.LiteralRepr()
 		constructor += item.Id_Type.CppTypeSignature() + " " + alias
+		cons_line += item.LiteralRepr() + "{" + alias + "}"
 		if index+1 < len(s.Members) {
 			constructor += ", "
+			cons_line += ", "
 		} else {
-			constructor += ") {"
+			constructor += ") : "
+			cons_line += "{}"
 		}
-
-		lines = append(lines, item.LiteralRepr()+" = "+alias+";")
 		c.WriteLine(";", false)
 	}
 	// insert constructor function
 	c.WriteLine("", use_tab)
-	c.WriteLine(constructor, use_tab)
+	c.WriteLine(constructor+cons_line, use_tab)
+
+	// print function
+	instance_name := s.Name.LiteralRepr() + "__instance"
+	fn_sig := fmt.Sprintf("friend ostream& operator<<(ostream& os, const %s& %s) {", s.Name.LiteralRepr(), instance_name)
+	c.WriteLine(fn_sig, true)
 	c.Indent()
-	for _, line := range lines {
-		c.WriteLine(line, use_tab)
+	line := "os << "
+	line += fmt.Sprintf("\"%s {\"", s.Name.LiteralRepr())
+	line += " << "
+	for _, mem := range s.Members {
+		tag := fmt.Sprintf("\" %s: \"", mem.LiteralRepr())
+		line += tag + " << "
+		line += instance_name + "." + mem.LiteralRepr()
+		line += " << "
 	}
+	line += "\" }\";"
+	c.WriteLine(line, true)
+	c.WriteLine("return os;", true)
 	c.Dedent()
-	c.WriteLine("}", use_tab)
+	c.WriteLine("}", true)
 	c.Dedent()
 
 	c.WriteLine("};", true)
