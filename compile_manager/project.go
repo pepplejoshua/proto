@@ -7,7 +7,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"proto/analysis/name_resolver"
-	syntaxrewriter "proto/analysis/syntax_rewriter"
 	"proto/analysis/type_checker"
 	"proto/ast"
 	"proto/cpp_compiler"
@@ -411,14 +410,6 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 
 	tc := type_checker.NewTypeCheckerWithImportInfo(import_info)
 	tc.TypeCheckProgram(prog)
-
-	sr := syntaxrewriter.CollectionsForLoopRewriter{
-		Prog: prog,
-	}
-	sr.RewriteProgram(prog)
-
-	nr.ResolveProgram(prog)
-	tc.TypeCheckProgram(prog)
 }
 
 func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, compile bool) {
@@ -437,42 +428,35 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 		clang_format := exec.Command("clang-format", src_path)
 		stdout, err := clang_format.StdoutPipe()
 		if err != nil {
-			// println("HERE1")
 			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 		}
 		stderr, err := clang_format.StderrPipe()
 		if err != nil {
-			// println("HERE2")
 			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 		}
 
 		if err = clang_format.Start(); err != nil {
-			// println("HERE3")
 			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 		}
 
 		data, err := io.ReadAll(stderr)
 		if err != nil {
-			// println("HERE4")
 			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 		}
 
 		errout := string(data)
 		if errout != "" {
-			// println("HERE5")
 			msg := fmt.Sprintf("Error '%s' while formatting %s.", strings.TrimSpace(errout), src_path)
 			shared.ReportErrorAndExit("ProjectOrganizer", msg)
 		}
 
 		output, err := io.ReadAll(stdout)
 		if err != nil {
-			// println("HERE6")
 			msg := fmt.Sprintf("Error while reading format output. Error: %s", output)
 			shared.ReportErrorAndExit("ProjectOrganizer", msg)
 		}
 
 		if err := clang_format.Wait(); err != nil {
-			// println("HERE7")
 			shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 		}
 
@@ -495,7 +479,6 @@ func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
 	compile_cmd := exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value")
 	stderr, err := compile_cmd.StderrPipe()
 	if err != nil {
-		// println("HERE8")
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 	}
 	if err := compile_cmd.Start(); err != nil {
@@ -504,19 +487,16 @@ func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
 
 	data, err := io.ReadAll(stderr)
 	if err != nil {
-		// println("HERE9")
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 	}
 
 	errout := string(data)
 	if errout != "" {
-		// println("HERE10")
 		msg := fmt.Sprintf("Error '%s' while compiling %s.", strings.TrimSpace(errout), src_path)
 		shared.ReportErrorAndExit("ProjectOrganizer", msg)
 	}
 
 	if err := compile_cmd.Wait(); err != nil {
-		// println("HERE11")
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 	}
 

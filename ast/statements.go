@@ -257,7 +257,7 @@ func (cfl *CollectionsForLoop) AsCppCode(c *CodeGenerator, use_tab bool, newline
 	if newline {
 		c.NewLine()
 	}
-	c.Write("for (auto", true, false)
+	c.Write("for (auto ", true, false)
 	cfl.LoopVar.AsCppCode(c, false, false)
 	c.Write(": ", false, true)
 	cfl.Collection.AsCppCode(c, false, false)
