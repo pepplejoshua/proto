@@ -141,6 +141,8 @@ func (tc *TypeChecker) TypeCheckProgram(prog *ast.ProtoProgram) {
 
 func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 	switch actual := node.(type) {
+	case *ast.Parenthesized:
+		tc.TypeCheck(actual.Expr)
 	case *ast.VariableDecl:
 		tc.TypeCheckVariableDecl(actual)
 	case *ast.Reference:

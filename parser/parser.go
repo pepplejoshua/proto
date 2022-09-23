@@ -428,6 +428,10 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 					},
 				}
 			} else {
+				val = &ast.Parenthesized{
+					Start: start,
+					Expr:  val,
+				}
 				p.consume(lexer.CLOSE_PAREN)
 			}
 		}
@@ -1324,11 +1328,24 @@ func (p *Parser) parse_cpp_include() *ast.CppInclude {
 	p.consume(lexer.HASH)
 	p.consume(lexer.IDENT)
 
-	file := p.cur.Literal
-	p.consume(p.cur.Type)
-	return &ast.CppInclude{
-		Start: start,
-		File:  file,
+	if p.cur.Type == lexer.LESS_THAN {
+		file := p.cur.Literal
+		p.consume(p.cur.Type)
+		file += p.cur.Literal
+		p.consume(lexer.IDENT)
+		file += p.cur.Literal
+		p.consume(lexer.GREATER_THAN)
+		return &ast.CppInclude{
+			Start: start,
+			File:  file,
+		}
+	} else {
+		file := p.cur.Literal
+		p.consume(p.cur.Type)
+		return &ast.CppInclude{
+			Start: start,
+			File:  file,
+		}
 	}
 }
 

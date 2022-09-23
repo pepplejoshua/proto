@@ -213,6 +213,8 @@ func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 
 func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	switch actual := node.(type) {
+	case *ast.Parenthesized:
+		nr.Resolve(actual.Expr)
 	case *ast.BlockExpr:
 		nr.ResolveBlockExpr(actual, false)
 	case *ast.BlockStmt:

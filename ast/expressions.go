@@ -139,6 +139,29 @@ func (i *I64) Type() ProtoType {
 	}
 }
 
+type Parenthesized struct {
+	Start lexer.ProtoToken
+	Expr  Expression
+}
+
+func (p *Parenthesized) LiteralRepr() string {
+	return "(" + p.Expr.LiteralRepr() + ")"
+}
+
+func (p *Parenthesized) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("(", use_tab, false)
+	p.Expr.AsCppCode(c, false, false)
+	if newline {
+		c.WriteLine(")", false)
+	} else {
+		c.Write(")", false, false)
+	}
+}
+
+func (p *Parenthesized) Type() ProtoType {
+	return p.Expr.Type()
+}
+
 type Char struct {
 	Token lexer.ProtoToken
 }
