@@ -11,8 +11,9 @@ type Expression interface { // anything that doesn't implement this is a stateme
 }
 
 type Identifier struct {
-	Token   lexer.ProtoToken
-	Id_Type ProtoType
+	Token      lexer.ProtoToken
+	Mutability bool // used by function definitions
+	Id_Type    ProtoType
 }
 
 func (i *Identifier) LiteralRepr() string {

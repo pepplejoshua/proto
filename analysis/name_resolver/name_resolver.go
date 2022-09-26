@@ -93,7 +93,7 @@ func (nr *NameResolver) DefineName(name lexer.ProtoToken) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Undeclared variable '" + name.Literal + "'.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	}
 }
 
@@ -116,7 +116,7 @@ func (nr *NameResolver) InitializeName(name lexer.ProtoToken) {
 	msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 	msg.WriteString("Undeclared variable '" + name.Literal + "'.")
 	shared.ReportErrorAndExit("NameResolver", msg.String())
-	nr.FoundError = true
+
 }
 
 func (nr *NameResolver) GetDefinedAtName(name lexer.ProtoToken) bool {
@@ -166,7 +166,7 @@ func (nr *NameResolver) GetMutabilityAtName(name lexer.ProtoToken) bool {
 	msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 	msg.WriteString("Undeclared variable '" + name.Literal + "'.")
 	shared.ReportErrorAndExit("NameResolver", msg.String())
-	nr.FoundError = true
+
 	return false
 }
 
@@ -194,15 +194,24 @@ func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 	}
 
 	for _, fn := range prog.FunctionDefs {
+		nr.CheckForDuplicateName(fn.Name)
 		nr.DeclareName(fn.Name.Token, fn, false)
 		nr.DefineName(fn.Name.Token)
 		nr.InitializeName(fn.Name.Token)
 	}
 
 	for _, struct_node := range prog.Structs {
+		nr.CheckForDuplicateName(&struct_node.Name)
 		nr.DeclareName(struct_node.Name.Token, struct_node, false)
 		nr.DefineName(struct_node.Name.Token)
 		nr.InitializeName(struct_node.Name.Token)
+	}
+
+	for _, mod := range prog.Modules {
+		nr.CheckForDuplicateName(mod.Name)
+		nr.DeclareName(mod.Name.Token, mod, false)
+		nr.DefineName(mod.Name.Token)
+		nr.InitializeName(mod.Name.Token)
 	}
 
 	for _, node := range prog.Contents {
@@ -277,7 +286,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a return statement is not allowed outside of a Function.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 		if actual.Value != nil {
 			nr.Resolve(actual.Value)
@@ -301,7 +310,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a break statement is not allowed outside of a Loop.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 	case *ast.Continue:
 		if nr.LoopTag != Loop {
@@ -312,7 +321,7 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("a continue statement is not allowed outside of a Loop.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 	case *ast.Membership:
 		nr.ResolveMembership(actual)
@@ -437,12 +446,14 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 func (nr *NameResolver) ResolveModule(mod *ast.Module) {
 	nr.ResolveBlockStmt(mod.Body, true)
 	// declare name after checking whole module
+	nr.CheckForDuplicateName(mod.Name)
 	nr.DeclareName(mod.Name.Token, mod, false)
 	nr.DefineName(mod.Name.Token)
 	nr.InitializeName(mod.Name.Token)
 }
 
 func (nr *NameResolver) ResolveStruct(str *ast.Struct) {
+	nr.CheckForDuplicateName(&str.Name)
 	nr.DeclareName(str.Name.Token, str, false)
 	nr.DefineName(str.Name.Token)
 	nr.InitializeName(str.Name.Token)
@@ -491,7 +502,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 			}
 			msg.WriteString(" }, which contains duplicates.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 
 		if len(val.Members) != len(init.Fields) {
@@ -507,7 +518,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 				}
 			}
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 
 		for field, expr := range init.Fields {
@@ -527,7 +538,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(field.LiteralRepr() + " is not a Struct member.")
 				shared.ReportErrorAndExit("NameResolver", msg.String())
-				nr.FoundError = true
+
 				break
 			}
 			nr.Resolve(expr)
@@ -541,7 +552,7 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(init.StructName.LiteralRepr() + " is not a Struct.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	}
 }
 
@@ -623,7 +634,8 @@ func (nr *NameResolver) ResolveCallExpr(call *ast.CallExpression) {
 func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope EnclosingScopeTag) {
 	enclosing := nr.ScopeTag
 	nr.ScopeTag = fnScope
-	if !nr.ContainsIdent(fn.Name.LiteralRepr()) {
+	if len(nr.Scopes) > 1 {
+		nr.CheckForDuplicateName(fn.Name)
 		nr.DeclareName(fn.Name.Token, fn, false)
 		nr.DefineName(fn.Name.Token)
 		nr.InitializeName(fn.Name.Token)
@@ -631,7 +643,7 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 
 	nr.EnterScope()
 	for _, param := range fn.ParameterList {
-		nr.DeclareName(param.Token, param, true)
+		nr.DeclareName(param.Token, param, param.Mutability)
 		nr.DefineName(param.Token)
 		nr.InitializeName(param.Token)
 	}
@@ -666,7 +678,7 @@ func (nr *NameResolver) ResolveArrayType(t ast.ProtoType, span lexer.Span) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Undefined name '%s' inferred as Array type.", actual.Name.LiteralRepr()))
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 			return
 		}
 	case *ast.Proto_Array:
@@ -690,7 +702,7 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
 				shared.ReportErrorAndExit("NameResolver", msg.String())
-				nr.FoundError = true
+
 			}
 			if !nr.GetInitializedAtName(actual.Token) {
 				nr.InitializeName(actual.Token)
@@ -703,7 +715,7 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Assigning to a dereferenced value '" + actual.LiteralRepr() + "' is not allowed as it has no effect.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	case *ast.Reference:
 		var msg strings.Builder
 		line := actual.Start.TokenSpan.Line
@@ -711,7 +723,7 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Assigning to a reference value '" + actual.LiteralRepr() + "' is not allowed.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual)
 	case *ast.IndexExpression:
@@ -723,7 +735,7 @@ func (nr *NameResolver) ResolveAssignment(assignment *ast.Assignment) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Assigning to '" + actual.LiteralRepr() + "' is not allowed.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	}
 	nr.Resolve(assignment.Target)
 }
@@ -740,7 +752,7 @@ func (nr *NameResolver) CheckIndexExprForMutability(arr *ast.IndexExpression) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual)
@@ -757,7 +769,7 @@ func (nr *NameResolver) CheckReferenceForMutability(ref *ast.Reference) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("'" + actual.LiteralRepr() + "' is not mutable.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 	case *ast.Array:
 	case *ast.IndexExpression:
@@ -777,7 +789,7 @@ func (nr *NameResolver) CheckObjectOfMembershipForMutability(mem *ast.Membership
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("'" + actual_obj.LiteralRepr() + "' is not mutable.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
+
 		}
 	case *ast.Membership:
 		nr.CheckObjectOfMembershipForMutability(actual_obj)
@@ -814,6 +826,17 @@ func (nr *NameResolver) ResolveBlockExpr(block *ast.BlockExpr, new_scope bool) {
 	}
 }
 
+func (nr *NameResolver) CheckForDuplicateName(name *ast.Identifier) {
+	if nr.ContainsIdent(name.LiteralRepr()) {
+		var msg strings.Builder
+		line := name.Token.TokenSpan.Line
+		col := name.Token.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Identifier '%s' already exists.", name.LiteralRepr()))
+		shared.ReportErrorAndExit("NameResolver", msg.String())
+	}
+}
+
 func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
 	if var_def.Assignee.Token.Literal != "_" {
 		if _, ok := var_def.VarType.(*ast.Proto_Reference); ok && var_def.Assigned == nil {
@@ -823,15 +846,16 @@ func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("References must be initialized on declaration.")
 			shared.ReportErrorAndExit("NameResolver", msg.String())
-			nr.FoundError = true
 		}
 
 		if var_def.Assigned != nil {
 			nr.Resolve(var_def.Assigned)
+			nr.CheckForDuplicateName(&var_def.Assignee)
 			nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 			nr.DefineName(var_def.Assignee.Token)
 			nr.InitializeName(var_def.Assignee.Token)
 		} else {
+			nr.CheckForDuplicateName(&var_def.Assignee)
 			nr.DeclareName(var_def.Assignee.Token, &var_def.Assignee, var_def.Mutable)
 			nr.DefineName(var_def.Assignee.Token)
 		}
@@ -842,7 +866,7 @@ func (nr *NameResolver) ResolveVariableDecl(var_def *ast.VariableDecl) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Declaring a variable with name '_' is not allowed.")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	}
 }
 
@@ -854,7 +878,7 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Undefined name '" + ident.LiteralRepr() + "'")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	} else if !nr.GetInitializedAtName(ident.Token) {
 		var msg strings.Builder
 		line := ident.Token.TokenSpan.Line
@@ -862,6 +886,8 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Use of uninitialized variable '" + ident.LiteralRepr() + "'")
 		shared.ReportErrorAndExit("NameResolver", msg.String())
-		nr.FoundError = true
+
 	}
+
+	ident.Mutability = nr.GetMutabilityAtName(ident.Token)
 }

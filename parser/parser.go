@@ -90,7 +90,7 @@ func (p *Parser) consume(expected lexer.TokenType) {
 		p.nextToken() // move to next token
 	} else {
 		var msg strings.Builder
-		msg.WriteString(fmt.Sprintf("%s %d:%d Expected token of type ", p.file, p.cur.TokenSpan.Line, p.cur.TokenSpan.Col))
+		msg.WriteString(fmt.Sprintf("%d:%d Expected ", p.cur.TokenSpan.Line, p.cur.TokenSpan.Col))
 		msg.WriteString(string(expected) + " but found ")
 		msg.WriteString(string(p.cur.Type) + ".")
 		shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
@@ -1028,6 +1028,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 
 	if keyword == lexer.MUT {
 		declaration.Mutable = true
+		declaration.Assignee.Mutability = true
 	}
 
 	return declaration
@@ -1038,6 +1039,7 @@ func (p *Parser) parse_struct() *ast.Struct {
 	p.consume(p.cur.Type)
 
 	struct_name := p.parse_identifier()
+	struct_name.Mutability = false
 	p.consume(lexer.OPEN_CURLY)
 
 	var members []*ast.Identifier
@@ -1047,6 +1049,7 @@ func (p *Parser) parse_struct() *ast.Struct {
 		p.consume(lexer.COLON)
 		mem_type := p.parse_type(false, false)
 		mem.Id_Type = mem_type
+		mem.Mutability = true
 		members = append(members, mem)
 		if p.cur.Type != lexer.CLOSE_CURLY {
 			p.consume(lexer.COMMA)
@@ -1268,7 +1271,13 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 			msg.WriteString(" Function Definitions only allows 255 parameters.")
 			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
 		}
+		is_mutable := false
+		if p.cur.Type == lexer.MUT {
+			p.consume(lexer.MUT)
+			is_mutable = true
+		}
 		ident := p.parse_identifier()
+		ident.Mutability = is_mutable
 		p.consume(lexer.COLON)
 		ident.Id_Type = p.parse_type(false, false)
 		paramslist = append(paramslist, ident)

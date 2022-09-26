@@ -49,7 +49,7 @@ func (l *Lexer) Is_at_end() bool {
 }
 
 func (l *Lexer) advance_line() {
-	l.line += 1
+	l.line++
 	l.column = 0
 }
 
@@ -372,10 +372,16 @@ func (l *Lexer) Read_Cpp_Lines() string {
 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 	}
 	l.next_char()
+	l.column += 1
 
 	lines := ""
 	curly_count := 1
 	for !l.Is_at_end() {
+		if l.cur_byte == '\n' {
+			l.advance_line()
+			l.next_char()
+			continue
+		}
 		if l.cur_byte == '}' {
 			curly_count--
 			if curly_count == 0 {
@@ -383,6 +389,7 @@ func (l *Lexer) Read_Cpp_Lines() string {
 			}
 			lines += string(l.cur_byte)
 			l.next_char()
+			l.column += 1
 			continue
 		}
 
@@ -392,6 +399,7 @@ func (l *Lexer) Read_Cpp_Lines() string {
 
 		lines += string(l.cur_byte)
 		l.next_char()
+		l.column += 1
 	}
 	if l.cur_byte != '}' {
 		var msg strings.Builder
@@ -399,30 +407,9 @@ func (l *Lexer) Read_Cpp_Lines() string {
 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
 	}
 	l.next_char()
+	l.column += 1
 	return lines
 }
-
-// func (l *Lexer) Read_cpp_literal_line() string {
-// 	if l.cur_byte != '{' {
-// 		var msg strings.Builder
-// 		msg.WriteString(fmt.Sprintf("%s %d:%d Expected character to be '{' but got '%s'.", l.file, l.line, l.column, string(l.cur_byte)))
-// 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
-// 	}
-// 	l.next_char()
-
-// 	line := ""
-// 	for !l.Is_at_end() && l.cur_byte != '\n' && l.cur_byte != '}' {
-// 		line += string(l.cur_byte)
-// 		l.next_char()
-// 	}
-// 	if l.cur_byte != '\n' && l.cur_byte != '}' {
-// 		var msg strings.Builder
-// 		msg.WriteString(fmt.Sprintf("%s %d:%d Unterminated cpp block.", l.file, l.line, l.column))
-// 		shared.ReportErrorWithPathAndExit("Lexer", l.file, msg.String())
-// 	}
-
-// 	return line
-// }
 
 func (l *Lexer) make_token(tokentype TokenType, literal string) ProtoToken {
 	return ProtoToken{

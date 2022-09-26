@@ -368,6 +368,9 @@ func (fn *FunctionDef) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.Write("(", false, false)
 
 	for index, param := range fn.ParameterList {
+		if !param.Mutability {
+			c.Write("const ", false, false)
+		}
 		c.Write(param.Id_Type.CppTypeSignature()+" ", false, false)
 		param.AsCppCode(c, false, false)
 

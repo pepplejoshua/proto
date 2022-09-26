@@ -420,6 +420,34 @@ func (tc *TypeChecker) TypeCheckBuiltinFunction(call *ast.CallExpression, builti
 	}
 }
 
+func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expression, span lexer.Span) {
+	switch ac := arg.(type) {
+	case *ast.Identifier:
+		if !ac.Mutability && param.Mutability {
+			var msg strings.Builder
+			line := span.Line
+			col := span.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("Expected argument '%s' to be mutable.",
+				ac.LiteralRepr()))
+			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			tc.FoundError = true
+		}
+	case *ast.Membership:
+		tc.VerifyMutability(param, ac.Object, span)
+	case *ast.ModuleAccess:
+		tc.VerifyMutability(param, ac.Member, span)
+	case *ast.IndexExpression:
+		tc.VerifyMutability(param, ac.Indexable, span)
+	case *ast.Dereference:
+		tc.VerifyMutability(param, ac.Value, span)
+	case *ast.Reference:
+		tc.VerifyMutability(param, ac.Value, span)
+	default:
+		return
+	}
+}
+
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
 		tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
@@ -433,13 +461,12 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Function:
 		// check the arguments
-
 		if len(call.Arguments) != len(actual.Params.InternalTypes) {
 			var msg strings.Builder
 			line := call.Start.TokenSpan.Line
 			col := call.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			msg.WriteString(fmt.Sprintf("%s expects %d arguments but got called with %d arguments.",
 				actual.TypeSignature(), len(actual.Params.InternalTypes), len(call.Arguments)))
 			shared.ReportErrorAndExit("TypeChecker", msg.String())
 			tc.FoundError = true
@@ -448,15 +475,18 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 
 		for index, arg := range call.Arguments {
 			tc.TypeCheck(arg)
-			param := actual.Params.InternalTypes[index]
+			param := actual.Fn.ParameterList[index]
+			span := call.Start.TokenSpan
+			tc.VerifyMutability(param, arg, span)
+			param_type := actual.Params.InternalTypes[index]
 
-			if arg.Type().TypeSignature() != param.TypeSignature() {
+			if arg.Type().TypeSignature() != param_type.TypeSignature() {
 				var msg strings.Builder
 				line := call.Start.TokenSpan.Line
 				col := call.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("Expected argument %d to be typed %s but got argument of type %s.",
-					index+1, param.TypeSignature(), arg.Type().TypeSignature()))
+				msg.WriteString(fmt.Sprintf("Expected parameter %d to be typed %s but got argument of type %s.",
+					index+1, param_type.TypeSignature(), arg.Type().TypeSignature()))
 				shared.ReportErrorAndExit("TypeChecker", msg.String())
 				tc.FoundError = true
 				return
