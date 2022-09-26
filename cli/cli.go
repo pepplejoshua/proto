@@ -12,7 +12,7 @@ import (
 var file = flag.String("file", "", "Path to Proto File to be compiled")
 var clean = flag.Bool("c", false, "Clean generated C++ files")
 var generate_only = flag.Bool("gen", false, "Generate C++ files but don't compile.")
-
+var cpp_flags = flag.String("cpp", "", "Flags that are passed directly to the C++ compiler.")
 var show_time = flag.Bool("time", false, "Show the runtime of the code found in file.")
 
 func Start() {
@@ -31,7 +31,7 @@ func Start() {
 	if *generate_only && *clean {
 		shared.ReportWarning("CLI", "-gen and -c are both toggled. -c will clean up generated files.")
 	}
-	man := compilemanager.NewManager(*file, *clean, *generate_only)
+	man := compilemanager.NewManager(*file, *cpp_flags, *clean, *generate_only)
 	man.Compile()
 	if *show_time {
 		duration = time.Since(start)

@@ -8,18 +8,20 @@ type Manager struct {
 	Path     string
 	CleanSrc bool
 	Generate bool
+	CppFlags string
 }
 
-func NewManager(path string, clean bool, generate_only bool) *Manager {
+func NewManager(path, cpp_flags string, clean bool, generate_only bool) *Manager {
 	man := &Manager{
 		Path:     shared.Get_abs_path("CompileManager", path),
 		CleanSrc: clean,
 		Generate: generate_only,
+		CppFlags: cpp_flags,
 	}
 	return man
 }
 
 func (m *Manager) Compile() {
-	project_org := NewProjectManager(m.Path, m.CleanSrc, m.Generate)
+	project_org := NewProjectManager(m.Path, m.CppFlags, m.CleanSrc, m.Generate)
 	project_org.BuildProject()
 }
