@@ -24,9 +24,10 @@ type ProjectOrganizer struct {
 	files_and_resolvables  map[string][]*ast.Path
 	compiled_files         []string
 	CleanSrc               bool
+	Generate               bool
 }
 
-func NewProjectManager(file string, clean_src bool) *ProjectOrganizer {
+func NewProjectManager(file string, clean_src, generate_only bool) *ProjectOrganizer {
 	abs, _ := filepath.Abs(file)
 	return &ProjectOrganizer{
 		startfile:              abs,
@@ -36,6 +37,7 @@ func NewProjectManager(file string, clean_src bool) *ProjectOrganizer {
 		files_and_resolvables:  map[string][]*ast.Path{},
 		compiled_files:         []string{},
 		CleanSrc:               clean_src,
+		Generate:               generate_only,
 	}
 }
 
@@ -400,7 +402,7 @@ func (po *ProjectOrganizer) ProcessImports(queue []string, file string, has_main
 	// so the caller can take the fully analysed tree and take what they need from it
 	// using ast.SearchFor()
 	po.AnalyseAST(file_ast, info_loc)
-	po.GenerateCppFor(file, file_ast, false)
+	po.GenerateCppFor(file, file_ast, has_main, false)
 	return file_ast
 }
 
@@ -412,11 +414,11 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 	tc.TypeCheckProgram(prog)
 }
 
-func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, compile bool) {
+func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, is_main, compile bool) {
 	code := &cpp_compiler.Compiler{}
 	gen_src := code.CompileProgram(prog, compile)
 
-	src_path := shared.Make_src_path(file, compile)
+	src_path := shared.Make_src_path(file, is_main)
 	destination, _ := os.Create(src_path)
 	fmt.Fprintln(destination, gen_src)
 	destination.Close()
@@ -424,7 +426,9 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 
 	if po.CleanSrc {
 		po.compiled_files = append(po.compiled_files, src_path)
-	} else {
+	}
+
+	if po.Generate || !po.CleanSrc {
 		clang_format := exec.Command("clang-format", src_path)
 		stdout, err := clang_format.StdoutPipe()
 		if err != nil {
@@ -521,7 +525,7 @@ func (po *ProjectOrganizer) BuildProject() {
 
 	// then do analysis for ast_prog using all the pieces taken from imported files
 	po.AnalyseAST(ast_prog, info_loc)
-	po.GenerateCppFor(po.startfile, ast_prog, true)
+	po.GenerateCppFor(po.startfile, ast_prog, true, !po.Generate)
 
 	if po.CleanSrc {
 		for _, src_path := range po.compiled_files {

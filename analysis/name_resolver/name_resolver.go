@@ -388,7 +388,6 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 				nr.DeclareName(struct_.Name.Token, struct_, false)
 				nr.DefineName(struct_.Name.Token)
 				nr.InitializeName(struct_.Name.Token)
-
 			}
 		} else {
 			if len(path.Pieces) > 1 {
@@ -446,17 +445,22 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 func (nr *NameResolver) ResolveModule(mod *ast.Module) {
 	nr.ResolveBlockStmt(mod.Body, true)
 	// declare name after checking whole module
-	nr.CheckForDuplicateName(mod.Name)
-	nr.DeclareName(mod.Name.Token, mod, false)
-	nr.DefineName(mod.Name.Token)
-	nr.InitializeName(mod.Name.Token)
+	if len(nr.Scopes) > 1 {
+		nr.CheckForDuplicateName(mod.Name)
+		nr.DeclareName(mod.Name.Token, mod, false)
+		nr.DefineName(mod.Name.Token)
+		nr.InitializeName(mod.Name.Token)
+	}
+
 }
 
 func (nr *NameResolver) ResolveStruct(str *ast.Struct) {
-	nr.CheckForDuplicateName(&str.Name)
-	nr.DeclareName(str.Name.Token, str, false)
-	nr.DefineName(str.Name.Token)
-	nr.InitializeName(str.Name.Token)
+	if len(nr.Scopes) > 1 {
+		nr.CheckForDuplicateName(&str.Name)
+		nr.DeclareName(str.Name.Token, str, false)
+		nr.DefineName(str.Name.Token)
+		nr.InitializeName(str.Name.Token)
+	}
 }
 
 func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {

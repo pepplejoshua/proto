@@ -73,6 +73,11 @@ func Strip_base(abs_path string) string {
 	return base
 }
 
+func ReportWarning(component, msg string) {
+	log.Printf("\u001b[33;1m%s Warning:\u001b[0m %s", component, msg)
+
+}
+
 func ReportError(component, msg string) {
 	log.Printf("\u001b[31;1m%s Error:\u001b[0m %s", component, msg)
 }
