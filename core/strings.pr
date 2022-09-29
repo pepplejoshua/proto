@@ -1,0 +1,42 @@
+fn split_str(initial: str) -> [str] { // will be added to string.pr library
+    mut tokens = [str;];
+    mut token = "";
+    for ch in initial {
+        if ch == ' ' {
+            if token != "" {
+                cpp { tokens.push_back(token); }
+                token = "";
+            }
+        } else {
+            token += ch;
+        }      
+    }
+    
+    if token != "" {
+        cpp { tokens.push_back(token); }
+    }
+    tokens
+}
+
+fn is_number(cand: str) -> bool { // will be added to the strings.pr library
+    for ch in cand {
+        if ch < '0' || ch > '9' {
+            return false;
+        }
+    }
+    true
+}
+
+fn to_i64(cand: str) -> i64 {
+    mut in_i64 = 0;
+    cpp { in_i64 = stol(cand, nullptr, 10); }
+    return in_i64;
+}
+
+fn wrap_in_red(content: str) -> str {
+    "\u001b[31m" + content +  "\u001b[0m"
+}
+
+fn wrap_in_green(content: str) -> str {
+    "\u001b[32m" + content + "\u001b[0m"
+}

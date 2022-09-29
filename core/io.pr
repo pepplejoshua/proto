@@ -1,0 +1,13 @@
+fn write_prompt(msg: str) { // will be added to io.pr library
+    cpp { cout << msg << ":- "; }
+}
+
+fn read_str() -> str { // will be added to io.pr library
+    mut entry = "";
+    cpp { getline(cin, entry); }
+    entry
+}
+
+fn writeln(msg: str) {
+    cpp { cout << msg << endl; }
+}

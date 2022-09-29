@@ -89,21 +89,10 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 		files_and_remnants := po.process_paths(file, po.dir, i.Paths)
 
 		for dep_file, res_paths := range files_and_remnants {
-			// prevent duplication of resolvable paths
 			if paths, ok := files_and_resolvables[dep_file]; ok {
 				for _, r_p := range res_paths {
-					// r_p.Start = &i.Start
-					// duplicate := false
-					// for _, p := range paths {
-					// 	if r_p.String() == p.String() {
-					// 		duplicate = true
-					// 		break
-					// 	}
-					// }
-					// if !duplicate {
 					paths = append(paths, r_p)
 					files_and_resolvables[dep_file] = paths
-					// }
 				}
 			} else {
 				files_and_resolvables[dep_file] = res_paths
@@ -111,17 +100,8 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 
 			// prevent duplication of dependencies
 			if dependencies, ok := po.files_and_dependencies[file]; ok {
-				// duplicate := false
-				// for _, dep := range dependencies {
-				// 	if dep == dep_file {
-				// 		duplicate = true
-				// 		break
-				// 	}
-				// }
-				// if !duplicate {
 				dependencies = append(dependencies, dep_file)
 				po.files_and_dependencies[file] = dependencies
-				// }
 			} else {
 				po.files_and_dependencies[file] = []string{dep_file}
 			}
@@ -536,8 +516,31 @@ func (po *ProjectOrganizer) BuildProject() {
 	}
 }
 
-func (po *ProjectOrganizer) find_file(dir string, path *ast.Path) (bool, string, *ast.Path) {
+type DirectoryItemType int
+
+const (
+	None DirectoryItemType = iota
+	Dir
+	File
+)
+
+func (po *ProjectOrganizer) find_file_or_dir(path string) DirectoryItemType {
+	// check for proto file
+	if _, err := os.Stat(path + ".pr"); os.IsNotExist(err) {
+		// since its not a file, check for a directory
+		if _, err := os.Stat(path); os.IsNotExist(err) {
+			return None
+		} else {
+			return Dir
+		}
+	} else {
+		return File
+	}
+}
+
+func (po *ProjectOrganizer) get_file_and_resolvables(dir string, path *ast.Path) (bool, string, *ast.Path) {
 	file_path := ""
+	lib_path := "/Users/iwarilama/go/src/proto/"
 	main_path := dir
 	file_end := -1
 	pieces := []ast.UsePath{}
@@ -548,17 +551,37 @@ loop:
 			if actual.String() == "*" {
 				return false, main_path, path
 			}
+
+			lib_path = filepath.Join(lib_path, actual.String())
 			main_path = filepath.Join(main_path, actual.String())
-			// check for proto file
-			if _, err := os.Stat(main_path + ".pr"); os.IsNotExist(err) {
-				// since its not a file, check for a directory
-				if _, err := os.Stat(main_path); os.IsNotExist(err) {
+
+			res := po.find_file_or_dir(lib_path)
+			switch res {
+			case None:
+				res = po.find_file_or_dir(main_path)
+				switch res {
+				case None:
 					return false, main_path, path
-				} else {
-					// it is directory, continue
+				case Dir:
 					continue
+				case File:
+					// we have seen a file
+					file_end = index + 1
+					pieces = path.Pieces[file_end:]
+					if len(pieces) == 0 {
+						// means we matched the full path as a file
+						pieces = append(pieces, actual)
+					} else {
+						temp := []ast.UsePath{actual}
+						temp = append(temp, pieces...)
+						pieces = temp
+					}
+					file_path = main_path + ".pr"
+					break loop
 				}
-			} else {
+			case Dir:
+				continue
+			case File:
 				// we have seen a file
 				file_end = index + 1
 				pieces = path.Pieces[file_end:]
@@ -570,10 +593,9 @@ loop:
 					temp = append(temp, pieces...)
 					pieces = temp
 				}
-				file_path = main_path + ".pr"
+				file_path = lib_path + ".pr"
 				break loop
 			}
-			// }
 		case *ast.UseAs:
 			return false, main_path, path
 		}
@@ -587,7 +609,7 @@ loop:
 func (po *ProjectOrganizer) process_paths(file, dir string, paths []*ast.Path) map[string][]*ast.Path {
 	files_and_innerpaths := map[string][]*ast.Path{}
 	for _, path := range paths {
-		found_file, filepath, remnant_path := po.find_file(dir, path)
+		found_file, filepath, remnant_path := po.get_file_and_resolvables(dir, path)
 		if !found_file {
 			var msg strings.Builder
 			line := path.Start.TokenSpan.Line

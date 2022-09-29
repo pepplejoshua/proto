@@ -1,0 +1,19 @@
+fn last(arr: [i64]) -> i64 {
+    mut item = 0;
+    cpp { item = arr.back(); }
+    item
+}
+
+fn pop_back(mut arr: &[i64]) {
+    cpp { arr.pop_back(); }
+}
+
+fn append_i64(mut arr: &[i64], num: i64) {
+    cpp { arr.push_back(num); }
+}
+
+fn len_i64(arr: [i64]) -> i64 {
+    mut size = 0;
+    cpp { size = arr.size(); }
+    size
+}
