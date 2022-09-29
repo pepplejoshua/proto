@@ -540,7 +540,11 @@ func (po *ProjectOrganizer) find_file_or_dir(path string) DirectoryItemType {
 
 func (po *ProjectOrganizer) get_file_and_resolvables(dir string, path *ast.Path) (bool, string, *ast.Path) {
 	file_path := ""
-	lib_path := "/Users/iwarilama/go/src/proto/"
+	exe, err := os.Executable()
+	if err != nil {
+		shared.ReportErrorWithPathAndExit("ProjectOrganizer", path.UseSrcLoc, err.Error())
+	}
+	lib_path := filepath.Dir(exe)
 	main_path := dir
 	file_end := -1
 	pieces := []ast.UsePath{}
