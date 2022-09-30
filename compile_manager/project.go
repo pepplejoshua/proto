@@ -25,10 +25,11 @@ type ProjectOrganizer struct {
 	compiled_files         []string
 	CleanSrc               bool
 	Generate               bool
+	show_compile_info      bool
 	cppflags               string
 }
 
-func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool) *ProjectOrganizer {
+func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, show_compile_info bool) *ProjectOrganizer {
 	abs, _ := filepath.Abs(file)
 	return &ProjectOrganizer{
 		startfile:              abs,
@@ -39,6 +40,7 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool) *P
 		compiled_files:         []string{},
 		CleanSrc:               clean_src,
 		Generate:               generate_only,
+		show_compile_info:      show_compile_info,
 		cppflags:               cpp_flags,
 	}
 }
@@ -404,7 +406,9 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 	destination, _ := os.Create(src_path)
 	fmt.Fprintln(destination, gen_src)
 	destination.Close()
-	println("generated c++ written to", src_path)
+	if po.show_compile_info {
+		println("generated c++ written to", src_path)
+	}
 
 	if po.CleanSrc {
 		po.compiled_files = append(po.compiled_files, src_path)
@@ -448,12 +452,16 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 
 		format_output := output
 		// println(string(format_output))
-		println("formatted source at", src_path)
+		if po.show_compile_info {
+			println("formatted source at", src_path)
+		}
 
 		destination, _ := os.Create(src_path)
 		defer destination.Close()
 		fmt.Fprintln(destination, string(format_output))
-		println("updated with formatted output", src_path)
+		if po.show_compile_info {
+			println("updated with formatted output", src_path)
+		}
 	}
 
 	if compile {
@@ -486,7 +494,9 @@ func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
 	}
 
-	println("compiled to", exe_loc)
+	if po.show_compile_info {
+		println("compiled to", exe_loc)
+	}
 }
 
 func (po *ProjectOrganizer) BuildProject() {

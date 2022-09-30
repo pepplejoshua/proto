@@ -40,3 +40,11 @@ fn wrap_in_red(content: str) -> str {
 fn wrap_in_green(content: str) -> str {
     "\u001b[32m" + content + "\u001b[0m"
 }
+
+fn to_lowercase(content: str) -> str {
+    mut lower = "";
+    for c in content {
+        cpp { lower += tolower(c); }
+    }
+    lower
+}

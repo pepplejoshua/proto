@@ -14,6 +14,7 @@ var clean = flag.Bool("c", false, "Clean generated C++ files")
 var generate_only = flag.Bool("gen", false, "Generate C++ files but don't compile.")
 var cpp_flags = flag.String("cpp", "", "Flags that are passed directly to the C++ compiler.")
 var show_time = flag.Bool("time", false, "Show the runtime of the code found in file.")
+var show_compile_info = flag.Bool("v", false, "Show compile time information.")
 
 func Start() {
 	flag.Parse()
@@ -31,7 +32,7 @@ func Start() {
 	if *generate_only && *clean {
 		shared.ReportWarning("CLI", "-gen and -c are both toggled. -c will clean up generated files.")
 	}
-	man := compilemanager.NewManager(*file, *cpp_flags, *clean, *generate_only)
+	man := compilemanager.NewManager(*file, *cpp_flags, *clean, *generate_only, *show_compile_info)
 	man.Compile()
 	if *show_time {
 		duration = time.Since(start)

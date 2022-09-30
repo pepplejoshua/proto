@@ -12,7 +12,17 @@ fn append_i64(mut arr: &[i64], num: i64) {
     cpp { arr.push_back(num); }
 }
 
+fn append_str(mut arr: &[str], entry: str) {
+    cpp { arr.push_back(entry); }
+}
+
 fn len_i64(arr: [i64]) -> i64 {
+    mut size = 0;
+    cpp { size = arr.size(); }
+    size
+}
+
+fn len_str(arr: [str]) -> i64 {
     mut size = 0;
     cpp { size = arr.size(); }
     size

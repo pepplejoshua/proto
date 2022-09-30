@@ -8,6 +8,30 @@ fn read_str() -> str { // will be added to io.pr library
     entry
 }
 
+fn write(msg: str, with_space: bool) {
+    cpp { cout << msg; }
+    if with_space {
+        cpp { cout << " "; }
+    }
+}
+
 fn writeln(msg: str) {
     cpp { cout << msg << endl; }
+}
+
+fn read_file_to_str(file: str) -> str {
+    #include <fstream>
+    mut contents = "";
+    cpp {
+        ifstream file_reader(file);
+        if (file_reader.is_open()) {
+            string line = "";
+            while(getline(file_reader, line)) {
+                contents += line + "\n";
+            }
+        } else {
+            return "";
+        }
+    }
+    contents
 }
