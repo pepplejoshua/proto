@@ -1,26 +1,16 @@
 package cpp_compiler
 
 import (
-	"os"
-	"path/filepath"
 	"proto/ast"
-	"proto/shared"
 )
 
 type Compiler struct{}
 
 func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string {
 	code_gen := ast.NewCodeGenerator()
-
-	exe, err := os.Executable()
-	if err != nil {
-		shared.ReportErrorWithPathAndExit("CppCompiler", prog.Path, err.Error())
-	}
-	proto_loc := filepath.Dir(exe)
-	prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+	code_gen.Path = prog.Path
 
 	code_gen.AddInclude("<iostream>")
-	code_gen.AddInclude("\"" + prelude + "\"")
 	for _, node := range prog.Contents {
 		node.AsCppCode(code_gen, true, true)
 	}

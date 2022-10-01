@@ -1,7 +1,10 @@
 package ast
 
 import (
+	"os"
+	"path/filepath"
 	"proto/lexer"
+	"proto/shared"
 	"strings"
 )
 
@@ -31,6 +34,7 @@ type CodeGenerator struct {
 	tab_count      int
 	def_tab_incr   int
 	includes       map[string]int
+	Path           string
 }
 
 func NewCodeGenerator() *CodeGenerator {
@@ -41,6 +45,7 @@ func NewCodeGenerator() *CodeGenerator {
 		tab_count:      0,
 		def_tab_incr:   4,
 		includes:       map[string]int{},
+		Path:           "",
 	}
 }
 
@@ -125,6 +130,14 @@ func generate_code_from_block_expr(c *CodeGenerator, blk *BlockExpr) {
 				c.NewLine()
 			default:
 				node.AsCppCode(c, true, true)
+				exe, err := os.Executable()
+				if err != nil {
+					shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+				}
+				proto_loc := filepath.Dir(exe)
+				prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+				c.AddInclude("\"" + prelude + "\"")
+
 				c.WriteLine("return Proto_Unit();", true)
 			}
 		} else {
@@ -134,6 +147,13 @@ func generate_code_from_block_expr(c *CodeGenerator, blk *BlockExpr) {
 	}
 
 	if len(blk.Contents) == 0 {
+		exe, err := os.Executable()
+		if err != nil {
+			shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+		}
+		proto_loc := filepath.Dir(exe)
+		prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+		c.AddInclude("\"" + prelude + "\"")
 		c.IndentThenWriteline("return Proto_Unit();")
 	}
 }

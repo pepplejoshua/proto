@@ -1,7 +1,10 @@
 package ast
 
 import (
+	"os"
+	"path/filepath"
 	"proto/lexer"
+	"proto/shared"
 	"strings"
 )
 
@@ -107,6 +110,13 @@ func (u *Unit) LiteralRepr() string {
 }
 
 func (u *Unit) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	exe, err := os.Executable()
+	if err != nil {
+		shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+	}
+	proto_loc := filepath.Dir(exe)
+	prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+	c.AddInclude("\"" + prelude + "\"")
 	c.WriteLine("Proto_Unit()", false)
 }
 
