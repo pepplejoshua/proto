@@ -43,6 +43,7 @@ const (
 	HASH         = "#"
 	CPP_CODE     = "CPP_CODE"
 	CPP          = "cpp"
+	PUB          = "pub"
 
 	LESS_THAN        = "<"
 	GREATER_THAN     = ">"
@@ -127,6 +128,7 @@ var keywords = map[string]TokenType{
 	"as":       AS,
 	"mod":      MOD,
 	"cpp":      CPP,
+	"pub":      PUB,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {

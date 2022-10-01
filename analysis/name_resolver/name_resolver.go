@@ -12,7 +12,10 @@ type EnclosingScopeTag byte
 
 const (
 	None EnclosingScopeTag = iota
+	StructScope
 	RegularFunction
+	AssociatedFunction
+	Method
 	Loop
 )
 
@@ -181,17 +184,6 @@ func (nr *NameResolver) ContainsIdent(ident string) bool {
 
 func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 	nr.EnterScope()
-	// for _, builtin := range builtins.Builtins {
-	// 	b_token := lexer.ProtoToken{
-	// 		Type:      lexer.IDENT,
-	// 		Literal:   builtin.Name,
-	// 		TokenSpan: lexer.Span{},
-	// 	}
-	// 	nr.DeclareName(b_token, builtin, false)
-	// 	nr.DefineName(b_token)
-	// 	nr.InitializeName(b_token)
-	// }
-
 	for _, fn := range prog.FunctionDefs {
 		nr.CheckForDuplicateName(fn.Name)
 		nr.DeclareName(fn.Name.Token, fn, false)
@@ -199,11 +191,11 @@ func (nr *NameResolver) ResolveProgram(prog *ast.ProtoProgram) {
 		nr.InitializeName(fn.Name.Token)
 	}
 
-	for _, struct_node := range prog.Structs {
-		nr.CheckForDuplicateName(&struct_node.Name)
-		nr.DeclareName(struct_node.Name.Token, struct_node, false)
-		nr.DefineName(struct_node.Name.Token)
-		nr.InitializeName(struct_node.Name.Token)
+	for _, str := range prog.Structs {
+		nr.CheckForDuplicateName(&str.Name)
+		nr.DeclareName(str.Name.Token, str, false)
+		nr.DefineName(str.Name.Token)
+		nr.InitializeName(str.Name.Token)
 	}
 
 	for _, mod := range prog.Modules {
@@ -241,8 +233,12 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveTuple(actual)
 	case *ast.Array:
 		nr.ResolveArray(actual)
+	case *ast.AssociatedFunction:
+		nr.ResolveAssociatedFunction(actual)
+	case *ast.Method:
+		nr.ResolveMethod(actual)
 	case *ast.FunctionDef:
-		nr.ResolveFunctionDef(actual, RegularFunction)
+		nr.ResolveFunctionDef(actual)
 	case *ast.CallExpression:
 		nr.ResolveCallExpr(actual)
 	case *ast.IfExpr:
@@ -460,6 +456,66 @@ func (nr *NameResolver) ResolveStruct(str *ast.Struct) {
 		nr.DefineName(str.Name.Token)
 		nr.InitializeName(str.Name.Token)
 	}
+
+	enclosing := nr.ScopeTag
+	nr.ScopeTag = StructScope
+	nr.EnterScope()
+	for _, param := range str.Members {
+		nr.CheckForDuplicateName(param)
+		nr.DeclareName(param.Token, param, param.Mutability)
+		nr.DefineName(param.Token)
+		nr.InitializeName(param.Token)
+	}
+
+	for _, fn := range str.Public_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			nr.CheckForDuplicateName(ac.Name)
+			nr.DeclareName(ac.Name.Token, ac, false)
+			nr.DefineName(ac.Name.Token)
+			nr.InitializeName(ac.Name.Token)
+		case *ast.Method:
+			nr.CheckForDuplicateName(ac.Name)
+			nr.DeclareName(ac.Name.Token, ac, false)
+			nr.DefineName(ac.Name.Token)
+			nr.InitializeName(ac.Name.Token)
+		}
+	}
+
+	for _, fn := range str.Private_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			nr.CheckForDuplicateName(ac.Name)
+			nr.DeclareName(ac.Name.Token, ac, false)
+			nr.DefineName(ac.Name.Token)
+			nr.InitializeName(ac.Name.Token)
+		case *ast.Method:
+			nr.CheckForDuplicateName(ac.Name)
+			nr.DeclareName(ac.Name.Token, ac, false)
+			nr.DefineName(ac.Name.Token)
+			nr.InitializeName(ac.Name.Token)
+		}
+	}
+
+	for _, fn := range str.Public_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			nr.ResolveAssociatedFunction(ac)
+		case *ast.Method:
+			nr.ResolveMethod(ac)
+		}
+	}
+
+	for _, fn := range str.Private_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			nr.ResolveAssociatedFunction(ac)
+		case *ast.Method:
+			nr.ResolveMethod(ac)
+		}
+	}
+	nr.ExitScope()
+	nr.ScopeTag = enclosing
 }
 
 func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
@@ -539,7 +595,12 @@ func (nr *NameResolver) ResolveStructInit(init *ast.StructInitialization) {
 				line := field.Token.TokenSpan.Line
 				col := field.Token.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(field.LiteralRepr() + " is not a Struct member.")
+				msg.WriteString(field.LiteralRepr() + " is not a member of " + val.Name.LiteralRepr())
+				msg.WriteString(", so implicit naming in Struct initialization will not work.")
+				msg.WriteString("\n" + val.Name.LiteralRepr() + " has these members and types:\n")
+				for index, mem := range val.Members {
+					msg.WriteString(fmt.Sprintf("  %d. %s: %s\n", index+1, mem.LiteralRepr(), mem.Id_Type.TypeSignature()))
+				}
 				shared.ReportErrorAndExit("NameResolver", msg.String())
 
 				break
@@ -634,9 +695,38 @@ func (nr *NameResolver) ResolveCallExpr(call *ast.CallExpression) {
 	}
 }
 
-func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope EnclosingScopeTag) {
+func (nr *NameResolver) ResolveMethod(m *ast.Method) {
 	enclosing := nr.ScopeTag
-	nr.ScopeTag = fnScope
+	nr.ScopeTag = Method
+	nr.EnterScope()
+	for _, param := range m.ParameterList {
+		nr.CheckForDuplicateName(param)
+		nr.DeclareName(param.Token, param, param.Mutability)
+		nr.DefineName(param.Token)
+		nr.InitializeName(param.Token)
+	}
+	nr.ResolveBlockExpr(m.Body, false)
+	nr.ExitScope()
+	nr.ScopeTag = enclosing
+}
+
+func (nr *NameResolver) ResolveAssociatedFunction(assoc *ast.AssociatedFunction) {
+	enclosing := nr.ScopeTag
+	nr.ScopeTag = AssociatedFunction
+	nr.EnterScope()
+	for _, param := range assoc.ParameterList {
+		nr.CheckForDuplicateName(param)
+		nr.DeclareName(param.Token, param, param.Mutability)
+		nr.DefineName(param.Token)
+		nr.InitializeName(param.Token)
+	}
+	nr.ResolveBlockExpr(assoc.Body, false)
+	nr.ExitScope()
+	nr.ScopeTag = enclosing
+}
+func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef) {
+	enclosing := nr.ScopeTag
+	nr.ScopeTag = RegularFunction
 	if len(nr.Scopes) > 1 {
 		nr.CheckForDuplicateName(fn.Name)
 		nr.DeclareName(fn.Name.Token, fn, false)
@@ -646,6 +736,7 @@ func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef, fnScope Enclosin
 
 	nr.EnterScope()
 	for _, param := range fn.ParameterList {
+		nr.CheckForDuplicateName(param)
 		nr.DeclareName(param.Token, param, param.Mutability)
 		nr.DefineName(param.Token)
 		nr.InitializeName(param.Token)

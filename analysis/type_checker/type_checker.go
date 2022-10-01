@@ -18,6 +18,7 @@ type BlockType int
 const (
 	NONE BlockType = iota
 	IF_EXPR
+	STRUCT
 	FUNCTION
 	LOOP
 )
@@ -189,6 +190,10 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckIndexExpression(actual)
 	case *ast.Assignment:
 		tc.TypeCheckAssignment(actual)
+	case *ast.AssociatedFunction:
+		tc.TypeCheckAssociatedFunction(actual)
+	case *ast.Method:
+		tc.TypeCheckMethod(actual)
 	case *ast.FunctionDef:
 		tc.TypeCheckFunctionDef(actual)
 	case *ast.CallExpression:
@@ -528,6 +533,51 @@ func (tc *TypeChecker) VerifyType(ptype ast.ProtoType, span lexer.Span) {
 	}
 }
 
+func (tc *TypeChecker) TypeCheckMethod(m *ast.Method) {
+	tc.EnterTypeEnv()
+	for _, param := range m.ParameterList {
+		tc.VerifyType(param.Id_Type, param.Token.TokenSpan)
+		tc.SetTypeForName(param.Token, param.Id_Type)
+	}
+
+	prevFnDefSpan := tc.FnDefSpan
+	prevCurReturnType := tc.CurReturnType
+	tc.FnDefSpan = &m.Start.TokenSpan
+
+	tc.VerifyType(m.ReturnType, m.Body.Start.TokenSpan)
+	tc.CurReturnType = m.ReturnType
+	prev := tc.CurBlockType
+	tc.CurBlockType = FUNCTION
+	tc.TypeCheckBlockExpr(m.Body, false)
+	tc.CurBlockType = prev
+	tc.FnDefSpan = prevFnDefSpan
+	tc.CurReturnType = prevCurReturnType
+	tc.ExitTypeEnv()
+}
+
+func (tc *TypeChecker) TypeCheckAssociatedFunction(assoc *ast.AssociatedFunction) {
+	tc.SetTypeForName(assoc.Name.Token, assoc.FunctionTypeSignature)
+	tc.EnterTypeEnv()
+	for _, param := range assoc.ParameterList {
+		tc.VerifyType(param.Id_Type, param.Token.TokenSpan)
+		tc.SetTypeForName(param.Token, param.Id_Type)
+	}
+
+	prevFnDefSpan := tc.FnDefSpan
+	prevCurReturnType := tc.CurReturnType
+	tc.FnDefSpan = &assoc.Start.TokenSpan
+
+	tc.VerifyType(assoc.ReturnType, assoc.Body.Start.TokenSpan)
+	tc.CurReturnType = assoc.ReturnType
+	prev := tc.CurBlockType
+	tc.CurBlockType = FUNCTION
+	tc.TypeCheckBlockExpr(assoc.Body, false)
+	tc.CurBlockType = prev
+	tc.FnDefSpan = prevFnDefSpan
+	tc.CurReturnType = prevCurReturnType
+	tc.ExitTypeEnv()
+}
+
 func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
 	tc.EnterTypeEnv()
@@ -705,6 +755,9 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 		Definition: s,
 	})
 
+	prev := tc.CurBlockType
+	tc.EnterTypeEnv()
+	tc.CurBlockType = STRUCT
 	for _, mem := range s.Members {
 		switch actual := mem.Id_Type.(type) {
 		case *ast.Proto_UserDef:
@@ -726,6 +779,36 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 			}
 		}
 	}
+
+	// pre define Private and Public functions
+	for _, fn := range s.Private_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			tc.SetTypeForName(ac.Name.Token, ac.FunctionTypeSignature)
+		case *ast.Method:
+			tc.SetTypeForName(ac.Name.Token, ac.FunctionTypeSignature)
+		}
+	}
+
+	for _, fn := range s.Public_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			tc.SetTypeForName(ac.Name.Token, ac.FunctionTypeSignature)
+		case *ast.Method:
+			tc.SetTypeForName(ac.Name.Token, ac.FunctionTypeSignature)
+		}
+	}
+
+	for _, fn := range s.Private_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			tc.TypeCheckAssociatedFunction(ac)
+		case *ast.Method:
+			tc.TypeCheckMethod(ac)
+		}
+	}
+	tc.CurBlockType = prev
+	tc.ExitTypeEnv()
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {

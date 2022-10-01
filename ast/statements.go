@@ -91,9 +91,11 @@ func (v *VariableDecl) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 }
 
 type Struct struct {
-	Start   lexer.ProtoToken
-	Name    Identifier
-	Members []*Identifier
+	Start       lexer.ProtoToken
+	Name        Identifier
+	Members     []*Identifier
+	Public_Fns  []ProtoNode
+	Private_Fns []ProtoNode
 }
 
 func (s *Struct) LiteralRepr() string {
@@ -325,6 +327,113 @@ func (w *WhileLoop) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	w.LoopCondition.AsCppCode(c, false, false)
 	c.Write(")", false, false)
 	w.Body.AsCppCode(c, true, true)
+}
+
+type Method struct {
+	Start                 lexer.ProtoToken
+	Name                  *Identifier
+	ParameterList         []*Identifier
+	ReturnType            ProtoType
+	Body                  *BlockExpr
+	FunctionTypeSignature *Proto_Function
+}
+
+func (m *Method) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString("method fn " + m.Name.LiteralRepr() + "(")
+
+	for indx, id := range m.ParameterList {
+		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())
+		if indx+1 < len(m.ParameterList) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString(") -> ")
+	repr.WriteString(m.ReturnType.TypeSignature() + " ")
+	repr.WriteString(m.Body.LiteralRepr())
+
+	return repr.String()
+}
+
+func (m *Method) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write(m.ReturnType.CppTypeSignature(), true, false)
+
+	c.Write(m.Name.LiteralRepr(), false, true)
+	c.Write("(", false, false)
+
+	for index, param := range m.ParameterList {
+		// skip the &self variable, since it binds to 'this' in C++
+		if index == 0 {
+			continue
+		}
+		if !param.Mutability {
+			c.Write("const ", false, false)
+		}
+		c.Write(param.Id_Type.CppTypeSignature()+" ", false, false)
+		param.AsCppCode(c, false, false)
+
+		if index+1 < len(m.ParameterList) {
+			c.Write(", ", false, false)
+		}
+	}
+	c.WriteLine(") {", false)
+	generate_code_from_block_expr(c, m.Body)
+	c.WriteLine("}", true)
+	c.NewLine()
+}
+
+type AssociatedFunction struct {
+	Start                 lexer.ProtoToken
+	Name                  *Identifier
+	ParameterList         []*Identifier
+	ReturnType            ProtoType
+	Body                  *BlockExpr
+	FunctionTypeSignature *Proto_Function
+}
+
+func (af *AssociatedFunction) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString("assoc fn " + af.Name.LiteralRepr() + "(")
+
+	for indx, id := range af.ParameterList {
+		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())
+		if indx+1 < len(af.ParameterList) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString(") -> ")
+	repr.WriteString(af.ReturnType.TypeSignature() + " ")
+	repr.WriteString(af.Body.LiteralRepr())
+
+	return repr.String()
+}
+
+func (af *AssociatedFunction) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	c.Write("static ", true, false)
+	c.Write(af.ReturnType.CppTypeSignature(), false, false)
+
+	c.Write(af.Name.LiteralRepr(), false, true)
+	c.Write("(", false, false)
+
+	for index, param := range af.ParameterList {
+		if !param.Mutability {
+			c.Write("const ", false, false)
+		}
+		c.Write(param.Id_Type.CppTypeSignature()+" ", false, false)
+		param.AsCppCode(c, false, false)
+
+		if index+1 < len(af.ParameterList) {
+			c.Write(", ", false, false)
+		}
+	}
+	c.WriteLine(") {", false)
+	generate_code_from_block_expr(c, af.Body)
+	c.WriteLine("}", true)
+	c.NewLine()
 }
 
 type FunctionDef struct {

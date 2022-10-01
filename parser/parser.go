@@ -1034,6 +1034,66 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	return declaration
 }
 
+func (p *Parser) parse_struct_function(name *ast.Identifier) (ast.ProtoNode, bool) {
+	is_public := false
+	start := p.cur
+	if p.cur.Type == lexer.PUB {
+		is_public = true
+		p.consume(p.cur.Type)
+	}
+	fn := p.parse_function_definition()
+
+	is_method := false
+	if len(fn.ParameterList) > 0 {
+		first := fn.ParameterList[0]
+
+		if first.LiteralRepr() == "self" {
+			switch ac := first.Type().(type) {
+			case *ast.Proto_UserDef:
+				if ac.Name.LiteralRepr() == name.LiteralRepr() {
+					// we only allow references to the enclosing Type
+					var msg strings.Builder
+					line := first.Token.TokenSpan.Line
+					col := first.Token.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+					msg.WriteString(fmt.Sprintf("Cannot declare a method for type %s", ac.Name.LiteralRepr()))
+					msg.WriteString(" without a reference to the type.")
+					msg.WriteString(fmt.Sprintf("\n&%s should work as the type.", ac.Name.LiteralRepr()))
+					shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
+				}
+			case *ast.Proto_Reference:
+				if user_def, ok := ac.Inner.(*ast.Proto_UserDef); ok {
+					if user_def.Name.LiteralRepr() == name.LiteralRepr() {
+						is_method = true
+					}
+				}
+			}
+		}
+	}
+
+	if is_method {
+		s_method := &ast.Method{
+			Start:                 start,
+			Name:                  fn.Name,
+			ParameterList:         fn.ParameterList,
+			ReturnType:            fn.ReturnType,
+			Body:                  fn.Body,
+			FunctionTypeSignature: fn.FunctionTypeSignature,
+		}
+		return s_method, is_public
+	} else {
+		assoc_fn := &ast.AssociatedFunction{
+			Start:                 start,
+			Name:                  fn.Name,
+			ParameterList:         fn.ParameterList,
+			ReturnType:            fn.ReturnType,
+			Body:                  fn.Body,
+			FunctionTypeSignature: fn.FunctionTypeSignature,
+		}
+		return assoc_fn, is_public
+	}
+}
+
 func (p *Parser) parse_struct() *ast.Struct {
 	start := p.cur
 	p.consume(p.cur.Type)
@@ -1044,24 +1104,41 @@ func (p *Parser) parse_struct() *ast.Struct {
 
 	var members []*ast.Identifier
 
-	for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_CURLY {
+	for p.cur.Type != lexer.END && p.cur.Type == lexer.IDENT {
 		mem := p.parse_identifier()
 		p.consume(lexer.COLON)
 		mem_type := p.parse_type(false, false)
 		mem.Id_Type = mem_type
 		mem.Mutability = true
 		members = append(members, mem)
-		if p.cur.Type != lexer.CLOSE_CURLY {
+		if p.cur.Type == lexer.COMMA {
 			p.consume(lexer.COMMA)
 		}
 	}
 
-	p.consume(p.cur.Type)
+	// parse built in functions, as both public and private
+	// also allow associated functions.
+	public_fns := []ast.ProtoNode{}
+	private_fns := []ast.ProtoNode{}
+	if p.cur.Type != lexer.CLOSE_CURLY {
+		for p.cur.Type != lexer.END && p.cur.Type != lexer.CLOSE_CURLY {
+			fn, is_public := p.parse_struct_function(struct_name)
+			if is_public {
+				public_fns = append(public_fns, fn)
+			} else {
+				private_fns = append(private_fns, fn)
+			}
+		}
+	}
+
+	p.consume(lexer.CLOSE_CURLY)
 
 	proto_struct := &ast.Struct{
-		Start:   start,
-		Name:    *struct_name,
-		Members: members,
+		Start:       start,
+		Name:        *struct_name,
+		Members:     members,
+		Public_Fns:  public_fns,
+		Private_Fns: private_fns,
 	}
 
 	return proto_struct
@@ -1286,9 +1363,6 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		}
 	}
 	p.consume(lexer.CLOSE_PAREN)
-
-	// check for proper use of variadic type
-	// only last parameter can use variadic type
 
 	var return_type ast.ProtoType = &ast.Proto_Unit{}
 	if p.cur.Type == lexer.ARROW {
