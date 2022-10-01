@@ -1558,6 +1558,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 		Imports:       []*ast.UseStmt{},
 		Modules:       []*ast.Module{},
 		VariableDecls: []*ast.VariableDecl{},
+		Tests:         []*ast.TestStmt{},
 	}
 
 	p.Program = code
@@ -1602,6 +1603,9 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
 			msg.WriteString(" Expressions are not allowed in the global scope of the program.")
 			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
+		case *ast.TestStmt:
+			code.Tests = append(code.Tests, actual)
+			code.Contents = append(code.Contents, actual)
 		default:
 			code.Contents = append(code.Contents, node)
 		}

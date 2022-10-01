@@ -25,6 +25,7 @@ type ProtoProgram struct {
 	Imports       []*UseStmt
 	Modules       []*Module
 	VariableDecls []*VariableDecl
+	Tests         []*TestStmt
 }
 
 type CodeGenerator struct {

@@ -4,6 +4,7 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
 )
 
@@ -90,4 +91,12 @@ func ReportErrorAndExit(component, msg string) {
 func ReportErrorWithPathAndExit(component, file, msg string) {
 	log.Printf("\u001b[31;1m%s Error:\n\u001b[0m %s %s", component, file, msg)
 	os.Exit(0)
+}
+
+func GetNameFromTest(testName string) string {
+	re, err := regexp.Compile(`[^\w]`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	return strings.ReplaceAll(re.ReplaceAllString(testName, " "), " ", "")
 }

@@ -1,7 +1,9 @@
 package cpp_compiler
 
 import (
+	"fmt"
 	"proto/ast"
+	"proto/shared"
 )
 
 type Compiler struct{}
@@ -23,7 +25,37 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 			}
 		}
 
+		// Test setup
+		code_gen.WriteLine("#ifdef PROTO_TESTING", false)
+		code_gen.WriteLine("TestFn tests[] = {", false)
+		for _, test := range prog.Tests {
+			name := shared.GetNameFromTest(test.Name.LiteralRepr())
+			code_gen.IndentThenWriteline(fmt.Sprintf("{ .name = \"%s\", .fn = test_%s, },", name, name))
+		}
+		code_gen.WriteLine("};", false)
+		code_gen.NewLine()
+
+		// Test main
+		code_gen.WriteLine("void test_main() {", false)
+		code_gen.IndentThenWriteline(fmt.Sprintf("for (int i = 0; i < %d; i++) {", len(prog.Tests)))
+		code_gen.IndentThenWriteline("    try {")
+		code_gen.IndentThenWriteline("        TestFn* test = &tests[i];")
+		code_gen.IndentThenWriteline("        std::cout << \"Test \" << i << \" '\" << test->name << \"'...\";")
+		code_gen.IndentThenWriteline("        test->fn();")
+		code_gen.IndentThenWriteline("        std::cout << \"PASSED\" << std::endl;")
+		code_gen.IndentThenWriteline("    } catch(ProtoException ex) {")
+		code_gen.IndentThenWriteline("        std::cout << \"Test error: \" << ex << std::endl;")
+		code_gen.IndentThenWriteline("        std::cout << \"FAILED\" << std::endl;")
+		code_gen.IndentThenWriteline("    }")
+		code_gen.IndentThenWriteline("}")
+		code_gen.WriteLine("}", false)
+		code_gen.WriteLine("#endif", false)
+
+		// Main
 		code_gen.WriteLine("int main() {", false)
+		code_gen.WriteLine("#ifdef PROTO_TESTING", false)
+		code_gen.IndentThenWriteline("test_main();")
+		code_gen.WriteLine("#else", false)
 		if len(prog.Contents) > 0 {
 			if main.ReturnType.TypeSignature() == "bool" {
 				code_gen.IndentThenWriteline("cout << boolalpha << __main() << endl;")
@@ -31,6 +63,7 @@ func (c *Compiler) CompileProgram(prog *ast.ProtoProgram, has_main bool) string 
 				code_gen.IndentThenWriteline("cout << __main() << endl;")
 			}
 		}
+		code_gen.WriteLine("#endif", false)
 		code_gen.IndentThenWriteline("return 0;")
 		code_gen.WriteLine("}", false)
 	}

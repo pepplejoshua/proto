@@ -27,6 +27,7 @@ type ProjectOrganizer struct {
 	Generate               bool
 	show_compile_info      bool
 	cppflags               string
+	testNames              []string
 }
 
 func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, show_compile_info bool) *ProjectOrganizer {
@@ -42,6 +43,7 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, sh
 		Generate:               generate_only,
 		show_compile_info:      show_compile_info,
 		cppflags:               cpp_flags,
+		testNames:              make([]string, 0, 2),
 	}
 }
 

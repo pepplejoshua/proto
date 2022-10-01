@@ -41,3 +41,9 @@ void proto_assertm(bool condition, std::string message) {
         throw ProtoException(message);
     }
 }
+
+// Test fn pointer
+struct TestFn {
+    const char *name;
+    void (*fn)();
+};

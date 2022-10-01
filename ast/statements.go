@@ -2,10 +2,8 @@ package ast
 
 import (
 	"fmt"
-	"log"
 	"proto/lexer"
 	"proto/shared"
-	"regexp"
 	"strings"
 )
 
@@ -839,11 +837,7 @@ func (t *TestStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		c.NewLine()
 	}
 
-	re, err := regexp.Compile(`[^\w]`)
-	if err != nil {
-		log.Fatal(err)
-	}
-	name := strings.ReplaceAll(re.ReplaceAllString(t.Name.LiteralRepr(), " "), " ", "")
+	name := shared.GetNameFromTest(t.Name.LiteralRepr())
 
 	// NOTE: We may want to use a hash or something, instead of the actual name?
 	c.WriteLine("#ifdef PROTO_TESTING", false)
