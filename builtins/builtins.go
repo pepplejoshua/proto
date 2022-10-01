@@ -400,6 +400,10 @@ func Range_End(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
 	return start
 }
 
+func Assert(vals ...runtime.RuntimeObj) runtime.RuntimeObj {
+	return &runtime.Unit{}
+}
+
 func TypeCheckRange(fn *BuiltinFn, call *ast.CallExpression) bool {
 	args := call.Arguments
 
@@ -425,6 +429,71 @@ func TypeCheckRange(fn *BuiltinFn, call *ast.CallExpression) bool {
 		return true
 	} else {
 		fn.Returns = reg.InternalType
+	}
+	return false
+}
+
+func TypeCheckAssert(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+
+	if len(args) != 1 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if boolean, ok := args[0].Type().(*ast.Proto_Builtin); !ok || boolean.TypeSignature() != "bool" {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects an bool as its first argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+	return false
+}
+
+func TypeCheckAssertMessage(fn *BuiltinFn, call *ast.CallExpression) bool {
+	args := call.Arguments
+
+	if len(args) != 2 {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed function expects %d arguments but got called with %d arguments.",
+			fn.LiteralRepr(), len(fn.Params), len(call.Arguments)))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if boolean, ok := args[0].Type().(*ast.Proto_Builtin); !ok || boolean.TypeSignature() != "bool" {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects an bool as its first argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
+	}
+
+	if str, ok := args[1].Type().(*ast.Proto_Builtin); !ok || str.TypeSignature() != "str" {
+		var msg strings.Builder
+		line := call.Start.TokenSpan.Line
+		col := call.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s expects a string as its second argument but got %s.",
+			fn.Name, args[0].Type().TypeSignature()))
+		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		return true
 	}
 	return false
 }
@@ -546,6 +615,22 @@ var Builtins = []*BuiltinFn{
 		Name:           "range_end",
 		HasTypeChecker: true,
 		TypeChecker:    TypeCheckRange,
+	},
+	{
+		Fn:             Assert,
+		Params:         []string{"bool"},
+		Returns:        &ast.Proto_Unit{},
+		Name:           "assert",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckAssert,
+	},
+	{
+		Fn:             Assert,
+		Params:         []string{"bool", "str"},
+		Returns:        &ast.Proto_Unit{},
+		Name:           "assertm",
+		HasTypeChecker: true,
+		TypeChecker:    TypeCheckAssertMessage,
 	},
 }
 
