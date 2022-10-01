@@ -94,6 +94,7 @@ const (
 	LOOP     = "LOOP"
 	IN       = "IN"
 	WHILE    = "WHILE"
+	TEST     = "TEST"
 
 	RANGE_TYPE  = "RANGE_TYPE"
 	STRING_TYPE = "STRING_TYPE"
@@ -129,6 +130,7 @@ var keywords = map[string]TokenType{
 	"mod":      MOD,
 	"cpp":      CPP,
 	"pub":      PUB,
+	"test":     TEST,
 }
 
 func CheckPotentialKeyword(candidate string) TokenType {

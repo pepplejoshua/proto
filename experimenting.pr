@@ -1,0 +1,6 @@
+fn main() {
+}
+
+test "Hello World!" {
+    let a = 1 + 2;
+}

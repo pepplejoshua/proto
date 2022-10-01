@@ -326,6 +326,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveUseStmt(actual)
 	case *ast.ModuleAccess:
 		nr.ResolveModuleAccess(actual)
+	case *ast.TestStmt:
+		nr.ResolveBlockStmt(actual.Body, true)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit, *ast.CppLiteral, *ast.CppInclude:
 		// do nothing

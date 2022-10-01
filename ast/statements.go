@@ -2,8 +2,10 @@ package ast
 
 import (
 	"fmt"
+	"log"
 	"proto/lexer"
 	"proto/shared"
+	"regexp"
 	"strings"
 )
 
@@ -814,4 +816,39 @@ func (i *IfStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			actual.AsCppCode(c, true, true)
 		}
 	}
+}
+
+type TestStmt struct {
+	Start lexer.ProtoToken
+	Name  Expression
+	Body  *BlockStmt
+}
+
+func (t *TestStmt) LiteralRepr() string {
+	var str strings.Builder
+
+	str.WriteString("test ")
+	str.WriteString(t.Name.LiteralRepr() + " ")
+	str.WriteString(t.Body.LiteralRepr())
+
+	return str.String()
+}
+
+func (t *TestStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	if newline {
+		c.NewLine()
+	}
+
+	re, err := regexp.Compile(`[^\w]`)
+	if err != nil {
+		log.Fatal(err)
+	}
+	name := strings.ReplaceAll(re.ReplaceAllString(t.Name.LiteralRepr(), " "), " ", "")
+
+	// NOTE: We may want to use a hash or something, instead of the actual name?
+	c.WriteLine("#ifdef PROTO_TESTING", false)
+	c.Write(fmt.Sprintf("void test_%s() ", name), false, false)
+	t.Body.AsCppCode(c, true, true)
+	c.WriteLine("#endif", false)
+	c.NewLine()
 }

@@ -287,6 +287,20 @@ func (p *Parser) parse_general_if(allow_general_block bool) ast.ProtoNode {
 	}
 }
 
+func (p *Parser) parse_test() ast.ProtoNode {
+	start := p.cur
+	p.consume(p.cur.Type)
+
+	name := p.parse_expr(true)
+	body := p.parse_block_stmt()
+
+	return &ast.TestStmt{
+		Start: start,
+		Name:  name,
+		Body:  body,
+	}
+}
+
 func (p *Parser) parse_if_expr() *ast.IfExpr {
 	start := p.cur
 	p.consume(p.cur.Type)
@@ -1488,6 +1502,8 @@ func (p *Parser) parse_protonode(allow_general_block bool) ast.ProtoNode {
 		node = p.parse_cpp_include()
 	case lexer.MOD:
 		node = p.parse_module()
+	case lexer.TEST:
+		node = p.parse_test()
 	case lexer.OPEN_CURLY:
 		if allow_general_block {
 			node = p.parse_general_block(allow_general_block)

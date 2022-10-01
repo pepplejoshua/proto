@@ -217,6 +217,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckUseStmt(actual)
 	case *ast.ModuleAccess:
 		tc.TypeCheckModuleAccess(actual)
+	case *ast.TestStmt:
+		tc.TypeCheckTest(actual)
 	case *ast.I64, *ast.String, *ast.Char, *ast.Boolean,
 		*ast.Unit, *ast.Break, *ast.Continue, *ast.CppLiteral, *ast.CppInclude:
 		// do nothing
@@ -308,6 +310,19 @@ func (tc *TypeChecker) TypeCheckModuleAccess(access *ast.ModuleAccess) {
 		msg.WriteString(fmt.Sprintf("%s typed %s cannot use access operator(::).", access.Mod.LiteralRepr(), access.Mod.Type().TypeSignature()))
 		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 	}
+}
+
+func (tc *TypeChecker) TypeCheckTest(t *ast.TestStmt) {
+	if t.Name.Type().TypeSignature() != "str" {
+		var msg strings.Builder
+		line := t.Start.TokenSpan.Line
+		col := t.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString("Test name is required to be a string")
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+	}
+
+	tc.TypeCheckBlockStmt(t.Body, true)
 }
 
 func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
