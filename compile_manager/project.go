@@ -400,7 +400,7 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 
 func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, is_main, compile bool) {
 	code := &cpp_compiler.Compiler{}
-	gen_src := code.CompileProgram(prog, compile)
+	gen_src := code.CompileProgram(prog, is_main)
 
 	src_path := shared.Make_src_path(file, is_main)
 	destination, _ := os.Create(src_path)

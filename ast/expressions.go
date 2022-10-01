@@ -545,10 +545,11 @@ func (i *InclusiveRange) Type() ProtoType {
 }
 
 type Membership struct {
-	Start          lexer.ProtoToken
-	Object         Expression
-	Member         Expression
-	MembershipType ProtoType
+	Start              lexer.ProtoToken
+	Object             Expression
+	Member             Expression
+	MembershipType     ProtoType
+	Is_Self_Membership bool
 }
 
 func (m *Membership) LiteralRepr() string {
@@ -567,6 +568,8 @@ func (m *Membership) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		m.Object.AsCppCode(c, false, false)
 		c.Write(")", false, newline)
 		c.AddInclude("<tuple>")
+	} else if m.Is_Self_Membership {
+		m.Member.AsCppCode(c, false, false)
 	} else {
 		m.Object.AsCppCode(c, use_tab, false)
 		c.Write(".", false, false)

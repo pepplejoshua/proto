@@ -172,6 +172,20 @@ func (s *Struct) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.WriteLine("}", true)
 	c.Dedent()
 
+	c.Indent()
+	// write public functions
+	for _, fn := range s.Public_Fns {
+		fn.AsCppCode(c, true, true)
+	}
+	c.Dedent()
+
+	c.WriteLine("  private:", true)
+	c.Indent()
+	for _, fn := range s.Private_Fns {
+		fn.AsCppCode(c, true, true)
+	}
+	c.Dedent()
+	// write private functions
 	c.WriteLine("};", true)
 }
 
@@ -351,9 +365,7 @@ func (m *Method) LiteralRepr() string {
 	}
 
 	repr.WriteString(") -> ")
-	repr.WriteString(m.ReturnType.TypeSignature() + " ")
-	repr.WriteString(m.Body.LiteralRepr())
-
+	repr.WriteString(m.ReturnType.TypeSignature())
 	return repr.String()
 }
 
@@ -378,7 +390,11 @@ func (m *Method) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 			c.Write(", ", false, false)
 		}
 	}
-	c.WriteLine(") {", false)
+	c.Write(") ", false, false)
+	if !m.ParameterList[0].Mutability {
+		c.Write("const", false, false)
+	}
+	c.WriteLine(" {", false)
 	generate_code_from_block_expr(c, m.Body)
 	c.WriteLine("}", true)
 	c.NewLine()
@@ -406,9 +422,7 @@ func (af *AssociatedFunction) LiteralRepr() string {
 	}
 
 	repr.WriteString(") -> ")
-	repr.WriteString(af.ReturnType.TypeSignature() + " ")
-	repr.WriteString(af.Body.LiteralRepr())
-
+	repr.WriteString(af.ReturnType.TypeSignature())
 	return repr.String()
 }
 
@@ -459,9 +473,7 @@ func (fn *FunctionDef) LiteralRepr() string {
 	}
 
 	repr.WriteString(") -> ")
-	repr.WriteString(fn.ReturnType.TypeSignature() + " ")
-
-	repr.WriteString(fn.Body.LiteralRepr())
+	repr.WriteString(fn.ReturnType.TypeSignature())
 
 	return repr.String()
 }

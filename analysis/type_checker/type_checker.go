@@ -18,7 +18,6 @@ type BlockType int
 const (
 	NONE BlockType = iota
 	IF_EXPR
-	STRUCT
 	FUNCTION
 	LOOP
 )
@@ -32,6 +31,9 @@ type TypeChecker struct {
 	FnDefSpan     *lexer.Span
 	CurBlockType  BlockType
 	ImportInfo    map[string]ast.ProtoNode
+	Prog          *ast.ProtoProgram
+	In_Struct     bool
+	CurStructName *ast.Identifier
 }
 
 func NewTypeChecker() *TypeChecker {
@@ -42,6 +44,9 @@ func NewTypeChecker() *TypeChecker {
 		FnDefSpan:     nil,
 		CurBlockType:  NONE,
 		ImportInfo:    map[string]ast.ProtoNode{},
+		Prog:          &ast.ProtoProgram{},
+		In_Struct:     false,
+		CurStructName: &ast.Identifier{},
 	}
 }
 
@@ -53,6 +58,9 @@ func NewTypeCheckerWithImportInfo(info map[string]ast.ProtoNode) *TypeChecker {
 		FnDefSpan:     nil,
 		CurBlockType:  NONE,
 		ImportInfo:    info,
+		Prog:          &ast.ProtoProgram{},
+		In_Struct:     false,
+		CurStructName: &ast.Identifier{},
 	}
 }
 
@@ -93,7 +101,7 @@ func (tc *TypeChecker) GetTypeForNameOrFail(name lexer.ProtoToken) ast.ProtoType
 		col := name.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(name.Literal + " has not been declared.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	return proto_type
@@ -121,6 +129,7 @@ func (tc *TypeChecker) ContainsIdent(ident string) bool {
 }
 
 func (tc *TypeChecker) TypeCheckProgram(prog *ast.ProtoProgram) {
+	tc.Prog = prog
 	tc.EnterTypeEnv()
 
 	for _, s := range prog.Structs {
@@ -221,7 +230,6 @@ func (tc *TypeChecker) TypeCheckModuleAccess(access *ast.ModuleAccess) {
 	tc.TypeCheck(access.Mod)
 
 	mem := access.Member
-
 	switch ac := access.Mod.Type().(type) {
 	case *ast.Proto_Module:
 		mod := ac.Mod
@@ -247,6 +255,58 @@ func (tc *TypeChecker) TypeCheckModuleAccess(access *ast.ModuleAccess) {
 				return
 			}
 		}
+	case *ast.Proto_UserDef:
+		str := ac.Definition
+		// can only call associated functions with struct name
+		if str.Name.LiteralRepr() != access.Mod.LiteralRepr() {
+			var msg strings.Builder
+			line := access.Start.TokenSpan.Line
+			col := access.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("'%s' is not a struct, but has a struct type.", access.Mod.LiteralRepr()))
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+		}
+		for _, fn := range str.Public_Fns {
+			if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+				if assoc.Name.LiteralRepr() == mem.LiteralRepr() {
+					access.MemberType = assoc.FunctionTypeSignature
+					return
+				}
+			}
+		}
+
+		for _, fn := range str.Private_Fns {
+			if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+				if assoc.Name.LiteralRepr() == mem.LiteralRepr() {
+					if tc.In_Struct &&
+						tc.CurStructName.LiteralRepr() == access.Mod.LiteralRepr() {
+						access.MemberType = assoc.FunctionTypeSignature
+						return
+					} else {
+						var msg strings.Builder
+						line := access.Start.TokenSpan.Line
+						col := access.Start.TokenSpan.Col
+						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+						msg.WriteString(fmt.Sprintf("'%s' is a private associated function.", assoc.LiteralRepr()))
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+					}
+				}
+			}
+		}
+		var msg strings.Builder
+		line := access.Start.TokenSpan.Line
+		col := access.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("Unable to find associated function named %s in the %s struct.",
+			mem.LiteralRepr(), str.Name.LiteralRepr()))
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+	default:
+		var msg strings.Builder
+		line := access.Start.TokenSpan.Line
+		col := access.Start.TokenSpan.Col
+		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+		msg.WriteString(fmt.Sprintf("%s typed %s cannot use access operator(::).", access.Mod.LiteralRepr(), access.Mod.Type().TypeSignature()))
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 	}
 }
 
@@ -361,7 +421,7 @@ func (tc *TypeChecker) TypeCheckDeref(deref *ast.Dereference) {
 		col := deref.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("Attempted to dereference a non-reference of type %s.", deref.Value.Type().TypeSignature()))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	} else {
 		deref.DerefType = ref.Inner
@@ -378,7 +438,7 @@ func (tc *TypeChecker) TypeCheckRef(ref *ast.Reference) {
 		col := ref.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("A reference to a reference is not allowed.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	ref.RefType.Inner = ref.Value.Type()
@@ -396,7 +456,7 @@ func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
 			msg.WriteString(fmt.Sprintf("return value \"%s\" has type %s does not match function return type, which is %s.",
 				ret.Value.LiteralRepr(), ret.Value.Type().TypeSignature(),
 				tc.CurReturnType.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	} else {
@@ -408,7 +468,7 @@ func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("returning () does not match function return type, which is %s.",
 				tc.CurReturnType.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	}
@@ -435,7 +495,7 @@ func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expressio
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Expected argument '%s' to be mutable.",
 				ac.LiteralRepr()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	case *ast.Membership:
@@ -465,22 +525,40 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Function:
-		// check the arguments
-		if len(call.Arguments) != len(actual.Params.InternalTypes) {
-			var msg strings.Builder
-			line := call.Start.TokenSpan.Line
-			col := call.Start.TokenSpan.Col
-			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-			msg.WriteString(fmt.Sprintf("%s expects %d arguments but got called with %d arguments.",
-				actual.TypeSignature(), len(actual.Params.InternalTypes), len(call.Arguments)))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
-			tc.FoundError = true
-			return
+		if actual.Is_Method {
+			if len(call.Arguments) != (len(actual.Fn.ParameterList) - 1) {
+				var msg strings.Builder
+				line := call.Start.TokenSpan.Line
+				col := call.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("method %s expects %d arguments but got called with %d arguments.",
+					actual.Fn.LiteralRepr(), len(actual.Params.InternalTypes)-1, len(call.Arguments)))
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				return
+			}
+		} else {
+			if len(call.Arguments) != len(actual.Params.InternalTypes) {
+				var msg strings.Builder
+				line := call.Start.TokenSpan.Line
+				col := call.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("%s expects %d arguments but got called with %d arguments.",
+					actual.Fn.LiteralRepr(), len(actual.Params.InternalTypes), len(call.Arguments)))
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				tc.FoundError = true
+				return
+			}
 		}
-
+		// check the arguments
 		for index, arg := range call.Arguments {
 			tc.TypeCheck(arg)
-			param := actual.Fn.ParameterList[index]
+			var param *ast.Identifier
+			if actual.Is_Method {
+				param = actual.Fn.ParameterList[index+1]
+			} else {
+				param = actual.Fn.ParameterList[index]
+
+			}
 			span := call.Start.TokenSpan
 			tc.VerifyMutability(param, arg, span)
 			param_type := actual.Params.InternalTypes[index]
@@ -492,7 +570,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(fmt.Sprintf("Expected parameter %d to be typed %s but got argument of type %s.",
 					index+1, param_type.TypeSignature(), arg.Type().TypeSignature()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				return
 			}
@@ -504,7 +582,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 		col := call.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("%s type cannot be called.", actual.TypeSignature()))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -520,7 +598,7 @@ func (tc *TypeChecker) VerifyType(ptype ast.ProtoType, span lexer.Span) {
 			col := span.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Type '%s' is not defined.", ac.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		}
 	case *ast.Proto_Array:
 		tc.VerifyType(ac.InternalType, span)
@@ -608,25 +686,71 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 	case *ast.Proto_UserDef:
 		switch ref := member.(type) {
 		case *ast.Identifier:
-			found := false
 			fetched := tc.GetTypeForNameOrFail(actual.Name.Token).(*ast.Proto_UserDef)
-			for _, actual_mem := range fetched.Definition.Members {
-				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
-					mem.MembershipType = actual_mem.Type()
-					found = true
-					return
-				}
-			}
-			if !found {
+			if fetched.Name.LiteralRepr() == ref.LiteralRepr() {
+				println(fetched.Name.LiteralRepr(), actual.Name.LiteralRepr())
+				// can't allow membership with using name of Struct directly
 				var msg strings.Builder
 				line := mem.Start.TokenSpan.Line
 				col := mem.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("%s is not a member of %s Struct.",
-					ref.LiteralRepr(), actual.Name.LiteralRepr()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
-				tc.FoundError = true
+				msg.WriteString("Accessing methods using the name of the struct is not allowed.")
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			}
+			for _, actual_mem := range fetched.Definition.Members {
+				if ref.LiteralRepr() == actual_mem.LiteralRepr() {
+					mem.MembershipType = actual_mem.Type()
+					return
+				}
+			}
+
+			for _, fn := range fetched.Definition.Public_Fns {
+				if method, ok := fn.(*ast.Method); ok {
+					if method.Name.LiteralRepr() == ref.LiteralRepr() {
+						mem.MembershipType = method.FunctionTypeSignature
+						return
+					}
+				}
+				if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+					if assoc.Name.LiteralRepr() == ref.LiteralRepr() {
+						mem.MembershipType = assoc.FunctionTypeSignature
+						return
+					}
+				}
+			}
+
+			for _, fn := range fetched.Definition.Private_Fns {
+				if method, ok := fn.(*ast.Method); ok {
+					if method.Name.LiteralRepr() == ref.LiteralRepr() {
+						var msg strings.Builder
+						line := mem.Start.TokenSpan.Line
+						col := mem.Start.TokenSpan.Col
+						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+						msg.WriteString(fmt.Sprintf("%s is a private member of the %s Struct.",
+							ref.LiteralRepr(), actual.Name.LiteralRepr()))
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+					}
+				}
+				if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+					if assoc.Name.LiteralRepr() == ref.LiteralRepr() {
+						var msg strings.Builder
+						line := mem.Start.TokenSpan.Line
+						col := mem.Start.TokenSpan.Col
+						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+						msg.WriteString(fmt.Sprintf("%s is private associated method of the %s Struct.",
+							ref.LiteralRepr(), actual.Name.LiteralRepr()))
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+					}
+				}
+			}
+
+			var msg strings.Builder
+			line := mem.Start.TokenSpan.Line
+			col := mem.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("%s is not a member, associated function or method of the %s Struct.",
+				ref.LiteralRepr(), actual.Name.LiteralRepr()))
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		default:
 			var msg strings.Builder
 			line := mem.Start.TokenSpan.Line
@@ -634,7 +758,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Expected an identifier to access member of Struct but got %s, which is of type %s.",
 				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	case *ast.Proto_Tuple:
@@ -649,7 +773,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(fmt.Sprintf("Tuple has %d item (indexed from 0 to %d), so provided index (%d) is out of range.",
 					tup_len, tup_len-1, num))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 			}
 			mem.MembershipType = actual.InternalTypes[num]
@@ -660,7 +784,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Expected an i64 to access slot in Tuple but got %s, which is of type %s.",
 				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	case *ast.Proto_Reference:
@@ -668,25 +792,82 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		case *ast.Proto_UserDef:
 			switch ref := member.(type) {
 			case *ast.Identifier:
-				found := false
 				fetched := tc.GetTypeForNameOrFail(actual.Name.Token).(*ast.Proto_UserDef)
 				for _, actual_mem := range fetched.Definition.Members {
 					if ref.LiteralRepr() == actual_mem.LiteralRepr() {
+						if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+							actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+							mem.Is_Self_Membership = true
+						}
 						mem.MembershipType = actual_mem.Type()
-						found = true
 						return
 					}
 				}
-				if !found {
-					var msg strings.Builder
-					line := mem.Start.TokenSpan.Line
-					col := mem.Start.TokenSpan.Col
-					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-					msg.WriteString(fmt.Sprintf("%s is not a member of %s Struct.",
-						ref.LiteralRepr(), actual.Name.LiteralRepr()))
-					shared.ReportErrorAndExit("TypeChecker", msg.String())
-					tc.FoundError = true
+				for _, fn := range fetched.Definition.Public_Fns {
+					if method, ok := fn.(*ast.Method); ok {
+						if method.Name.LiteralRepr() == ref.LiteralRepr() {
+							mem.MembershipType = method.FunctionTypeSignature
+							return
+						}
+					}
+					if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+						if assoc.Name.LiteralRepr() == ref.LiteralRepr() &&
+							tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+							actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+							mem.Is_Self_Membership = true
+							mem.MembershipType = assoc.FunctionTypeSignature
+							return
+						}
+					}
 				}
+
+				for _, fn := range fetched.Definition.Private_Fns {
+					if method, ok := fn.(*ast.Method); ok {
+						if method.Name.LiteralRepr() == ref.LiteralRepr() {
+							if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+								actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+								mem.Is_Self_Membership = true
+								mem.MembershipType = method.FunctionTypeSignature
+								return
+							} else {
+								var msg strings.Builder
+								line := mem.Start.TokenSpan.Line
+								col := mem.Start.TokenSpan.Col
+								msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+								msg.WriteString(fmt.Sprintf("%s is a private member of the %s Struct.",
+									ref.LiteralRepr(), actual.Name.LiteralRepr()))
+								shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+							}
+						}
+					}
+					if assoc, ok := fn.(*ast.AssociatedFunction); ok {
+						if assoc.Name.LiteralRepr() == ref.LiteralRepr() {
+							if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+								actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+								mem.Is_Self_Membership = true
+								mem.MembershipType = assoc.FunctionTypeSignature
+								return
+							} else {
+								var msg strings.Builder
+								line := mem.Start.TokenSpan.Line
+								col := mem.Start.TokenSpan.Col
+								msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+								msg.WriteString(fmt.Sprintf("%s is private associated method of the %s Struct.",
+									ref.LiteralRepr(), actual.Name.LiteralRepr()))
+								shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+							}
+						}
+					}
+				}
+
+				var msg strings.Builder
+				line := mem.Start.TokenSpan.Line
+				col := mem.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+				msg.WriteString(fmt.Sprintf("%s is not a member, associated function or method of %s Struct.",
+					ref.LiteralRepr(), actual.Name.LiteralRepr()))
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				tc.FoundError = true
 			default:
 				var msg strings.Builder
 				line := mem.Start.TokenSpan.Line
@@ -694,7 +875,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(fmt.Sprintf("Expected an identifier to access member of Struct but got %s, which is of type %s.",
 					mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 			}
 		default:
@@ -704,7 +885,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Expected a reference to a Struct type as target for membership operation but got %s, which is of type %s.",
 				mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	default:
@@ -714,7 +895,7 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("Expected a Struct type as target for membership operation but got %s, which is of type %s.",
 			mem.Object.LiteralRepr(), mem.Object.Type().TypeSignature()))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 }
@@ -739,7 +920,7 @@ func (tc *TypeChecker) TypeCheckStructInit(i *ast.StructInitialization) {
 						msg.WriteString(fmt.Sprintf("%s.%s is defined as %s type but was initialized with value of type %s.",
 							i.StructName.LiteralRepr(), mem.LiteralRepr(), mem.Id_Type.TypeSignature(),
 							expr.Type().TypeSignature()))
-						shared.ReportErrorAndExit("TypeChecker", msg.String())
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 						tc.FoundError = true
 					}
 
@@ -757,7 +938,10 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 
 	prev := tc.CurBlockType
 	tc.EnterTypeEnv()
-	tc.CurBlockType = STRUCT
+	prevStructName := tc.CurStructName
+	tc.CurStructName = &s.Name
+	prevInStruct := tc.In_Struct
+	tc.In_Struct = true
 	for _, mem := range s.Members {
 		switch actual := mem.Id_Type.(type) {
 		case *ast.Proto_UserDef:
@@ -807,8 +991,19 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 			tc.TypeCheckMethod(ac)
 		}
 	}
+
+	for _, fn := range s.Public_Fns {
+		switch ac := fn.(type) {
+		case *ast.AssociatedFunction:
+			tc.TypeCheckAssociatedFunction(ac)
+		case *ast.Method:
+			tc.TypeCheckMethod(ac)
+		}
+	}
 	tc.CurBlockType = prev
 	tc.ExitTypeEnv()
+	tc.In_Struct = prevInStruct
+	tc.CurStructName = prevStructName
 }
 
 func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
@@ -839,7 +1034,7 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s but was assigned value of type %s.",
 					target.LiteralRepr(), target.Type().TypeSignature(), assigned.Type().TypeSignature()))
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				return
 			}
@@ -852,7 +1047,7 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("The target of the assignment %s is typed %s but was assigned value of type %s.",
 				target.LiteralRepr(), target.Type().TypeSignature(), assigned.Type().TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			return
 		}
@@ -880,7 +1075,7 @@ func (tc *TypeChecker) TypeCheckAssignment(assign *ast.Assignment) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("The assigned value %s is typed %s and cannot use the %s operator with a target of type %s.",
 				assigned.LiteralRepr(), assigned.Type().TypeSignature(), assign.AssignmentToken.Literal, target.Type().TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			return
 		}
@@ -899,7 +1094,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 			col := index.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("Arrays take index of type i64, got " + index.Indexable.Type().TypeSignature() + " instead.")
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			return
 		}
@@ -918,7 +1113,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 		col := index.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Indexing a Tuple is not allowed. Use membership indexing instead (e.g tuple.0).")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	case *ast.Proto_Range:
@@ -927,7 +1122,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 		col := index.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Indexing a Range is not allowed.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	case *ast.Proto_Builtin:
@@ -940,7 +1135,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 				col := index.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Arrays take index of type i64, got " + index.Indexable.Type().TypeSignature() + " instead.")
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				return
 			}
@@ -957,7 +1152,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 			col := index.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Indexing is not allowed for the %s type.", actual.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			return
 		}
@@ -967,7 +1162,7 @@ func (tc *TypeChecker) TypeCheckIndexExpression(index *ast.IndexExpression) {
 		col := index.Start.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("Indexing is not allowed for the %s type.", actual.TypeSignature()))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -985,7 +1180,7 @@ func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
 		msg.WriteString(ir.Start.Type().TypeSignature() + " type as start value of range.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 
@@ -997,7 +1192,7 @@ func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
 		msg.WriteString(ir.Start.Type().TypeSignature() + " type as past end value of range.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1010,7 +1205,7 @@ func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
 		past_end := ir.End.Type().TypeSignature()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Expected both types in Range to be the same, but got " + start + ".." + past_end + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1023,7 +1218,7 @@ func (tc *TypeChecker) TypeCheckInclusiveRange(ir *ast.InclusiveRange) {
 		past_end := ir.End.LiteralRepr()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Expected non-empty character, but got " + start + ".." + past_end + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1044,7 +1239,7 @@ func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
 		msg.WriteString(r.Start.Type().TypeSignature() + " type as start value of range.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 
@@ -1056,7 +1251,7 @@ func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Ranges can only include I64 type or CHAR type, but got ")
 		msg.WriteString(r.Start.Type().TypeSignature() + " type as past end value of range.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1069,7 +1264,7 @@ func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
 		past_end := r.PastEnd.Type().TypeSignature()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Expected both types in Range to be the same, but got " + start + ".." + past_end + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1082,7 +1277,7 @@ func (tc *TypeChecker) TypeCheckRange(r *ast.Range) {
 		past_end := r.PastEnd.LiteralRepr()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Expected non-empty character, but got " + start + ".." + past_end + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1124,7 +1319,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 			col := col_for.Start.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("Collections looping through a '%s' is not allowed.", actual.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			return
 		}
@@ -1143,7 +1338,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Collections looping through a Tuple is not allowed ")
 		msg.WriteString("as types may not be consistent. Try an array if types are consistent.")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	default:
@@ -1154,7 +1349,7 @@ func (tc *TypeChecker) TypeCheckCollectionsFor(col_for *ast.CollectionsForLoop) 
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("Collections looping through a %s is not allowed. ", type_))
 		msg.WriteString("Only arrays and ranges are allowed (for now).")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 		return
 	}
@@ -1171,7 +1366,7 @@ func (tc *TypeChecker) TypeCheckGenericFor(loop *ast.GenericForLoop) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Loop Condition for while loop should be of type boolean")
 		msg.WriteString(" but got " + loop.LoopCondition.Type().TypeSignature() + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	tc.TypeCheck(loop.Update)
@@ -1199,7 +1394,7 @@ func (tc *TypeChecker) TypeCheckWhileLoop(loop *ast.WhileLoop) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Loop Condition for while loop should be of type boolean")
 		msg.WriteString(" but got " + loop.LoopCondition.Type().TypeSignature() + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	prev := tc.CurBlockType
@@ -1218,7 +1413,7 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfExpr) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Condition for If expression should be of type boolean")
 		msg.WriteString(" but got " + cond.Condition.Type().TypeSignature() + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 
@@ -1246,7 +1441,7 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfExpr) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Then expression block is typed " + then + " and Else block is typed " + else_ + ". ")
 				msg.WriteString("Please fix inconsistent types.")
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				return
 			}
@@ -1261,7 +1456,7 @@ func (tc *TypeChecker) TypeCheckIfExpr(cond *ast.IfExpr) {
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("If block is typed " + then + " and Else block is typed " + else_ + ". ")
 				msg.WriteString("Please fix inconsistent types.")
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				return
 			}
@@ -1280,7 +1475,7 @@ func (tc *TypeChecker) TypeCheckIfStmt(cond *ast.IfStmt) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Condition for If expression should be of type boolean")
 		msg.WriteString(" but got " + cond.Condition.Type().TypeSignature() + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 
@@ -1340,7 +1535,7 @@ Loop:
 				col := uop.Operator.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Unexpected return type: " + returns)
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				break Loop
 			}
@@ -1358,7 +1553,7 @@ Loop:
 		op := uop.Operator.Literal
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("%s %s is not an allowed unary expression.", op, oprator))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 }
@@ -1431,7 +1626,7 @@ Loop:
 				col := binop.Operator.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString("Unexpected return type: " + returns)
-				shared.ReportErrorAndExit("TypeChecker", msg.String())
+				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 				tc.FoundError = true
 				break Loop
 			}
@@ -1450,7 +1645,7 @@ Loop:
 		op := binop.Operator.Literal
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("%s %s %s is not an allowed binary expression.", left, op, right))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 }
@@ -1484,7 +1679,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 						msg.WriteString(fmt.Sprintf("implicit return type %s does not match function return type, which is %s.",
 							actual.Type().TypeSignature(), tc.CurReturnType.TypeSignature()))
-						shared.ReportErrorAndExit("TypeChecker", msg.String())
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 						tc.FoundError = true
 					}
 				}
@@ -1502,7 +1697,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 						msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 						msg.WriteString(fmt.Sprintf("implicit return type () does not match function return type, which is %s.",
 							tc.CurReturnType.TypeSignature()))
-						shared.ReportErrorAndExit("TypeChecker", msg.String())
+						shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 						tc.FoundError = true
 					}
 				}
@@ -1518,7 +1713,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(fmt.Sprintf("implicit return type %s does not match function return type, which is %s.",
 			block_type.TypeSignature(), tc.CurReturnType.TypeSignature()))
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	block.BlockType = block_type
@@ -1551,7 +1746,7 @@ func (tc *TypeChecker) TypeCheckBlockStmt(block *ast.BlockStmt, new_env bool) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString(fmt.Sprintf("implicit return type () does not match function return type, which is %s.",
 				tc.CurReturnType.TypeSignature()))
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 		}
 	}
@@ -1571,7 +1766,7 @@ func (tc *TypeChecker) TypeCheckTuple(tuple *ast.Tuple) {
 			col := tuple.Token.TokenSpan.Col
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("assigned tuple has more items than annotated type.")
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			break
 		} else {
@@ -1604,7 +1799,7 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 			msg.WriteString("array should only contain " + expected + " type ")
 			msg.WriteString("but included value of type " + actual + ".")
-			shared.ReportErrorAndExit("TypeChecker", msg.String())
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 			tc.FoundError = true
 			break
 		}
@@ -1619,7 +1814,7 @@ func (tc *TypeChecker) TypeCheckArray(arr *ast.Array) {
 		col := arr.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("empty array cannot be type checked. Consider annotating with [_type_;]")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	}
 	arr.ArrayType = arr_type
@@ -1632,7 +1827,7 @@ func (tc *TypeChecker) TypeCheckIdentifier(ident *ast.Identifier) {
 		col := ident.Token.TokenSpan.Col
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString("Undefined identifier '" + ident.LiteralRepr() + "'")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 		tc.FoundError = true
 	} else {
 		ident.Id_Type = tc.GetTypeForNameOrFail(ident.Token)
@@ -1659,7 +1854,7 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 		actual := var_def.Assigned.Type().TypeSignature()
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(literal + " is not annotated and cannot infer type for " + actual + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 	}
 
 	if var_def.VarType.TypeSignature() != var_def.Assigned.Type().TypeSignature() {
@@ -1672,7 +1867,7 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 		msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 		msg.WriteString(literal + " is annotated as " + expected + " type ")
 		msg.WriteString("but is assigned value of type " + actual + ".")
-		shared.ReportErrorAndExit("TypeChecker", msg.String())
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
 	}
 
 	tc.SetTypeForName(var_def.Assignee.Token, var_def.VarType)

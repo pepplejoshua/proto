@@ -562,10 +562,11 @@ func (p *Parser) parse_call_expression(skip_struct_expr bool) ast.Expression {
 				member := p.parse_primary(true)
 
 				call = &ast.Membership{
-					Start:          start,
-					Object:         call,
-					Member:         member,
-					MembershipType: &ast.Proto_Untyped{},
+					Start:              start,
+					Object:             call,
+					Member:             member,
+					MembershipType:     &ast.Proto_Untyped{},
+					Is_Self_Membership: false,
 				}
 			} else {
 				var msg strings.Builder
@@ -1080,6 +1081,7 @@ func (p *Parser) parse_struct_function(name *ast.Identifier) (ast.ProtoNode, boo
 			Body:                  fn.Body,
 			FunctionTypeSignature: fn.FunctionTypeSignature,
 		}
+		s_method.FunctionTypeSignature.Is_Method = true
 		return s_method, is_public
 	} else {
 		assoc_fn := &ast.AssociatedFunction{
@@ -1090,6 +1092,7 @@ func (p *Parser) parse_struct_function(name *ast.Identifier) (ast.ProtoNode, boo
 			Body:                  fn.Body,
 			FunctionTypeSignature: fn.FunctionTypeSignature,
 		}
+		assoc_fn.FunctionTypeSignature.Is_Method = false
 		return assoc_fn, is_public
 	}
 }
@@ -1387,9 +1390,10 @@ func (p *Parser) parse_function_definition() *ast.FunctionDef {
 		type_params.InternalTypes = append(type_params.InternalTypes, param.Id_Type)
 	}
 	function_type_sig := &ast.Proto_Function{
-		Params: type_params,
-		Return: return_type,
-		Fn:     fn_def,
+		Params:    type_params,
+		Return:    return_type,
+		Fn:        fn_def,
+		Is_Method: false,
 	}
 	fn_def.FunctionTypeSignature = function_type_sig
 

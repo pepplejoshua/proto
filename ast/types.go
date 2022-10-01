@@ -150,9 +150,10 @@ func (u *Proto_Unit) CppTypeSignature() string {
 }
 
 type Proto_Function struct {
-	Params *Proto_Tuple
-	Return ProtoType
-	Fn     *FunctionDef
+	Params    *Proto_Tuple
+	Return    ProtoType
+	Fn        *FunctionDef
+	Is_Method bool
 }
 
 func (f *Proto_Function) TypeSignature() string {
