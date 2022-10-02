@@ -33,6 +33,12 @@ fn to_i64(cand: str) -> i64 {
     return in_i64;
 }
 
+fn from_i64(cand: i64) -> str {
+    mut as_str = "";
+    cpp { as_str = to_string(cand); }
+    as_str
+}
+
 fn wrap_in_red(content: str) -> str {
     "\u001b[31m" + content +  "\u001b[0m"
 }

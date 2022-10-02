@@ -345,7 +345,7 @@ func (l *Lexer) Next_Token() ProtoToken {
 			token = l.read_number()
 		} else {
 			l.next_char()
-			token = l.make_token(ERROR, fmt.Sprintf("Unknown character: '%b'.", cur_char))
+			token = l.make_token(ERROR, string(cur_char))
 		}
 	}
 

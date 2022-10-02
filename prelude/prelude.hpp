@@ -1,7 +1,8 @@
 #pragma once
 #include <iostream>
-
+#include <string>
 using std::ostream;
+using std::string;
 struct Proto_Unit {
     friend ostream& operator<<(ostream& out, const Proto_Unit& unit) {
         out << "()";
@@ -11,11 +12,10 @@ struct Proto_Unit {
 
 // Custom exception, we don't really need to inherit from exception
 // This can be changed later
-class ProtoException
-{
+class ProtoException {
 public:
-    ProtoException(std::string message) : m_message(message) {}
-    const std::string what() const { return m_message; }
+    ProtoException(string message) : m_message(message) {}
+    const string what() const { return m_message; }
 
     friend ostream& operator<<(ostream& out, const ProtoException& ex) {
         out << ex.what();
@@ -25,7 +25,7 @@ public:
 private:
     // Note: A string will require a heap allocation, but few exceptions 
     //       should be thrown anyway.
-    std::string m_message;
+    string m_message;
 };
 
 // Assert
@@ -36,7 +36,7 @@ void proto_assert(bool condition) {
 }
 
 // Assert with a message
-void proto_assertm(bool condition, std::string message) {
+void proto_assertm(bool condition, string message) {
     if (!condition) {
         throw ProtoException(message);
     }
@@ -44,6 +44,6 @@ void proto_assertm(bool condition, std::string message) {
 
 // Test fn pointer
 struct TestFn {
-    const char *name;
+    const char* name;
     void (*fn)();
 };

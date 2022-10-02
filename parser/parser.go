@@ -61,7 +61,7 @@ func New(dir, file, src string) *Parser {
 		if token.Type == lexer.ERROR {
 			// lexer error
 			var msg strings.Builder
-			msg.WriteString(fmt.Sprintf("%d:%d ", token.TokenSpan.Line, token.TokenSpan.Col))
+			msg.WriteString(fmt.Sprintf("%d:%d Unexpected character: ", token.TokenSpan.Line, token.TokenSpan.Col))
 			msg.WriteString(token.Literal)
 			shared.ReportErrorWithPathAndExit("Lexer", file, msg.String())
 		}

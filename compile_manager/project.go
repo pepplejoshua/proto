@@ -26,11 +26,12 @@ type ProjectOrganizer struct {
 	CleanSrc               bool
 	Generate               bool
 	show_compile_info      bool
+	testing                bool
 	cppflags               string
 	testNames              []string
 }
 
-func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, show_compile_info bool) *ProjectOrganizer {
+func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, show_compile_info bool, testing bool) *ProjectOrganizer {
 	abs, _ := filepath.Abs(file)
 	return &ProjectOrganizer{
 		startfile:              abs,
@@ -42,6 +43,7 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, sh
 		CleanSrc:               clean_src,
 		Generate:               generate_only,
 		show_compile_info:      show_compile_info,
+		testing:                testing,
 		cppflags:               cpp_flags,
 		testNames:              make([]string, 0, 2),
 	}
@@ -472,7 +474,12 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 }
 
 func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
-	compile_cmd := exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags)
+	var compile_cmd *exec.Cmd
+	if po.testing {
+		compile_cmd = exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags, "-DPROTO_TESTING")
+	} else {
+		compile_cmd = exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags)
+	}
 	stderr, err := compile_cmd.StderrPipe()
 	if err != nil {
 		shared.ReportErrorAndExit("ProjectOrganizer", err.Error())
@@ -556,7 +563,8 @@ func (po *ProjectOrganizer) get_file_and_resolvables(dir string, path *ast.Path)
 	if err != nil {
 		shared.ReportErrorWithPathAndExit("ProjectOrganizer", path.UseSrcLoc, err.Error())
 	}
-	lib_path := filepath.Dir(exe)
+	// lib_path := filepath.Dir(exe)
+	lib_path := filepath.Join(filepath.Dir(exe), "core")
 	main_path := dir
 	file_end := -1
 	pieces := []ast.UsePath{}
@@ -570,6 +578,7 @@ loop:
 
 			lib_path = filepath.Join(lib_path, actual.String())
 			main_path = filepath.Join(main_path, actual.String())
+			// core_path = filepath.Join(core_path, actual.String())
 
 			res := po.find_file_or_dir(lib_path)
 			switch res {

@@ -3,7 +3,6 @@ package type_checker
 import (
 	"fmt"
 	"proto/ast"
-	"proto/builtins"
 	"proto/lexer"
 	"proto/shared"
 	"strconv"
@@ -489,16 +488,16 @@ func (tc *TypeChecker) TypeCheckReturn(ret *ast.Return) {
 	}
 }
 
-func (tc *TypeChecker) TypeCheckBuiltinFunction(call *ast.CallExpression, builtin *builtins.BuiltinFn) {
-	for _, arg := range call.Arguments {
-		tc.TypeCheck(arg)
-	}
+// func (tc *TypeChecker) TypeCheckBuiltinFunction(call *ast.CallExpression, builtin *builtins.BuiltinFn) {
+// 	for _, arg := range call.Arguments {
+// 		tc.TypeCheck(arg)
+// 	}
 
-	// if lengths of call expr doesnt match with builtin
-	if builtin.HasTypeChecker {
-		tc.FoundError = builtin.TypeChecker(builtin, call)
-	}
-}
+// 	// if lengths of call expr doesnt match with builtin
+// 	if builtin.HasTypeChecker {
+// 		tc.FoundError = builtin.TypeChecker(builtin, call)
+// 	}
+// }
 
 func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expression, span lexer.Span) {
 	switch ac := arg.(type) {
@@ -529,14 +528,14 @@ func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expressio
 }
 
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
-	if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
-		tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
-		builtin := builtins.GetBuiltin(name.LiteralRepr())
-		call.ReturnType = builtin.Returns
-		return
-	} else {
-		tc.TypeCheck(call.Callable)
-	}
+	// if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
+	// 	tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
+	// 	builtin := builtins.GetBuiltin(name.LiteralRepr())
+	// 	call.ReturnType = builtin.Returns
+	// 	return
+	// } else {
+	tc.TypeCheck(call.Callable)
+	// }
 
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Function:
