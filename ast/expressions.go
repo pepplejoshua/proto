@@ -520,10 +520,26 @@ func (r *Range) LiteralRepr() string {
 }
 
 func (r *Range) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	if newline {
-		c.WriteLine(r.LiteralRepr(), use_tab)
+	exe, err := os.Executable()
+	if err != nil {
+		shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+	}
+	proto_loc := filepath.Dir(exe)
+	prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+	c.AddInclude("\"" + prelude + "\"")
+	c.Write(r.RangeType.CppTypeSignature(), use_tab, false)
+	c.Write("(vector<"+r.RangeType.InternalType.CppTypeSignature()+">{", false, false)
+	r.Start.AsCppCode(c, false, false)
+	c.Write(", ", false, false)
+	r.PastEnd.AsCppCode(c, false, false)
+	c.Write("}, ", false, false)
+	if r.RangeType.InternalType.TypeSignature() == "char" {
+		c.Write("true)", false, false)
 	} else {
-		c.Write(r.LiteralRepr(), use_tab, false)
+		c.Write("false)", false, false)
+	}
+	if newline {
+		c.WriteLine("", use_tab)
 	}
 }
 
@@ -543,10 +559,26 @@ func (i *InclusiveRange) LiteralRepr() string {
 }
 
 func (i *InclusiveRange) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	if newline {
-		c.WriteLine(i.LiteralRepr(), use_tab)
+	exe, err := os.Executable()
+	if err != nil {
+		shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+	}
+	proto_loc := filepath.Dir(exe)
+	prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+	c.AddInclude("\"" + prelude + "\"")
+	c.Write(i.RangeType.CppTypeSignature(), use_tab, false)
+	c.Write("(vector<"+i.RangeType.InternalType.CppTypeSignature()+">{", false, false)
+	i.Start.AsCppCode(c, false, false)
+	c.Write(", ", false, false)
+	i.End.AsCppCode(c, false, false)
+	c.Write("}, ", false, false)
+	if i.RangeType.InternalType.TypeSignature() == "char" {
+		c.Write("true)", false, false)
 	} else {
-		c.Write(i.LiteralRepr(), use_tab, false)
+		c.Write("false)", false, false)
+	}
+	if newline {
+		c.WriteLine("", use_tab)
 	}
 }
 

@@ -134,9 +134,9 @@ func (r *Proto_Range) TypeSignature() string {
 
 func (r *Proto_Range) CppTypeSignature() string {
 	if r.IsInclusiveRange {
-		return "IRange"
+		return "IRange<" + r.InternalType.CppTypeSignature() + ">"
 	}
-	return "Range"
+	return "Range<" + r.InternalType.CppTypeSignature() + ">"
 }
 
 type Proto_Unit struct{}
