@@ -528,14 +528,7 @@ func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expressio
 }
 
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
-	// if name, ok := call.Callable.(*ast.Identifier); ok && builtins.IsBuiltin(name.LiteralRepr()) {
-	// 	tc.TypeCheckBuiltinFunction(call, builtins.GetBuiltin(name.LiteralRepr()))
-	// 	builtin := builtins.GetBuiltin(name.LiteralRepr())
-	// 	call.ReturnType = builtin.Returns
-	// 	return
-	// } else {
 	tc.TypeCheck(call.Callable)
-	// }
 
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Function:
@@ -567,17 +560,18 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 		for index, arg := range call.Arguments {
 			tc.TypeCheck(arg)
 			var param *ast.Identifier
+			var param_type ast.ProtoType
 			if actual.Is_Method {
 				param = actual.Fn.ParameterList[index+1]
+				param_type = actual.Params.InternalTypes[index+1]
 			} else {
 				param = actual.Fn.ParameterList[index]
-
+				param_type = actual.Params.InternalTypes[index]
 			}
 			span := call.Start.TokenSpan
 			tc.VerifyMutability(param, arg, span)
-			param_type := actual.Params.InternalTypes[index]
-
 			if arg.Type().TypeSignature() != param_type.TypeSignature() {
+				println(actual.Fn.Name.LiteralRepr() + ": " + param.LiteralRepr() + " -> " + arg.LiteralRepr())
 				var msg strings.Builder
 				line := call.Start.TokenSpan.Line
 				col := call.Start.TokenSpan.Col

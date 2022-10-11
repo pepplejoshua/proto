@@ -277,7 +277,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 	case *ast.Reference:
 		nr.Resolve(actual.Value)
 	case *ast.Return:
-		if nr.ScopeTag != RegularFunction {
+		if nr.ScopeTag != RegularFunction && nr.ScopeTag != AssociatedFunction &&
+			nr.ScopeTag != Method {
 			// can't allow return statement outside function
 			var msg strings.Builder
 			line := actual.Token.TokenSpan.Line
