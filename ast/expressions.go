@@ -349,7 +349,8 @@ type BlockExpr struct {
 }
 
 func (b *BlockExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.WriteLine("[&](){", use_tab)
+	c.Write("[&]() -> ", use_tab, false)
+	c.WriteLine(b.BlockType.CppTypeSignature()+" {", false)
 	generate_code_from_block_expr(c, b)
 	c.Write("}()", true, false)
 	if newline {
@@ -405,7 +406,8 @@ func (i *IfExpr) Type() ProtoType {
 }
 
 func (i *IfExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
-	c.WriteLine("[&]() {", false)
+	c.Write("[&]() -> ", use_tab, false)
+	c.WriteLine(i.ThenBody.BlockType.CppTypeSignature()+"{ ", false)
 	c.Indent()
 	c.Write("if (", true, false)
 	i.Condition.AsCppCode(c, false, false)
