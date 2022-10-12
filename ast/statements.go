@@ -466,6 +466,9 @@ func (fn *FunctionDef) LiteralRepr() string {
 	repr.WriteString("fn " + fn.Name.LiteralRepr() + "(")
 
 	for indx, id := range fn.ParameterList {
+		if id.Mutability {
+			repr.WriteString("mut ")
+		}
 		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())
 		if indx+1 < len(fn.ParameterList) {
 			repr.WriteString(", ")

@@ -46,8 +46,13 @@ public:
             return Iter<T>(this, int(range[1]) + 1);
         }
         else {
-            return Iter<T>(this, range[1]);
+            return Iter<T>(this, range[1] + 1);
         }
+    }
+
+    friend ostream& operator<<(ostream& out, const IRange& r) {
+        out << r.range[0] << "..=" << r.range[1];
+        return out;
     }
 
 private:
@@ -83,8 +88,13 @@ public:
             return Iter<T>(this, int(range[1]));
         }
         else {
-            return Iter<T>(this, range[1] - 1);
+            return Iter<T>(this, range[1]);
         }
+    }
+
+    friend ostream& operator<<(ostream& out, const Range& r) {
+        out << r.range[0] << ".." << r.range[1];
+        return out;
     }
 
 private:

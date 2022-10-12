@@ -527,6 +527,24 @@ func (tc *TypeChecker) VerifyMutability(param *ast.Identifier, arg ast.Expressio
 	}
 }
 
+func (tc *TypeChecker) FindMutabilityOf(callable ast.Expression) bool {
+	switch ac := callable.(type) {
+	case *ast.Identifier:
+		return ac.Mutability
+	case *ast.Membership:
+		return tc.FindMutabilityOf(ac.Object)
+	case *ast.ModuleAccess:
+		return false
+	case *ast.CallExpression:
+		return tc.FindMutabilityOf(ac.Callable)
+	default:
+		var msg strings.Builder
+		msg.WriteString(fmt.Sprintf("(in FindMutabilityOf) unhandled type: %s.", ac.Type().TypeSignature()))
+		shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+	}
+	return false
+}
+
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	tc.TypeCheck(call.Callable)
 
@@ -539,9 +557,24 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 				col := call.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
 				msg.WriteString(fmt.Sprintf("method %s expects %d arguments but got called with %d arguments.",
-					actual.Fn.LiteralRepr(), len(actual.Params.InternalTypes)-1, len(call.Arguments)))
+					actual.Fn.LiteralRepr(), len(actual.Fn.ParameterList)-1, len(call.Arguments)))
 				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
-				return
+			}
+			// make sure we check that the mutability of the callable
+			// (which is the instance in this case) matches that of the
+			// instance in the method.
+			instance := actual.Fn.ParameterList[0]
+			if instance.Mutability {
+				callable_mut := tc.FindMutabilityOf(call.Callable)
+				if !callable_mut {
+					var msg strings.Builder
+					line := call.Start.TokenSpan.Line
+					col := call.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+					msg.WriteString(fmt.Sprintf("%s can only be called by a mutable instance.",
+						actual.Fn.LiteralRepr()))
+					shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				}
 			}
 		} else {
 			if len(call.Arguments) != len(actual.Params.InternalTypes) {
@@ -635,6 +668,7 @@ func (tc *TypeChecker) TypeCheckMethod(m *ast.Method) {
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlockExpr(m.Body, false)
+	m.ReturnType = m.Body.BlockType
 	tc.CurBlockType = prev
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
@@ -658,6 +692,7 @@ func (tc *TypeChecker) TypeCheckAssociatedFunction(assoc *ast.AssociatedFunction
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlockExpr(assoc.Body, false)
+	assoc.ReturnType = assoc.Body.BlockType
 	tc.CurBlockType = prev
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
@@ -680,6 +715,7 @@ func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
 	prev := tc.CurBlockType
 	tc.CurBlockType = FUNCTION
 	tc.TypeCheckBlockExpr(fn.Body, false)
+	fn.ReturnType = fn.Body.BlockType
 	tc.CurBlockType = prev
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
@@ -696,7 +732,6 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 		case *ast.Identifier:
 			fetched := tc.GetTypeForNameOrFail(actual.Name.Token).(*ast.Proto_UserDef)
 			if fetched.Name.LiteralRepr() == ref.LiteralRepr() {
-				println(fetched.Name.LiteralRepr(), actual.Name.LiteralRepr())
 				// can't allow membership with using name of Struct directly
 				var msg strings.Builder
 				line := mem.Start.TokenSpan.Line
@@ -814,21 +849,25 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 				for _, fn := range fetched.Definition.Public_Fns {
 					if method, ok := fn.(*ast.Method); ok {
 						if method.Name.LiteralRepr() == ref.LiteralRepr() {
+							if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+								actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+								mem.Is_Self_Membership = true
+							}
 							mem.MembershipType = method.FunctionTypeSignature
 							return
 						}
 					}
 					if assoc, ok := fn.(*ast.AssociatedFunction); ok {
-						if assoc.Name.LiteralRepr() == ref.LiteralRepr() &&
-							tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
-							actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
-							mem.Is_Self_Membership = true
+						if assoc.Name.LiteralRepr() == ref.LiteralRepr() {
+							if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
+								actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+								mem.Is_Self_Membership = true
+							}
 							mem.MembershipType = assoc.FunctionTypeSignature
 							return
 						}
 					}
 				}
-
 				for _, fn := range fetched.Definition.Private_Fns {
 					if method, ok := fn.(*ast.Method); ok {
 						if method.Name.LiteralRepr() == ref.LiteralRepr() {
@@ -850,9 +889,10 @@ func (tc *TypeChecker) TypeCheckMembership(mem *ast.Membership) {
 					}
 					if assoc, ok := fn.(*ast.AssociatedFunction); ok {
 						if assoc.Name.LiteralRepr() == ref.LiteralRepr() {
-							if tc.In_Struct && mem.Object.LiteralRepr() == "self" &&
-								actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
-								mem.Is_Self_Membership = true
+							if tc.In_Struct && mem.Object.LiteralRepr() == "self" {
+								if actual.Name.LiteralRepr() == tc.CurStructName.LiteralRepr() {
+									mem.Is_Self_Membership = true
+								}
 								mem.MembershipType = assoc.FunctionTypeSignature
 								return
 							} else {
@@ -970,6 +1010,7 @@ func (tc *TypeChecker) TypeCheckStruct(s *ast.Struct) {
 				actual.InternalType = tc.GetTypeForNameOrFail(user_def.Name.Token)
 			}
 		}
+		tc.SetTypeForName(mem.Token, mem.Id_Type)
 	}
 
 	// pre define Private and Public functions
@@ -1694,6 +1735,7 @@ func (tc *TypeChecker) TypeCheckBlockExpr(block *ast.BlockExpr, new_env bool) {
 				block_type = actual.Type()
 			case *ast.Return:
 				is_return = true
+				block_type = actual.Value.Type()
 				// do nothing, since it has been checked
 			default:
 				if tc.CurReturnType != nil {

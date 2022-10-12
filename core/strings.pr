@@ -18,6 +18,12 @@ fn split_str(initial: str) -> [str] { // will be added to string.pr library
     tokens
 }
 
+fn s_len(s: str) -> i64 {
+    mut size = 0;
+    cpp { size = s.size(); }
+    size
+}
+
 fn is_number(cand: str) -> bool { // will be added to the strings.pr library
     for ch in cand {
         if ch < '0' || ch > '9' {

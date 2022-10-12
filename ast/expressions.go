@@ -611,6 +611,7 @@ func (m *Membership) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 		c.Write(")", false, newline)
 		c.AddInclude("<tuple>")
 	} else if m.Is_Self_Membership {
+		c.Write("this->", use_tab, false)
 		m.Member.AsCppCode(c, false, false)
 	} else {
 		m.Object.AsCppCode(c, use_tab, false)

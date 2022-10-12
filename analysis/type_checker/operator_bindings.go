@@ -128,62 +128,39 @@ func GetBuiltinBinaryOperators() []*BinaryOpBindingPair {
 		"<", "<=", ">", ">=",
 	}
 
+	operand_types := [][]string{
+		{"i64", "i64"},
+		{"char", "char"},
+		{"str", "str"},
+	}
+
 	for _, op := range num_to_bool_ops {
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "i64",
-			right:    "i64",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "char",
-			right:    "char",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "&i64",
-			right:    "&i64",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "&char",
-			right:    "&char",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "&i64",
-			right:    "i64",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "&char",
-			right:    "char",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "i64",
-			right:    "&i64",
-			operator: op,
-			returns:  "bool",
-		})
-
-		BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
-			left:     "char",
-			right:    "&char",
-			operator: op,
-			returns:  "bool",
-		})
+		for _, operands := range operand_types {
+			BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+				left:     operands[0],
+				right:    operands[1],
+				operator: op,
+				returns:  "bool",
+			})
+			BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+				left:     "&" + operands[0],
+				right:    operands[1],
+				operator: op,
+				returns:  "bool",
+			})
+			BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+				left:     operands[0],
+				right:    "&" + operands[1],
+				operator: op,
+				returns:  "bool",
+			})
+			BuiltinBinaryOps = append(BuiltinBinaryOps, &BinaryOpBindingPair{
+				left:     "&" + operands[0],
+				right:    "&" + operands[1],
+				operator: op,
+				returns:  "bool",
+			})
+		}
 	}
 
 	bool_ops := []string{"&&", "||"}

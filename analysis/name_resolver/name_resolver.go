@@ -989,6 +989,5 @@ func (nr *NameResolver) ResolveIdentifier(ident *ast.Identifier) {
 		shared.ReportErrorWithPathAndExit("NameResolver", nr.Prog.Path, msg.String())
 
 	}
-
 	ident.Mutability = nr.GetMutabilityAtName(ident.Token)
 }

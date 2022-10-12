@@ -104,8 +104,9 @@ func (p *Parser) parse_identifier() *ast.Identifier {
 		id := p.cur
 		p.consume(id.Type)
 		ident = &ast.Identifier{
-			Token:   id,
-			Id_Type: &ast.Proto_Untyped{},
+			Token:      id,
+			Mutability: false,
+			Id_Type:    &ast.Proto_Untyped{},
 		}
 	default:
 		var msg strings.Builder
@@ -372,6 +373,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 		val = boolean
 	case lexer.IDENT:
 		struct_name := p.parse_identifier()
+		// parse struct initialization syntax
 		if p.cur.Type == lexer.OPEN_CURLY && !skip_struct_expr {
 			start := p.cur
 			p.consume(p.cur.Type)
@@ -384,8 +386,7 @@ func (p *Parser) parse_primary(skip_struct_expr bool) ast.Expression {
 				} else {
 					// if we have colon, consume it
 					p.consume(p.cur.Type)
-					init := p.parse_expr(false)
-					fields[field] = init
+					fields[field] = p.parse_expr(false)
 				}
 
 				if p.cur.Type != lexer.CLOSE_CURLY {
@@ -1042,6 +1043,7 @@ func (p *Parser) parse_let_mut() *ast.VariableDecl {
 	}
 
 	if keyword == lexer.MUT {
+		ident.Mutability = true
 		declaration.Mutable = true
 		declaration.Assignee.Mutability = true
 	}
