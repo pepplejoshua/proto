@@ -476,9 +476,9 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
 	var compile_cmd *exec.Cmd
 	if po.testing {
-		compile_cmd = exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags, "-DPROTO_TESTING")
+		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags, "-DPROTO_TESTING")
 	} else {
-		compile_cmd = exec.Command("clang++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags)
+		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags)
 	}
 	stderr, err := compile_cmd.StderrPipe()
 	if err != nil {
