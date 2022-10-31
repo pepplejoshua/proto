@@ -241,6 +241,8 @@ func (nr *NameResolver) Resolve(node ast.ProtoNode) {
 		nr.ResolveAssociatedFunction(actual)
 	case *ast.Method:
 		nr.ResolveMethod(actual)
+	case *ast.GenericFunction:
+		nr.ResolveGenericFunction(actual)
 	case *ast.FunctionDef:
 		nr.ResolveFunctionDef(actual)
 	case *ast.CallExpression:
@@ -731,6 +733,27 @@ func (nr *NameResolver) ResolveAssociatedFunction(assoc *ast.AssociatedFunction)
 	nr.ExitScope()
 	nr.ScopeTag = enclosing
 }
+
+func (nr *NameResolver) ResolveGenericFunction(gf *ast.GenericFunction) {
+	nr.CheckForDuplicateName(gf.Name)
+	nr.DeclareName(gf.Name.Token, gf, false)
+	nr.DefineName(gf.Name.Token)
+	nr.InitializeName(gf.Name.Token)
+
+	enclosing := nr.ScopeTag
+	nr.ScopeTag = AssociatedFunction
+	nr.EnterScope()
+	for _, param := range gf.ParameterList {
+		nr.CheckForDuplicateName(param)
+		nr.DeclareName(param.Token, param, param.Mutability)
+		nr.DefineName(param.Token)
+		nr.InitializeName(param.Token)
+	}
+	nr.ResolveBlockExpr(gf.Body, false)
+	nr.ExitScope()
+	nr.ScopeTag = enclosing
+}
+
 func (nr *NameResolver) ResolveFunctionDef(fn *ast.FunctionDef) {
 	enclosing := nr.ScopeTag
 	nr.ScopeTag = RegularFunction

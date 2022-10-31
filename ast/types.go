@@ -166,6 +166,49 @@ func (f *Proto_Function) CppTypeSignature() string {
 		" -> " + f.Return.TypeSignature()
 }
 
+type Proto_Generic_Type struct {
+	Repr       *Identifier
+	MappedType ProtoType
+}
+
+func (gt *Proto_Generic_Type) TypeSignature() string {
+	if gt.MappedType == nil {
+		return gt.Repr.LiteralRepr()
+	}
+	return gt.MappedType.TypeSignature()
+}
+
+func (gt *Proto_Generic_Type) CppTypeSignature() string {
+	return gt.MappedType.CppTypeSignature()
+}
+
+type Proto_Generic_Fn struct {
+	GenericTypes []*Identifier
+	Params       *Proto_Tuple
+	Return       ProtoType
+	Fn           *GenericFunction
+}
+
+func (g *Proto_Generic_Fn) TypeSignature() string {
+	var ts strings.Builder
+
+	ts.WriteString("fn <")
+	for i, t := range g.GenericTypes {
+		ts.WriteString(t.LiteralRepr())
+		if i+1 < len(g.GenericTypes) {
+			ts.WriteString(", ")
+		}
+	}
+	ts.WriteString("> ")
+	ts.WriteString(g.Params.TypeSignature())
+	ts.WriteString(" -> " + g.Return.TypeSignature())
+	return ts.String()
+}
+
+func (g *Proto_Generic_Fn) CppTypeSignature() string {
+	return ""
+}
+
 type Proto_Reference struct {
 	Inner ProtoType
 }

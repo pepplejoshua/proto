@@ -202,6 +202,8 @@ func (tc *TypeChecker) TypeCheck(node ast.ProtoNode) {
 		tc.TypeCheckAssociatedFunction(actual)
 	case *ast.Method:
 		tc.TypeCheckMethod(actual)
+	case *ast.GenericFunction:
+		tc.TypeCheckGenericFunction(actual)
 	case *ast.FunctionDef:
 		tc.TypeCheckFunctionDef(actual)
 	case *ast.CallExpression:
@@ -549,6 +551,82 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	tc.TypeCheck(call.Callable)
 
 	switch actual := call.Callable.Type().(type) {
+	case *ast.Proto_Generic_Fn:
+		// println(actual.Fn.LiteralRepr())
+		if len(call.Arguments) != len(actual.Params.InternalTypes) {
+			var msg strings.Builder
+			line := call.Start.TokenSpan.Line
+			col := call.Start.TokenSpan.Col
+			msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+			msg.WriteString(fmt.Sprintf("%s expects %d arguments but got called with %d arguments.",
+				actual.Fn.LiteralRepr(), len(actual.Params.InternalTypes), len(call.Arguments)))
+			shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+			tc.FoundError = true
+			return
+		}
+		tc.EnterTypeEnv()
+		mapped_types := map[string]ast.ProtoType{}
+		for i, arg := range call.Arguments {
+			tc.TypeCheck(arg)
+			// is parameter with generic type
+			// get matching param
+			param := actual.Fn.ParameterList[i]
+			if gen, ok := param.Type().(*ast.Proto_Generic_Type); ok {
+				// bind the generic param type to the concrete type of argument
+				exists := tc.GetTypeForName(gen.Repr.Token)
+				if exists == nil {
+					new_gen := &ast.Proto_Generic_Type{
+						Repr:       gen.Repr,
+						MappedType: arg.Type(),
+					}
+					tc.SetTypeForName(new_gen.Repr.Token, new_gen)
+					tc.SetTypeForName(param.Token, new_gen)
+					mapped_types[new_gen.Repr.LiteralRepr()] = arg.Type()
+				} else if exists.TypeSignature() != arg.Type().TypeSignature() {
+					var msg strings.Builder
+					line := call.Start.TokenSpan.Line
+					col := call.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+					msg.WriteString(fmt.Sprintf("Expected argument %d to be typed '%s' but got type %s. Generic parameter '%s' is typed %s.",
+						i+1, exists.TypeSignature(), arg.Type().TypeSignature(),
+						gen.Repr.LiteralRepr(), exists.TypeSignature()))
+					shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				}
+			} else {
+				// do regular type checking
+				param_type := actual.Params.InternalTypes[i]
+				span := call.Start.TokenSpan
+				tc.VerifyMutability(param, arg, span)
+				if arg.Type().TypeSignature() != param_type.TypeSignature() {
+					var msg strings.Builder
+					line := call.Start.TokenSpan.Line
+					col := call.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
+					msg.WriteString(fmt.Sprintf("Expected argument %d to be typed %s but got type %s.",
+						i+1, param_type.TypeSignature(), arg.Type().TypeSignature()))
+					shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				}
+				tc.SetTypeForName(param.Token, arg.Type())
+			}
+		}
+
+		body := actual.Fn.Body.Copy().(*ast.BlockExpr)
+		// type check body again using available types
+		prevFnDefSpan := tc.FnDefSpan
+		prevCurReturnType := tc.CurReturnType
+		tc.FnDefSpan = &actual.Fn.Start.TokenSpan
+		_, call.ReturnType = tc.is_untyped_generic(actual.Return)
+		tc.CurReturnType = call.ReturnType
+		prev := tc.CurBlockType
+		tc.CurBlockType = FUNCTION
+		tc.TypeCheckBlockExpr(body, false)
+		actual.Fn.CheckedBodies = append(actual.Fn.CheckedBodies, body)
+		// println(body.BlockType.TypeSignature())
+		tc.CurBlockType = prev
+		tc.FnDefSpan = prevFnDefSpan
+		tc.CurReturnType = prevCurReturnType
+		actual.Fn.GenerationTargets = append(actual.Fn.GenerationTargets, mapped_types)
+		tc.ExitTypeEnv()
 	case *ast.Proto_Function:
 		if actual.Is_Method {
 			if len(call.Arguments) != (len(actual.Fn.ParameterList) - 1) {
@@ -604,16 +682,13 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 			span := call.Start.TokenSpan
 			tc.VerifyMutability(param, arg, span)
 			if arg.Type().TypeSignature() != param_type.TypeSignature() {
-				println(actual.Fn.Name.LiteralRepr() + ": " + param.LiteralRepr() + " -> " + arg.LiteralRepr())
 				var msg strings.Builder
 				line := call.Start.TokenSpan.Line
 				col := call.Start.TokenSpan.Col
 				msg.WriteString(fmt.Sprintf("%d:%d ", line, col))
-				msg.WriteString(fmt.Sprintf("Expected parameter %d to be typed %s but got argument of type %s.",
+				msg.WriteString(fmt.Sprintf("Expected argument %d to be typed %s but got type %s.",
 					index+1, param_type.TypeSignature(), arg.Type().TypeSignature()))
 				shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
-				tc.FoundError = true
-				return
 			}
 		}
 		call.ReturnType = actual.Return
@@ -697,6 +772,36 @@ func (tc *TypeChecker) TypeCheckAssociatedFunction(assoc *ast.AssociatedFunction
 	tc.FnDefSpan = prevFnDefSpan
 	tc.CurReturnType = prevCurReturnType
 	tc.ExitTypeEnv()
+}
+
+func (tc *TypeChecker) TypeCheckGenericFunction(gf *ast.GenericFunction) {
+	tc.SetTypeForName(gf.Name.Token, gf.FunctionTypeSignature)
+	// tc.EnterTypeEnv()
+	// for _, type_param := range gf.GenericTypes {
+	// 	tc.SetTypeForName(type_param.Token, &ast.Proto_Generic_Type{
+	// 		Repr:       type_param,
+	// 		MappedType: nil,
+	// 	})
+	// }
+
+	// for _, param := range gf.ParameterList {
+	// 	tc.VerifyType(param.Id_Type, param.Token.TokenSpan)
+	// 	tc.SetTypeForName(param.Token, param.Id_Type)
+	// }
+	// prevFnDefSpan := tc.FnDefSpan
+	// prevCurReturnType := tc.CurReturnType
+	// tc.FnDefSpan = &gf.Start.TokenSpan
+
+	// tc.VerifyType(gf.ReturnType, gf.Body.Start.TokenSpan)
+	// tc.CurReturnType = gf.ReturnType
+	// prev := tc.CurBlockType
+	// tc.CurBlockType = FUNCTION
+	// tc.TypeCheckBlockExpr(gf.Body, false)
+	// gf.ReturnType = gf.Body.BlockType
+	// tc.CurBlockType = prev
+	// tc.FnDefSpan = prevFnDefSpan
+	// tc.CurReturnType = prevCurReturnType
+	// tc.ExitTypeEnv()
 }
 
 func (tc *TypeChecker) TypeCheckFunctionDef(fn *ast.FunctionDef) {
@@ -1607,13 +1712,47 @@ Loop:
 	}
 }
 
+func (tc *TypeChecker) is_untyped_generic(cand ast.ProtoType) (bool, ast.ProtoType) {
+	if gen, ok := cand.(*ast.Proto_Generic_Type); ok {
+		if gen.MappedType == nil {
+			// check for its definition in the environment
+			found := tc.GetTypeForName(gen.Repr.Token)
+			if found.TypeSignature() == gen.TypeSignature() {
+				// not a mapped type
+				return true, cand
+			} else {
+				return false, found
+			}
+		} else {
+			return false, gen.MappedType
+		}
+	}
+	return false, cand
+}
+
 func (tc *TypeChecker) TypeCheckBinaryOp(binop *ast.BinaryOp) {
 	tc.TypeCheck(binop.Left)
 	tc.TypeCheck(binop.Right)
+
+	// skip checking generic types
+	okl, lhs := tc.is_untyped_generic(binop.Left.Type())
+	if okl {
+		binop.Op_Type = lhs
+		return
+	} else {
+		lhs = binop.Left.Type()
+	}
+	okr, rhs := tc.is_untyped_generic(binop.Right.Type())
+	if okr {
+		binop.Op_Type = rhs
+		return
+	} else {
+		rhs = binop.Right.Type()
+	}
 	found_op := false
 Loop:
 	for _, allowed := range BinaryOps {
-		returns, ok := allowed.AllowsBinding(binop.Operator.Literal, binop.Left.Type(), binop.Right.Type())
+		returns, ok := allowed.AllowsBinding(binop.Operator.Literal, lhs, rhs)
 		if ok {
 			switch returns {
 			case "i64":

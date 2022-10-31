@@ -1058,7 +1058,7 @@ func (p *Parser) parse_struct_function(name *ast.Identifier) (ast.ProtoNode, boo
 		is_public = true
 		p.consume(p.cur.Type)
 	}
-	fn := p.parse_function_definition()
+	fn := p.parse_function_definition().(*ast.FunctionDef)
 
 	is_method := false
 	if len(fn.ParameterList) > 0 {
@@ -1352,12 +1352,120 @@ func (p *Parser) parse_paths() []*ast.Path {
 	return paths
 }
 
-func (p *Parser) parse_function_definition() *ast.FunctionDef {
+func (p *Parser) parse_generic_function(name *ast.Identifier, start lexer.ProtoToken) *ast.GenericFunction {
+	p.consume(lexer.LESS_THAN)
+
+	var generic_types []*ast.Identifier
+	for p.cur.Type != lexer.END && p.cur.Type != lexer.GREATER_THAN {
+		generic_type := p.parse_identifier()
+		generic_types = append(generic_types, generic_type)
+		if p.cur.Type != lexer.GREATER_THAN {
+			p.consume(lexer.COMMA)
+		}
+	}
+
+	p.consume(lexer.GREATER_THAN)
+	p.consume(lexer.OPEN_PAREN)
+	var params_list []*ast.Identifier
+	for p.cur.Type != lexer.CLOSE_PAREN {
+		if len(params_list) > 255 {
+			var msg strings.Builder
+			msg.WriteString(fmt.Sprint(p.cur.TokenSpan.Line) + ":" + fmt.Sprint(p.cur.TokenSpan.Col))
+			msg.WriteString(" Function Definitions only allows 255 parameters.")
+			shared.ReportErrorWithPathAndExit("Parser", p.file, msg.String())
+		}
+		is_mutable := false
+		if p.cur.Type == lexer.MUT {
+			p.consume(lexer.MUT)
+			is_mutable = true
+		}
+		ident := p.parse_identifier()
+		ident.Mutability = is_mutable
+		p.consume(lexer.COLON)
+		parsed_type := p.parse_type(false, false)
+		is_generic := false
+		var gen_repr *ast.Identifier
+		for _, gen_type := range generic_types {
+			if parsed_type.TypeSignature() == gen_type.LiteralRepr() {
+				is_generic = true
+				gen_repr = gen_type
+				break
+			}
+		}
+		if is_generic {
+			ident.Id_Type = &ast.Proto_Generic_Type{
+				Repr:       gen_repr,
+				MappedType: nil,
+			}
+		} else {
+			ident.Id_Type = parsed_type
+		}
+		params_list = append(params_list, ident)
+		if p.cur.Type != lexer.CLOSE_PAREN {
+			p.consume(lexer.COMMA)
+		}
+	}
+	p.consume(lexer.CLOSE_PAREN)
+
+	var return_type ast.ProtoType = &ast.Proto_Unit{}
+	if p.cur.Type == lexer.ARROW {
+		p.consume(p.cur.Type)
+		return_type = p.parse_type(false, false)
+		for _, gen_type := range generic_types {
+			if return_type.TypeSignature() == gen_type.LiteralRepr() {
+				return_type = &ast.Proto_Generic_Type{
+					Repr:       gen_type,
+					MappedType: nil,
+				}
+				break
+			}
+		}
+	}
+	body := p.parse_block_expr()
+
+	gen_fn := &ast.GenericFunction{
+		Start:                 start,
+		Name:                  name,
+		ParameterList:         params_list,
+		ReturnType:            return_type,
+		GenericTypes:          generic_types,
+		Body:                  body,
+		FunctionTypeSignature: &ast.Proto_Generic_Fn{},
+		GenerationTargets:     []map[string]ast.ProtoType{},
+		CheckedBodies:         []*ast.BlockExpr{},
+	}
+
+	type_params := &ast.Proto_Tuple{
+		InternalTypes: []ast.ProtoType{},
+	}
+
+	for _, param := range params_list {
+		type_params.InternalTypes = append(type_params.InternalTypes, param.Id_Type)
+	}
+
+	fn_sig := &ast.Proto_Generic_Fn{
+		GenericTypes: generic_types,
+		Params:       type_params,
+		Return:       return_type,
+		Fn:           gen_fn,
+	}
+
+	gen_fn.FunctionTypeSignature = fn_sig
+
+	return gen_fn
+}
+
+func (p *Parser) parse_function_definition() ast.ProtoNode {
 	start := p.cur
 	p.consume(p.cur.Type)
 
 	name := p.parse_identifier()
 	var paramslist []*ast.Identifier
+
+	// generic function
+	if p.cur.Type == lexer.LESS_THAN {
+		return p.parse_generic_function(name, start)
+	}
 
 	p.consume(lexer.OPEN_PAREN)
 	for p.cur.Type != lexer.CLOSE_PAREN {

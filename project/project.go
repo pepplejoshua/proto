@@ -1,4 +1,4 @@
-package compilemanager
+package project
 
 import (
 	"fmt"
@@ -47,6 +47,10 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, sh
 		cppflags:               cpp_flags,
 		testNames:              make([]string, 0, 2),
 	}
+}
+
+func (po *ProjectOrganizer) BuildProjectMulti() {
+		
 }
 
 func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[string][]*ast.Path, *ast.ProtoProgram) {

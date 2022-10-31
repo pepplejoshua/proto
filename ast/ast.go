@@ -11,6 +11,7 @@ import (
 type ProtoNode interface {
 	LiteralRepr() string
 	AsCppCode(*CodeGenerator, bool, bool)
+	Copy() ProtoNode
 }
 
 // a proto program just contains a bunch of ProtoNodes

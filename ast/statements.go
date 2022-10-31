@@ -20,9 +20,17 @@ func (ci *CppInclude) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.AddInclude(ci.File)
 }
 
+func (ci *CppInclude) Copy() ProtoNode {
+	return ci
+}
+
 type CppLiteral struct {
 	Start lexer.ProtoToken
 	Lines []string
+}
+
+func (cl *CppLiteral) Copy() ProtoNode {
+	return cl
 }
 
 func (cl *CppLiteral) LiteralRepr() string {
@@ -50,6 +58,16 @@ type VariableDecl struct {
 	Assigned Expression
 	Mutable  bool
 	VarType  ProtoType
+}
+
+func (v *VariableDecl) Copy() ProtoNode {
+	new_v := &VariableDecl{
+		Assignee: *v.Assignee.Copy().(*Identifier),
+		Assigned: v.Assigned.Copy().(Expression),
+		Mutable:  v.Mutable,
+		VarType:  v.VarType,
+	}
+	return new_v
 }
 
 func (v *VariableDecl) LiteralRepr() string {
@@ -96,6 +114,10 @@ type Struct struct {
 	Members     []*Identifier
 	Public_Fns  []ProtoNode
 	Private_Fns []ProtoNode
+}
+
+func (s *Struct) Copy() ProtoNode {
+	return s
 }
 
 func (s *Struct) LiteralRepr() string {
@@ -196,6 +218,16 @@ type Assignment struct {
 	HasSemiColon    bool
 }
 
+func (a *Assignment) Copy() ProtoNode {
+	new_a := &Assignment{
+		Target:          a.Target.Copy().(Expression),
+		AssignmentToken: a.AssignmentToken,
+		Assigned:        a.Assigned.Copy().(Expression),
+		HasSemiColon:    a.HasSemiColon,
+	}
+	return new_a
+}
+
 func (a *Assignment) LiteralRepr() string {
 	var str strings.Builder
 
@@ -229,6 +261,14 @@ type PromotedExpr struct {
 	Expr  Expression
 }
 
+func (p *PromotedExpr) Copy() ProtoNode {
+	_p := &PromotedExpr{
+		Start: p.Start,
+		Expr:  p.Expr.Copy().(Expression),
+	}
+	return _p
+}
+
 func (p *PromotedExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	p.Expr.AsCppCode(c, use_tab, false)
 	if newline {
@@ -248,6 +288,17 @@ type GenericForLoop struct {
 	LoopCondition Expression
 	Update        ProtoNode
 	Body          *BlockStmt
+}
+
+func (g *GenericForLoop) Copy() ProtoNode {
+	n_g := &GenericForLoop{
+		Start:         g.Start,
+		Init:          g.Init.Copy().(*VariableDecl),
+		LoopCondition: g.LoopCondition.Copy().(Expression),
+		Update:        g.Update.Copy(),
+		Body:          g.Body.Copy().(*BlockStmt),
+	}
+	return n_g
 }
 
 func (g *GenericForLoop) LiteralRepr() string {
@@ -280,6 +331,16 @@ type CollectionsForLoop struct {
 	Body       *BlockStmt
 }
 
+func (c *CollectionsForLoop) Copy() ProtoNode {
+	n_c := &CollectionsForLoop{
+		Start:      c.Start,
+		LoopVar:    *c.LoopVar.Copy().(*Identifier),
+		Collection: c.Collection.Copy().(Expression),
+		Body:       c.Body.Copy().(*BlockStmt),
+	}
+	return n_c
+}
+
 func (c *CollectionsForLoop) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -309,6 +370,14 @@ type InfiniteLoop struct {
 	Body  *BlockStmt
 }
 
+func (i *InfiniteLoop) Copy() ProtoNode {
+	n_i := &InfiniteLoop{
+		Start: i.Start,
+		Body:  i.Body.Copy().(*BlockStmt),
+	}
+	return n_i
+}
+
 func (i *InfiniteLoop) LiteralRepr() string {
 	return "loop " + i.Body.LiteralRepr()
 }
@@ -326,6 +395,15 @@ type WhileLoop struct {
 	Start         lexer.ProtoToken
 	LoopCondition Expression
 	Body          *BlockStmt
+}
+
+func (w *WhileLoop) Copy() ProtoNode {
+	n_w := &WhileLoop{
+		Start:         w.Start,
+		LoopCondition: w.LoopCondition.Copy().(Expression),
+		Body:          w.Body.Copy().(*BlockStmt),
+	}
+	return n_w
 }
 
 func (w *WhileLoop) LiteralRepr() string {
@@ -350,6 +428,10 @@ type Method struct {
 	ReturnType            ProtoType
 	Body                  *BlockExpr
 	FunctionTypeSignature *Proto_Function
+}
+
+func (m *Method) Copy() ProtoNode {
+	return m
 }
 
 func (m *Method) LiteralRepr() string {
@@ -409,6 +491,10 @@ type AssociatedFunction struct {
 	FunctionTypeSignature *Proto_Function
 }
 
+func (af *AssociatedFunction) Copy() ProtoNode {
+	return af
+}
+
 func (af *AssociatedFunction) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -450,6 +536,88 @@ func (af *AssociatedFunction) AsCppCode(c *CodeGenerator, use_tab bool, newline 
 	c.NewLine()
 }
 
+type GenericFunction struct {
+	Start                 lexer.ProtoToken
+	Name                  *Identifier
+	ParameterList         []*Identifier
+	ReturnType            ProtoType
+	GenericTypes          []*Identifier
+	Body                  *BlockExpr
+	FunctionTypeSignature *Proto_Generic_Fn
+	GenerationTargets     []map[string]ProtoType
+	CheckedBodies         []*BlockExpr
+}
+
+func (gf *GenericFunction) Copy() ProtoNode {
+	return gf
+}
+
+func (gf *GenericFunction) LiteralRepr() string {
+	var repr strings.Builder
+
+	repr.WriteString("fn " + gf.Name.LiteralRepr() + "<")
+
+	for i, t := range gf.GenericTypes {
+		repr.WriteString(t.LiteralRepr())
+		if i+1 < len(gf.GenericTypes) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString("> (")
+
+	for indx, id := range gf.ParameterList {
+		if id.Mutability {
+			repr.WriteString("mut ")
+		}
+		repr.WriteString(id.LiteralRepr() + ": " + id.Id_Type.TypeSignature())
+		if indx+1 < len(gf.ParameterList) {
+			repr.WriteString(", ")
+		}
+	}
+
+	repr.WriteString(") -> ")
+	repr.WriteString(gf.ReturnType.TypeSignature())
+
+	return repr.String()
+}
+
+func (gf *GenericFunction) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	for i, mapped_types := range gf.GenerationTargets {
+		// generic type
+		if exists, ok := mapped_types[gf.ReturnType.TypeSignature()]; ok {
+			c.Write(exists.CppTypeSignature(), true, false)
+		} else {
+			c.Write(gf.ReturnType.CppTypeSignature(), true, false)
+		}
+
+		c.Write(gf.Name.LiteralRepr(), false, true)
+		c.Write("(", false, false)
+
+		for index, param := range gf.ParameterList {
+			if !param.Mutability {
+				c.Write("const ", false, false)
+			}
+			if exists, ok := mapped_types[gf.ReturnType.TypeSignature()]; ok {
+				c.Write(exists.CppTypeSignature()+" ", false, false)
+				param.Id_Type = exists
+			} else {
+				c.Write(param.Id_Type.CppTypeSignature()+" ", false, false)
+			}
+			param.AsCppCode(c, false, false)
+
+			if index+1 < len(gf.ParameterList) {
+				c.Write(", ", false, false)
+			}
+		}
+
+		c.WriteLine(") {", false)
+		generate_code_from_block_expr(c, gf.CheckedBodies[i])
+		c.WriteLine("}", true)
+		c.WriteLine("", false)
+	}
+}
+
 type FunctionDef struct {
 	Start                 lexer.ProtoToken
 	Name                  *Identifier
@@ -458,6 +626,10 @@ type FunctionDef struct {
 	Body                  *BlockExpr
 	IsMain                bool
 	FunctionTypeSignature *Proto_Function
+}
+
+func (fn *FunctionDef) Copy() ProtoNode {
+	return fn
 }
 
 func (fn *FunctionDef) LiteralRepr() string {
@@ -513,6 +685,14 @@ type Return struct {
 	Value Expression
 }
 
+func (r *Return) Copy() ProtoNode {
+	n_r := &Return{
+		Token: r.Token,
+		Value: r.Value.Copy().(Expression),
+	}
+	return n_r
+}
+
 func (r *Return) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -546,6 +726,10 @@ type Break struct {
 	Token lexer.ProtoToken
 }
 
+func (b *Break) Copy() ProtoNode {
+	return b
+}
+
 func (b *Break) LiteralRepr() string {
 	return "break;"
 }
@@ -556,6 +740,10 @@ func (b *Break) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 
 type Continue struct {
 	Token lexer.ProtoToken
+}
+
+func (c *Continue) Copy() ProtoNode {
+	return c
 }
 
 func (c *Continue) LiteralRepr() string {
@@ -574,6 +762,40 @@ type BlockStmt struct {
 	Functions     []*FunctionDef
 	VariableDecls []*VariableDecl
 	Structs       []*Struct
+}
+
+func (b *BlockStmt) Copy() ProtoNode {
+	n_b := &BlockStmt{
+		Start:         b.Start,
+		End:           b.End,
+		Contents:      []ProtoNode{},
+		Modules:       []*Module{},
+		Functions:     []*FunctionDef{},
+		VariableDecls: []*VariableDecl{},
+		Structs:       []*Struct{},
+	}
+
+	for _, node := range b.Contents {
+		n_b.Contents = append(n_b.Contents, node.Copy())
+	}
+
+	for _, node := range b.Modules {
+		n_b.Modules = append(n_b.Modules, node.Copy().(*Module))
+	}
+
+	for _, node := range b.Functions {
+		n_b.Functions = append(n_b.Functions, node.Copy().(*FunctionDef))
+	}
+
+	for _, node := range b.VariableDecls {
+		n_b.VariableDecls = append(n_b.VariableDecls, node.Copy().(*VariableDecl))
+	}
+
+	for _, node := range b.Structs {
+		n_b.Structs = append(n_b.Structs, node.Copy().(*Struct))
+	}
+
+	return n_b
 }
 
 func (b *BlockStmt) LiteralRepr() string {
@@ -615,6 +837,10 @@ func (b *BlockStmt) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 type UseStmt struct {
 	Start lexer.ProtoToken
 	Paths []*Path
+}
+
+func (us *UseStmt) Copy() ProtoNode {
+	return us
 }
 
 func (us *UseStmt) LiteralRepr() string {
@@ -767,6 +993,15 @@ type Module struct {
 	Name  *Identifier
 }
 
+func (m *Module) Copy() ProtoNode {
+	n_m := &Module{
+		Start: m.Start,
+		Body:  m.Body.Copy().(*BlockStmt),
+		Name:  m.Name.Copy().(*Identifier),
+	}
+	return n_m
+}
+
 func (m *Module) LiteralRepr() string {
 	var str strings.Builder
 	str.WriteString("mod " + m.Name.LiteralRepr() + "\n")
@@ -784,6 +1019,20 @@ type IfStmt struct {
 	Condition Expression
 	ThenBody  *BlockStmt
 	ElseBody  ProtoNode
+}
+
+func (i *IfStmt) Copy() ProtoNode {
+	n_i := &IfStmt{
+		Start:     i.Start,
+		Condition: i.Condition.Copy().(Expression),
+		ThenBody:  i.ThenBody.Copy().(*BlockStmt),
+		ElseBody:  nil,
+	}
+
+	if i.ElseBody != nil {
+		n_i.ElseBody = i.ElseBody.Copy()
+	}
+	return n_i
 }
 
 func (i *IfStmt) LiteralRepr() string {
@@ -823,6 +1072,10 @@ type TestStmt struct {
 	Start lexer.ProtoToken
 	Name  Expression
 	Body  *BlockStmt
+}
+
+func (t *TestStmt) Copy() ProtoNode {
+	return t
 }
 
 func (t *TestStmt) LiteralRepr() string {

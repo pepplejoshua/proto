@@ -4,7 +4,7 @@ import (
 	"flag"
 	"fmt"
 	"path/filepath"
-	compilemanager "proto/compile_manager"
+	"proto/project"
 	"proto/shared"
 	"time"
 )
@@ -33,8 +33,9 @@ func Start() {
 	if *generate_only && *clean {
 		shared.ReportWarning("CLI", "-gen and -c are both toggled. -c will clean up generated files.")
 	}
-	man := compilemanager.NewManager(*file, *cpp_flags, *clean, *generate_only, *show_compile_info, *testing)
-	man.Compile()
+
+	project_org := project.NewProjectManager(*file, *cpp_flags, *clean, *generate_only, *show_compile_info, *testing)
+	project_org.BuildProject()
 	if *show_time {
 		duration = time.Since(start)
 		fmt.Printf("[ran in %s]\n", duration)

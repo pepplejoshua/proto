@@ -27,6 +27,15 @@ func (i *Identifier) Type() ProtoType {
 	return i.Id_Type
 }
 
+func (i *Identifier) Copy() ProtoNode {
+	new_i := &Identifier{
+		Token:      i.Token,
+		Mutability: i.Mutability,
+		Id_Type:    i.Id_Type,
+	}
+	return new_i
+}
+
 func (i *Identifier) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	if strings.Contains(i.Id_Type.CppTypeSignature(), "vector") {
 		c.AddInclude("<vector>")
@@ -47,6 +56,16 @@ type BinaryOp struct {
 	Right    Expression
 	Operator lexer.ProtoToken
 	Op_Type  ProtoType
+}
+
+func (b *BinaryOp) Copy() ProtoNode {
+	n_b := &BinaryOp{
+		Left:     b.Left.Copy().(Expression),
+		Right:    b.Right.Copy().(Expression),
+		Operator: b.Operator,
+		Op_Type:  b.Op_Type,
+	}
+	return n_b
 }
 
 func (b *BinaryOp) LiteralRepr() string {
@@ -79,6 +98,15 @@ type UnaryOp struct {
 	Op_Type  ProtoType
 }
 
+func (u *UnaryOp) Copy() ProtoNode {
+	n_u := &UnaryOp{
+		Operand:  u.Operand.Copy().(Expression),
+		Operator: u.Operator,
+		Op_Type:  u.Op_Type,
+	}
+	return n_u
+}
+
 func (u *UnaryOp) LiteralRepr() string {
 	var msg strings.Builder
 
@@ -105,6 +133,10 @@ type Unit struct {
 	Token lexer.ProtoToken
 }
 
+func (u *Unit) Copy() ProtoNode {
+	return u
+}
+
 func (u *Unit) LiteralRepr() string {
 	return "()"
 }
@@ -126,6 +158,10 @@ func (u *Unit) Type() ProtoType {
 
 type I64 struct {
 	Token lexer.ProtoToken
+}
+
+func (i *I64) Copy() ProtoNode {
+	return i
 }
 
 func (i *I64) LiteralRepr() string {
@@ -155,6 +191,14 @@ type Parenthesized struct {
 	Expr  Expression
 }
 
+func (p *Parenthesized) Copy() ProtoNode {
+	n_p := &Parenthesized{
+		Start: p.Start,
+		Expr:  p.Expr.Copy().(Expression),
+	}
+	return n_p
+}
+
 func (p *Parenthesized) LiteralRepr() string {
 	return "(" + p.Expr.LiteralRepr() + ")"
 }
@@ -175,6 +219,10 @@ func (p *Parenthesized) Type() ProtoType {
 
 type Char struct {
 	Token lexer.ProtoToken
+}
+
+func (c *Char) Copy() ProtoNode {
+	return c
 }
 
 func (c *Char) LiteralRepr() string {
@@ -201,6 +249,10 @@ func (c *Char) Type() ProtoType {
 
 type String struct {
 	Token lexer.ProtoToken
+}
+
+func (s *String) Copy() ProtoNode {
+	return s
 }
 
 func (s *String) LiteralRepr() string {
@@ -231,6 +283,10 @@ type Boolean struct {
 	Token lexer.ProtoToken
 }
 
+func (b *Boolean) Copy() ProtoNode {
+	return b
+}
+
 func (b *Boolean) LiteralRepr() string {
 	return b.Token.Literal
 }
@@ -257,6 +313,19 @@ type Array struct {
 	Items     []Expression
 	Token     lexer.ProtoToken
 	ArrayType *Proto_Array
+}
+
+func (a *Array) Copy() ProtoNode {
+	n_a := &Array{
+		Items:     []Expression{},
+		Token:     a.Token,
+		ArrayType: a.ArrayType,
+	}
+
+	for _, expr := range a.Items {
+		n_a.Items = append(n_a.Items, expr.Copy().(Expression))
+	}
+	return n_a
 }
 
 func (a *Array) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
@@ -296,6 +365,19 @@ type Tuple struct {
 	Items     []Expression
 	Token     lexer.ProtoToken
 	TupleType *Proto_Tuple
+}
+
+func (t *Tuple) Copy() ProtoNode {
+	n_t := &Tuple{
+		Items:     []Expression{},
+		Token:     t.Token,
+		TupleType: t.TupleType,
+	}
+
+	for _, expr := range t.Items {
+		n_t.Items = append(n_t.Items, expr.Copy().(Expression))
+	}
+	return n_t
 }
 
 func (t *Tuple) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
@@ -348,6 +430,18 @@ type BlockExpr struct {
 	BlockType ProtoType
 }
 
+func (b *BlockExpr) Copy() ProtoNode {
+	n_b := &BlockExpr{
+		Start:     b.Start,
+		Contents:  []ProtoNode{},
+		BlockType: b.BlockType,
+	}
+	for _, node := range b.Contents {
+		n_b.Contents = append(n_b.Contents, node.Copy())
+	}
+	return n_b
+}
+
 func (b *BlockExpr) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	c.Write("[&]() -> ", use_tab, false)
 	c.WriteLine(b.BlockType.CppTypeSignature()+" {", false)
@@ -385,6 +479,17 @@ type IfExpr struct {
 	ThenBody  *BlockExpr
 	ElseBody  ProtoNode
 	IfType    ProtoType
+}
+
+func (i *IfExpr) Copy() ProtoNode {
+	n_i := &IfExpr{
+		Start:     i.Start,
+		Condition: i.Condition.Copy().(Expression),
+		ThenBody:  i.ThenBody.Copy().(*BlockExpr),
+		ElseBody:  i.ElseBody.Copy(),
+		IfType:    i.IfType,
+	}
+	return n_i
 }
 
 func (i *IfExpr) LiteralRepr() string {
@@ -444,6 +549,20 @@ type CallExpression struct {
 	ReturnType ProtoType
 }
 
+func (c *CallExpression) Copy() ProtoNode {
+	n_c := &CallExpression{
+		Start:      c.Start,
+		Callable:   c.Callable.Copy().(Expression),
+		Arguments:  []Expression{},
+		ReturnType: c.ReturnType,
+	}
+
+	for _, arg := range c.Arguments {
+		n_c.Arguments = append(n_c.Arguments, arg.Copy().(Expression))
+	}
+	return n_c
+}
+
 func (c *CallExpression) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -487,6 +606,16 @@ type IndexExpression struct {
 	ValueType ProtoType
 }
 
+func (i *IndexExpression) Copy() ProtoNode {
+	n_i := &IndexExpression{
+		Start:     i.Start,
+		Indexable: i.Indexable.Copy().(Expression),
+		Index:     i.Index.Copy().(Expression),
+		ValueType: i.ValueType,
+	}
+	return n_i
+}
+
 func (i *IndexExpression) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -515,6 +644,16 @@ type Range struct {
 	PastEnd   Expression
 	Operator  lexer.ProtoToken
 	RangeType *Proto_Range
+}
+
+func (r *Range) Copy() ProtoNode {
+	n_r := &Range{
+		Start:     r.Start.Copy().(Expression),
+		PastEnd:   r.PastEnd.Copy().(Expression),
+		Operator:  r.Operator,
+		RangeType: r.RangeType,
+	}
+	return n_r
 }
 
 func (r *Range) LiteralRepr() string {
@@ -554,6 +693,16 @@ type InclusiveRange struct {
 	End       Expression
 	Operator  lexer.ProtoToken
 	RangeType *Proto_Range
+}
+
+func (i *InclusiveRange) Copy() ProtoNode {
+	n_r := &InclusiveRange{
+		Start:     i.Start.Copy().(Expression),
+		End:       i.End.Copy().(Expression),
+		Operator:  i.Operator,
+		RangeType: i.RangeType,
+	}
+	return n_r
 }
 
 func (i *InclusiveRange) LiteralRepr() string {
@@ -596,6 +745,17 @@ type Membership struct {
 	Is_Self_Membership bool
 }
 
+func (m *Membership) Copy() ProtoNode {
+	n_m := &Membership{
+		Start:              m.Start,
+		Object:             m.Object.Copy().(Expression),
+		Member:             m.Member.Copy().(Expression),
+		MembershipType:     m.MembershipType,
+		Is_Self_Membership: m.Is_Self_Membership,
+	}
+	return n_m
+}
+
 func (m *Membership) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -633,6 +793,16 @@ type ModuleAccess struct {
 	MemberType ProtoType
 }
 
+func (m *ModuleAccess) Copy() ProtoNode {
+	n_m := &ModuleAccess{
+		Start:      m.Start,
+		Mod:        m.Mod.Copy().(Expression),
+		Member:     m.Member.Copy().(Expression),
+		MemberType: m.MemberType,
+	}
+	return n_m
+}
+
 func (m *ModuleAccess) LiteralRepr() string {
 	var repr strings.Builder
 
@@ -659,6 +829,20 @@ type StructInitialization struct {
 	StructName *Identifier
 	Fields     map[*Identifier]Expression
 	StructType *Proto_UserDef
+}
+
+func (s *StructInitialization) Copy() ProtoNode {
+	n_s := &StructInitialization{
+		Start:      s.Start,
+		StructName: s.StructName.Copy().(*Identifier),
+		Fields:     map[*Identifier]Expression{},
+		StructType: s.StructType,
+	}
+
+	for id, expr := range s.Fields {
+		n_s.Fields[id.Copy().(*Identifier)] = expr.Copy().(Expression)
+	}
+	return n_s
 }
 
 func (s *StructInitialization) LiteralRepr() string {
@@ -717,6 +901,15 @@ type Reference struct {
 	Value   Expression
 }
 
+func (r *Reference) Copy() ProtoNode {
+	n_r := &Reference{
+		Start:   r.Start,
+		RefType: r.RefType,
+		Value:   r.Value.Copy().(Expression),
+	}
+	return n_r
+}
+
 func (r *Reference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 	r.Value.AsCppCode(c, use_tab, newline)
 }
@@ -733,6 +926,15 @@ type Dereference struct {
 	Start     lexer.ProtoToken
 	Value     Expression
 	DerefType ProtoType
+}
+
+func (d *Dereference) Copy() ProtoNode {
+	n_d := &Dereference{
+		Start:     d.Start,
+		Value:     d.Value.Copy().(Expression),
+		DerefType: d.DerefType,
+	}
+	return n_d
 }
 
 func (d *Dereference) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
