@@ -22,6 +22,7 @@ type ProtoProgram struct {
 	Main          *FunctionDef
 	Contents      []ProtoNode
 	FunctionDefs  []*FunctionDef
+	GenericFns    []*GenericFunction
 	Structs       []*Struct
 	Imports       []*UseStmt
 	Modules       []*Module

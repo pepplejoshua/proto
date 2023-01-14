@@ -355,6 +355,10 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 				tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
 			}
 
+			for _, fn := range mod.Body.GenericFunctions {
+				tc.SetTypeForName(fn.Name.Token, fn.FunctionTypeSignature)
+			}
+
 			for _, decl := range mod.Body.VariableDecls {
 				tc.SetTypeForName(decl.Assignee.Token, decl.VarType)
 			}
@@ -376,6 +380,8 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 						})
 					case *ast.VariableDecl:
 						tc.SetTypeForName(as.As.Token, actual.VarType)
+					case *ast.GenericFunction:
+						tc.SetTypeForName(as.As.Token, actual.FunctionTypeSignature)
 					case *ast.FunctionDef:
 						tc.SetTypeForName(as.As.Token, actual.FunctionTypeSignature)
 					case *ast.Struct:
@@ -393,6 +399,8 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 						})
 					case *ast.VariableDecl:
 						tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
+					case *ast.GenericFunction:
+						tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
 					case *ast.FunctionDef:
 						tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
 					case *ast.Struct:
@@ -411,6 +419,8 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 					})
 				case *ast.VariableDecl:
 					tc.SetTypeForName(actual.Assignee.Token, actual.VarType)
+				case *ast.GenericFunction:
+					tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
 				case *ast.FunctionDef:
 					tc.SetTypeForName(actual.Name.Token, actual.FunctionTypeSignature)
 				case *ast.Struct:
@@ -425,7 +435,11 @@ func (tc *TypeChecker) TypeCheckUseStmt(use *ast.UseStmt) {
 }
 
 func (tc *TypeChecker) TypeCheckModule(mod *ast.Module) {
+	tc.SetTypeForName(mod.Name.Token, &ast.Proto_Module{
+		Mod: mod,
+	})
 	tc.TypeCheckBlockStmt(mod.Body, true)
+
 }
 
 func (tc *TypeChecker) TypeCheckDeref(deref *ast.Dereference) {
@@ -547,12 +561,21 @@ func (tc *TypeChecker) FindMutabilityOf(callable ast.Expression) bool {
 	return false
 }
 
+func (tc *TypeChecker) is_one_of(cand string, signatures []string) bool {
+	for _, sig := range signatures {
+		if sig == cand {
+			return true
+		}
+	}
+	return false
+}
+
 func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 	tc.TypeCheck(call.Callable)
 
 	switch actual := call.Callable.Type().(type) {
 	case *ast.Proto_Generic_Fn:
-		// println(actual.Fn.LiteralRepr())
+		// println(call.LiteralRepr(), actual.Fn.LiteralRepr())
 		if len(call.Arguments) != len(actual.Params.InternalTypes) {
 			var msg strings.Builder
 			line := call.Start.TokenSpan.Line
@@ -568,9 +591,12 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 		mapped_types := map[string]ast.ProtoType{}
 		for i, arg := range call.Arguments {
 			tc.TypeCheck(arg)
-			// is parameter with generic type
+			// println(call.LiteralRepr(), arg.LiteralRepr(), arg.Type().TypeSignature())
 			// get matching param
 			param := actual.Fn.ParameterList[i]
+
+			// replace this with a call to a function that verifies that the types of param
+			// and argument match taking into account generics (in arrays, tuplees and structs)
 			if gen, ok := param.Type().(*ast.Proto_Generic_Type); ok {
 				// bind the generic param type to the concrete type of argument
 				exists := tc.GetTypeForName(gen.Repr.Token)
@@ -581,6 +607,7 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 					}
 					tc.SetTypeForName(new_gen.Repr.Token, new_gen)
 					tc.SetTypeForName(param.Token, new_gen)
+					// println("generic", call.LiteralRepr(), param.LiteralRepr(), arg.Type().TypeSignature())
 					mapped_types[new_gen.Repr.LiteralRepr()] = arg.Type()
 				} else if exists.TypeSignature() != arg.Type().TypeSignature() {
 					var msg strings.Builder
@@ -591,9 +618,14 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 						i+1, exists.TypeSignature(), arg.Type().TypeSignature(),
 						gen.Repr.LiteralRepr(), exists.TypeSignature()))
 					shared.ReportErrorWithPathAndExit("TypeChecker", tc.Prog.Path, msg.String())
+				} else {
+					// println(call.LiteralRepr(), exists.TypeSignature())
+					tc.SetTypeForName(param.Token, exists)
+					mapped_types[gen.Repr.LiteralRepr()] = exists
 				}
 			} else {
 				// do regular type checking
+				// println("regular", call.LiteralRepr(), param.LiteralRepr(), arg.Type().TypeSignature())
 				param_type := actual.Params.InternalTypes[i]
 				span := call.Start.TokenSpan
 				tc.VerifyMutability(param, arg, span)
@@ -610,22 +642,56 @@ func (tc *TypeChecker) TypeCheckCallExpr(call *ast.CallExpression) {
 			}
 		}
 
-		body := actual.Fn.Body.Copy().(*ast.BlockExpr)
-		// type check body again using available types
-		prevFnDefSpan := tc.FnDefSpan
-		prevCurReturnType := tc.CurReturnType
-		tc.FnDefSpan = &actual.Fn.Start.TokenSpan
-		_, call.ReturnType = tc.is_untyped_generic(actual.Return)
-		tc.CurReturnType = call.ReturnType
-		prev := tc.CurBlockType
-		tc.CurBlockType = FUNCTION
-		tc.TypeCheckBlockExpr(body, false)
-		actual.Fn.CheckedBodies = append(actual.Fn.CheckedBodies, body)
-		// println(body.BlockType.TypeSignature())
-		tc.CurBlockType = prev
-		tc.FnDefSpan = prevFnDefSpan
-		tc.CurReturnType = prevCurReturnType
-		actual.Fn.GenerationTargets = append(actual.Fn.GenerationTargets, mapped_types)
+		matched_count := 0
+		is_duplicate := false
+		implicit_conversion_count := 0
+		is_implicit_cpp_conversion := false
+		for _, target := range actual.Fn.GenerationTargets {
+			for param, mapped := range mapped_types {
+				if stored, ok := target[param]; ok {
+					if stored.TypeSignature() == mapped.TypeSignature() {
+						matched_count++
+					} else if tc.is_one_of(stored.TypeSignature(), []string{"char", "i64", "bool"}) &&
+						tc.is_one_of(mapped.TypeSignature(), []string{"char", "i64", "bool"}) {
+						implicit_conversion_count++
+						matched_count++
+					}
+				}
+			}
+
+			if implicit_conversion_count == len(target) {
+				is_implicit_cpp_conversion = true
+				break
+			}
+
+			if matched_count == len(target) {
+				// all type params match
+				is_duplicate = true
+				break
+			}
+		}
+
+		if !is_duplicate || is_implicit_cpp_conversion {
+			body := actual.Fn.Body.Copy().(*ast.BlockExpr)
+			// type check body again using available types
+			prevFnDefSpan := tc.FnDefSpan
+			prevCurReturnType := tc.CurReturnType
+			tc.FnDefSpan = &call.Start.TokenSpan
+			_, call.ReturnType = tc.is_untyped_generic(actual.Return)
+			tc.CurReturnType = call.ReturnType
+			prev := tc.CurBlockType
+			tc.CurBlockType = FUNCTION
+			tc.TypeCheckBlockExpr(body, false)
+			actual.Fn.CheckedBodies = append(actual.Fn.CheckedBodies, body)
+			tc.CurBlockType = prev
+			tc.FnDefSpan = prevFnDefSpan
+			tc.CurReturnType = prevCurReturnType
+			if !is_implicit_cpp_conversion {
+				actual.Fn.GenerationTargets = append(actual.Fn.GenerationTargets, mapped_types)
+			}
+		} else {
+			_, call.ReturnType = tc.is_untyped_generic(actual.Return)
+		}
 		tc.ExitTypeEnv()
 	case *ast.Proto_Function:
 		if actual.Is_Method {
@@ -2030,6 +2096,7 @@ func (tc *TypeChecker) TypeCheckVariableDecl(var_def *ast.VariableDecl) {
 	}
 
 	tc.TypeCheck(var_def.Assigned)
+
 	if strings.Contains(var_def.VarType.TypeSignature(), "untyped") &&
 		!strings.Contains(var_def.Assigned.Type().TypeSignature(), "untyped") {
 		// not already inferred

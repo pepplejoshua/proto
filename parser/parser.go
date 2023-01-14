@@ -205,6 +205,7 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 	modules := []*ast.Module{}
 	funcs := []*ast.FunctionDef{}
 	var_decls := []*ast.VariableDecl{}
+	gen_fns := []*ast.GenericFunction{}
 	structs := []*ast.Struct{}
 
 	var contents []ast.ProtoNode
@@ -222,6 +223,8 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 			modules = append(modules, actual)
 		case *ast.FunctionDef:
 			funcs = append(funcs, actual)
+		case *ast.GenericFunction:
+			gen_fns = append(gen_fns, actual)
 		case *ast.VariableDecl:
 			var_decls = append(var_decls, actual)
 		case *ast.Struct:
@@ -233,13 +236,14 @@ func (p *Parser) parse_block_stmt() *ast.BlockStmt {
 	p.consume(lexer.CLOSE_CURLY)
 
 	return &ast.BlockStmt{
-		Start:         start,
-		End:           end,
-		Contents:      contents,
-		Modules:       modules,
-		Functions:     funcs,
-		VariableDecls: var_decls,
-		Structs:       structs,
+		Start:            start,
+		End:              end,
+		Contents:         contents,
+		Modules:          modules,
+		Functions:        funcs,
+		VariableDecls:    var_decls,
+		GenericFunctions: gen_fns,
+		Structs:          structs,
 	}
 }
 
@@ -1422,36 +1426,31 @@ func (p *Parser) parse_generic_function(name *ast.Identifier, start lexer.ProtoT
 		}
 	}
 	body := p.parse_block_expr()
-
-	gen_fn := &ast.GenericFunction{
-		Start:                 start,
-		Name:                  name,
-		ParameterList:         params_list,
-		ReturnType:            return_type,
-		GenericTypes:          generic_types,
-		Body:                  body,
-		FunctionTypeSignature: &ast.Proto_Generic_Fn{},
-		GenerationTargets:     []map[string]ast.ProtoType{},
-		CheckedBodies:         []*ast.BlockExpr{},
-	}
-
 	type_params := &ast.Proto_Tuple{
 		InternalTypes: []ast.ProtoType{},
 	}
-
 	for _, param := range params_list {
 		type_params.InternalTypes = append(type_params.InternalTypes, param.Id_Type)
 	}
 
-	fn_sig := &ast.Proto_Generic_Fn{
-		GenericTypes: generic_types,
-		Params:       type_params,
-		Return:       return_type,
-		Fn:           gen_fn,
+	gen_fn := &ast.GenericFunction{
+		Start:         start,
+		Name:          name,
+		ParameterList: params_list,
+		ReturnType:    return_type,
+		GenericTypes:  generic_types,
+		Body:          body,
+		FunctionTypeSignature: &ast.Proto_Generic_Fn{
+			GenericTypes: generic_types,
+			Params:       type_params,
+			Return:       return_type,
+			Fn:           &ast.GenericFunction{},
+		},
+		GenerationTargets: []map[string]ast.ProtoType{},
+		CheckedBodies:     []*ast.BlockExpr{},
 	}
 
-	gen_fn.FunctionTypeSignature = fn_sig
-
+	gen_fn.FunctionTypeSignature.Fn = gen_fn
 	return gen_fn
 }
 
@@ -1664,6 +1663,7 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 		Main:          &ast.FunctionDef{},
 		Contents:      []ast.ProtoNode{},
 		FunctionDefs:  []*ast.FunctionDef{},
+		GenericFns:    []*ast.GenericFunction{},
 		Structs:       []*ast.Struct{},
 		Imports:       []*ast.UseStmt{},
 		Modules:       []*ast.Module{},
@@ -1679,6 +1679,9 @@ func Top_Level(p *Parser, provide_main bool) *ast.ProtoProgram {
 	for p.cur.Type != lexer.END {
 		node := p.parse_protonode(false)
 		switch actual := node.(type) {
+		case *ast.GenericFunction:
+			code.GenericFns = append(code.GenericFns, actual)
+			code.Contents = append(code.Contents, actual)
 		case *ast.FunctionDef:
 			code.FunctionDefs = append(code.FunctionDefs, actual)
 			if provide_main {

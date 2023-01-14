@@ -2,6 +2,8 @@ package ast
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"proto/lexer"
 	"proto/shared"
 	"strings"
@@ -583,14 +585,25 @@ func (gf *GenericFunction) LiteralRepr() string {
 }
 
 func (gf *GenericFunction) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
+	// println(gf.LiteralRepr())
+	c.AddInclude("<vector>")
+	exe, err := os.Executable()
+	if err != nil {
+		shared.ReportErrorWithPathAndExit("CppCompiler", c.Path, err.Error())
+	}
+	proto_loc := filepath.Dir(exe)
+	prelude := filepath.Join(proto_loc, "prelude/prelude.hpp")
+	c.AddInclude("\"" + prelude + "\"")
 	for i, mapped_types := range gf.GenerationTargets {
 		// generic type
+		ret_type := ""
 		if exists, ok := mapped_types[gf.ReturnType.TypeSignature()]; ok {
-			c.Write(exists.CppTypeSignature(), true, false)
+			ret_type = exists.CppTypeSignature()
+			// println("here")
 		} else {
-			c.Write(gf.ReturnType.CppTypeSignature(), true, false)
+			ret_type = gf.ReturnType.CppTypeSignature()
 		}
-
+		c.Write(ret_type, true, false)
 		c.Write(gf.Name.LiteralRepr(), false, true)
 		c.Write("(", false, false)
 
@@ -598,13 +611,16 @@ func (gf *GenericFunction) AsCppCode(c *CodeGenerator, use_tab bool, newline boo
 			if !param.Mutability {
 				c.Write("const ", false, false)
 			}
-			if exists, ok := mapped_types[gf.ReturnType.TypeSignature()]; ok {
+			if exists, ok := mapped_types[param.Id_Type.TypeSignature()]; ok {
 				c.Write(exists.CppTypeSignature()+" ", false, false)
+				prev := param.Id_Type
 				param.Id_Type = exists
+				param.AsCppCode(c, false, false)
+				param.Id_Type = prev
 			} else {
 				c.Write(param.Id_Type.CppTypeSignature()+" ", false, false)
+				param.AsCppCode(c, false, false)
 			}
-			param.AsCppCode(c, false, false)
 
 			if index+1 < len(gf.ParameterList) {
 				c.Write(", ", false, false)
@@ -755,24 +771,26 @@ func (b *Continue) AsCppCode(c *CodeGenerator, use_tab bool, newline bool) {
 }
 
 type BlockStmt struct {
-	Start         lexer.ProtoToken
-	End           lexer.ProtoToken
-	Contents      []ProtoNode
-	Modules       []*Module
-	Functions     []*FunctionDef
-	VariableDecls []*VariableDecl
-	Structs       []*Struct
+	Start            lexer.ProtoToken
+	End              lexer.ProtoToken
+	Contents         []ProtoNode
+	Modules          []*Module
+	Functions        []*FunctionDef
+	VariableDecls    []*VariableDecl
+	GenericFunctions []*GenericFunction
+	Structs          []*Struct
 }
 
 func (b *BlockStmt) Copy() ProtoNode {
 	n_b := &BlockStmt{
-		Start:         b.Start,
-		End:           b.End,
-		Contents:      []ProtoNode{},
-		Modules:       []*Module{},
-		Functions:     []*FunctionDef{},
-		VariableDecls: []*VariableDecl{},
-		Structs:       []*Struct{},
+		Start:            b.Start,
+		End:              b.End,
+		Contents:         []ProtoNode{},
+		Modules:          []*Module{},
+		Functions:        []*FunctionDef{},
+		VariableDecls:    []*VariableDecl{},
+		GenericFunctions: []*GenericFunction{},
+		Structs:          []*Struct{},
 	}
 
 	for _, node := range b.Contents {
@@ -785,6 +803,10 @@ func (b *BlockStmt) Copy() ProtoNode {
 
 	for _, node := range b.Functions {
 		n_b.Functions = append(n_b.Functions, node.Copy().(*FunctionDef))
+	}
+
+	for _, node := range b.GenericFunctions {
+		n_b.GenericFunctions = append(n_b.GenericFunctions, node.Copy().(*GenericFunction))
 	}
 
 	for _, node := range b.VariableDecls {

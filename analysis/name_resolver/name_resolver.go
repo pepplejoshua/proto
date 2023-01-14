@@ -370,18 +370,28 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 			mod := nr.ImportInfo[tag+name].(*ast.Module)
 
 			for _, m := range mod.Body.Modules {
+				nr.CheckForDuplicateName(m.Name)
 				nr.DeclareName(m.Name.Token, m, false)
 				nr.DefineName(m.Name.Token)
 				nr.InitializeName(m.Name.Token)
 			}
 
 			for _, fn := range mod.Body.Functions {
+				nr.CheckForDuplicateName(fn.Name)
+				nr.DeclareName(fn.Name.Token, fn, false)
+				nr.DefineName(fn.Name.Token)
+				nr.InitializeName(fn.Name.Token)
+			}
+
+			for _, fn := range mod.Body.GenericFunctions {
+				nr.CheckForDuplicateName(fn.Name)
 				nr.DeclareName(fn.Name.Token, fn, false)
 				nr.DefineName(fn.Name.Token)
 				nr.InitializeName(fn.Name.Token)
 			}
 
 			for _, decl := range mod.Body.VariableDecls {
+				nr.CheckForDuplicateName(&decl.Assignee)
 				nr.DeclareName(decl.Assignee.Token, decl, false)
 				nr.DefineName(decl.Assignee.Token)
 				nr.InitializeName(decl.Assignee.Token)
@@ -389,6 +399,7 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 			}
 
 			for _, struct_ := range mod.Body.Structs {
+				nr.CheckForDuplicateName(&struct_.Name)
 				nr.DeclareName(struct_.Name.Token, struct_, false)
 				nr.DefineName(struct_.Name.Token)
 				nr.InitializeName(struct_.Name.Token)
@@ -404,18 +415,27 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 					val := nr.ImportInfo[tag+name]
 					switch actual := val.(type) {
 					case *ast.Module:
+						nr.CheckForDuplicateName(actual.Name)
+						nr.DeclareName(actual.Name.Token, actual, false)
+						nr.DefineName(actual.Name.Token)
+						nr.InitializeName(actual.Name.Token)
+					case *ast.GenericFunction:
+						nr.CheckForDuplicateName(actual.Name)
 						nr.DeclareName(actual.Name.Token, actual, false)
 						nr.DefineName(actual.Name.Token)
 						nr.InitializeName(actual.Name.Token)
 					case *ast.VariableDecl:
+						nr.CheckForDuplicateName(&actual.Assignee)
 						nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
 						nr.DefineName(actual.Assignee.Token)
 						nr.InitializeName(actual.Assignee.Token)
 					case *ast.FunctionDef:
+						nr.CheckForDuplicateName(actual.Name)
 						nr.DeclareName(actual.Name.Token, actual, false)
 						nr.DefineName(actual.Name.Token)
 						nr.InitializeName(actual.Name.Token)
 					case *ast.Struct:
+						nr.CheckForDuplicateName(&actual.Name)
 						nr.DeclareName(actual.Name.Token, actual, false)
 						nr.DefineName(actual.Name.Token)
 						nr.InitializeName(actual.Name.Token)
@@ -425,18 +445,27 @@ func (nr *NameResolver) ResolveUseStmt(use *ast.UseStmt) {
 				val := nr.ImportInfo[tag+name]
 				switch actual := val.(type) {
 				case *ast.Module:
+					nr.CheckForDuplicateName(actual.Name)
 					nr.DeclareName(actual.Name.Token, actual, false)
 					nr.DefineName(actual.Name.Token)
 					nr.InitializeName(actual.Name.Token)
 				case *ast.VariableDecl:
+					nr.CheckForDuplicateName(&actual.Assignee)
 					nr.DeclareName(actual.Assignee.Token, actual, actual.Mutable)
 					nr.DefineName(actual.Assignee.Token)
 					nr.InitializeName(actual.Assignee.Token)
+				case *ast.GenericFunction:
+					nr.CheckForDuplicateName(actual.Name)
+					nr.DeclareName(actual.Name.Token, actual, false)
+					nr.DefineName(actual.Name.Token)
+					nr.InitializeName(actual.Name.Token)
 				case *ast.FunctionDef:
+					nr.CheckForDuplicateName(actual.Name)
 					nr.DeclareName(actual.Name.Token, actual, false)
 					nr.DefineName(actual.Name.Token)
 					nr.InitializeName(actual.Name.Token)
 				case *ast.Struct:
+					nr.CheckForDuplicateName(&actual.Name)
 					nr.DeclareName(actual.Name.Token, actual, false)
 					nr.DefineName(actual.Name.Token)
 					nr.InitializeName(actual.Name.Token)

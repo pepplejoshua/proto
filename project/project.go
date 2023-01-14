@@ -22,7 +22,7 @@ type ProjectOrganizer struct {
 	cache                  map[string]*ast.ProtoProgram
 	files_and_dependencies map[string][]string
 	files_and_resolvables  map[string][]*ast.Path
-	compiled_files         []string
+	to_be_compiled         map[string]*ast.ProtoProgram
 	CleanSrc               bool
 	Generate               bool
 	show_compile_info      bool
@@ -39,7 +39,7 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, sh
 		cache:                  map[string]*ast.ProtoProgram{},
 		files_and_dependencies: map[string][]string{},
 		files_and_resolvables:  map[string][]*ast.Path{},
-		compiled_files:         []string{},
+		to_be_compiled:         map[string]*ast.ProtoProgram{},
 		CleanSrc:               clean_src,
 		Generate:               generate_only,
 		show_compile_info:      show_compile_info,
@@ -47,10 +47,6 @@ func NewProjectManager(file, cpp_flags string, clean_src, generate_only bool, sh
 		cppflags:               cpp_flags,
 		testNames:              make([]string, 0, 2),
 	}
-}
-
-func (po *ProjectOrganizer) BuildProjectMulti() {
-		
 }
 
 func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[string][]*ast.Path, *ast.ProtoProgram) {
@@ -61,13 +57,14 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 		module := &ast.Module{
 			Start: file_ast.Start,
 			Body: &ast.BlockStmt{
-				Start:         file_ast.Start,
-				End:           file_ast.End,
-				Contents:      file_ast.Contents,
-				Modules:       file_ast.Modules,
-				Functions:     file_ast.FunctionDefs,
-				VariableDecls: file_ast.VariableDecls,
-				Structs:       file_ast.Structs,
+				Start:            file_ast.Start,
+				End:              file_ast.End,
+				Contents:         file_ast.Contents,
+				Modules:          file_ast.Modules,
+				Functions:        file_ast.FunctionDefs,
+				VariableDecls:    file_ast.VariableDecls,
+				GenericFunctions: file_ast.GenericFns,
+				Structs:          file_ast.Structs,
 			},
 			Name: &ast.Identifier{
 				Token: lexer.ProtoToken{
@@ -85,10 +82,12 @@ func (po *ProjectOrganizer) ProcessSourceFile(file string, has_main bool) (map[s
 			Main:          nil,
 			Contents:      []ast.ProtoNode{module},
 			FunctionDefs:  []*ast.FunctionDef{},
+			GenericFns:    []*ast.GenericFunction{},
 			Structs:       []*ast.Struct{},
 			Imports:       file_ast.Imports,
 			Modules:       []*ast.Module{module},
 			VariableDecls: []*ast.VariableDecl{},
+			Tests:         []*ast.TestStmt{},
 		}
 	}
 	imports := file_ast.Imports
@@ -216,6 +215,24 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 					}
 				}
 
+				for _, fn := range ac.Body.GenericFunctions {
+					if fn.Name.LiteralRepr() == piece.String() {
+						item = fn
+						id, _ := piece.(*ast.PathIDNode)
+						id.Type = lexer.FN
+						// there are still more pieces to process
+						if index+1 > len(path.Pieces) {
+							next := path.Pieces[index+1]
+							if as, ok := next.(*ast.UseAs); ok {
+								as.PType = lexer.AS
+								index++
+								break loop
+							}
+						}
+						continue loop
+					}
+				}
+
 				for _, decl := range ac.Body.VariableDecls {
 					if decl.Assignee.LiteralRepr() == piece.String() {
 						item = decl
@@ -241,6 +258,15 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 				msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
 				msg.WriteString(fmt.Sprintf("Unable to find identifier '%s' in module '%s'.", piece.String(), ac.Name.LiteralRepr()))
 				shared.ReportErrorAndExit("ProjectOrganizer", msg.String())
+			case *ast.GenericFunction:
+				var msg strings.Builder
+				user := path.UseSrcLoc
+				line := path.Start.TokenSpan.Line
+				col := path.Start.TokenSpan.Col
+				msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+				msg.WriteString(fmt.Sprintf("Accessing member '%s' on generic function '%s' is not valid.", piece.String(),
+					ac.Name.LiteralRepr()))
+				shared.ReportErrorAndExit("ProjectManager", msg.String())
 			case *ast.FunctionDef:
 				var msg strings.Builder
 				user := path.UseSrcLoc
@@ -282,36 +308,45 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 		if index < len(path.Pieces) {
 			piece := path.Pieces[index]
 			if piece.String() == "*" {
-				if mod, ok := item.(*ast.Module); ok {
-					name := tag + mod.Name.LiteralRepr()
-					res[name] = mod
-				} else if decl, ok := item.(*ast.VariableDecl); ok {
-					// cannot use * operator on non-module
+				switch ac := item.(type) {
+				case *ast.Module:
+					name := tag + ac.Name.LiteralRepr()
+					res[name] = ac
+				case *ast.VariableDecl:
 					var msg strings.Builder
 					loc := path.PathSrcLoc
 					user := path.UseSrcLoc
 					line := path.Start.TokenSpan.Line
 					col := path.Start.TokenSpan.Col
 					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-					msg.WriteString(fmt.Sprintf("Using '*' when importing variable '%s' from '%s' is not valid.", decl.Assignee.LiteralRepr(), loc))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing variable '%s' from '%s' is not valid.", ac.Assignee.LiteralRepr(), loc))
 					shared.ReportErrorAndExit("ProjectManager", msg.String())
-				} else if fn, ok := item.(*ast.FunctionDef); ok {
+				case *ast.GenericFunction:
 					var msg strings.Builder
 					loc := path.PathSrcLoc
 					user := path.UseSrcLoc
 					line := path.Start.TokenSpan.Line
 					col := path.Start.TokenSpan.Col
 					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-					msg.WriteString(fmt.Sprintf("Using '*' when importing function '%s' from '%s' is not valid.", fn.Name.LiteralRepr(), loc))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing generic function '%s' from '%s' is not valid.", ac.Name.LiteralRepr(), loc))
 					shared.ReportErrorAndExit("ProjectManager", msg.String())
-				} else if struct_, ok := item.(*ast.Struct); ok {
+				case *ast.FunctionDef:
 					var msg strings.Builder
 					loc := path.PathSrcLoc
 					user := path.UseSrcLoc
 					line := path.Start.TokenSpan.Line
 					col := path.Start.TokenSpan.Col
 					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
-					msg.WriteString(fmt.Sprintf("Using '*' when importing struct '%s' from '%s' is not valid.", struct_.Name.LiteralRepr(), loc))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing function '%s' from '%s' is not valid.", ac.Name.LiteralRepr(), loc))
+					shared.ReportErrorAndExit("ProjectManager", msg.String())
+				case *ast.Struct:
+					var msg strings.Builder
+					loc := path.PathSrcLoc
+					user := path.UseSrcLoc
+					line := path.Start.TokenSpan.Line
+					col := path.Start.TokenSpan.Col
+					msg.WriteString(fmt.Sprintf("%s %d:%d ", user, line, col))
+					msg.WriteString(fmt.Sprintf("Using '*' when importing struct '%s' from '%s' is not valid.", ac.Name.LiteralRepr(), loc))
 					shared.ReportErrorAndExit("ProjectManager", msg.String())
 				}
 			} else if as, ok := piece.(*ast.UseAs); ok {
@@ -322,6 +357,8 @@ func (po *ProjectOrganizer) SearchASTFor(prog *ast.ProtoProgram, paths []*ast.Pa
 			// there are no pieces to process
 			switch actual := item.(type) {
 			case *ast.FunctionDef:
+				res[tag+actual.Name.LiteralRepr()] = item
+			case *ast.GenericFunction:
 				res[tag+actual.Name.LiteralRepr()] = item
 			case *ast.Module:
 				res[tag+actual.Name.LiteralRepr()] = item
@@ -345,6 +382,7 @@ func (po *ProjectOrganizer) ProcessImports(queue []string, file string, has_main
 	}
 
 	imported, file_ast := po.ProcessSourceFile(file, has_main)
+	po.to_be_compiled[file] = file_ast
 	po.cache[file] = file_ast
 	info_loc := map[string]ast.ProtoNode{}
 	for d_file, rest := range imported {
@@ -394,7 +432,6 @@ func (po *ProjectOrganizer) ProcessImports(queue []string, file string, has_main
 	// so the caller can take the fully analysed tree and take what they need from it
 	// using ast.SearchFor()
 	po.AnalyseAST(file_ast, info_loc)
-	po.GenerateCppFor(file, file_ast, has_main, false)
 	return file_ast
 }
 
@@ -406,7 +443,7 @@ func (po *ProjectOrganizer) AnalyseAST(prog *ast.ProtoProgram, import_info map[s
 	tc.TypeCheckProgram(prog)
 }
 
-func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, is_main, compile bool) {
+func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, is_main bool) {
 	code := &cpp_compiler.Compiler{}
 	gen_src := code.CompileProgram(prog, is_main)
 
@@ -414,13 +451,6 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 	destination, _ := os.Create(src_path)
 	fmt.Fprintln(destination, gen_src)
 	destination.Close()
-	if po.show_compile_info {
-		println("generated c++ written to", src_path)
-	}
-
-	if po.CleanSrc {
-		po.compiled_files = append(po.compiled_files, src_path)
-	}
 
 	if po.Generate || !po.CleanSrc {
 		clang_format := exec.Command("clang-format", src_path)
@@ -460,29 +490,24 @@ func (po *ProjectOrganizer) GenerateCppFor(file string, prog *ast.ProtoProgram, 
 
 		format_output := output
 		// println(string(format_output))
-		if po.show_compile_info {
-			println("formatted source at", src_path)
-		}
 
 		destination, _ := os.Create(src_path)
 		defer destination.Close()
 		fmt.Fprintln(destination, string(format_output))
 		if po.show_compile_info {
-			println("updated with formatted output", src_path)
+			println("generated c++ written to", src_path)
 		}
-	}
-
-	if compile {
-		po.CompileFile(src_path, shared.Make_exe_path(file))
 	}
 }
 
-func (po *ProjectOrganizer) CompileFile(src_path, exe_loc string) {
+func (po *ProjectOrganizer) Compile() {
+	src_path := shared.Make_src_path(po.startfile, true)
+	exe_loc := shared.Make_exe_path(src_path)
 	var compile_cmd *exec.Cmd
 	if po.testing {
-		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags, "-DPROTO_TESTING")
+		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", "-Wnonportable-include-path", po.cppflags, "-DPROTO_TESTING")
 	} else {
-		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", po.cppflags)
+		compile_cmd = exec.Command("g++", "-o", exe_loc, src_path, "-std=c++14", "-Wno-unused-value", "-Wnonportable-include-path", po.cppflags)
 	}
 	stderr, err := compile_cmd.StderrPipe()
 	if err != nil {
@@ -517,6 +542,7 @@ func (po *ProjectOrganizer) BuildProject() {
 	file_imported_bundle, ast_prog := po.ProcessSourceFile(po.startfile, true)
 
 	po.cache[po.startfile] = ast_prog
+	po.to_be_compiled[po.startfile] = ast_prog
 
 	info_loc := map[string]ast.ProtoNode{}
 	// track each file_imported_bundle in a ProjectOrganizer member
@@ -530,10 +556,20 @@ func (po *ProjectOrganizer) BuildProject() {
 
 	// then do analysis for ast_prog using all the pieces taken from imported files
 	po.AnalyseAST(ast_prog, info_loc)
-	po.GenerateCppFor(po.startfile, ast_prog, true, !po.Generate)
+
+	// generate all cpp files at once (due to generics)
+	for src_path, prog := range po.to_be_compiled {
+		is_main := src_path == po.startfile
+		po.GenerateCppFor(src_path, prog, is_main)
+	}
+
+	// compile program
+	if !po.Generate {
+		po.Compile()
+	}
 
 	if po.CleanSrc {
-		for _, src_path := range po.compiled_files {
+		for src_path := range po.to_be_compiled {
 			os.RemoveAll(src_path)
 		}
 	}
