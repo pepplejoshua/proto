@@ -1,5 +1,0 @@
-is_even(2);
-do_stuff([1, 2, 3, 4]);
-no_params();
-let a = is_even(3);
-closure(1)(2);

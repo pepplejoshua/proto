@@ -1,5 +1,0 @@
-let a = true;
-let b: bool = not a;
-let num = 300;
-let neg: i64 = -num;
-let c = num >= neg;

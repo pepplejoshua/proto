@@ -1,6 +1,0 @@
-let a = 5;
-{
-    let a = 2;
-    let b = a;
-}
-a;
