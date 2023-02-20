@@ -1,9 +1,0 @@
-[1, 2, 3, 4, 5].length();
-some_object.member;
-object.function_call();
-object.member.function_call();
-tuple.1;
-another_tuple.0;
-function_call().member;
-arr[3].function().member;
-arr[1].member[1];

@@ -1,6 +1,0 @@
-let a: i64;
-a = 5;
-
-mut b: char;
-b = 'a';
-b = 'd';

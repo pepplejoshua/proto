@@ -1,3 +1,0 @@
-test "Hello" {
-    let a = 1 + 1;
-}
