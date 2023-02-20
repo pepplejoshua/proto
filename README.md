@@ -11,9 +11,9 @@ This project will come with a few tools:
 1. `prc`, the proto compiler. It is the standalone compiler and can be used to compile a proto source file (with .pr extension) to an executable.
 2. `porter`, the package manage for proto. It will be able to:
 
-   [ ] create new projects from scratch
+   - [ ] create new projects from scratch
 
-   [ ]
+   - [ ]
 
 ## Creating a project
 
