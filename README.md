@@ -19,6 +19,8 @@ This project will come with a few tools:
 
    - [ ] create new projects from scratch
 
+   - [ ] modify existing projects to run the code formatter or linter or static analysis without compilation. Will be fleshed out before work begins.
+
    - [ ] compile proto projects
 
    - [ ] fetch proto `units` from GitHub or else where for project use.
