@@ -23,14 +23,30 @@ This project will come with a few tools:
 
    - [ ] fetch proto `units` from GitHub or else where for project use.
 
+4. `prose`, the documentation generator for proto.
+
 ## prc
 
 ---
+
+prc is the main compiler
+
+<br>
 
 ## proto
 
 ---
 
+<br>
+
 ## porter
 
 ---
+
+<br>
+
+## prose
+
+---
+
+<br>
