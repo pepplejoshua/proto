@@ -11,13 +11,15 @@ A compiler/tooling project for the Proto programming language. This project is a
 
 This project will come with a few tools:
 
-1. `prc`, the proto compiler. It is the standalone compiler and can be used to compile a proto source file (with .pr extension) to an executable.
+1. [prc](), the proto compiler. It is the standalone compiler and can be used to compile a proto source file (with .pr extension) to an executable.
 
-2. `proto`, the REPL for trying out ideas in a less permanent space. I don't think this needs much more explanation.
+2. [proto](), the REPL for trying out ideas in a less permanent space. I don't think this needs much more explanation.
 
-3. `porter`, the project manager for proto. It will be able to:
+3. [porter](), the project manager for proto. It will be able to:
 
-   - [ ] create new projects from scratch
+   - [ ] create new proto projects
+
+   - [ ] create new proto projects in existing folders
 
    - [ ] modify existing projects to run the code formatter or linter or static analysis without compilation. Will be fleshed out before work begins.
 
@@ -25,7 +27,7 @@ This project will come with a few tools:
 
    - [ ] fetch proto `units` from GitHub or else where for project use.
 
-4. `prose`, the documentation generator for proto.
+4. [prose](), the documentation generator for proto.
 
 ## prc
 
