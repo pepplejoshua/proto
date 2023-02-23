@@ -5,3 +5,4 @@ proto
 
 *.exe
 .vscode
+Cargo.lock
