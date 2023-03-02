@@ -18,10 +18,8 @@ The language description can be found [here](docs/language_desc.md).
 
 This project will come with a few tools:
 
-1. [prc](src/prc/README.md), the proto compiler.
+1. [prc](src/prc/README.md), the proto compiler which can be called standalone.
 
-2. [proto](src/proto/README.md), the REPL for trying out ideas in a less permanent space. I don't think this needs much more explanation.
+2. [proto](src/proto/README.md), the toolkit for the Proto programming language. 
 
-3. [porter](src/porter/README.md), the project manager for proto.
-
-4. [prose](src/prose/README.md), the documentation generator for proto.
+3. [proton](src/proton/README.md), the virtual machine for proto.
