@@ -8,10 +8,38 @@ Instead of dwelling in the future, let us describe what the language will look l
 
 ---
 
-1. [Types](#types)
+1. [Standard Library](#standard-library)
+2. [Hello World]()
 
 <br>
 
-## Types
+### Standard Library
 
 ---
+
+The Standard Library for Proto has its own documentation. It can be found [here](./tbd.md).
+
+<br>
+
+### Hello World
+
+---
+
+#### **`hello.pr`**
+
+```rs
+use std::[print];
+
+fn main() void {
+  println("Hello, {#}!\n", "world");
+}
+```
+
+#### **`Shell`**
+
+```bash
+$ proto -r hello.pr
+Hello, world!
+```
+
+<br>
