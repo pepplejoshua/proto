@@ -1,6 +1,6 @@
-# Proto Language Description
+# Proto Language Description (v0.0.1)
 
-Proto is a typed programming language. The long term goal is to compile to native code through LLVM. To support the REPL, it will have a Virtual Machine written in Rust ([_proton_](../src/proton/README.md)). This VM could also power compile time expressions.
+Proto is a typed programming language. The long term goal is to compile to native code through LLVM. To support the REPL, it will have a Virtual Machine written in Rust ([_proton_](../src/proton/README.md)). This VM could eventually power compile time expressions.
 
 Instead of dwelling in the future, let us describe what the language will look like. This document will get updated as more language features get added in future versions.
 
@@ -9,7 +9,8 @@ Instead of dwelling in the future, let us describe what the language will look l
 ---
 
 1. [Standard Library](#standard-library)
-2. [Hello World]()
+2. [Hello World](#hello-world)
+3. [Comments](#comments)
 
 <br>
 
@@ -28,9 +29,9 @@ The Standard Library for Proto has its own documentation. It can be found [here]
 #### **`hello.pr`**
 
 ```rs
-use std::[print];
+use std::io::println;
 
-fn main() void {
+fn main() {
   println("Hello, {#}!\n", "world");
 }
 ```
@@ -43,3 +44,33 @@ Hello, world!
 ```
 
 <br>
+
+### Comments
+
+---
+
+#### **`comments.pr`**
+
+```rs
+use std::io::println;
+
+fn main() {
+  // a comment starts with "//" and ends when the line terminates.
+  // comments are for the reader. the compiler will not read them,
+  // so you are free to write as many as you like.
+  println("Hello, {#}!\n", "world");
+
+  // the line below will not be executed:
+  // println("Does not run");
+}
+```
+
+#### **`Shell`**
+
+```bash
+$ proto -r hello.pr
+Hello, world!
+```
+
+> Documentation comments will be done later when work starts on adding it to proto.
+
