@@ -262,8 +262,8 @@ impl Lexer {
         let mut end_ref = self.src.get_ref();
         loop {
             let c = self.src.next_char();
+            end_ref = self.src.get_ref();
             if c.is_ascii_digit() {
-                end_ref = self.src.get_ref();
                 signed_number.push(c);
             } else if c == '_' {
                 // ignore underscores
@@ -295,8 +295,10 @@ impl Lexer {
             return Ok(Token::IsizeLiteral(num, combined_ref));
         }
 
-        // if it is not a valid signed number, return an error
-        Err(LexerError::CannotMakeSignedNumber(combined_ref))
+        // if signed_number's first character is not '-',
+        // then attempt to lex an unsigned number
+        self.src.jump_to(&cur_ref);
+        self.lex_unsigned_number()
     }
 
     // try to lex an unsigned number which is one of:
@@ -315,8 +317,8 @@ impl Lexer {
         let mut end_ref = self.src.get_ref();
         loop {
             let c = self.src.next_char();
+            end_ref = self.src.get_ref();
             if c.is_ascii_digit() {
-                end_ref = self.src.get_ref();
                 unsigned_number.push(c);
             } else if c == '_' {
                 // ignore underscores
@@ -361,9 +363,6 @@ struct LexerTestResult {
 
 #[test]
 fn test_lexer() {
-    let mut res = LexerTestResult {
-        stringified_tokens: Vec::new(),
-    };
     insta::glob!("lexer_inputs/*.json", |path| {
         // build the SourceFile from the json file
         let file_contents = std::fs::read_to_string(path).unwrap();
@@ -373,6 +372,9 @@ fn test_lexer() {
         let mut lexer = Lexer::new(src);
 
         let mut tokens = Vec::new();
+        let mut res = LexerTestResult {
+            stringified_tokens: Vec::new(),
+        };
         loop {
             let token = lexer.next_token();
             if token.is_err() {

@@ -39,6 +39,13 @@ impl SourceFile {
         }
     }
 
+    // jump to a specific position in the source file from a reference
+    pub fn jump_to(&mut self, src_ref: &SourceRef) {
+        self.flat_index = src_ref.flat_start;
+        self.line = src_ref.start_line;
+        self.col = src_ref.start_col;
+    }
+
     // return the next character in the source file and advance the fields
     // accordingly:
     // - flat_index: increase by 1 (as long as we read a character). If we return EOF, flat_index

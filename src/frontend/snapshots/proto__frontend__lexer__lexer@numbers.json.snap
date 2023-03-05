@@ -1,0 +1,16 @@
+---
+source: src/frontend/lexer.rs
+expression: res
+input_file: src/frontend/lexer_inputs/numbers.json
+---
+stringified_tokens:
+  - "I8Literal(-128, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 0, end_line: 0, end_col: 4, flat_start: 0, flat_end: 4 })"
+  - "I8Literal(127, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 5, end_line: 0, end_col: 8, flat_start: 5, flat_end: 8 })"
+  - "I16Literal(-32768, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 9, end_line: 0, end_col: 16, flat_start: 9, flat_end: 16 })"
+  - "I16Literal(32767, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 17, end_line: 0, end_col: 23, flat_start: 17, flat_end: 23 })"
+  - "I32Literal(-2147483648, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 24, end_line: 0, end_col: 38, flat_start: 24, flat_end: 38 })"
+  - "I32Literal(2147483647, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 39, end_line: 0, end_col: 52, flat_start: 39, flat_end: 52 })"
+  - "I64Literal(-9223372036854775808, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 53, end_line: 0, end_col: 79, flat_start: 53, flat_end: 79 })"
+  - "I64Literal(9223372036854775807, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 80, end_line: 0, end_col: 105, flat_start: 80, flat_end: 105 })"
+  - "U64Literal(18446744073709551615, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 106, end_line: 0, end_col: 131, flat_start: 106, flat_end: 132 })"
+
