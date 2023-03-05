@@ -10,3 +10,9 @@ phf = { version = "0.11.1", features = ["macros"] }
 
 [dev-dependencies]
 insta = { version = "1.28.0", features = ["yaml"] }
+
+[profile.dev.package.insta]
+opt-level = 3
+
+[profile.dev.package.similar]
+opt-level = 3
