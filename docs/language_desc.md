@@ -4,18 +4,21 @@ Proto is a typed programming language. The long term goal is to compile to nativ
 
 Instead of dwelling in the future, let us describe what the language will look like. This document will get updated as more language features get added in future versions.
 
-## Content
+These docs were inspired by [ziglang](https://ziglang.org/documentation/master/) docs.
+
+# Content
 
 ---
 
-1. [Standard Library](#standard-library)
-2. [Hello World](#hello-world)
-3. [Comments](#comments)
-4. [Values/Constants](#valuesconstants)
+1. [Standard Library](#1-standard-library)
+2. [Hello World](#2-hello-world)
+3. [Comments](#3-comments)
+4. [Values/Constants](#4-values--constants)
+   - [Primitive Types](#41-primitive-types)
 
 <br>
 
-### Standard Library
+## 1. Standard Library
 
 ---
 
@@ -23,7 +26,7 @@ The Standard Library for Proto has its own documentation. It can be found [here]
 
 <br>
 
-### Hello World
+## 2. Hello World
 
 ---
 
@@ -46,7 +49,7 @@ Hello, world!
 
 <br>
 
-### Comments
+## 3. Comments
 
 ---
 
@@ -77,7 +80,7 @@ Hello, world!
 
 <br>
 
-### Values/Constants
+## 4. Values | Constants
 
 ---
 
@@ -100,7 +103,11 @@ fn main() {
   );
 
   // characters
-  
+  let a: char = 'a';
+
+  // string literals
+  let literal: str = "this is {#} string literal";
+  println(literal, a);
 }
 ```
 
@@ -112,4 +119,30 @@ $ proto -r values_constants.pr
 false
 true
 false
+this is a string literal
 ```
+
+<br>
+
+### 4.1 Primitive types
+
+---
+
+<br>
+
+| Type        | Description                                     | Implemented? |
+| ----------- | ----------------------------------------------- | ------------ |
+| **`i8`**    | signed 8-bit integer                            | ❌           |
+| **`u8`**    | unsigned 8-bit integer                          | ❌           |
+| **`i16`**   | signed 16-bit integer                           | ❌           |
+| **`u16`**   | unsigned 16-bit integer                         | ❌           |
+| **`i32`**   | signed 32-bit integer                           | ❌           |
+| **`u32`**   | unsigned 32-bit integer                         | ❌           |
+| **`i64`**   | signed 64-bit integer                           | ❌           |
+| **`u64`**   | unsigned 64-bit integer                         | ❌           |
+| **`isize`** | signed pointer sized integer. platform specific | ❌           |
+| **`bool`**  | `true` or `false`                               | ❌           |
+| **`void`**  | `void` as in, nothing                           | ❌           |
+| **`type`**  | the type of types                               | ❌           |
+
+<br>
