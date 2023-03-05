@@ -27,10 +27,39 @@ impl Lexer {
         }
     }
 
+    // process comments
+    fn process_comment(&mut self) {
+        let start = self.src.cur_char();
+        let peek = self.src.peek_char();
+
+        if start == '/' && peek == '/' {
+            // consume both "//" characters
+            self.src.next_char();
+            self.src.next_char();
+
+            // single line comment
+            // skip until we reach a newline
+            loop {
+                let cur = self.src.cur_char();
+                self.src.next_char();
+                if cur != '\n' {
+                    continue;
+                } else {
+                    break;
+                }
+            }
+        }
+    }
+
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexerError> {
         // skip all preceding whitespace
         self.skip_whitespace();
+
+        // process comments
+        // eventually, it'll get documentation comments
+        // for now, it just skips regular comments
+        self.process_comment();
 
         // get the current character
         let c = self.src.cur_char();
