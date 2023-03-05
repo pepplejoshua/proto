@@ -11,10 +11,12 @@ impl Lexer {
         Lexer { src }
     }
 
-    // skip all preceding whitespace
+    // skip all whitespace characters
     fn skip_whitespace(&mut self) {
-        while let c = self.src.next_char() {
+        loop {
+            let c = self.src.cur_char();
             if c.is_whitespace() {
+                self.src.next_char();
                 continue;
             } else {
                 break;
@@ -27,9 +29,8 @@ impl Lexer {
         // skip all whitespace
         self.skip_whitespace();
 
-        // get the next c_ref and character
-        let c_ref = self.src.get_ref();
-        let c = self.src.next_char();
+        // get the current character
+        let c = self.src.cur_char();
 
         // if we reached the end of the file, return EOF
         if c == '\0' {
@@ -38,10 +39,13 @@ impl Lexer {
 
         match c {
             // operators
-            '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' => self.lex_operator(c, c_ref),
-            _ if c.is_digit(10) => self.lex_number(c, c_ref),
-            _ if c.is_alphabetic() => self.lex_potential_identifier(c, c_ref),
-            _ => Err(LexerError::InvalidCharacter(c, c_ref)),
+            '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' => self.lex_operator(),
+            // numbers
+            _ if c.is_ascii_digit() => self.lex_number(),
+            // identifiers | keywords
+            _ if c.is_alphabetic() => self.lex_potential_identifier(),
+            // invalid character
+            _ => Err(LexerError::InvalidCharacter(self.src.get_ref())),
         }
     }
 
@@ -49,43 +53,71 @@ impl Lexer {
     // it might turn out to be either a:
     // - keyword
     // - identifier
-    fn lex_potential_identifier(
-        &mut self,
-        cur: char,
-        cur_ref: SourceRef,
-    ) -> Result<Token, LexerError> {
+    fn lex_potential_identifier(&mut self) -> Result<Token, LexerError> {
         let mut id = String::new();
+        let c_ref = self.src.get_ref();
+        let cur = self.src.next_char();
         id.push(cur);
 
         // read all characters that are alphanumeric or '_'
-        while let c = self.src.peek_char() {
+        let mut end_ref = self.src.get_ref();
+        loop {
+            let c = self.src.next_char();
             if c.is_alphanumeric() || c == '_' {
+                end_ref = self.src.get_ref();
                 id.push(self.src.next_char());
             } else {
                 break;
             }
         }
 
+        let combined_ref = c_ref.combine(&end_ref);
         // check if the identifier is a keyword
         match id.as_str() {
-            "fn" => Ok(Token::Fn(self.src.get_ref())),
+            "fn" => Ok(Token::Fn(combined_ref)),
+            "let" => Ok(Token::Let(combined_ref)),
+            "mut" => Ok(Token::Mut(combined_ref)),
+            "if" => Ok(Token::If(combined_ref)),
+            "else" => Ok(Token::Else(combined_ref)),
+            "loop" => Ok(Token::Loop(combined_ref)),
+            "while" => Ok(Token::While(combined_ref)),
+            "void" => Ok(Token::Void(combined_ref)),
+            "true" => Ok(Token::True(combined_ref)),
+            "false" => Ok(Token::False(combined_ref)),
 
-            _ => Ok(Token::Identifier(id, self.src.get_ref())),
+            "and" => Ok(Token::And(combined_ref)),
+            "or" => Ok(Token::Or(combined_ref)),
+            "not" => Ok(Token::Not(combined_ref)),
+
+            "i8" => Ok(Token::I8(combined_ref)),
+            "i16" => Ok(Token::I16(combined_ref)),
+            "i32" => Ok(Token::I32(combined_ref)),
+            "i64" => Ok(Token::I64(combined_ref)),
+            "isize" => Ok(Token::Isize(combined_ref)),
+            "u8" => Ok(Token::U8(combined_ref)),
+            "u16" => Ok(Token::U16(combined_ref)),
+            "u32" => Ok(Token::U32(combined_ref)),
+            "u64" => Ok(Token::U64(combined_ref)),
+            "usize" => Ok(Token::Usize(combined_ref)),
+            "bool" => Ok(Token::Bool(combined_ref)),
+            "char" => Ok(Token::Char(combined_ref)),
+            _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }
 
     // lex an operator
-    fn lex_operator(&mut self, cur: char, cur_ref: SourceRef) -> Result<Token, LexerError> {
+    fn lex_operator(&mut self) -> Result<Token, LexerError> {
+        let cur_ref = self.src.get_ref();
+        let cur = self.src.next_char();
         // detect a signed number
         if cur == '-' {
             // if the next character is a digit, lex a signed number
-            if let c = self.src.peek_char() {
-                if c.is_digit(10) {
-                    return self.lex_signed_number(cur, cur_ref);
-                } else {
-                    // otherwise, return a minus operator
-                    return Ok(Token::Minus(cur_ref));
-                }
+            let c = self.src.peek_char();
+            if c.is_digit(10) {
+                return self.lex_signed_number();
+            } else {
+                // otherwise, return a minus operator
+                return Ok(Token::Minus(cur_ref));
             }
         }
 
@@ -100,40 +132,36 @@ impl Lexer {
             // logical operators
             '!' => {
                 // if the next character is a '=', return a NotEqual operator
-                if let c = self.src.peek_char() {
-                    if c == '=' {
-                        return Ok(Token::NotEqual(cur_ref));
-                    }
+                let c = self.src.peek_char();
+                if c == '=' {
+                    return Ok(Token::NotEqual(cur_ref));
                 }
                 // otherwise, return a Not operator
                 Ok(Token::Not(cur_ref))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
-                if let c = self.src.peek_char() {
-                    if c == '=' {
-                        return Ok(Token::Equal(cur_ref));
-                    }
+                let c = self.src.peek_char();
+                if c == '=' {
+                    return Ok(Token::Equal(cur_ref));
                 }
                 // otherwise, return a Assign operator
                 Ok(Token::Assign(cur_ref))
             }
             '<' => {
                 // if the next character is a '=', return a LessEqual operator
-                if let c = self.src.peek_char() {
-                    if c == '=' {
-                        return Ok(Token::LessEqual(cur_ref));
-                    }
+                let c = self.src.peek_char();
+                if c == '=' {
+                    return Ok(Token::LessEqual(cur_ref));
                 }
                 // otherwise, return a Less operator
                 Ok(Token::Less(cur_ref))
             }
             '>' => {
                 // if the next character is a '=', return a GreaterEqual operator
-                if let c = self.src.peek_char() {
-                    if c == '=' {
-                        return Ok(Token::GreaterEqual(cur_ref));
-                    }
+                let c = self.src.peek_char();
+                if c == '=' {
+                    return Ok(Token::GreaterEqual(cur_ref));
                 }
                 // otherwise, return a Greater operator
                 Ok(Token::Greater(cur_ref))
@@ -143,7 +171,7 @@ impl Lexer {
     }
 
     // try to lex a number
-    fn lex_number(&mut self, first_char: char, cur_ref: SourceRef) -> Result<Token, LexerError> {
+    fn lex_number(&mut self) -> Result<Token, LexerError> {
         // if it is unsigned, call lex_unsigned_number
         panic!("not implemented yet");
     }
@@ -154,7 +182,7 @@ impl Lexer {
     // - u32
     // - u64
     // - usize
-    fn lex_unsigned_number(&mut self, first_char: char) -> Result<Token, LexerError> {
+    fn lex_unsigned_number(&mut self) -> Result<Token, LexerError> {
         // if it is u8, call lex_u8
 
         // if it is u16, call lex_u16
@@ -172,15 +200,10 @@ impl Lexer {
     // - i32
     // - i64
     // - isize
-    fn lex_signed_number(&mut self, first_char: char) -> Result<Token, LexerError> {
-        // if it is u8, call lex_u8
-
-        // if it is u16, call lex_u16
-
-        // if it is u32, call lex_u32
-
-        // if it is u64, call lex_u64
-        panic!("not implemented yet");
-        // if it is usize, call lex_usize
+    fn lex_signed_number(&mut self) -> Result<Token, LexerError> {
+        let mut signed_number = String::new();
+        let cur_ref = self.src.get_ref();
+        let cur = self.src.next_char();
+        signed_number.push(cur);
     }
 }

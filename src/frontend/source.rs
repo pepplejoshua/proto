@@ -68,6 +68,19 @@ impl SourceFile {
         self.text.chars().nth(self.flat_index).unwrap()
     }
 
+    // current character without advancing the fields
+    pub fn cur_char(&self) -> char {
+        if self.flat_index >= self.text.len() {
+            return '\0';
+        }
+
+        if self.flat_index == 0 {
+            return self.text.chars().next().unwrap();
+        }
+
+        self.text.chars().nth(self.flat_index - 1).unwrap()
+    }
+
     fn read_file(&mut self) {
         let file_not_found = format!("{}: file not found.", self.path);
         let mut file = File::open(&self.path).expect(&file_not_found);
