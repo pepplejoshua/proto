@@ -46,7 +46,7 @@ impl Lexer {
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
-            _ if c.is_alphabetic() => self.lex_potential_identifier(),
+            _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
             _ => Err(LexerError::InvalidCharacter(self.src.get_ref())),
         }

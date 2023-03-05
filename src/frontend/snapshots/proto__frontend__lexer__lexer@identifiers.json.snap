@@ -1,0 +1,11 @@
+---
+source: src/frontend/lexer.rs
+expression: res
+input_file: src/frontend/lexer_inputs/identifiers.json
+---
+stringified_tokens:
+  - "Identifier(\"_some_id\", SourceRef { file: \"identifiers.json.pr\", start_line: 0, start_col: 0, end_line: 0, end_col: 8, flat_start: 0, flat_end: 8 })"
+  - "Identifier(\"proto\", SourceRef { file: \"identifiers.json.pr\", start_line: 0, start_col: 9, end_line: 0, end_col: 14, flat_start: 9, flat_end: 14 })"
+  - "Identifier(\"pastel\", SourceRef { file: \"identifiers.json.pr\", start_line: 0, start_col: 15, end_line: 0, end_col: 21, flat_start: 15, flat_end: 21 })"
+  - "Identifier(\"yahoo1234567890_\", SourceRef { file: \"identifiers.json.pr\", start_line: 0, start_col: 22, end_line: 0, end_col: 37, flat_start: 22, flat_end: 38 })"
+
