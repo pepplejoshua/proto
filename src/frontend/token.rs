@@ -1,5 +1,7 @@
 use super::source::SourceRef;
 
+#[allow(dead_code)]
+#[derive(Debug)]
 pub enum Token {
     // keywords
     Fn(SourceRef),
@@ -47,15 +49,20 @@ pub enum Token {
     Semicolon(SourceRef),
     Colon(SourceRef),
     Comma(SourceRef),
+    Dot(SourceRef),
 
     // literals
     Identifier(String, SourceRef),
-    SignedI8(i8, SourceRef),
-    UnsignedI8(u8, SourceRef),
-    SignedI64(i64, SourceRef),
-    UnsignedI64(u64, SourceRef),
-    SignedSize(isize, SourceRef),
-    UnsignedSize(usize, SourceRef),
+    I8Literal(i8, SourceRef),
+    I16Literal(i16, SourceRef),
+    I32Literal(i32, SourceRef),
+    I64Literal(i64, SourceRef),
+    IsizeLiteral(isize, SourceRef),
+    U8Literal(u8, SourceRef),
+    U16Literal(u16, SourceRef),
+    U32Literal(u32, SourceRef),
+    U64Literal(u64, SourceRef),
+    UsizeLiteral(usize, SourceRef),
 
     // primitive types
     I8(SourceRef),
@@ -75,6 +82,7 @@ pub enum Token {
     Eof(SourceRef),
 }
 
+#[allow(dead_code)]
 impl Token {
     pub fn get_source_ref(&self) -> &SourceRef {
         match self {
@@ -109,26 +117,35 @@ impl Token {
             Token::Semicolon(src) => src,
             Token::Colon(src) => src,
             Token::Comma(src) => src,
-            Token::SignedI8(_, src) => src,
-            Token::UnsignedI8(_, src) => src,
-            Token::SignedI64(_, src) => src,
-            Token::UnsignedI64(_, src) => src,
             Token::Eof(src) => src,
             Token::Void(src) => src,
             Token::True(src) => src,
             Token::False(src) => src,
             Token::Character(src, _) => src,
             Token::Identifier(_, src) => src,
-            Token::SignedSize(_, src) => src,
-            Token::UnsignedSize(_, src) => src,
             Token::I8(src) => src,
-            Token::U8(src) => src,
+            Token::I16(src) => src,
+            Token::I32(src) => src,
             Token::I64(src) => src,
-            Token::U64(src) => src,
             Token::Isize(src) => src,
+            Token::U8(src) => src,
+            Token::U16(src) => src,
+            Token::U32(src) => src,
+            Token::U64(src) => src,
             Token::Usize(src) => src,
             Token::Bool(src) => src,
             Token::Char(src) => src,
+            Token::I8Literal(_, src) => src,
+            Token::I16Literal(_, src) => src,
+            Token::I32Literal(_, src) => src,
+            Token::I64Literal(_, src) => src,
+            Token::IsizeLiteral(_, src) => src,
+            Token::U8Literal(_, src) => src,
+            Token::U16Literal(_, src) => src,
+            Token::U32Literal(_, src) => src,
+            Token::U64Literal(_, src) => src,
+            Token::UsizeLiteral(_, src) => src,
+            Token::Dot(src) => src,
         }
     }
 }

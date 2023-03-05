@@ -4,6 +4,6 @@ use super::source::SourceRef;
 #[derive(Debug, Clone)]
 pub enum LexerError {
     InvalidCharacter(SourceRef),
-    SignedNumberError(SourceRef),
-    UnsignedNumberError(SourceRef),
+    CannotMakeSignedNumber(SourceRef),
+    CannotMakeUnsignedNumber(SourceRef),
 }

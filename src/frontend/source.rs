@@ -1,6 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read};
 
 #[allow(dead_code)]
+#[derive(Debug, Serialize, Deserialize, Default)]
 pub struct SourceFile {
     pub path: String,
     pub text: String,
@@ -46,26 +48,35 @@ impl SourceFile {
     // - line: increase by 1 if we read a '\n' character. If we return EOF, line will be the
     //         number of lines in the text (and will not increase anymore)
     pub fn next_char(&mut self) -> char {
+        // if we are on the EOF character
         if self.flat_index >= self.text.len() {
             return '\0';
         }
-        let c = self.text.chars().nth(self.flat_index).unwrap();
-        if c == '\n' {
+
+        // if we are on the last character in the file
+        if self.flat_index + 1 == self.text.len() {
+            self.flat_index += 1;
+            return '\0';
+        }
+
+        // if previous character was a newline character
+        if self.text.chars().nth(self.flat_index).unwrap() == '\n' {
             self.line += 1;
             self.col = 0;
         } else {
             self.col += 1;
         }
         self.flat_index += 1;
+        let c = self.text.chars().nth(self.flat_index).unwrap();
         c
     }
 
     // peek next character without advancing the fields
     pub fn peek_char(&self) -> char {
-        if self.flat_index >= self.text.len() {
+        if self.flat_index + 1 >= self.text.len() {
             return '\0';
         }
-        self.text.chars().nth(self.flat_index).unwrap()
+        self.text.chars().nth(self.flat_index + 1).unwrap()
     }
 
     // current character without advancing the fields
@@ -73,12 +84,7 @@ impl SourceFile {
         if self.flat_index >= self.text.len() {
             return '\0';
         }
-
-        if self.flat_index == 0 {
-            return self.text.chars().next().unwrap();
-        }
-
-        self.text.chars().nth(self.flat_index - 1).unwrap()
+        self.text.chars().nth(self.flat_index).unwrap()
     }
 
     fn read_file(&mut self) {
