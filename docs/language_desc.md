@@ -14,7 +14,7 @@ These docs were inspired by [ziglang](https://ziglang.org/documentation/master/)
 2. [Hello World](#2-hello-world)
 3. [Comments](#3-comments)
 4. [Values/Constants](#4-values--constants)
-   - [Primitive Types](#41-primitive-types)
+   1. [Primitive Types](#41-primitive-types)
 
 <br>
 
