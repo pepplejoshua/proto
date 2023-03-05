@@ -18,6 +18,7 @@ impl Lexer {
         loop {
             let c = self.src.cur_char();
             if c.is_whitespace() {
+                println!("skipping whitespace at: '{:?}'", self.src.get_ref());
                 self.src.next_char();
                 continue;
             } else {
@@ -60,11 +61,11 @@ impl Lexer {
         let c_ref = self.src.get_ref();
 
         // read all characters that are alphanumeric or '_'
-        let mut end_ref = self.src.get_ref();
+        let mut end_ref;
         loop {
             let c = self.src.cur_char();
+            end_ref = self.src.get_ref();
             if c.is_alphanumeric() || c == '_' {
-                end_ref = self.src.get_ref();
                 self.src.next_char();
                 id.push(c);
             } else {
@@ -259,7 +260,7 @@ impl Lexer {
         signed_number.push(cur);
 
         // read all characters that are digits
-        let mut end_ref = self.src.get_ref();
+        let mut end_ref;
         loop {
             let c = self.src.next_char();
             end_ref = self.src.get_ref();
@@ -314,7 +315,7 @@ impl Lexer {
         unsigned_number.push(cur);
 
         // read all characters that are digits
-        let mut end_ref = self.src.get_ref();
+        let mut end_ref;
         loop {
             let c = self.src.next_char();
             end_ref = self.src.get_ref();
