@@ -59,10 +59,14 @@ pub enum Token {
 
     // primitive types
     I8(SourceRef),
-    U8(SourceRef),
+    I16(SourceRef),
+    I32(SourceRef),
     I64(SourceRef),
-    U64(SourceRef),
     Isize(SourceRef),
+    U8(SourceRef),
+    U16(SourceRef),
+    U32(SourceRef),
+    U64(SourceRef),
     Usize(SourceRef),
     Bool(SourceRef),
     Char(SourceRef),
