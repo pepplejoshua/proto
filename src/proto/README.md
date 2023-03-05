@@ -1,6 +1,8 @@
-# porter
+# proto
 
-The project manager for proto. It will be able to:
+The REPL for trying out ideas in a less permanent space. Much like python, php and other languages provide.
+
+As a project manager for proto. It will be able to:
 
 - [ ] create new proto projects.
 
@@ -11,3 +13,6 @@ The project manager for proto. It will be able to:
 - [ ] compile proto projects.
 
 - [ ] fetch proto [units](../../docs/tbd.md) from GitHub or else where for project use.
+
+> will work on document generation
+> will work on testing
