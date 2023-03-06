@@ -12,5 +12,5 @@ stringified_tokens:
   - "I32Literal(2147483647, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 39, end_line: 0, end_col: 52, flat_start: 39, flat_end: 52 })"
   - "I64Literal(-9223372036854775808, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 53, end_line: 0, end_col: 79, flat_start: 53, flat_end: 79 })"
   - "I64Literal(9223372036854775807, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 80, end_line: 0, end_col: 105, flat_start: 80, flat_end: 105 })"
-  - "U64Literal(18446744073709551615, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 106, end_line: 0, end_col: 131, flat_start: 106, flat_end: 132 })"
+  - "U64Literal(18446744073709551615, SourceRef { file: \"numbers.json.pr\", start_line: 0, start_col: 106, end_line: 0, end_col: 132, flat_start: 106, flat_end: 132 })"
 

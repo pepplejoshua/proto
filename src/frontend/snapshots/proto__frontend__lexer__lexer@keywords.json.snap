@@ -28,5 +28,6 @@ stringified_tokens:
   - "U64(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 11, end_line: 4, end_col: 14, flat_start: 89, flat_end: 92 })"
   - "Usize(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 15, end_line: 4, end_col: 20, flat_start: 93, flat_end: 98 })"
   - "Bool(SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 0, end_line: 5, end_col: 4, flat_start: 99, flat_end: 103 })"
-  - "Char(SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 5, end_line: 5, end_col: 8, flat_start: 104, flat_end: 108 })"
+  - "Char(SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 5, end_line: 5, end_col: 9, flat_start: 104, flat_end: 108 })"
+  - "Identifier(\"use\", SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 10, end_line: 5, end_col: 13, flat_start: 109, flat_end: 112 })"
 

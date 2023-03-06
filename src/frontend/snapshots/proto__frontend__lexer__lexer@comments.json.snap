@@ -7,5 +7,5 @@ stringified_tokens:
   - "Identifier(\"some_ident\", SourceRef { file: \"comments.json.pr\", start_line: 1, start_col: 0, end_line: 1, end_col: 10, flat_start: 21, flat_end: 31 })"
   - "False(SourceRef { file: \"comments.json.pr\", start_line: 1, start_col: 11, end_line: 1, end_col: 16, flat_start: 32, flat_end: 37 })"
   - "Identifier(\"some_other_ident\", SourceRef { file: \"comments.json.pr\", start_line: 3, start_col: 0, end_line: 3, end_col: 16, flat_start: 65, flat_end: 81 })"
-  - "True(SourceRef { file: \"comments.json.pr\", start_line: 3, start_col: 17, end_line: 3, end_col: 20, flat_start: 82, flat_end: 86 })"
+  - "True(SourceRef { file: \"comments.json.pr\", start_line: 3, start_col: 17, end_line: 3, end_col: 21, flat_start: 82, flat_end: 86 })"
 
