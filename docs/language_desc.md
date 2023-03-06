@@ -130,19 +130,21 @@ this is a string literal
 
 <br>
 
-| Type        | Description                                     | Implemented? |
-| ----------- | ----------------------------------------------- | ------------ |
-| **`i8`**    | signed 8-bit integer                            | ❌           |
-| **`u8`**    | unsigned 8-bit integer                          | ❌           |
-| **`i16`**   | signed 16-bit integer                           | ❌           |
-| **`u16`**   | unsigned 16-bit integer                         | ❌           |
-| **`i32`**   | signed 32-bit integer                           | ❌           |
-| **`u32`**   | unsigned 32-bit integer                         | ❌           |
-| **`i64`**   | signed 64-bit integer                           | ❌           |
-| **`u64`**   | unsigned 64-bit integer                         | ❌           |
-| **`isize`** | signed pointer sized integer. platform specific | ❌           |
-| **`bool`**  | `true` or `false`                               | ❌           |
-| **`void`**  | `void` as in, nothing                           | ❌           |
-| **`type`**  | the type of types                               | ❌           |
+| Type        | Description                                       | Lexer? | Parser? |
+| ----------- | ------------------------------------------------- | ------ | ------- |
+| **`i8`**    | signed 8-bit integer                              | ✅     | ❌      |
+| **`i16`**   | signed 16-bit integer                             | ✅     | ❌      |
+| **`i32`**   | signed 32-bit integer                             | ✅     | ❌      |
+| **`i64`**   | signed 64-bit integer                             | ✅     | ❌      |
+| **`isize`** | signed pointer-sized integer. platform specific   | ✅     | ❌      |
+| **`u8`**    | unsigned 8-bit integer                            | ✅     | ❌      |
+| **`u16`**   | unsigned 16-bit integer                           | ✅     | ❌      |
+| **`u32`**   | unsigned 32-bit integer                           | ✅     | ❌      |
+| **`u64`**   | unsigned 64-bit integer                           | ✅     | ❌      |
+| **`usize`** | unsigned pointer-sized integer. platform specific | ✅     | ❌      |
+| **`bool`**  | `true` or `false`                                 | ✅     | ❌      |
+| **`void`**  | `void` as in, nothing                             | ✅     | ❌      |
+| **`char`**  | a utf-8 character (can be stored in u8 as well)   | ✅     | ❌      |
+| **`type`**  | the type of types                                 | ⏸      | ⏸       |
 
 <br>
