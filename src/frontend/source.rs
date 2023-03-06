@@ -63,6 +63,7 @@ impl SourceFile {
         // if we are on the last character in the file
         if self.flat_index + 1 == self.text.len() {
             self.flat_index += 1;
+            self.col += 1;
             return '\0';
         }
 
