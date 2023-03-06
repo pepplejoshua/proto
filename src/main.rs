@@ -23,3 +23,7 @@ fn main() {
     ";
     println!("{}", pastel(text));
 }
+
+// TODO:
+// - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
+// - add support for strikethrough: *[~]strikethrough[/], strikethrough ansi code: \x1b[9m
