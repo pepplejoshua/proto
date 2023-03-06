@@ -88,14 +88,15 @@ impl Lexer {
     fn lex_potential_identifier(&mut self) -> Result<Token, LexerError> {
         let mut id = String::new();
         let c_ref = self.src.get_ref();
+        let cur = self.src.cur_char();
+        id.push(cur);
 
         // read all characters that are alphanumeric or '_'
         let mut end_ref;
         loop {
-            let c = self.src.cur_char();
+            let c = self.src.next_char();
             end_ref = self.src.get_ref();
             if c.is_alphanumeric() || c == '_' {
-                self.src.next_char();
                 id.push(c);
             } else {
                 break;

@@ -15,6 +15,7 @@ pub enum Token {
     True(SourceRef),
     False(SourceRef),
     Character(SourceRef, char),
+    Use(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -146,6 +147,7 @@ impl Token {
             Token::U64Literal(_, src) => src,
             Token::UsizeLiteral(_, src) => src,
             Token::Dot(src) => src,
+            Token::Use(src) => src,
         }
     }
 }
