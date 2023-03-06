@@ -287,7 +287,7 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
                         let cur = text.chars().nth(i);
                         if let Some(chr) = cur {
                             if chr == '*' {
-                                let directive_end = i;
+                                let directive_end = i + 1; // just past the '*';
                                 splits.push((true_start, start.unwrap(), directive_end));
                                 in_directive = false;
                             }
@@ -306,9 +306,14 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
 #[test]
 fn test_find_split_spans() {
     let text = "Some Random Text\n*[b, l_white:d_magenta]This is a test of Pastel's parser.[]*";
-    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @"");
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
+    ---
+    - - 17
+      - - 19
+        - 39
+      - 77
+    "###);
 }
-// Some Random Text|*[b, l_white:d_magenta]This is a test of Pastel's parser.[]*
 
 pub fn parse(text: &str) -> Vec<SliceOf> {
     let content = text.to_string();
