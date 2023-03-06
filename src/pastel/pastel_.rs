@@ -91,7 +91,7 @@ pub const _COLORS: phf::Map<&str, Color> = phf_map!(
 );
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Default)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
 pub struct PastelOption {
     pub bold: bool,
     pub underline: bool,
@@ -146,38 +146,45 @@ impl PastelOption {
             result.push_str(_UNDERLINE);
         }
 
+        let mut do_reset = false;
+
         // fore_color and back_color will come in the form of:
         // "type_of_color:color_name", where:
         // type_of_color = "l" or "d" for light or dark
         // color_name = "black", "red", "green", "yellow", "blue", "magenta", "cyan", or "white"
         if let Some(fore_color) = &self.fore_color {
-            let split_res = fore_color.split(':').collect::<Vec<&str>>();
+            let split_res = fore_color.split('_').collect::<Vec<&str>>();
             let fore_color = _COLORS.get(split_res[1]).unwrap();
             if split_res[0] == "l" {
                 result.push_str(fore_color.light_foreground);
             } else {
                 result.push_str(fore_color.dark_foreground);
             }
+            do_reset = true;
         }
 
         if let Some(back_color) = &self.back_color {
-            let back_color = back_color.split(':').collect::<Vec<&str>>();
+            let back_color = back_color.split('_').collect::<Vec<&str>>();
             let back_color = _COLORS.get(back_color[1]).unwrap();
             if back_color.name == "l" {
                 result.push_str(back_color.light_background);
             } else {
                 result.push_str(back_color.dark_background);
             }
+            do_reset = true;
         }
 
         result.push_str(text);
-        result.push_str(_RESET);
+
+        if do_reset {
+            result.push_str(_RESET);
+        }
         result
     }
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
 pub enum SliceOf {
     RegText(String),
     AugText(String, PastelOption),
@@ -194,7 +201,7 @@ impl SliceOf {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 struct Pastel {
     pub text: String,
     pub slices: Vec<SliceOf>,
@@ -281,12 +288,12 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
             // look for the next character to see if it is a ']'
             match text.chars().nth(i + 1) {
                 Some(c) => {
-                    if c == ']' {
+                    if c == '/' {
                         // update i and look to see if the next character is a '*'
                         i += 2;
                         let cur = text.chars().nth(i);
                         if let Some(chr) = cur {
-                            if chr == '*' {
+                            if chr == ']' {
                                 let directive_end = i + 1; // just past the '*';
                                 splits.push((true_start, start.unwrap(), directive_end));
                                 in_directive = false;
@@ -305,13 +312,22 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
 
 #[test]
 fn test_find_split_spans() {
-    let text = "Some Random Text\n*[b, l_white:d_magenta]This is a test of Pastel's parser.[]*";
+    let text = "Some Random Text\n*[*, l_white:d_magenta]This is a test of Pastel's parser.[/]";
     insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
     ---
     - - 17
       - - 19
         - 39
       - 77
+    "###);
+
+    let text = "*[*]Bolden and *[_]underline[/][/]";
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
+    ---
+    - - 0
+      - - 2
+        - 3
+      - 31
     "###);
 }
 
@@ -320,9 +336,124 @@ pub fn parse(text: &str) -> Vec<SliceOf> {
 
     // find all locations of pastel directives in text
     let locs = find_split_spans(&content);
+
+    let cur_start = 0;
+
+    // if there is any regular text before the first directive, add it to the slices
     let mut slices: Vec<SliceOf> = Vec::new();
+    if !locs.is_empty() {
+        let (true_start, _, _) = locs[0];
+        if true_start > 0 {
+            let reg_text = content[cur_start..true_start].to_string();
+            slices.push(SliceOf::new(reg_text, None));
+        }
+    } else {
+        // there are no directives, so just return the text
+        slices.push(SliceOf::new(content, None));
+        return slices;
+    }
+
+    // create a vector of slices of the text
+    // TODO: Rewrite loop to use range instead of iteration
+    // this will allow me avoid searching for the next directive
+    for direc in &locs {
+        let (true_start, (options_start, options_end), directive_end) = direc;
+        let options_span = content[*options_start..*options_end].to_string();
+
+        let options = options_span.split(',').collect::<Vec<&str>>();
+
+        // go through options and determine what they are
+        // then build up a PastelOption struct
+        let mut pastel_option = PastelOption::default();
+        for option in options {
+            let option = option.trim();
+
+            match option {
+                "*" => pastel_option.bold = true,
+                "_" => pastel_option.underline = true,
+                _ if option.starts_with("l_") || option.starts_with("d_") => {
+                    // it is a color option
+                    // it could specified as shade_foregroundcolor:shade_backgroundcolor
+                    // or just shade_foreground
+                    // where shade is one of the following: l or d
+                    // and color is one of the following: black, red, green, yellow, blue, magenta, cyan, white
+                    let mut split = option.split(':');
+                    let foreground = Some(split.next().unwrap().to_string());
+                    let background = split.next();
+                    let background = background.map(|b| Some(b.to_string())).unwrap_or(None);
+                    pastel_option.fore_color = foreground;
+                    pastel_option.back_color = background;
+                }
+                _ => {
+                    // it is an invalid option
+                    panic!("Invalid option in directive: {true_start}");
+                }
+            }
+        }
+        // add the slice to the slices vector
+        // the slice is the text between the 1 character after the options end and
+        // 2 characters before the directive end
+        let reg_text = content[*options_end + 1..*directive_end - 3].to_string();
+        slices.push(SliceOf::new(reg_text, Some(pastel_option)));
+
+        // if there is any regular text after this directive, add it to the slices
+        let next_directive = locs.iter().find(|d| d.0 > *true_start);
+        if let Some((next_true_start, _, _)) = next_directive {
+            let reg_text = content[*directive_end..*next_true_start].to_string();
+            slices.push(SliceOf::new(reg_text, None));
+        } else {
+            // there are no more directives, so add the rest of the text
+            let reg_text = content[*directive_end..].to_string();
+            slices.push(SliceOf::new(reg_text, None));
+        }
+    }
     slices
 }
 
 #[test]
-fn test_pastel_parse() {}
+fn test_pastel_parse() {
+    let text = "Some Random Text\n*[*, l_white:d_magenta]This is a test of Pastel's parser.[/]";
+    insta::assert_yaml_snapshot!(parse(text), @r###"
+    ---
+    - RegText: "Some Random Text\n"
+    - AugText:
+        - "This is a test of Pastel's parser."
+        - bold: true
+          underline: false
+          fore_color: l_white
+          back_color: d_magenta
+    - RegText: ""
+    "###);
+
+    let text = "Some Random Text\n*[*, l_white:d_magenta]Magenta![/]\nAnother line\n*[*, _, l_white:d_red]Red![/]";
+    insta::assert_yaml_snapshot!(parse(text), @r###"
+    ---
+    - RegText: "Some Random Text\n"
+    - AugText:
+        - Magenta!
+        - bold: true
+          underline: false
+          fore_color: l_white
+          back_color: d_magenta
+    - RegText: "\nAnother line\n"
+    - AugText:
+        - Red!
+        - bold: true
+          underline: true
+          fore_color: l_white
+          back_color: d_red
+    - RegText: ""
+    "###);
+
+    let text = "*[*]Bolden and *[_]underline[/][/]";
+    insta::assert_yaml_snapshot!(parse(text), @r###"
+    ---
+    - AugText:
+        - "Bolden and *[_]underline"
+        - bold: true
+          underline: false
+          fore_color: ~
+          back_color: ~
+    - RegText: "[/]"
+    "###);
+}
