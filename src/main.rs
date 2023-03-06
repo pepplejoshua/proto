@@ -1,20 +1,29 @@
 mod frontend;
+mod pastel;
 
-use frontend::colors::ColorOption;
+use pastel::pastel;
 
 fn main() {
-    let col = ColorOption::bold_and(Some("l:white".to_string()), Some("l:magenta".to_string()));
-
-    println!(
-        "{}",
-        col.format_text("Bold white text on magenta background!")
-    );
-
-    let underline =
-        ColorOption::underline_and(Some("d:black".to_string()), Some("d:white".to_string()));
-
-    println!(
-        "\n{}",
-        underline.format_text("Underlined black text on white background!")
-    );
+    /*
+    This example is akin to writing the following in html+css:
+        <div style="font-weight: bold; color: white; background-color: black;">
+            Welcome
+        </div>
+        <div style="font-weight: bold; color: white; background-color: cyan;">
+            To
+        </div>
+        <u style="color: white; background-color: magenta;">
+            Pastel!
+        </u>
+    */
+    let text = r"
+        *[*, l_white:d_black]Welcome[/]
+        *[*, d_white:d_cyan]To[/] 
+        *[_, l_white:d_magenta]Pastel![/]
+    ";
+    println!("{}", pastel(text));
 }
+
+// TODO:
+// - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
+// - add support for strikethrough: *[~]strikethrough[/], strikethrough ansi code: \x1b[9m
