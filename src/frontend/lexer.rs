@@ -392,8 +392,6 @@ struct LexerTestResult {
     stringified_tokens: Vec<String>,
 }
 
-// random change
-
 #[test]
 fn test_lexer() {
     insta::glob!("lexer_inputs/*.json", |path| {
