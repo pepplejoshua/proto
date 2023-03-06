@@ -1,0 +1,9 @@
+{
+  "path": "operators.json.pr",
+  "text":
+    "+ - * / % !\n== != < > <= >=\n= and or not !\n( ) { } [ ] ; : , .\n",
+  "flat_index": 0,
+  "col": 0,
+  "row": 0,
+  "line": 0
+}

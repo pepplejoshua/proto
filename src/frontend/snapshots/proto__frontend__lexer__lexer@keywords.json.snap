@@ -1,0 +1,33 @@
+---
+source: src/frontend/lexer.rs
+expression: res
+input_file: src/frontend/lexer_inputs/keywords.json
+---
+stringified_tokens:
+  - "Fn(SourceRef { file: \"keywords.json.pr\", start_line: 0, start_col: 0, end_line: 0, end_col: 2, flat_start: 0, flat_end: 2 })"
+  - "Let(SourceRef { file: \"keywords.json.pr\", start_line: 0, start_col: 3, end_line: 0, end_col: 6, flat_start: 3, flat_end: 6 })"
+  - "Mut(SourceRef { file: \"keywords.json.pr\", start_line: 0, start_col: 7, end_line: 0, end_col: 10, flat_start: 7, flat_end: 10 })"
+  - "If(SourceRef { file: \"keywords.json.pr\", start_line: 0, start_col: 11, end_line: 0, end_col: 13, flat_start: 11, flat_end: 13 })"
+  - "Else(SourceRef { file: \"keywords.json.pr\", start_line: 0, start_col: 14, end_line: 0, end_col: 18, flat_start: 14, flat_end: 18 })"
+  - "Loop(SourceRef { file: \"keywords.json.pr\", start_line: 1, start_col: 0, end_line: 1, end_col: 4, flat_start: 19, flat_end: 23 })"
+  - "While(SourceRef { file: \"keywords.json.pr\", start_line: 1, start_col: 5, end_line: 1, end_col: 10, flat_start: 24, flat_end: 29 })"
+  - "Void(SourceRef { file: \"keywords.json.pr\", start_line: 1, start_col: 11, end_line: 1, end_col: 15, flat_start: 30, flat_end: 34 })"
+  - "True(SourceRef { file: \"keywords.json.pr\", start_line: 1, start_col: 16, end_line: 1, end_col: 20, flat_start: 35, flat_end: 39 })"
+  - "False(SourceRef { file: \"keywords.json.pr\", start_line: 1, start_col: 21, end_line: 1, end_col: 26, flat_start: 40, flat_end: 45 })"
+  - "And(SourceRef { file: \"keywords.json.pr\", start_line: 2, start_col: 0, end_line: 2, end_col: 3, flat_start: 46, flat_end: 49 })"
+  - "Or(SourceRef { file: \"keywords.json.pr\", start_line: 2, start_col: 4, end_line: 2, end_col: 6, flat_start: 50, flat_end: 52 })"
+  - "Not(SourceRef { file: \"keywords.json.pr\", start_line: 2, start_col: 7, end_line: 2, end_col: 10, flat_start: 53, flat_end: 56 })"
+  - "I8(SourceRef { file: \"keywords.json.pr\", start_line: 3, start_col: 0, end_line: 3, end_col: 2, flat_start: 57, flat_end: 59 })"
+  - "I16(SourceRef { file: \"keywords.json.pr\", start_line: 3, start_col: 3, end_line: 3, end_col: 6, flat_start: 60, flat_end: 63 })"
+  - "I32(SourceRef { file: \"keywords.json.pr\", start_line: 3, start_col: 7, end_line: 3, end_col: 10, flat_start: 64, flat_end: 67 })"
+  - "I64(SourceRef { file: \"keywords.json.pr\", start_line: 3, start_col: 11, end_line: 3, end_col: 14, flat_start: 68, flat_end: 71 })"
+  - "Isize(SourceRef { file: \"keywords.json.pr\", start_line: 3, start_col: 15, end_line: 3, end_col: 20, flat_start: 72, flat_end: 77 })"
+  - "U8(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 0, end_line: 4, end_col: 2, flat_start: 78, flat_end: 80 })"
+  - "U16(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 3, end_line: 4, end_col: 6, flat_start: 81, flat_end: 84 })"
+  - "U32(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 7, end_line: 4, end_col: 10, flat_start: 85, flat_end: 88 })"
+  - "U64(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 11, end_line: 4, end_col: 14, flat_start: 89, flat_end: 92 })"
+  - "Usize(SourceRef { file: \"keywords.json.pr\", start_line: 4, start_col: 15, end_line: 4, end_col: 20, flat_start: 93, flat_end: 98 })"
+  - "Bool(SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 0, end_line: 5, end_col: 4, flat_start: 99, flat_end: 103 })"
+  - "Char(SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 5, end_line: 5, end_col: 9, flat_start: 104, flat_end: 108 })"
+  - "Identifier(\"use\", SourceRef { file: \"keywords.json.pr\", start_line: 5, start_col: 10, end_line: 5, end_col: 13, flat_start: 109, flat_end: 112 })"
+
