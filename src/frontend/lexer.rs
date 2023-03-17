@@ -130,6 +130,8 @@ impl Lexer {
             "void" => Ok(Token::Void(combined_ref)),
             "true" => Ok(Token::True(combined_ref)),
             "false" => Ok(Token::False(combined_ref)),
+            "break" => Ok(Token::Break(combined_ref)),
+            "continue" => Ok(Token::Continue(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),

@@ -11,6 +11,8 @@ pub enum Token {
     Else(SourceRef),
     Loop(SourceRef),
     While(SourceRef),
+    Break(SourceRef),
+    Continue(SourceRef),
     Void(SourceRef),
     True(SourceRef),
     False(SourceRef),
@@ -148,6 +150,8 @@ impl Token {
             Token::UsizeLiteral(_, src) => src,
             Token::Dot(src) => src,
             Token::Use(src) => src,
+            Token::Break(src) => src,
+            Token::Continue(src) => src,
         }
     }
 }
