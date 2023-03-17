@@ -146,7 +146,7 @@ impl SourceRef {
     // - has the last occuring end_line and end_col
     // - has the first occuring flat_start
     // - has the last occuring flat_end
-    pub fn combine(&self, other: &SourceRef) -> SourceRef {
+    pub fn combine(&self, other: SourceRef) -> SourceRef {
         let start_line = if self.start_line < other.start_line {
             self.start_line
         } else {

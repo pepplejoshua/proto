@@ -14,8 +14,9 @@ pub enum Type {
     Char,
 }
 
+#[allow(dead_code)]
 impl Type {
-    fn as_str(&self) -> String {
+    pub fn as_str(&self) -> String {
         match &self {
             Type::I8 => "i8".into(),
             Type::I16 => "i16".into(),

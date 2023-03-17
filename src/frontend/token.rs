@@ -87,90 +87,90 @@ pub enum Token {
 
 #[allow(dead_code)]
 impl Token {
-    pub fn get_source_ref(&self) -> &SourceRef {
+    pub fn get_source_ref(&self) -> SourceRef {
         match self {
-            Token::Fn(src) => src,
-            Token::Let(src) => src,
-            Token::Mut(src) => src,
-            Token::If(src) => src,
-            Token::Else(src) => src,
-            Token::Loop(src) => src,
-            Token::While(src) => src,
-            Token::Plus(src) => src,
-            Token::Minus(src) => src,
-            Token::Star(src) => src,
-            Token::Slash(src) => src,
-            Token::Modulo(src) => src,
-            Token::Equal(src) => src,
-            Token::NotEqual(src) => src,
-            Token::Less(src) => src,
-            Token::LessEqual(src) => src,
-            Token::Greater(src) => src,
-            Token::GreaterEqual(src) => src,
-            Token::Assign(src) => src,
-            Token::And(src) => src,
-            Token::Or(src) => src,
-            Token::Not(src) => src,
-            Token::LParen(src) => src,
-            Token::RParen(src) => src,
-            Token::LBrace(src) => src,
-            Token::RBrace(src) => src,
-            Token::LBracket(src) => src,
-            Token::RBracket(src) => src,
-            Token::Semicolon(src) => src,
-            Token::Colon(src) => src,
-            Token::Comma(src) => src,
-            Token::Eof(src) => src,
-            Token::Void(src) => src,
-            Token::True(src) => src,
-            Token::False(src) => src,
-            Token::Character(src, _) => src,
-            Token::Identifier(_, src) => src,
-            Token::I8(src) => src,
-            Token::I16(src) => src,
-            Token::I32(src) => src,
-            Token::I64(src) => src,
-            Token::Isize(src) => src,
-            Token::U8(src) => src,
-            Token::U16(src) => src,
-            Token::U32(src) => src,
-            Token::U64(src) => src,
-            Token::Usize(src) => src,
-            Token::Bool(src) => src,
-            Token::Char(src) => src,
-            Token::I8Literal(_, src) => src,
-            Token::I16Literal(_, src) => src,
-            Token::I32Literal(_, src) => src,
-            Token::I64Literal(_, src) => src,
-            Token::IsizeLiteral(_, src) => src,
-            Token::U8Literal(_, src) => src,
-            Token::U16Literal(_, src) => src,
-            Token::U32Literal(_, src) => src,
-            Token::U64Literal(_, src) => src,
-            Token::UsizeLiteral(_, src) => src,
-            Token::Dot(src) => src,
-            Token::Use(src) => src,
-            Token::Break(src) => src,
-            Token::Continue(src) => src,
+            Token::Fn(src) => src.clone(),
+            Token::Let(src) => src.clone(),
+            Token::Mut(src) => src.clone(),
+            Token::If(src) => src.clone(),
+            Token::Else(src) => src.clone(),
+            Token::Loop(src) => src.clone(),
+            Token::While(src) => src.clone(),
+            Token::Plus(src) => src.clone(),
+            Token::Minus(src) => src.clone(),
+            Token::Star(src) => src.clone(),
+            Token::Slash(src) => src.clone(),
+            Token::Modulo(src) => src.clone(),
+            Token::Equal(src) => src.clone(),
+            Token::NotEqual(src) => src.clone(),
+            Token::Less(src) => src.clone(),
+            Token::LessEqual(src) => src.clone(),
+            Token::Greater(src) => src.clone(),
+            Token::GreaterEqual(src) => src.clone(),
+            Token::Assign(src) => src.clone(),
+            Token::And(src) => src.clone(),
+            Token::Or(src) => src.clone(),
+            Token::Not(src) => src.clone(),
+            Token::LParen(src) => src.clone(),
+            Token::RParen(src) => src.clone(),
+            Token::LBrace(src) => src.clone(),
+            Token::RBrace(src) => src.clone(),
+            Token::LBracket(src) => src.clone(),
+            Token::RBracket(src) => src.clone(),
+            Token::Semicolon(src) => src.clone(),
+            Token::Colon(src) => src.clone(),
+            Token::Comma(src) => src.clone(),
+            Token::Eof(src) => src.clone(),
+            Token::Void(src) => src.clone(),
+            Token::True(src) => src.clone(),
+            Token::False(src) => src.clone(),
+            Token::Character(src, _) => src.clone(),
+            Token::Identifier(_, src) => src.clone(),
+            Token::I8(src) => src.clone(),
+            Token::I16(src) => src.clone(),
+            Token::I32(src) => src.clone(),
+            Token::I64(src) => src.clone(),
+            Token::Isize(src) => src.clone(),
+            Token::U8(src) => src.clone(),
+            Token::U16(src) => src.clone(),
+            Token::U32(src) => src.clone(),
+            Token::U64(src) => src.clone(),
+            Token::Usize(src) => src.clone(),
+            Token::Bool(src) => src.clone(),
+            Token::Char(src) => src.clone(),
+            Token::I8Literal(_, src) => src.clone(),
+            Token::I16Literal(_, src) => src.clone(),
+            Token::I32Literal(_, src) => src.clone(),
+            Token::I64Literal(_, src) => src.clone(),
+            Token::IsizeLiteral(_, src) => src.clone(),
+            Token::U8Literal(_, src) => src.clone(),
+            Token::U16Literal(_, src) => src.clone(),
+            Token::U32Literal(_, src) => src.clone(),
+            Token::U64Literal(_, src) => src.clone(),
+            Token::UsizeLiteral(_, src) => src.clone(),
+            Token::Dot(src) => src.clone(),
+            Token::Use(src) => src.clone(),
+            Token::Break(src) => src.clone(),
+            Token::Continue(src) => src.clone(),
         }
     }
 
     pub fn is_type_token(&self) -> bool {
-        match self {
+        matches!(
+            self,
             Token::I8(_)
-            | Token::I16(_)
-            | Token::I32(_)
-            | Token::I64(_)
-            | Token::Isize(_)
-            | Token::U8(_)
-            | Token::U16(_)
-            | Token::U32(_)
-            | Token::U64(_)
-            | Token::Usize(_)
-            | Token::Bool(_)
-            | Token::Char(_) => true,
-            _ => false,
-        }
+                | Token::I16(_)
+                | Token::I32(_)
+                | Token::I64(_)
+                | Token::Isize(_)
+                | Token::U8(_)
+                | Token::U16(_)
+                | Token::U32(_)
+                | Token::U64(_)
+                | Token::Usize(_)
+                | Token::Bool(_)
+                | Token::Char(_)
+        )
     }
 
     pub fn to_type(&self) -> Type {
@@ -188,6 +188,74 @@ impl Token {
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
+        }
+    }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            Token::Fn(_) => "fn".into(),
+            Token::Let(_) => "let".into(),
+            Token::Mut(_) => "mut".into(),
+            Token::If(_) => "if".into(),
+            Token::Else(_) => "else".into(),
+            Token::Loop(_) => "loop".into(),
+            Token::While(_) => "while".into(),
+            Token::Break(_) => "break".into(),
+            Token::Continue(_) => "continue".into(),
+            Token::Void(_) => "void".into(),
+            Token::True(_) => "true".into(),
+            Token::False(_) => "false".into(),
+            Token::Character(_, c) => format!("'{c}'"),
+            Token::Use(_) => "use".into(),
+            Token::Plus(_) => "+".into(),
+            Token::Minus(_) => "-".into(),
+            Token::Star(_) => "*".into(),
+            Token::Slash(_) => "/".into(),
+            Token::Modulo(_) => "%".into(),
+            Token::Equal(_) => "==".into(),
+            Token::NotEqual(_) => "!=".into(),
+            Token::Less(_) => "<".into(),
+            Token::LessEqual(_) => "<=".into(),
+            Token::Greater(_) => ">".into(),
+            Token::GreaterEqual(_) => ">=".into(),
+            Token::Assign(_) => "=".into(),
+            Token::And(_) => "and".into(),
+            Token::Or(_) => "or".into(),
+            Token::Not(_) => "not".into(),
+            Token::LParen(_) => "(".into(),
+            Token::RParen(_) => ")".into(),
+            Token::LBrace(_) => "}".into(),
+            Token::RBrace(_) => "{".into(),
+            Token::LBracket(_) => "[".into(),
+            Token::RBracket(_) => "]".into(),
+            Token::Semicolon(_) => ";".into(),
+            Token::Colon(_) => ":".into(),
+            Token::Comma(_) => ",".into(),
+            Token::Dot(_) => ".".into(),
+            Token::Identifier(name, _) => name.clone(),
+            Token::I8Literal(num, _) => num.to_string(),
+            Token::I16Literal(num, _) => num.to_string(),
+            Token::I32Literal(num, _) => num.to_string(),
+            Token::I64Literal(num, _) => num.to_string(),
+            Token::IsizeLiteral(num, _) => num.to_string(),
+            Token::U8Literal(num, _) => num.to_string(),
+            Token::U16Literal(num, _) => num.to_string(),
+            Token::U32Literal(num, _) => num.to_string(),
+            Token::U64Literal(num, _) => num.to_string(),
+            Token::UsizeLiteral(num, _) => num.to_string(),
+            Token::I8(_) => "i8".into(),
+            Token::I16(_) => "i16".into(),
+            Token::I32(_) => "i32".into(),
+            Token::I64(_) => "i64".into(),
+            Token::Isize(_) => "isize".into(),
+            Token::U8(_) => "u8".into(),
+            Token::U16(_) => "u16".into(),
+            Token::U32(_) => "u32".into(),
+            Token::U64(_) => "u64".into(),
+            Token::Usize(_) => "usize".into(),
+            Token::Bool(_) => "bool".into(),
+            Token::Char(_) => "char".into(),
+            Token::Eof(_) => "\0".into(),
         }
     }
 }
