@@ -69,7 +69,7 @@ impl Parser {
 
     // this function will return one Instruction at
     // a time.
-    pub fn next_instruction(&mut self) -> Instruction {
+    pub fn next_instruction(&mut self) -> Result<Instruction, ParserError> {
         todo!()
     }
 
@@ -78,7 +78,14 @@ impl Parser {
     }
 
     fn advance_index(&mut self) {
-        self.token_index += 1;
+        if !self.no_more_tokens() {
+            self.token_index += 1;
+        }
+    }
+
+    fn no_more_tokens(&self) -> bool {
+        // so we don't go past Eof
+        self.token_index >= self.tokens.len() - 1
     }
 
     // used to recover from parsing errors
@@ -126,6 +133,55 @@ impl Parser {
 
     fn parse_expr(&mut self) -> Result<Expr, ParserError> {
         todo!()
+    }
+
+    fn parse_index_like_exprs(&mut self) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_primary()?;
+
+        loop {
+            let mut cur = self.cur_token();
+
+            match cur {
+                Token::LParen(_) => {
+                    self.advance_index();
+
+                    let mut args: Vec<Expr> = vec![];
+                    let mut found_rparen = false;
+                    'args: while !self.no_more_tokens() {
+                        if args.len() > 255 {
+                            return Err(ParserError::TooManyFnArgs(
+                                lhs.source_ref().combine(cur.get_source_ref()),
+                            ));
+                        }
+                        let arg = self.parse_expr()?;
+                        args.push(arg);
+
+                        cur = self.cur_token();
+
+                        match cur {
+                            Token::RParen(_) => {
+                                found_rparen = true;
+                                lhs = Expr::FnCall(Box::new(lhs), args, *cur);
+                                self.advance_index();
+                                break 'args;
+                            }
+                            Token::Comma(_) => {
+                                self.advance_index();
+                                continue 'args;
+                            }
+                            _ => {
+                                return Err(ParserError::Expected(
+                                    "',' to separate arguments or ')' to terminate function call"
+                                        .into(),
+                                    *cur.get_source_ref(),
+                                ))
+                            }
+                        }
+                    }
+                }
+                _ => return Ok(lhs),
+            }
+        }
     }
 
     fn parse_primary(&mut self) -> Result<Expr, ParserError> {
@@ -182,6 +238,10 @@ impl Parser {
                 self.advance_index();
                 res
             }
+            Token::True(_) | Token::False(_) => {
+                self.advance_index();
+                Ok(Expr::Boolean(*cur, Some(Type::Bool)))
+            }
             Token::LParen(_) => {
                 // parse group
                 self.advance_index();
@@ -197,6 +257,7 @@ impl Parser {
                 }
                 Ok(expr)
             }
+            _ => Err(ParserError::CannotParseAnExpression(*cur.get_source_ref())),
         }
     }
 }

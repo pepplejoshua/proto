@@ -13,4 +13,6 @@ pub enum LexerError {
 pub enum ParserError {
     Expected(String, SourceRef),
     ConstantDeclarationNeedsInitValue(SourceRef),
+    CannotParseAnExpression(SourceRef),
+    TooManyFnArgs(SourceRef),
 }

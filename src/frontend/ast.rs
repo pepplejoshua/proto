@@ -8,6 +8,7 @@ pub enum Expr {
     Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Boolean(Token, Option<Type>),
     Unary(Token, Box<Expr>, Option<Type>),
+    FnCall(Box<Expr>, Vec<Expr>, Token),
 }
 
 impl Expr {
