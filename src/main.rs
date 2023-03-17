@@ -18,7 +18,7 @@ fn main() {
     */
     let text = r"
         *[*, l_white:d_black]Welcome[/]
-        *[*, d_white:d_cyan]To[/] 
+        *[*, d_white:d_cyan]To[/]
         *[_, l_white:d_magenta]Pastel![/]
     ";
     println!("{}", pastel(text));
@@ -26,4 +26,4 @@ fn main() {
 
 // TODO:
 // - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
-// - add support for strikethrough: *[~]strikethrough[/], strikethrough ansi code: \x1b[9m
+// - add support for strikethrough: *[-]strikethrough[/], strikethrough ansi code: \x1b[9m
