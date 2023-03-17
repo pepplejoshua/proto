@@ -22,7 +22,6 @@ impl Lexer {
         loop {
             let c = self.src.cur_char();
             if c.is_whitespace() {
-                println!("skipping whitespace at: '{:?}'", self.src.get_ref());
                 self.src.next_char();
                 continue;
             } else {

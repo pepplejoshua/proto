@@ -37,7 +37,10 @@ impl Parser {
 
             let token: Token = cur_token.unwrap();
             match token {
-                Token::Eof(_) => break,
+                Token::Eof(_) => {
+                    self.tokens.push(token);
+                    break;
+                }
                 _ => {
                     self.tokens.push(token);
                     cur_token = self.lexer.next_token();
@@ -52,9 +55,34 @@ impl Parser {
         todo!()
     }
 
-    pub fn parse(&mut self) -> Module {
-        let _main_module = Module::new();
+    fn cur_token(&self) -> &Token {
+        &self.tokens[self.token_index]
+    }
 
-        _main_module
+    fn advance_index(&mut self) {
+        self.token_index += 1;
+    }
+
+    pub fn parse_const_decl(&mut self) -> Instruction {
+        self.advance_index();
+    }
+
+    pub fn parse_var_decl(&mut self) -> Instruction {
+        todo!()
+    }
+
+    pub fn parse(&mut self) -> Module {
+        let mut main_module = Module::new();
+
+        while self.token_index < self.tokens.len() {
+            let cur: &Token = self.cur_token();
+            let ins = match &cur {
+                Token::Let(_) => self.parse_const_decl(),
+                Token::Mut(_) => self.parse_var_decl(),
+                _ => todo!(),
+            };
+            main_module.add_instruction(ins);
+        }
+        main_module
     }
 }
