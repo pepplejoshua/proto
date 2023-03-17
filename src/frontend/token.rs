@@ -1,4 +1,4 @@
-use super::source::SourceRef;
+use super::{source::SourceRef, types::Type};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -152,6 +152,42 @@ impl Token {
             Token::Use(src) => src,
             Token::Break(src) => src,
             Token::Continue(src) => src,
+        }
+    }
+
+    pub fn is_type_token(&self) -> bool {
+        match self {
+            Token::I8(_)
+            | Token::I16(_)
+            | Token::I32(_)
+            | Token::I64(_)
+            | Token::Isize(_)
+            | Token::U8(_)
+            | Token::U16(_)
+            | Token::U32(_)
+            | Token::U64(_)
+            | Token::Usize(_)
+            | Token::Bool(_)
+            | Token::Char(_) => true,
+            _ => false,
+        }
+    }
+
+    pub fn to_type(&self) -> Type {
+        match self {
+            Token::I8(_) => Type::I8,
+            Token::I16(_) => Type::I16,
+            Token::I32(_) => Type::I32,
+            Token::I64(_) => Type::I64,
+            Token::Isize(_) => Type::ISize,
+            Token::U8(_) => Type::U8,
+            Token::U16(_) => Type::U16,
+            Token::U32(_) => Type::U32,
+            Token::U64(_) => Type::U64,
+            Token::Usize(_) => Type::USize,
+            Token::Bool(_) => Type::Bool,
+            Token::Char(_) => Type::Char,
+            _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }
 }

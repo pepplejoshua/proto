@@ -7,3 +7,10 @@ pub enum LexerError {
     CannotMakeSignedNumber(SourceRef),
     CannotMakeUnsignedNumber(SourceRef),
 }
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum ParserError {
+    Expected(String, SourceRef),
+    ConstantDeclarationNeedsInitValue(SourceRef),
+}

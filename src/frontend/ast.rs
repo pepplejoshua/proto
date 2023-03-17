@@ -4,6 +4,7 @@ use super::{source::SourceRef, token::Token, types::Type};
 pub enum Expr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
+    Char(Token, Option<Type>),
     Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Boolean(Token, Option<Type>),
     Unary(Token, Box<Expr>, Option<Type>),
@@ -41,7 +42,8 @@ impl Expr {
 
 #[derive(Debug, Clone)]
 pub enum Instruction {
-    VariableDecl(Token, Option<Type>, Expr),
+    ConstantDecl(Token, Option<Type>, Expr),
+    VariableDecl(Token, Option<Type>, Option<Expr>),
     ExpressionIns(Expr),
 }
 
