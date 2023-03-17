@@ -5,12 +5,16 @@ use super::token::Token;
 #[allow(dead_code)]
 pub struct Lexer {
     src: SourceFile,
+    last_lexed: Option<Token>,
 }
 
 #[allow(dead_code)]
 impl Lexer {
     pub fn new(src: SourceFile) -> Lexer {
-        Lexer { src }
+        Lexer {
+            src,
+            last_lexed: None,
+        }
     }
 
     // skip all whitespace characters
@@ -68,7 +72,7 @@ impl Lexer {
         if c == '\0' {
             return Ok(Token::Eof(self.src.get_ref()));
         }
-        match c {
+        let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
             | ']' | ',' | '.' | ':' | ';' => self.lex_operator(),
@@ -77,8 +81,18 @@ impl Lexer {
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
-            _ => Err(LexerError::InvalidCharacter(self.src.get_ref())),
+            _ => {
+                let err = Err(LexerError::InvalidCharacter(self.src.get_ref()));
+                self.src.next_char(); // try to keep lexing
+                err
+            }
+        };
+
+        match &maybe_token {
+            Ok(t) => self.last_lexed = Some(t.clone()),
+            Err(_) => self.last_lexed = None,
         }
+        maybe_token
     }
 
     // lex a potential identifier

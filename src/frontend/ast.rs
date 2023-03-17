@@ -51,6 +51,12 @@ pub struct Module {
 }
 
 impl Module {
+    pub fn new() -> Module {
+        Module {
+            instructions: vec![],
+        }
+    }
+
     pub fn add_instruction(&mut self, ins: Instruction) {
         self.instructions.push(ins);
     }
