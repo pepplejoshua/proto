@@ -37,7 +37,8 @@ impl Parser {
                 Token::Mut(_) => self.parse_var_decl(),
                 _ => todo!(),
             };
-            main_module.add_instruction(ins);
+
+            main_module.add_instruction(ins.unwrap());
         }
         main_module
     }
@@ -135,6 +136,85 @@ impl Parser {
         todo!()
     }
 
+    fn parse_equality(&mut self) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_comparison()?;
+
+        loop {
+            let cur = self.cur_token();
+            match cur {
+                Token::Equal(_) | Token::NotEqual(_) => {
+                    self.advance_index();
+                    let rhs = self.parse_comparison()?;
+                    lhs = Expr::Comparison(*cur, Box::new(lhs), Box::new(rhs), None);
+                }
+                _ => return Ok(lhs),
+            }
+        }
+    }
+
+    fn parse_comparison(&mut self) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_term()?;
+
+        loop {
+            let cur = self.cur_token();
+            match cur {
+                Token::Greater(_)
+                | Token::GreaterEqual(_)
+                | Token::Less(_)
+                | Token::LessEqual(_) => {
+                    self.advance_index();
+                    let rhs = self.parse_term()?;
+                    lhs = Expr::Comparison(*cur, Box::new(lhs), Box::new(rhs), None);
+                }
+                _ => return Ok(lhs),
+            }
+        }
+    }
+
+    fn parse_term(&mut self) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_factor()?;
+
+        loop {
+            let cur = self.cur_token();
+            match cur {
+                Token::Plus(_) | Token::Minus(_) => {
+                    self.advance_index();
+                    let rhs = self.parse_factor()?;
+                    lhs = Expr::Binary(*cur, Box::new(lhs), Box::new(rhs), None);
+                }
+                _ => return Ok(lhs),
+            }
+        }
+    }
+
+    fn parse_factor(&mut self) -> Result<Expr, ParserError> {
+        let mut lhs = self.parse_unary()?;
+
+        loop {
+            let cur = self.cur_token();
+            match cur {
+                Token::Star(_) | Token::Modulo(_) | Token::Slash(_) => {
+                    self.advance_index();
+                    let rhs = self.parse_unary()?;
+                    lhs = Expr::Binary(*cur, Box::new(lhs), Box::new(rhs), None);
+                }
+                _ => return Ok(lhs),
+            }
+        }
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, ParserError> {
+        let cur = self.cur_token();
+        match cur {
+            Token::Not(_) => {
+                self.advance_index();
+                let operand = self.parse_unary()?;
+                Ok(Expr::Unary(*cur, Box::new(operand), None))
+            }
+            _ => self.parse_index_like_exprs(),
+        }
+    }
+
     fn parse_index_like_exprs(&mut self) -> Result<Expr, ParserError> {
         let mut lhs = self.parse_primary()?;
 
@@ -161,7 +241,12 @@ impl Parser {
                         match cur {
                             Token::RParen(_) => {
                                 found_rparen = true;
-                                lhs = Expr::FnCall(Box::new(lhs), args, *cur);
+                                lhs = Expr::FnCall {
+                                    func: Box::new(lhs),
+                                    args,
+                                    rparen: *cur,
+                                    fn_type: None,
+                                };
                                 self.advance_index();
                                 break 'args;
                             }

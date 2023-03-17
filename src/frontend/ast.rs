@@ -4,11 +4,16 @@ use super::{source::SourceRef, token::Token, types::Type};
 pub enum Expr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
-    Char(Token, Option<Type>),
     Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
+    Comparison(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Boolean(Token, Option<Type>),
     Unary(Token, Box<Expr>, Option<Type>),
-    FnCall(Box<Expr>, Vec<Expr>, Token),
+    FnCall {
+        func: Box<Expr>,
+        args: Vec<Expr>,
+        rparen: Token,
+        fn_type: Option<Type>,
+    },
 }
 
 impl Expr {
@@ -27,6 +32,17 @@ impl Expr {
                 let operand_ref = operand.source_ref();
                 operator_ref.combine(&operand_ref)
             }
+            Expr::Comparison(_, lhs, rhs, _) => {
+                let lhs_ref = lhs.source_ref();
+                let rhs_ref = rhs.source_ref();
+                lhs_ref.combine(&rhs_ref)
+            }
+            Expr::FnCall {
+                func,
+                args: _,
+                rparen,
+                fn_type: _,
+            } => func.source_ref().combine(rparen.get_source_ref()),
         }
     }
 
@@ -37,6 +53,13 @@ impl Expr {
             Expr::Binary(_, _, _, t) => t.clone(),
             Expr::Boolean(_, t) => t.clone(),
             Expr::Unary(_, _, t) => t.clone(),
+            Expr::Comparison(_, _, _, t) => t.clone(),
+            Expr::FnCall {
+                func: _,
+                args: _,
+                rparen: _,
+                fn_type,
+            } => fn_type.clone(),
         }
     }
 }
