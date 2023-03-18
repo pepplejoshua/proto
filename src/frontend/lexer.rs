@@ -412,10 +412,10 @@ struct LexerTestResult {
 
 #[test]
 fn test_lexer() {
-    insta::glob!("lexer_inputs/*.json", |path| {
-        // build the SourceFile from the json file
-        let file_contents = std::fs::read_to_string(path).unwrap();
-        let src: SourceFile = serde_json::from_str(&file_contents).unwrap();
+    insta::glob!("lexer_inputs/*.pr", |path| {
+        // build the SourceFile from the proto file
+        let path = path.to_str().unwrap().to_string();
+        let src: SourceFile = SourceFile::new(path);
 
         // build the lexer
         let mut lexer = Lexer::new(src);

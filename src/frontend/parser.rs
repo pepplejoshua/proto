@@ -204,13 +204,56 @@ impl Parser {
         }
 
         let mut init_value = None;
-        if let Token::Assign(_) = cur {
-            self.advance_index();
-            init_value = Some(self.parse_expr()?);
-        }
 
-        cur = self.cur_token();
         match cur {
+            Token::Assign(_) => {
+                self.advance_index();
+                init_value = Some(self.parse_expr()?);
+
+                // look for a semi colon
+                cur = self.cur_token();
+                if let Token::Semicolon(_) = cur {
+                    let end_ref = cur.get_source_ref();
+                    self.advance_index();
+                    let name = label.unwrap();
+                    Ok(Instruction::VariableDecl(
+                        name,
+                        var_type,
+                        init_value,
+                        start.get_source_ref().combine(end_ref),
+                    ))
+                } else {
+                    let tip = match (var_type, init_value) {
+                        (None, None) => {
+                            format!("Terminate variable declaration: mut {var_name};")
+                        }
+                        (None, Some(expr)) => {
+                            format!(
+                                "Terminate variable declaration: mut {var_name} = {};",
+                                expr.as_str()
+                            )
+                        }
+                        (Some(v_type), None) => {
+                            format!(
+                                "Terminate variable declaration: let {var_name} {};",
+                                v_type.as_str()
+                            )
+                        }
+                        (Some(v_type), Some(expr)) => {
+                            format!(
+                                "Terminate variable declaration: let {var_name} {} = {};",
+                                v_type.as_str(),
+                                expr.as_str(),
+                            )
+                        }
+                    };
+                    Err(ParseError::Expected(
+                        "';' to terminate variable declaration.".into(),
+                        cur.get_source_ref(),
+                        Some(tip),
+                    ))
+                }
+            }
             Token::Semicolon(_) => {
                 let end_ref = cur.get_source_ref();
                 self.advance_index();
@@ -223,37 +266,14 @@ impl Parser {
                 ))
             }
             _ => {
-                let tip = match (var_type, init_value) {
-                    (None, None) => {
-                        format!("Terminate variable declaration: let {var_name};")
-                    }
-                    (None, Some(expr)) => {
-                        format!(
-                            "Terminate variable declaration: let {var_name} = {};",
-                            expr.as_str()
-                        )
-                    }
-                    (Some(v_type), None) => {
-                        format!(
-                            "Terminate variable declaration: let {var_name} {};",
-                            v_type.as_str()
-                        )
-                    }
-                    (Some(v_type), Some(expr)) => {
-                        format!(
-                            "Terminate variable declaration: let {var_name} {} = {};",
-                            v_type.as_str(),
-                            expr.as_str(),
-                        )
-                    }
-                };
-                Err(ParseError::Expected(
-                    "';' to terminate variable declaration.".into(),
-                    cur.get_source_ref(),
-                    Some(tip),
-                ))
+                let tip =
+                    format!("This variable can be declared by writing: 'mut {var_name} type? (= expr)?;'. ? means optional.");
+                Err(ParseError::MalformedDeclaration(tip, cur.get_source_ref()))
             }
         }
+
+        // cur = self.cur_token();
+        // match cur {}
     }
 
     fn parse_assignment_or_expr_instruc(&mut self) -> Result<Instruction, ParseError> {

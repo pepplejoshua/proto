@@ -298,7 +298,7 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
                                 splits.push((true_start, start.unwrap(), directive_end));
                                 in_directive = false;
                             }
-                            i += 1;
+                            // i += 1;
                         }
                     }
                 }
@@ -328,6 +328,19 @@ fn test_find_split_spans() {
       - - 2
         - 3
       - 31
+    "###);
+
+    let text = "*[*]Bolden[/]*[_]underline[/]";
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
+    ---
+    - - 0
+      - - 2
+        - 3
+      - 13
+    - - 13
+      - - 15
+        - 16
+      - 29
     "###);
 }
 

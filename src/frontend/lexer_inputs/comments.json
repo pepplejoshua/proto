@@ -1,9 +1,0 @@
-{
-  "path": "comments.json.pr",
-  "text":
-    "// This is a comment\nsome_ident false\n// This is another comment\nsome_other_ident true",
-  "flat_index": 0,
-  "col": 0,
-  "row": 0,
-  "line": 0
-}

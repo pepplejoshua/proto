@@ -1,0 +1,34 @@
+---
+source: src/frontend/lexer.rs
+expression: res
+input_file: src/frontend/lexer_inputs/operators.pr
+---
+stringified_tokens:
+  - "Plus(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 0, end_line: 0, end_col: 1, flat_start: 0, flat_end: 1 })"
+  - "Minus(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 2, end_line: 0, end_col: 3, flat_start: 2, flat_end: 3 })"
+  - "Star(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 4, end_line: 0, end_col: 5, flat_start: 4, flat_end: 5 })"
+  - "Slash(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 6, end_line: 0, end_col: 7, flat_start: 6, flat_end: 7 })"
+  - "Modulo(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 8, end_line: 0, end_col: 9, flat_start: 8, flat_end: 9 })"
+  - "Not(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 0, start_col: 10, end_line: 0, end_col: 11, flat_start: 10, flat_end: 11 })"
+  - "Equal(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 0, end_line: 1, end_col: 2, flat_start: 12, flat_end: 14 })"
+  - "NotEqual(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 3, end_line: 1, end_col: 5, flat_start: 15, flat_end: 17 })"
+  - "Less(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 6, end_line: 1, end_col: 7, flat_start: 18, flat_end: 19 })"
+  - "Greater(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 8, end_line: 1, end_col: 9, flat_start: 20, flat_end: 21 })"
+  - "LessEqual(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 10, end_line: 1, end_col: 12, flat_start: 22, flat_end: 24 })"
+  - "GreaterEqual(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 1, start_col: 13, end_line: 1, end_col: 15, flat_start: 25, flat_end: 27 })"
+  - "Assign(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 2, start_col: 0, end_line: 2, end_col: 1, flat_start: 28, flat_end: 29 })"
+  - "And(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 2, start_col: 2, end_line: 2, end_col: 5, flat_start: 30, flat_end: 33 })"
+  - "Or(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 2, start_col: 6, end_line: 2, end_col: 8, flat_start: 34, flat_end: 36 })"
+  - "Not(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 2, start_col: 9, end_line: 2, end_col: 12, flat_start: 37, flat_end: 40 })"
+  - "Not(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 2, start_col: 13, end_line: 2, end_col: 14, flat_start: 41, flat_end: 42 })"
+  - "LParen(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 0, end_line: 3, end_col: 1, flat_start: 43, flat_end: 44 })"
+  - "RParen(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 2, end_line: 3, end_col: 3, flat_start: 45, flat_end: 46 })"
+  - "LBrace(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 4, end_line: 3, end_col: 5, flat_start: 47, flat_end: 48 })"
+  - "RBrace(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 6, end_line: 3, end_col: 7, flat_start: 49, flat_end: 50 })"
+  - "LBracket(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 8, end_line: 3, end_col: 9, flat_start: 51, flat_end: 52 })"
+  - "RBracket(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 10, end_line: 3, end_col: 11, flat_start: 53, flat_end: 54 })"
+  - "Semicolon(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 12, end_line: 3, end_col: 13, flat_start: 55, flat_end: 56 })"
+  - "Colon(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 14, end_line: 3, end_col: 15, flat_start: 57, flat_end: 58 })"
+  - "Comma(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 16, end_line: 3, end_col: 17, flat_start: 59, flat_end: 60 })"
+  - "Dot(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/operators.pr\", start_line: 3, start_col: 18, end_line: 3, end_col: 19, flat_start: 61, flat_end: 62 })"
+

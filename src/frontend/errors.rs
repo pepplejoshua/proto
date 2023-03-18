@@ -15,4 +15,5 @@ pub enum ParseError {
     ConstantDeclarationNeedsInitValue(SourceRef),
     CannotParseAnExpression(SourceRef),
     TooManyFnArgs(SourceRef),
+    MalformedDeclaration(String, SourceRef),
 }

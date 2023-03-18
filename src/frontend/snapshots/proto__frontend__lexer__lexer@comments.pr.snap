@@ -1,0 +1,9 @@
+---
+source: src/frontend/lexer.rs
+expression: res
+input_file: src/frontend/lexer_inputs/comments.pr
+---
+stringified_tokens:
+  - "Identifier(\"some_other_ident\", SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/comments.pr\", start_line: 2, start_col: 0, end_line: 2, end_col: 16, flat_start: 66, flat_end: 82 })"
+  - "True(SourceRef { file: \"/Users/iwarilama/Desktop/code/rust/proto/src/frontend/lexer_inputs/comments.pr\", start_line: 2, start_col: 17, end_line: 2, end_col: 21, flat_start: 83, flat_end: 87 })"
+

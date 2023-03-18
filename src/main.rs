@@ -1,6 +1,14 @@
+use std::{env, fs, path::PathBuf};
+
 use docopt::Docopt;
-use frontend::{lexer::Lexer, parser::Parser, source::SourceFile};
+use frontend::{
+    lexer::Lexer,
+    parser::Parser,
+    source::{SourceFile, SourceReporter},
+};
 use serde::Deserialize;
+
+use crate::frontend::token::Token;
 
 mod frontend;
 mod pastel;
@@ -21,6 +29,7 @@ Options:
 ";
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct Args {
     flag_h: bool,
     flag_l: bool,
@@ -33,30 +42,52 @@ fn main() {
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
 
-    println!("{args:#?}");
-    // let text = r#"// mut a = 1 + 2;
-    // // let b = 3 * 5;
-    // // let c = a + b * a / b - a;
-    // a = 3;
-    // a = c * b / a + b - 1;
-    // "#
-    // .to_string();
-    // let src = SourceFile {
-    //     path: "parser_inputs/binary_exprs.pr".into(),
-    //     text,
-    //     flat_index: 0,
-    //     col: 0,
-    //     line: 0,
-    //     lines: vec![],
-    // };
+    let stage = if args.flag_l {
+        Stage::Lexer
+    } else {
+        Stage::Parser
+    };
 
-    // let mut p = Parser::new(Lexer::new(src));
-    // let module = p.parse();
+    let fpath = args.flag_f;
+    let cwd = env::current_dir().unwrap();
+    let path = format!("{}/{}", cwd.display(), fpath);
+    let path = fs::canonicalize(PathBuf::from(path)).unwrap();
+    let path = path.to_str().unwrap().to_string();
 
-    // for ins in module.instructions {
-    //     println!("{}", ins.as_str());
-    // }
+    let src = SourceFile::new(path);
+    let reporter = SourceReporter::new(src.clone());
+    let mut lexer = Lexer::new(src);
 
-    // println!("{:#?}", p.lexer_errors);
-    // println!("{:#?}", p.parser_errors);
+    if let Stage::Lexer = stage {
+        loop {
+            let maybe_tok = lexer.next_token();
+            match maybe_tok {
+                Ok(tok) => {
+                    if let Token::Eof(_) = tok {
+                        break;
+                    }
+                    println!("{}", tok.as_str());
+                }
+                Err(le) => reporter.report_lexer_error(&le),
+            }
+        }
+    } else {
+        let mut parser = Parser::new(lexer);
+        let main_mod = parser.parse();
+
+        let has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
+        for le in parser.lexer_errors {
+            reporter.report_lexer_error(&le);
+        }
+
+        for pe in parser.parser_errors {
+            reporter.report_parse_error(pe);
+        }
+
+        if !has_errors {
+            for ins in main_mod.instructions {
+                println!("{}", ins.as_str());
+            }
+        }
+    }
 }

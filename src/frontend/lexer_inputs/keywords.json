@@ -1,9 +1,0 @@
-{
-  "path": "keywords.json.pr",
-  "text":
-    "fn let mut if else\nloop while void true false\nand or not\ni8 i16 i32 i64 isize\nu8 u16 u32 u64 usize\nbool char use",
-  "flat_index": 0,
-  "col": 0,
-  "row": 0,
-  "line": 0
-}
