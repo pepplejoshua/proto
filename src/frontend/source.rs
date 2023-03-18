@@ -248,7 +248,7 @@ impl SourceReporter {
                 self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
             }
             ParseError::ConstantDeclarationNeedsInitValue(src) => {
-                let msg = "Constant declaration needs a initialization value.".to_string();
+                let msg = "Constant declaration needs an initialization value.".to_string();
                 let tip = "Constants are set on creation and cannot be modified after.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
