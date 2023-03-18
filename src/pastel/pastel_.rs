@@ -298,7 +298,7 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
                                 splits.push((true_start, start.unwrap(), directive_end));
                                 in_directive = false;
                             }
-                            i += 1;
+                            // i += 1;
                         }
                     }
                 }
@@ -328,6 +328,19 @@ fn test_find_split_spans() {
       - - 2
         - 3
       - 31
+    "###);
+
+    let text = "*[*]Bolden[/]*[_]underline[/]";
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
+    ---
+    - - 0
+      - - 2
+        - 3
+      - 13
+    - - 13
+      - - 15
+        - 16
+      - 29
     "###);
 }
 
@@ -457,3 +470,26 @@ fn test_pastel_parse() {
     - RegText: "[/]"
     "###);
 }
+
+// TODO:
+// - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
+// - add support for strikethrough: *[-]strikethrough[/], strikethrough ansi code: \x1b[9m
+
+/*
+This example is akin to writing the following in html+css:
+    <div style="font-weight: bold; color: white; background-color: black;">
+        Welcome
+    </div>
+    <div style="font-weight: bold; color: white; background-color: cyan;">
+        To
+    </div>
+    <u style="color: white; background-color: magenta;">
+        Pastel!
+    </u>
+*/
+// let text = r"
+//     *[*, l_white:d_black]Welcome[/]
+//     *[*, d_white:d_cyan]To[/]
+//     *[_, l_white:d_magenta]Pastel![/]
+// ";
+// println!("{}", pastel(text));

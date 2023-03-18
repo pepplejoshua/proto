@@ -1,16 +1,20 @@
-use super::errors::LexerError;
+use super::errors::LexError;
 use super::source::SourceFile;
 use super::token::Token;
 
 #[allow(dead_code)]
 pub struct Lexer {
     src: SourceFile,
+    last_lexed: Option<Token>,
 }
 
 #[allow(dead_code)]
 impl Lexer {
     pub fn new(src: SourceFile) -> Lexer {
-        Lexer { src }
+        Lexer {
+            src,
+            last_lexed: None,
+        }
     }
 
     // skip all whitespace characters
@@ -18,7 +22,6 @@ impl Lexer {
         loop {
             let c = self.src.cur_char();
             if c.is_whitespace() {
-                println!("skipping whitespace at: '{:?}'", self.src.get_ref());
                 self.src.next_char();
                 continue;
             } else {
@@ -52,14 +55,17 @@ impl Lexer {
     }
 
     // try to lex the next possible token
-    pub fn next_token(&mut self) -> Result<Token, LexerError> {
-        // skip all preceding whitespace
-        self.skip_whitespace();
-
-        // process comments
-        // eventually, it'll get documentation comments
-        // for now, it just skips regular comments
-        self.process_comment();
+    pub fn next_token(&mut self) -> Result<Token, LexError> {
+        while self.src.cur_char().is_whitespace()
+            || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
+        {
+            // skip all preceding whitespace
+            self.skip_whitespace();
+            // process comments
+            // eventually, it'll get documentation comments
+            // for now, it just skips single line comments
+            self.process_comment();
+        }
 
         // get the current character
         let c = self.src.cur_char();
@@ -68,7 +74,7 @@ impl Lexer {
         if c == '\0' {
             return Ok(Token::Eof(self.src.get_ref()));
         }
-        match c {
+        let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
             | ']' | ',' | '.' | ':' | ';' => self.lex_operator(),
@@ -77,15 +83,25 @@ impl Lexer {
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
-            _ => Err(LexerError::InvalidCharacter(self.src.get_ref())),
+            _ => {
+                let err = Err(LexError::InvalidCharacter(self.src.get_ref()));
+                self.src.next_char(); // try to keep lexing
+                err
+            }
+        };
+
+        match &maybe_token {
+            Ok(t) => self.last_lexed = Some(t.clone()),
+            Err(_) => self.last_lexed = None,
         }
+        maybe_token
     }
 
     // lex a potential identifier
     // it might turn out to be either a:
     // - keyword
     // - identifier
-    fn lex_potential_identifier(&mut self) -> Result<Token, LexerError> {
+    fn lex_potential_identifier(&mut self) -> Result<Token, LexError> {
         let mut id = String::new();
         let c_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -103,7 +119,7 @@ impl Lexer {
             }
         }
 
-        let combined_ref = c_ref.combine(&end_ref);
+        let combined_ref = c_ref.combine(end_ref);
         // check if the identifier is a keyword
         match id.as_str() {
             "fn" => Ok(Token::Fn(combined_ref)),
@@ -116,6 +132,8 @@ impl Lexer {
             "void" => Ok(Token::Void(combined_ref)),
             "true" => Ok(Token::True(combined_ref)),
             "false" => Ok(Token::False(combined_ref)),
+            "break" => Ok(Token::Break(combined_ref)),
+            "continue" => Ok(Token::Continue(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -138,7 +156,7 @@ impl Lexer {
     }
 
     // lex an operator
-    fn lex_operator(&mut self) -> Result<Token, LexerError> {
+    fn lex_operator(&mut self) -> Result<Token, LexError> {
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
         // detect a signed number
@@ -150,7 +168,7 @@ impl Lexer {
             } else {
                 // otherwise, return a minus operator
                 self.src.next_char();
-                return Ok(Token::Minus(cur_ref.combine(&self.src.get_ref())));
+                return Ok(Token::Minus(cur_ref.combine(self.src.get_ref())));
             }
         }
 
@@ -158,23 +176,23 @@ impl Lexer {
             // arithmetic operators
             '+' => {
                 self.src.next_char();
-                Ok(Token::Plus(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Plus(cur_ref.combine(self.src.get_ref())))
             }
             '-' => {
                 self.src.next_char();
-                Ok(Token::Minus(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Minus(cur_ref.combine(self.src.get_ref())))
             }
             '*' => {
                 self.src.next_char();
-                Ok(Token::Star(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Star(cur_ref.combine(self.src.get_ref())))
             }
             '/' => {
                 self.src.next_char();
-                Ok(Token::Slash(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
             }
             '%' => {
                 self.src.next_char();
-                Ok(Token::Modulo(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
             }
 
             // logical operators
@@ -184,11 +202,11 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::NotEqual(cur_ref.combine(&self.src.get_ref())));
+                    return Ok(Token::NotEqual(cur_ref.combine(self.src.get_ref())));
                 }
                 // otherwise, return a Not operator
                 self.src.next_char();
-                Ok(Token::Not(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
@@ -196,11 +214,11 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::Equal(cur_ref.combine(&self.src.get_ref())));
+                    return Ok(Token::Equal(cur_ref.combine(self.src.get_ref())));
                 }
                 // otherwise, return a Assign operator
                 self.src.next_char();
-                Ok(Token::Assign(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Assign(cur_ref.combine(self.src.get_ref())))
             }
             '<' => {
                 // if the next character is a '=', return a LessEqual operator
@@ -208,11 +226,11 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::LessEqual(cur_ref.combine(&self.src.get_ref())));
+                    return Ok(Token::LessEqual(cur_ref.combine(self.src.get_ref())));
                 }
                 // otherwise, return a Less operator
                 self.src.next_char();
-                Ok(Token::Less(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Less(cur_ref.combine(self.src.get_ref())))
             }
             '>' => {
                 // if the next character is a '=', return a GreaterEqual operator
@@ -220,58 +238,58 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::GreaterEqual(cur_ref.combine(&self.src.get_ref())));
+                    return Ok(Token::GreaterEqual(cur_ref.combine(self.src.get_ref())));
                 }
                 // otherwise, return a Greater operator
                 self.src.next_char();
-                Ok(Token::Greater(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
             }
             '(' => {
                 self.src.next_char();
-                Ok(Token::LParen(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
             }
             ')' => {
                 self.src.next_char();
-                Ok(Token::RParen(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::RParen(cur_ref.combine(self.src.get_ref())))
             }
             '{' => {
                 self.src.next_char();
-                Ok(Token::LBrace(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::LBrace(cur_ref.combine(self.src.get_ref())))
             }
             '}' => {
                 self.src.next_char();
-                Ok(Token::RBrace(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::RBrace(cur_ref.combine(self.src.get_ref())))
             }
             '[' => {
                 self.src.next_char();
-                Ok(Token::LBracket(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::LBracket(cur_ref.combine(self.src.get_ref())))
             }
             ']' => {
                 self.src.next_char();
-                Ok(Token::RBracket(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::RBracket(cur_ref.combine(self.src.get_ref())))
             }
             ',' => {
                 self.src.next_char();
-                Ok(Token::Comma(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Comma(cur_ref.combine(self.src.get_ref())))
             }
             '.' => {
                 self.src.next_char();
-                Ok(Token::Dot(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Dot(cur_ref.combine(self.src.get_ref())))
             }
             ':' => {
                 self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
             }
             ';' => {
                 self.src.next_char();
-                Ok(Token::Semicolon(cur_ref.combine(&self.src.get_ref())))
+                Ok(Token::Semicolon(cur_ref.combine(self.src.get_ref())))
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
         }
     }
 
     // try to lex a number
-    fn lex_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_number(&mut self) -> Result<Token, LexError> {
         // by default, calling lex_number will lex a signed number
         // since users tend to perform signed arithmetic more often
         self.lex_signed_number()
@@ -283,7 +301,7 @@ impl Lexer {
     // - i32
     // - i64
     // - isize
-    fn lex_signed_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_signed_number(&mut self) -> Result<Token, LexError> {
         let mut signed_number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -304,7 +322,7 @@ impl Lexer {
             }
         }
 
-        let combined_ref = cur_ref.combine(&end_ref);
+        let combined_ref = cur_ref.combine(end_ref);
         // check if signed_number is i8
         if let Ok(num) = signed_number.parse::<i8>() {
             return Ok(Token::I8Literal(num, combined_ref));
@@ -338,7 +356,7 @@ impl Lexer {
     // - u32
     // - u64
     // - usize
-    fn lex_unsigned_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_unsigned_number(&mut self) -> Result<Token, LexError> {
         let mut unsigned_number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -359,7 +377,7 @@ impl Lexer {
             }
         }
 
-        let combined_ref = cur_ref.combine(&end_ref);
+        let combined_ref = cur_ref.combine(end_ref);
         // check if unsigned_number is u8
         if let Ok(num) = unsigned_number.parse::<u8>() {
             return Ok(Token::U8Literal(num, combined_ref));
@@ -382,7 +400,7 @@ impl Lexer {
         }
 
         // if it is not a valid unsigned number, return an error
-        Err(LexerError::CannotMakeUnsignedNumber(combined_ref))
+        Err(LexError::CannotMakeUnsignedNumber(combined_ref))
     }
 }
 
@@ -394,10 +412,10 @@ struct LexerTestResult {
 
 #[test]
 fn test_lexer() {
-    insta::glob!("lexer_inputs/*.json", |path| {
-        // build the SourceFile from the json file
-        let file_contents = std::fs::read_to_string(path).unwrap();
-        let src: SourceFile = serde_json::from_str(&file_contents).unwrap();
+    insta::glob!("lexer_inputs/*.pr", |path| {
+        // build the SourceFile from the proto file
+        let path = path.to_str().unwrap().to_string();
+        let src: SourceFile = SourceFile::new(path);
 
         // build the lexer
         let mut lexer = Lexer::new(src);
@@ -415,7 +433,11 @@ fn test_lexer() {
             if let Token::Eof(_) = token {
                 break;
             }
-            res.stringified_tokens.push(format!("{token:?}"));
+            res.stringified_tokens.push(format!(
+                "{} at {}",
+                token.as_str(),
+                token.get_source_ref().as_str()
+            ));
             tokens.push(token);
         }
         insta::assert_yaml_snapshot!(res)

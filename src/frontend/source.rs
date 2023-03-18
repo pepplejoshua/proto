@@ -1,14 +1,17 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read};
 
+use super::errors::{LexError, ParseError};
+
 #[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, Default)]
+#[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct SourceFile {
     pub path: String,
     pub text: String,
     pub flat_index: usize,
     pub col: usize,
     pub line: usize,
+    pub lines: Vec<String>,
 }
 
 #[allow(dead_code)]
@@ -21,6 +24,7 @@ impl SourceFile {
             flat_index: 0,
             col: 0,
             line: 0,
+            lines: vec![],
         };
         src_file.read_file();
         src_file
@@ -102,12 +106,19 @@ impl SourceFile {
             "{}: something went wrong trying to read the file.",
             self.path
         );
-        file.read_to_string(&mut self.text).expect(&read_error);
+        let mut text = String::new();
+        file.read_to_string(&mut text).expect(&read_error);
+        let t_lines = text.split('\n').collect::<Vec<_>>();
+        for line in t_lines {
+            self.lines.push(line.into());
+        }
+
+        self.text = text;
     }
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct SourceRef {
     pub file: String,      // file path
     pub start_line: usize, // start line
@@ -140,13 +151,25 @@ impl SourceRef {
         }
     }
 
+    pub fn as_str(&self) -> String {
+        format!(
+            "[start_line:{} start_col:{} end_line:{} end_col:{} flat_start:{} flat_end:{}]",
+            self.start_line,
+            self.start_col,
+            self.end_line,
+            self.end_col,
+            self.flat_start,
+            self.flat_end
+        )
+    }
+
     // combine 2 SourceRefs to create a new one that:
     // - has the same file
     // - has the first occuring start_line and start_col
     // - has the last occuring end_line and end_col
     // - has the first occuring flat_start
     // - has the last occuring flat_end
-    pub fn combine(&self, other: &SourceRef) -> SourceRef {
+    pub fn combine(&self, other: SourceRef) -> SourceRef {
         let start_line = if self.start_line < other.start_line {
             self.start_line
         } else {
@@ -186,5 +209,120 @@ impl SourceRef {
             flat_start,
             flat_end,
         )
+    }
+}
+
+#[allow(dead_code)]
+pub struct SourceReporter {
+    src: SourceFile,
+}
+
+use crate::pastel::pastel;
+
+#[allow(dead_code)]
+impl SourceReporter {
+    pub fn new(src: SourceFile) -> SourceReporter {
+        SourceReporter { src }
+    }
+
+    pub fn report_lexer_error(&self, le: &LexError) {
+        match le {
+            LexError::InvalidCharacter(src) => {
+                let msg = "Character is invalid.".to_string();
+                self.report_with_ref(src, msg, None);
+            }
+            LexError::CannotMakeSignedNumber(src) => {
+                let msg = "Number too large to fit any signed integer type.".to_string();
+                self.report_with_ref(src, msg, None);
+            }
+            LexError::CannotMakeUnsignedNumber(src) => {
+                let msg = "Number too large to fit any unsigned integer type.".to_string();
+                self.report_with_ref(src, msg, None);
+            }
+        }
+    }
+
+    pub fn report_parse_error(&self, pe: ParseError) {
+        match pe {
+            ParseError::Expected(msg, src, tip) => {
+                self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
+            }
+            ParseError::ConstantDeclarationNeedsInitValue(src) => {
+                let msg = "Constant declaration needs a initialization value.".to_string();
+                let tip = "Constants are set on creation and cannot be modified after.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::CannotParseAnExpression(src) => {
+                let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            ParseError::TooManyFnArgs(src) => {
+                let msg = "Function calls only allow 256 arguments.".to_string();
+                let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::MalformedDeclaration(tip, src) => {
+                let msg = "Malformed declaration.".to_string();
+                self.report_with_ref(&src, msg, Some(tip))
+            }
+        }
+    }
+
+    fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
+        let err_col = "d_red";
+        let target_col = "l_cyan";
+        let tip_col = "l_yellow";
+        let line_col = "l_green";
+        let mut output = String::new();
+
+        // add provided msg
+        output.push_str(&format!("*[_, {err_col}:d_black]{msg}[/]\n"));
+
+        // add file name
+        let f_name = &self.src.path;
+        output.push_str(&format!(
+            "   *[_, l_white:d_black]File '{f_name}'[/] *[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]\n",
+            src.start_line + 1,
+            src.start_line + 2
+        ));
+
+        // add actual target lines
+        // - add first line of target area
+        let f_line = self.src.lines[src.start_line].clone();
+        let pre_slice = &f_line[..src.start_col];
+        let f_target_slice = &f_line[src.start_col..];
+        output.push_str(&format!(
+            "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, _, {target_col}:d_black]{f_target_slice}[/]\n",
+            src.start_line + 1,
+        ));
+
+        // add any lines between
+        for line_no in src.start_line + 1..src.end_line {
+            let target_line = self.src.lines[line_no].clone();
+            output.push_str(&format!(
+                "       *[d_white:d_black]{}[/] | *[*, _, {target_col}:d_black]{target_line}[/]\n",
+                line_no + 1,
+            ));
+        }
+
+        // - add last line of target area (if it is not the same as first line)
+        if src.end_line != src.start_line {
+            let l_line = &self.src.lines[src.end_line].clone();
+            let l_target_slice = &l_line[..src.end_col];
+            let post_slice = &l_line[src.end_col..];
+            output.push_str(&format!(
+                "       *[d_white:d_black]{}[/] | *[*, _, {target_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
+                src.end_line + 1,
+            ));
+        }
+
+        if let Some(tip_text) = tip {
+            output.push_str(&format!(
+                "\n*[*, _, {tip_col}:d_black]Note:[/] *[*, l_white:d_black]{tip_text}[/]\n"
+            ));
+        } else {
+            output.push('\n');
+        }
+        println!("{}", pastel(&output));
     }
 }
