@@ -13,11 +13,6 @@ use crate::frontend::token::Token;
 mod frontend;
 mod pastel;
 
-enum Stage {
-    Lexer,
-    Parser,
-}
-
 const USAGE: &str = "
 Usage: proto (-h | -l | -p) -f <FILE>
 
@@ -35,6 +30,11 @@ struct Args {
     flag_l: bool,
     flag_p: bool,
     flag_f: String,
+}
+
+enum Stage {
+    Lexer,
+    Parser,
 }
 
 fn main() {
