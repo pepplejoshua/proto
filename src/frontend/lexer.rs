@@ -56,13 +56,16 @@ impl Lexer {
 
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexerError> {
-        // skip all preceding whitespace
-        self.skip_whitespace();
-
-        // process comments
-        // eventually, it'll get documentation comments
-        // for now, it just skips regular comments
-        self.process_comment();
+        while self.src.cur_char().is_whitespace()
+            || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
+        {
+            // skip all preceding whitespace
+            self.skip_whitespace();
+            // process comments
+            // eventually, it'll get documentation comments
+            // for now, it just skips single line comments
+            self.process_comment();
+        }
 
         // get the current character
         let c = self.src.cur_char();

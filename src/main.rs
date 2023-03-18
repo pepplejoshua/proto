@@ -1,29 +1,30 @@
-mod frontend;
-mod pastel;
+use frontend::{lexer::Lexer, parser::Parser, source::SourceFile};
 
-use pastel::pastel;
+mod frontend;
 
 fn main() {
-    /*
-    This example is akin to writing the following in html+css:
-        <div style="font-weight: bold; color: white; background-color: black;">
-            Welcome
-        </div>
-        <div style="font-weight: bold; color: white; background-color: cyan;">
-            To
-        </div>
-        <u style="color: white; background-color: magenta;">
-            Pastel!
-        </u>
-    */
-    let text = r"
-        *[*, l_white:d_black]Welcome[/]
-        *[*, d_white:d_cyan]To[/]
-        *[_, l_white:d_magenta]Pastel![/]
-    ";
-    println!("{}", pastel(text));
-}
+    let text = r#"// mut a = 1 + 2;
+    // let b = 3 * 5;
+    // let c = a + b * a / b - a;
+    a = 3;
+    a = c * b / a + b - 1;
+    "#
+    .to_string();
+    let src = SourceFile {
+        path: "parser_inputs/binary_exprs.pr".into(),
+        text,
+        flat_index: 0,
+        col: 0,
+        line: 0,
+    };
 
-// TODO:
-// - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
-// - add support for strikethrough: *[-]strikethrough[/], strikethrough ansi code: \x1b[9m
+    let mut p = Parser::new(Lexer::new(src));
+    let module = p.parse();
+
+    for ins in module.instructions {
+        println!("{}", ins.as_str());
+    }
+
+    println!("{:#?}", p.lexer_errors);
+    println!("{:#?}", p.parser_errors);
+}

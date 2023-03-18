@@ -1,0 +1,11 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/binary_exprs.pr
+---
+module:
+  - a = 3;
+  - a = c * b / a + b - 1;
+lexer_error: []
+parser_error: []
+

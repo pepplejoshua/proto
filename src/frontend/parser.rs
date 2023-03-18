@@ -9,8 +9,8 @@ use super::{
 #[allow(dead_code)]
 pub struct Parser {
     lexer: Lexer,
-    lexer_errors: Vec<LexerError>,
-    parser_errors: Vec<ParserError>,
+    pub lexer_errors: Vec<LexerError>,
+    pub parser_errors: Vec<ParserError>,
     lexed_token: Option<Token>,
 }
 
@@ -265,6 +265,20 @@ impl Parser {
             Token::Assign(_) => {
                 self.advance_index();
                 let value = self.parse_expr()?;
+                if let Token::Semicolon(_) = self.cur_token() {
+                    self.advance_index();
+                } else {
+                    let tip = format!(
+                        "Terminate assignment instruction: {} = {};",
+                        target.as_str(),
+                        value.as_str()
+                    );
+                    return Err(ParserError::Expected(
+                        "a ';' to terminate the assignment instruction".into(),
+                        cur.get_source_ref(),
+                        Some(tip),
+                    ));
+                }
                 Ok(Instruction::AssignmentIns(target, value))
             }
             Token::Semicolon(_) => {
@@ -531,7 +545,10 @@ impl Parser {
                     cur.get_source_ref().combine(maybe_rparen.get_source_ref()),
                 ))
             }
-            _ => Err(ParserError::CannotParseAnExpression(cur.get_source_ref())),
+            _ => {
+                println!("{cur:?}");
+                Err(ParserError::CannotParseAnExpression(cur.get_source_ref()))
+            }
         }
     }
 }

@@ -54,10 +54,10 @@ impl Expr {
             Expr::Id(tok, _) => tok.as_str(),
             Expr::Number(num, _) => num.as_str(),
             Expr::Binary(op, lhs, rhs, _) => {
-                format!("{} {} {}", op.as_str(), lhs.as_str(), rhs.as_str())
+                format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
             Expr::Comparison(op, lhs, rhs, _) => {
-                format!("{} {} {}", op.as_str(), lhs.as_str(), rhs.as_str())
+                format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
             Expr::Boolean(val, _) => val.as_str(),
             Expr::Unary(op, operand, _) => format!("{} {}", op.as_str(), operand.as_str()),

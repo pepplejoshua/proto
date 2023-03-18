@@ -457,3 +457,26 @@ fn test_pastel_parse() {
     - RegText: "[/]"
     "###);
 }
+
+// TODO:
+// - add support for italics: *[~]italics[/], italics ansi code: \x1b[3m
+// - add support for strikethrough: *[-]strikethrough[/], strikethrough ansi code: \x1b[9m
+
+/*
+This example is akin to writing the following in html+css:
+    <div style="font-weight: bold; color: white; background-color: black;">
+        Welcome
+    </div>
+    <div style="font-weight: bold; color: white; background-color: cyan;">
+        To
+    </div>
+    <u style="color: white; background-color: magenta;">
+        Pastel!
+    </u>
+*/
+// let text = r"
+//     *[*, l_white:d_black]Welcome[/]
+//     *[*, d_white:d_cyan]To[/]
+//     *[_, l_white:d_magenta]Pastel![/]
+// ";
+// println!("{}", pastel(text));
