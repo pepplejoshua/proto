@@ -1,0 +1,12 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/fn_calls.pr
+---
+module:
+  - "let a = add(1, 2);"
+  - "sub(420, 300);"
+  - "sub(add(1, 2), 3);"
+lexer_error: []
+parser_error: []
+

@@ -570,16 +570,6 @@ fn test_parser() {
             res.module.push(ins.as_str());
         }
 
-        insta::assert_yaml_snapshot!(res, @r###"
-        ---
-        module:
-          - let a i8 = 32;
-          - mut b = 0;
-          - let c = false;
-          - mut d;
-          - let e usize = 0;
-        lexer_error: []
-        parser_error: []
-        "###)
+        insta::assert_yaml_snapshot!(res)
     });
 }

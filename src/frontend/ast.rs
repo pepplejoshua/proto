@@ -75,7 +75,7 @@ impl Expr {
                     fn_args.push(arg.as_str());
                 }
 
-                fn_str + &fn_args.join(", ")
+                fn_str + &fn_args.join(", ") + ")"
             }
             Expr::Grouped(e, _, _) => {
                 let s = format!("({})", e.as_str());
