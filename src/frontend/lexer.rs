@@ -1,4 +1,4 @@
-use super::errors::LexerError;
+use super::errors::LexError;
 use super::source::SourceFile;
 use super::token::Token;
 
@@ -55,7 +55,7 @@ impl Lexer {
     }
 
     // try to lex the next possible token
-    pub fn next_token(&mut self) -> Result<Token, LexerError> {
+    pub fn next_token(&mut self) -> Result<Token, LexError> {
         while self.src.cur_char().is_whitespace()
             || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
         {
@@ -84,7 +84,7 @@ impl Lexer {
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
             _ => {
-                let err = Err(LexerError::InvalidCharacter(self.src.get_ref()));
+                let err = Err(LexError::InvalidCharacter(self.src.get_ref()));
                 self.src.next_char(); // try to keep lexing
                 err
             }
@@ -101,7 +101,7 @@ impl Lexer {
     // it might turn out to be either a:
     // - keyword
     // - identifier
-    fn lex_potential_identifier(&mut self) -> Result<Token, LexerError> {
+    fn lex_potential_identifier(&mut self) -> Result<Token, LexError> {
         let mut id = String::new();
         let c_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -156,7 +156,7 @@ impl Lexer {
     }
 
     // lex an operator
-    fn lex_operator(&mut self) -> Result<Token, LexerError> {
+    fn lex_operator(&mut self) -> Result<Token, LexError> {
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
         // detect a signed number
@@ -289,7 +289,7 @@ impl Lexer {
     }
 
     // try to lex a number
-    fn lex_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_number(&mut self) -> Result<Token, LexError> {
         // by default, calling lex_number will lex a signed number
         // since users tend to perform signed arithmetic more often
         self.lex_signed_number()
@@ -301,7 +301,7 @@ impl Lexer {
     // - i32
     // - i64
     // - isize
-    fn lex_signed_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_signed_number(&mut self) -> Result<Token, LexError> {
         let mut signed_number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -356,7 +356,7 @@ impl Lexer {
     // - u32
     // - u64
     // - usize
-    fn lex_unsigned_number(&mut self) -> Result<Token, LexerError> {
+    fn lex_unsigned_number(&mut self) -> Result<Token, LexError> {
         let mut unsigned_number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -400,7 +400,7 @@ impl Lexer {
         }
 
         // if it is not a valid unsigned number, return an error
-        Err(LexerError::CannotMakeUnsignedNumber(combined_ref))
+        Err(LexError::CannotMakeUnsignedNumber(combined_ref))
     }
 }
 

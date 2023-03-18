@@ -1,6 +1,6 @@
 use super::{
     ast::{Expr, Instruction, Module},
-    errors::{LexerError, ParserError},
+    errors::{LexError, ParseError},
     lexer::Lexer,
     token::Token,
     types::Type,
@@ -9,8 +9,8 @@ use super::{
 #[allow(dead_code)]
 pub struct Parser {
     lexer: Lexer,
-    pub lexer_errors: Vec<LexerError>,
-    pub parser_errors: Vec<ParserError>,
+    pub lexer_errors: Vec<LexError>,
+    pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
 }
 
@@ -46,7 +46,7 @@ impl Parser {
 
     // this function will return one Instruction at
     // a time.
-    pub fn next_instruction(&mut self) -> Result<Instruction, ParserError> {
+    pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let cur: Token = self.cur_token();
         match &cur {
             Token::Let(_) => self.parse_const_decl(),
@@ -98,7 +98,7 @@ impl Parser {
         }
     }
 
-    fn parse_const_decl(&mut self) -> Result<Instruction, ParserError> {
+    fn parse_const_decl(&mut self) -> Result<Instruction, ParseError> {
         let start = self.cur_token();
         self.advance_index(); // skip past "let"
 
@@ -110,8 +110,8 @@ impl Parser {
             self.advance_index();
             cur = self.cur_token();
         } else {
-            return Err(ParserError::Expected(
-                "an identifier to name constant".into(),
+            return Err(ParseError::Expected(
+                "an identifier to name constant.".into(),
                 self.cur_token().get_source_ref(),
                 Some("Provide a name for the constant. E.g: let my_constant = value;".into()),
             ));
@@ -130,7 +130,7 @@ impl Parser {
         if let Token::Assign(_) = cur {
             self.advance_index();
         } else {
-            return Err(ParserError::ConstantDeclarationNeedsInitValue(
+            return Err(ParseError::ConstantDeclarationNeedsInitValue(
                 self.cur_token()
                     .get_source_ref()
                     .combine(start.get_source_ref()),
@@ -165,8 +165,8 @@ impl Parser {
                         init_value.as_str()
                     ),
                 };
-                Err(ParserError::Expected(
-                    "';' to terminate constant declaration".into(),
+                Err(ParseError::Expected(
+                    "';' to terminate constant declaration.".into(),
                     cur.get_source_ref(),
                     Some(tip),
                 ))
@@ -174,7 +174,7 @@ impl Parser {
         }
     }
 
-    fn parse_var_decl(&mut self) -> Result<Instruction, ParserError> {
+    fn parse_var_decl(&mut self) -> Result<Instruction, ParseError> {
         let start = self.cur_token();
         self.advance_index(); // skip past "let"
 
@@ -186,8 +186,8 @@ impl Parser {
             self.advance_index();
             cur = self.cur_token();
         } else {
-            return Err(ParserError::Expected(
-                "an identifier to name variable".into(),
+            return Err(ParseError::Expected(
+                "an identifier to name variable.".into(),
                 self.cur_token().get_source_ref(),
                 Some("Provide a name for the variable. E.g: let my_var = value;".into()),
             ));
@@ -247,8 +247,8 @@ impl Parser {
                         )
                     }
                 };
-                Err(ParserError::Expected(
-                    "';' to terminate variable declaration".into(),
+                Err(ParseError::Expected(
+                    "';' to terminate variable declaration.".into(),
                     cur.get_source_ref(),
                     Some(tip),
                 ))
@@ -256,7 +256,7 @@ impl Parser {
         }
     }
 
-    fn parse_assignment_or_expr_instruc(&mut self) -> Result<Instruction, ParserError> {
+    fn parse_assignment_or_expr_instruc(&mut self) -> Result<Instruction, ParseError> {
         let target = self.parse_expr()?;
 
         let cur = self.cur_token();
@@ -273,8 +273,8 @@ impl Parser {
                         target.as_str(),
                         value.as_str()
                     );
-                    return Err(ParserError::Expected(
-                        "a ';' to terminate the assignment instruction".into(),
+                    return Err(ParseError::Expected(
+                        "a ';' to terminate the assignment instruction.".into(),
                         cur.get_source_ref(),
                         Some(tip),
                     ));
@@ -285,19 +285,19 @@ impl Parser {
                 self.advance_index();
                 Ok(Instruction::ExpressionIns(target, cur))
             }
-            _ => Err(ParserError::Expected(
-                "a terminated expression or an assignment instruction".into(),
+            _ => Err(ParseError::Expected(
+                "a terminated expression or an assignment instruction.".into(),
                 cur.get_source_ref(),
                 None,
             )),
         }
     }
 
-    fn parse_expr(&mut self) -> Result<Expr, ParserError> {
+    fn parse_expr(&mut self) -> Result<Expr, ParseError> {
         self.parse_or()
     }
 
-    fn parse_or(&mut self) -> Result<Expr, ParserError> {
+    fn parse_or(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_and()?;
 
         loop {
@@ -313,7 +313,7 @@ impl Parser {
         }
     }
 
-    fn parse_and(&mut self) -> Result<Expr, ParserError> {
+    fn parse_and(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_equality()?;
 
         loop {
@@ -329,7 +329,7 @@ impl Parser {
         }
     }
 
-    fn parse_equality(&mut self) -> Result<Expr, ParserError> {
+    fn parse_equality(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_comparison()?;
 
         loop {
@@ -345,7 +345,7 @@ impl Parser {
         }
     }
 
-    fn parse_comparison(&mut self) -> Result<Expr, ParserError> {
+    fn parse_comparison(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_term()?;
 
         loop {
@@ -364,7 +364,7 @@ impl Parser {
         }
     }
 
-    fn parse_term(&mut self) -> Result<Expr, ParserError> {
+    fn parse_term(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_factor()?;
 
         loop {
@@ -380,7 +380,7 @@ impl Parser {
         }
     }
 
-    fn parse_factor(&mut self) -> Result<Expr, ParserError> {
+    fn parse_factor(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_unary()?;
 
         loop {
@@ -396,7 +396,7 @@ impl Parser {
         }
     }
 
-    fn parse_unary(&mut self) -> Result<Expr, ParserError> {
+    fn parse_unary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
         match cur {
             Token::Not(_) => {
@@ -408,7 +408,7 @@ impl Parser {
         }
     }
 
-    fn parse_index_like_exprs(&mut self) -> Result<Expr, ParserError> {
+    fn parse_index_like_exprs(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_primary()?;
 
         loop {
@@ -420,8 +420,8 @@ impl Parser {
 
                     let mut args: Vec<Expr> = vec![];
                     'args: while !self.no_more_tokens() {
-                        if args.len() > 255 {
-                            return Err(ParserError::TooManyFnArgs(
+                        if args.len() > 256 {
+                            return Err(ParseError::TooManyFnArgs(
                                 lhs.source_ref().combine(cur.get_source_ref()),
                             ));
                         }
@@ -446,8 +446,8 @@ impl Parser {
                                 continue 'args;
                             }
                             _ => {
-                                return Err(ParserError::Expected(
-                                    "',' to separate arguments or ')' to terminate function call"
+                                return Err(ParseError::Expected(
+                                    "',' to separate arguments or ')' to terminate function call."
                                         .into(),
                                     cur.get_source_ref(),
                                     None,
@@ -461,7 +461,7 @@ impl Parser {
         }
     }
 
-    fn parse_primary(&mut self) -> Result<Expr, ParserError> {
+    fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
 
         match cur {
@@ -533,8 +533,8 @@ impl Parser {
                 if let Token::RParen(_) = maybe_rparen {
                     self.advance_index();
                 } else {
-                    return Err(ParserError::Expected(
-                        "a ')' to terminate the grouped expression".into(),
+                    return Err(ParseError::Expected(
+                        "a ')' to terminate the grouped expression.".into(),
                         maybe_rparen.get_source_ref(),
                         None,
                     ));
@@ -547,7 +547,7 @@ impl Parser {
             }
             _ => {
                 println!("{cur:?}");
-                Err(ParserError::CannotParseAnExpression(cur.get_source_ref()))
+                Err(ParseError::CannotParseAnExpression(cur.get_source_ref()))
             }
         }
     }
@@ -557,8 +557,8 @@ impl Parser {
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct ParserTestResult {
     module: Vec<String>,
-    lexer_error: Vec<LexerError>,
-    parser_error: Vec<ParserError>,
+    lexer_error: Vec<LexError>,
+    parser_error: Vec<ParseError>,
 }
 
 #[test]
