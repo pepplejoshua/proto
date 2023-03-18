@@ -112,9 +112,47 @@ pub enum Instruction {
     ExpressionIns(Expr, Token),
 }
 
+#[allow(dead_code)]
+impl Instruction {
+    pub fn as_str(&self) -> String {
+        match self {
+            Instruction::ConstantDecl(name, t, init, _) => match t {
+                Some(c_type) => {
+                    format!(
+                        "let {} {} = {};",
+                        name.as_str(),
+                        c_type.as_str(),
+                        init.as_str()
+                    )
+                }
+                None => {
+                    format!("let {} = {};", name.as_str(), init.as_str())
+                }
+            },
+            Instruction::VariableDecl(name, t, init, _) => match (t, init) {
+                (None, None) => format!("mut {};", name.as_str()),
+                (None, Some(init)) => format!("mut {} = {};", name.as_str(), init.as_str()),
+                (Some(c_type), None) => {
+                    format!("mut {} {};", name.as_str(), c_type.as_str())
+                }
+                (Some(c_type), Some(init)) => format!(
+                    "mut {} {} = {};",
+                    name.as_str(),
+                    c_type.as_str(),
+                    init.as_str()
+                ),
+            },
+            Instruction::AssignmentIns(target, value) => {
+                format!("{} = {};", target.as_str(), value.as_str())
+            }
+            Instruction::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Module {
-    instructions: Vec<Instruction>,
+    pub instructions: Vec<Instruction>,
 }
 
 impl Module {

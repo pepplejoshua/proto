@@ -1,7 +1,7 @@
 use super::source::SourceRef;
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum LexerError {
     InvalidCharacter(SourceRef),
     CannotMakeSignedNumber(SourceRef),
@@ -9,7 +9,7 @@ pub enum LexerError {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParserError {
     Expected(String, SourceRef, Option<String>),
     ConstantDeclarationNeedsInitValue(SourceRef),

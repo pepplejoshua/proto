@@ -1,7 +1,7 @@
 use super::{source::SourceRef, types::Type};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum Token {
     // keywords
     Fn(SourceRef),
@@ -224,8 +224,8 @@ impl Token {
             Token::Not(_) => "not".into(),
             Token::LParen(_) => "(".into(),
             Token::RParen(_) => ")".into(),
-            Token::LBrace(_) => "}".into(),
-            Token::RBrace(_) => "{".into(),
+            Token::LBrace(_) => "{".into(),
+            Token::RBrace(_) => "}".into(),
             Token::LBracket(_) => "[".into(),
             Token::RBracket(_) => "]".into(),
             Token::Semicolon(_) => ";".into(),

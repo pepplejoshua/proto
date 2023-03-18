@@ -9,88 +9,94 @@ use super::{
 #[allow(dead_code)]
 pub struct Parser {
     lexer: Lexer,
-    tokens: Vec<Token>,
     lexer_errors: Vec<LexerError>,
     parser_errors: Vec<ParserError>,
-    token_index: usize,
+    lexed_token: Option<Token>,
 }
 
 #[allow(dead_code)]
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
-        Parser {
+        let mut p = Parser {
             lexer: l,
-            tokens: vec![],
             lexer_errors: vec![],
             parser_errors: vec![],
-            token_index: 0,
-        }
+            lexed_token: None,
+        };
+        p.advance_index();
+        p
     }
 
     pub fn parse(&mut self) -> Module {
         let mut main_module = Module::new();
 
-        while self.token_index < self.tokens.len() {
-            let cur: Token = self.cur_token();
-            let ins = match &cur {
-                Token::Let(_) => self.parse_const_decl(),
-                Token::Mut(_) => self.parse_var_decl(),
-                _ => todo!(),
-            };
+        while !self.no_more_tokens() {
+            let ins = self.next_instruction();
 
-            main_module.add_instruction(ins.unwrap());
+            match ins {
+                Ok(instruc) => main_module.add_instruction(instruc),
+                Err(err) => {
+                    self.parser_errors.push(err);
+                    self.skip_to_next_instruction_start();
+                }
+            }
         }
         main_module
-    }
-
-    fn collect_tokens(&mut self) {
-        let mut cur_token = self.lexer.next_token();
-        let mut errors: Vec<LexerError> = vec![];
-
-        loop {
-            if let Err(lex_err) = cur_token {
-                errors.push(lex_err.clone());
-                cur_token = self.lexer.next_token();
-                continue;
-            }
-
-            let token: Token = cur_token.unwrap();
-            match token {
-                Token::Eof(_) => {
-                    self.tokens.push(token);
-                    break;
-                }
-                _ => {
-                    self.tokens.push(token);
-                    cur_token = self.lexer.next_token();
-                }
-            }
-        }
     }
 
     // this function will return one Instruction at
     // a time.
     pub fn next_instruction(&mut self) -> Result<Instruction, ParserError> {
-        todo!()
+        let cur: Token = self.cur_token();
+        match &cur {
+            Token::Let(_) => self.parse_const_decl(),
+            Token::Mut(_) => self.parse_var_decl(),
+            _ => self.parse_assignment_or_expr_instruc(),
+        }
     }
 
     fn cur_token(&self) -> Token {
-        self.tokens[self.token_index].clone()
+        let tok = self.lexed_token.clone();
+        tok.unwrap()
     }
 
     fn advance_index(&mut self) {
-        if !self.no_more_tokens() {
-            self.token_index += 1;
+        loop {
+            let next_token = self.lexer.next_token();
+            match next_token {
+                Ok(tok) => {
+                    self.lexed_token = Some(tok);
+                    break;
+                }
+                Err(l_err) => {
+                    self.lexer_errors.push(l_err);
+                }
+            }
         }
     }
 
     fn no_more_tokens(&self) -> bool {
         // so we don't go past Eof
-        self.token_index >= self.tokens.len() - 1
+        matches!(self.cur_token(), Token::Eof(_))
     }
 
     // used to recover from parsing errors
-    fn skip_to_next_instruction_start(&mut self) {}
+    fn skip_to_next_instruction_start(&mut self) {
+        // read till we see one of:
+        // - ;
+        // - }
+        loop {
+            let cur = self.cur_token();
+            match cur {
+                Token::Semicolon(_) | Token::RBrace(_) => {
+                    self.advance_index();
+                    break;
+                }
+                Token::Eof(_) => break,
+                _ => self.advance_index(),
+            }
+        }
+    }
 
     fn parse_const_decl(&mut self) -> Result<Instruction, ParserError> {
         let start = self.cur_token();
@@ -242,7 +248,7 @@ impl Parser {
                     }
                 };
                 Err(ParserError::Expected(
-                    "';' to terminate constant declaration".into(),
+                    "';' to terminate variable declaration".into(),
                     cur.get_source_ref(),
                     Some(tip),
                 ))
@@ -506,6 +512,7 @@ impl Parser {
             }
             Token::LParen(_) => {
                 // parse group
+
                 self.advance_index();
                 let expr = self.parse_expr()?;
                 let maybe_rparen = self.cur_token();
@@ -518,9 +525,61 @@ impl Parser {
                         None,
                     ));
                 }
-                Ok(expr)
+                Ok(Expr::Grouped(
+                    Box::new(expr),
+                    None,
+                    cur.get_source_ref().combine(maybe_rparen.get_source_ref()),
+                ))
             }
             _ => Err(ParserError::CannotParseAnExpression(cur.get_source_ref())),
         }
     }
+}
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, serde::Serialize, Debug)]
+struct ParserTestResult {
+    module: Vec<String>,
+    lexer_error: Vec<LexerError>,
+    parser_error: Vec<ParserError>,
+}
+
+#[test]
+fn test_parser() {
+    use crate::frontend::source::SourceFile;
+    insta::glob!("parser_inputs/*.pr", |path| {
+        // build the SourceFile from the proto file
+        let path = path.to_str().unwrap().to_string();
+        let src: SourceFile = SourceFile::new(path);
+
+        // build the lexer
+        let lexer = Lexer::new(src);
+        let mut parser = Parser::new(lexer);
+
+        let module = parser.parse();
+        let l_errs = parser.lexer_errors;
+        let p_errs = parser.parser_errors;
+
+        let mut res = ParserTestResult {
+            module: vec![],
+            lexer_error: l_errs,
+            parser_error: p_errs,
+        };
+
+        for ins in module.instructions {
+            res.module.push(ins.as_str());
+        }
+
+        insta::assert_yaml_snapshot!(res, @r###"
+        ---
+        module:
+          - let a i8 = 32;
+          - mut b = 0;
+          - let c = false;
+          - mut d;
+          - let e usize = 0;
+        lexer_error: []
+        parser_error: []
+        "###)
+    });
 }

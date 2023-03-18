@@ -107,7 +107,7 @@ impl SourceFile {
 }
 
 #[allow(dead_code)]
-#[derive(Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub struct SourceRef {
     pub file: String,      // file path
     pub start_line: usize, // start line
