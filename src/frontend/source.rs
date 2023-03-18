@@ -151,6 +151,18 @@ impl SourceRef {
         }
     }
 
+    pub fn as_str(&self) -> String {
+        format!(
+            "[start_line:{} start_col:{} end_line:{} end_col:{} flat_start:{} flat_end:{}]",
+            self.start_line,
+            self.start_col,
+            self.end_line,
+            self.end_col,
+            self.flat_start,
+            self.flat_end
+        )
+    }
+
     // combine 2 SourceRefs to create a new one that:
     // - has the same file
     // - has the first occuring start_line and start_col

@@ -433,7 +433,11 @@ fn test_lexer() {
             if let Token::Eof(_) = token {
                 break;
             }
-            res.stringified_tokens.push(format!("{token:?}"));
+            res.stringified_tokens.push(format!(
+                "{} at {}",
+                token.as_str(),
+                token.get_source_ref().as_str()
+            ));
             tokens.push(token);
         }
         insta::assert_yaml_snapshot!(res)
