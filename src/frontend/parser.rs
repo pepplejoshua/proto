@@ -6,12 +6,20 @@ use super::{
     types::Type,
 };
 
+enum ParseScope {
+    TopLevel,
+    FnBody,
+    CodeBlock,
+    Module,
+}
+
 #[allow(dead_code)]
 pub struct Parser {
     lexer: Lexer,
     pub lexer_errors: Vec<LexError>,
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
+    parse_scope: ParseScope,
 }
 
 #[allow(dead_code)]
@@ -22,6 +30,7 @@ impl Parser {
             lexer_errors: vec![],
             parser_errors: vec![],
             lexed_token: None,
+            parse_scope: ParseScope::TopLevel,
         };
         p.advance_index();
         p
@@ -49,8 +58,39 @@ impl Parser {
     pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let cur: Token = self.cur_token();
         match &cur {
+            Token::Fn(_) => self.parse_fn_def(false),
             Token::Let(_) => self.parse_const_decl(),
-            Token::Mut(_) => self.parse_var_decl(),
+            // prevent mutable bindings at the top level
+            // use a ParseContext type to distinguish between:
+            // - top level declarations
+            // - grouped code code (control flow or functions or blocks)
+            // mutable declarations are allowed in grouped code but not
+            // top level code
+            Token::Mut(_) => {
+                if !matches!(self.parse_scope, ParseScope::TopLevel) {
+                    self.parse_var_decl()
+                } else {
+                    // declaring variables at the top level is not allowed
+                    return Err(ParseError::NoVariableAtTopLevel(
+                        cur.get_source_ref(),
+                        Some("Consider if this can be declared as a constant (use let instead of mut).".into()),
+                    ));
+                }
+            }
+            Token::LCurly(_) => todo!(),
+            // Token::Pub(_) => {
+            // collect pub and then check what type of
+            // declaration is coming next
+            // public declaration in a file can include:
+            // - functions
+            // - modules
+            // - user defined types (structs and in the future, enums)
+            // - constant declarations (let bindings)
+            // let pub_direc = cur;
+            // self.advance_index();
+            // cur = self.cur_token();
+
+            // }
             _ => self.parse_assignment_or_expr_instruc(),
         }
     }
@@ -88,7 +128,7 @@ impl Parser {
         loop {
             let cur = self.cur_token();
             match cur {
-                Token::Semicolon(_) | Token::RBrace(_) => {
+                Token::Semicolon(_) | Token::RCurly(_) => {
                     self.advance_index();
                     break;
                 }
@@ -96,6 +136,102 @@ impl Parser {
                 _ => self.advance_index(),
             }
         }
+    }
+
+    fn parse_fn_def(&mut self, is_public: bool) -> Result<Instruction, ParseError> {
+        let temp_scope = self.parse_scope;
+        self.parse_scope = ParseScope::FnBody;
+        let start = self.cur_token();
+        self.advance_index();
+
+        let mut cur = self.cur_token();
+        let label;
+        if let Token::Identifier(name, _) = cur {
+            label = Some(cur.clone());
+            self.advance_index();
+            cur = self.cur_token();
+        } else {
+            return Err(ParseError::Expected(
+                "an identifier to name function.".into(),
+                self.cur_token().get_source_ref(),
+                Some("Provide a name for the function. E.g: 'fn func_name() {}'".into()),
+            ));
+        }
+
+        // skip opening brace
+        if matches!(cur, Token::LParen(_)) {
+            self.advance_index();
+            cur = self.cur_token();
+        } else {
+            return Err(ParseError::Expected(
+                "a '(' to denote start of function parameters, if any.".into(),
+                self.cur_token().get_source_ref(),
+                Some("Provide '()' around parameters (if any). E.g: 'fn func_name() {} or fn test_(a i64) {}'".into()),
+            ));
+        }
+
+        // parse the parameters of the function
+        let mut params: Vec<Expr> = vec![];
+
+        'parameters: while !self.no_more_tokens() && !matches!(cur, Token::RParen(_)) {
+            if params.len() > 256 {
+                return Err(ParseError::TooManyFnParams(
+                    start.get_source_ref().combine(cur.get_source_ref()),
+                ));
+            }
+
+            cur = self.cur_token();
+            if !matches!(cur, Token::RParen(_)) {
+                let param = self.parse_id(true)?;
+                params.push(param);
+                cur = self.cur_token();
+            }
+
+            match cur {
+                Token::RParen(_) => {
+                    self.advance_index();
+                    cur = self.cur_token();
+                    break 'parameters;
+                }
+                Token::Comma(_) => {
+                    self.advance_index();
+                    continue 'parameters;
+                }
+                _ => {
+                    return Err(ParseError::Expected(
+                        "a ',' to separate parameters or a ')' to terminate parameter list.".into(),
+                        start.get_source_ref().combine(cur.get_source_ref()),
+                        None,
+                    ))
+                }
+            }
+        }
+
+        // parse return type
+        let return_type = None;
+        if cur.is_type_token() {
+            return_type = Some(cur.to_type());
+            self.advance_index();
+            cur = self.cur_token();
+        } else {
+            // report that a type is expected
+            return Err(ParseError::Expected(
+                "a return type for this function.".into(),
+                start.get_source_ref().combine(cur.get_source_ref()),
+                Some("If it returns nothing, use the 'void' type as its return type.".into()),
+            ));
+        }
+        // parse function body, which is just an instruction
+        // set the scope of this instruction to be Fn (to allow parsing variables)
+        let fn_body = self.next_instruction()?;
+        self.parse_scope = temp_scope;
+        Ok(Instruction::FunctionDef {
+            name: label.unwrap(),
+            params,
+            return_type: return_type.unwrap(),
+            body: Box::new(fn_body),
+            is_public,
+        })
     }
 
     fn parse_const_decl(&mut self) -> Result<Instruction, ParseError> {
@@ -113,7 +249,7 @@ impl Parser {
             return Err(ParseError::Expected(
                 "an identifier to name constant.".into(),
                 self.cur_token().get_source_ref(),
-                Some("Provide a name for the constant. E.g: let my_constant = value;".into()),
+                Some("Provide a name for the constant. E.g: 'let my_constant = value;'".into()),
             ));
         }
 
@@ -144,24 +280,25 @@ impl Parser {
                 let end_ref = cur.get_source_ref();
                 self.advance_index();
                 let name = label.unwrap();
-                Ok(Instruction::ConstantDecl(
-                    name,
+                Ok(Instruction::ConstantDecl {
+                    const_name: name,
                     const_type,
-                    init_value,
-                    start.get_source_ref().combine(end_ref),
-                ))
+                    init_expr: init_value,
+                    src_ref: start.get_source_ref().combine(end_ref),
+                    public: false,
+                })
             }
             _ => {
                 let tip = match const_type {
                     Some(type_t) => {
                         format!(
-                            "Terminate constant declaration: let {const_name} {} = {};",
+                            "Terminate constant declaration: 'let {const_name} {} = {};'",
                             type_t.as_str(),
                             init_value.as_str()
                         )
                     }
                     None => format!(
-                        "Terminate constant declaration: let {const_name} = {};",
+                        "Terminate constant declaration: 'let {const_name} = {};'",
                         init_value.as_str()
                     ),
                 };
@@ -189,7 +326,7 @@ impl Parser {
             return Err(ParseError::Expected(
                 "an identifier to name variable.".into(),
                 self.cur_token().get_source_ref(),
-                Some("Provide a name for the variable. E.g: let my_var = value;".into()),
+                Some("Provide a name for the variable. E.g: 'mut my_var = value;'".into()),
             ));
         }
 
@@ -225,23 +362,23 @@ impl Parser {
                 } else {
                     let tip = match (var_type, init_value) {
                         (None, None) => {
-                            format!("Terminate variable declaration: mut {var_name};")
+                            format!("Terminate variable declaration: 'mut {var_name};'")
                         }
                         (None, Some(expr)) => {
                             format!(
-                                "Terminate variable declaration: mut {var_name} = {};",
+                                "Terminate variable declaration: 'mut {var_name} = {};'",
                                 expr.as_str()
                             )
                         }
                         (Some(v_type), None) => {
                             format!(
-                                "Terminate variable declaration: let {var_name} {};",
+                                "Terminate variable declaration: 'mut {var_name} {};'",
                                 v_type.as_str()
                             )
                         }
                         (Some(v_type), Some(expr)) => {
                             format!(
-                                "Terminate variable declaration: let {var_name} {} = {};",
+                                "Terminate variable declaration: 'mut {var_name} {} = {};'",
                                 v_type.as_str(),
                                 expr.as_str(),
                             )
@@ -445,10 +582,13 @@ impl Parser {
                                 lhs.source_ref().combine(cur.get_source_ref()),
                             ));
                         }
-                        let arg = self.parse_expr()?;
-                        args.push(arg);
 
                         cur = self.cur_token();
+                        if !matches!(cur, Token::RParen(_)) {
+                            let arg = self.parse_expr()?;
+                            args.push(arg);
+                            cur = self.cur_token();
+                        }
 
                         match cur {
                             Token::RParen(_) => {
@@ -465,19 +605,50 @@ impl Parser {
                                 self.advance_index();
                                 continue 'args;
                             }
-                            _ => {
-                                return Err(ParseError::Expected(
-                                    "',' to separate arguments or ')' to terminate function call."
-                                        .into(),
-                                    cur.get_source_ref(),
-                                    None,
-                                ))
-                            }
+                            _ => return Err(ParseError::Expected(
+                                "a ',' to separate arguments or a ')' to terminate function call."
+                                    .into(),
+                                cur.get_source_ref(),
+                                None,
+                            )),
                         }
                     }
                 }
                 _ => return Ok(lhs),
             }
+        }
+    }
+
+    fn parse_id(&mut self, with_type: bool) -> Result<Expr, ParseError> {
+        let mut cur = self.cur_token();
+        if let Token::Identifier(_, _) = cur {
+            self.advance_index();
+            if with_type {
+                let id = cur;
+                cur = self.cur_token();
+                if cur.is_type_token() {
+                    Ok(Expr::Id(id, Some(cur.to_type())))
+                } else {
+                    Err(ParseError::Expected(
+                        format!(
+                            "to parse a type for the preceding identifier, '{}'.",
+                            id.as_str()
+                        ),
+                        id.get_source_ref().combine(cur.get_source_ref()),
+                        Some("Please provide a type for this identifier.".into()),
+                    ))
+                }
+            } else {
+                Ok(Expr::Id(cur, None))
+            }
+        } else {
+            Err(ParseError::Expected(
+                "to parse an identifier.".into(),
+                cur.get_source_ref(),
+                Some(
+                    "An identifier is always required to name declarations/definitions. Please provide one.".to_string()
+                ),
+            ))
         }
     }
 

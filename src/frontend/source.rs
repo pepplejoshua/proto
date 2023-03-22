@@ -265,6 +265,21 @@ impl SourceReporter {
                 let msg = "Malformed declaration.".to_string();
                 self.report_with_ref(&src, msg, Some(tip))
             }
+            ParseError::MisuseOfPubKeyword(tip, src) => {
+                let msg = "Pub keyword can only be used with function and module declarations."
+                    .to_string();
+                self.report_with_ref(&src, msg, Some(tip))
+            }
+            ParseError::TooManyFnParams(src) => {
+                let msg = "Function definitions only allow 256 parameters.".to_string();
+                let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::NoVariableAtTopLevel(src, tip) => {
+                let msg = "Variable declarations are not allowed at the top level of a module."
+                    .to_string();
+                self.report_with_ref(&src, msg, tip);
+            }
         }
     }
 
@@ -283,7 +298,7 @@ impl SourceReporter {
         output.push_str(&format!(
             "   *[_, l_white:d_black]File '{f_name}'[/] *[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]\n",
             src.start_line + 1,
-            src.start_line + 2
+            src.start_col + 1
         ));
 
         // add actual target lines

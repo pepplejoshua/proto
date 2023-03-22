@@ -134,6 +134,9 @@ impl Lexer {
             "false" => Ok(Token::False(combined_ref)),
             "break" => Ok(Token::Break(combined_ref)),
             "continue" => Ok(Token::Continue(combined_ref)),
+            "use" => Ok(Token::Use(combined_ref)),
+            "pub" => Ok(Token::Pub(combined_ref)),
+            "mod" => Ok(Token::Mod(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -254,11 +257,11 @@ impl Lexer {
             }
             '{' => {
                 self.src.next_char();
-                Ok(Token::LBrace(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::LCurly(cur_ref.combine(self.src.get_ref())))
             }
             '}' => {
                 self.src.next_char();
-                Ok(Token::RBrace(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::RCurly(cur_ref.combine(self.src.get_ref())))
             }
             '[' => {
                 self.src.next_char();

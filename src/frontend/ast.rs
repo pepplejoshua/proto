@@ -106,27 +106,46 @@ impl Expr {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Instruction {
-    ConstantDecl(Token, Option<Type>, Expr, SourceRef),
+    ConstantDecl {
+        const_name: Token,
+        const_type: Option<Type>,
+        init_expr: Expr,
+        src_ref: SourceRef,
+        public: bool,
+    },
     VariableDecl(Token, Option<Type>, Option<Expr>, SourceRef),
     AssignmentIns(Expr, Expr),
     ExpressionIns(Expr, Token),
+    FunctionDef {
+        name: Token,
+        params: Vec<Expr>,
+        return_type: Type,
+        body: Box<Instruction>,
+        is_public: bool,
+    },
 }
 
 #[allow(dead_code)]
 impl Instruction {
     pub fn as_str(&self) -> String {
         match self {
-            Instruction::ConstantDecl(name, t, init, _) => match t {
+            Instruction::ConstantDecl {
+                const_name,
+                const_type: t,
+                init_expr,
+                src_ref: _,
+                public: _,
+            } => match t {
                 Some(c_type) => {
                     format!(
                         "let {} {} = {};",
-                        name.as_str(),
+                        const_name.as_str(),
                         c_type.as_str(),
-                        init.as_str()
+                        init_expr.as_str()
                     )
                 }
                 None => {
-                    format!("let {} = {};", name.as_str(), init.as_str())
+                    format!("let {} = {};", const_name.as_str(), init_expr.as_str())
                 }
             },
             Instruction::VariableDecl(name, t, init, _) => match (t, init) {
@@ -146,6 +165,28 @@ impl Instruction {
                 format!("{} = {};", target.as_str(), value.as_str())
             }
             Instruction::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
+            Instruction::FunctionDef {
+                name,
+                params,
+                return_type,
+                body,
+                is_public,
+            } => {
+                // collect param strings
+                let mut param_strs = String::new();
+                for (i, param) in params.iter().enumerate() {
+                    param_strs.push_str(&param.as_str());
+                    if i + 1 < params.len() {
+                        param_strs.push_str(", ");
+                    }
+                }
+                let str_rep = format!("fn {} ({param_strs}) {}", name.as_str(), body.as_str());
+                if *is_public {
+                    ("pub ".to_string() + &str_rep).into()
+                } else {
+                    str_rep
+                }
+            }
         }
     }
 }
