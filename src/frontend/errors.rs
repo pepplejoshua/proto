@@ -1,4 +1,4 @@
-use super::{source::SourceRef, token::Token};
+use super::source::SourceRef;
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -12,7 +12,7 @@ pub enum LexError {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParseError {
     Expected(String, SourceRef, Option<String>),
-    ConstantDeclarationNeedsInitValue { src: SourceRef, skip_to: String },
+    ConstantDeclarationNeedsInitValue(SourceRef),
     CannotParseAnExpression(SourceRef),
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
