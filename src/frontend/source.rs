@@ -296,6 +296,10 @@ impl SourceReporter {
                     "Code blocks are only allowed within functions and other code blocks.".into();
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::ReturnInstructionOutsideFunction(src) => {
+                let msg = "A return instruction can only be used in a function.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
         }
     }
 

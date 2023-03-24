@@ -21,6 +21,7 @@ pub enum ParseError {
     NoCodeBlockAtTopLevel(SourceRef),
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
+    ReturnInstructionOutsideFunction(SourceRef),
 }
 
 // for:

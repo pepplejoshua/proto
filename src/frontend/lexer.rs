@@ -134,6 +134,7 @@ impl Lexer {
             "false" => Ok(Token::False(combined_ref)),
             "break" => Ok(Token::Break(combined_ref)),
             "continue" => Ok(Token::Continue(combined_ref)),
+            "return" => Ok(Token::Return(combined_ref)),
             "use" => Ok(Token::Use(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
             "mod" => Ok(Token::Mod(combined_ref)),

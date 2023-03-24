@@ -107,6 +107,35 @@ impl Parser {
                     Err(ParseError::NoCodeBlockAtTopLevel(blk.source_ref()))
                 }
             }
+            Token::Return(_) => {
+                let ret_ref = cur.get_source_ref();
+                self.advance_index();
+                let value = self.parse_expr()?;
+
+                let cur = self.cur_token();
+                let c_ref = ret_ref.combine(cur.get_source_ref());
+                if !matches!(cur, Token::Semicolon(_)) {
+                    return Err(ParseError::Expected(
+                        "a ';' to terminate the return expression.".into(),
+                        c_ref,
+                        Some(format!(
+                            "Terminate return instruction: 'return {};'",
+                            value.as_str()
+                        )),
+                    ));
+                } else {
+                    self.advance_index();
+                }
+
+                // we can only return things in functions
+                if matches!(self.parse_scope, ParseScope::FnBody) {
+                    Ok(Instruction::Return { src: c_ref, value })
+                } else {
+                    Err(ParseError::ReturnInstructionOutsideFunction(
+                        ret_ref.combine(c_ref),
+                    ))
+                }
+            }
             Token::Pub(_) => {
                 // collect pub and then check what type of
                 // declaration is coming next
@@ -186,9 +215,6 @@ impl Parser {
     }
 
     fn parse_code_block(&mut self) -> Result<Instruction, ParseError> {
-        // if the surrounding scope is the top level:
-        // - function
-        // - module
         let prev_scope = self.parse_scope;
         if !matches!(self.parse_scope, ParseScope::FnBody) {
             self.parse_scope = ParseScope::CodeBlock;

@@ -1,6 +1,5 @@
 ---
 source: src/frontend/parser.rs
-assertion_line: 867
 expression: res
 input_file: src/frontend/parser_inputs/binary_exprs.pr
 ---

@@ -134,6 +134,10 @@ pub enum Instruction {
         src: SourceRef,
         is_public: bool,
     },
+    Return {
+        src: SourceRef,
+        value: Expr,
+    },
 }
 
 #[allow(dead_code)]
@@ -232,6 +236,9 @@ impl Instruction {
                     "pub ".to_string() + &mod_str
                 }
             }
+            Instruction::Return { src: _, value } => {
+                format!("return {}", value.as_str())
+            }
         }
     }
 
@@ -269,6 +276,7 @@ impl Instruction {
                 src,
                 is_public: _,
             } => src.clone(),
+            Instruction::Return { src, value: _ } => src.clone(),
         }
     }
 }

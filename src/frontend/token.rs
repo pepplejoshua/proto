@@ -20,6 +20,7 @@ pub enum Token {
     Use(SourceRef),
     Pub(SourceRef),
     Mod(SourceRef),
+    Return(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -156,6 +157,7 @@ impl Token {
             Token::Continue(src) => src.clone(),
             Token::Pub(src) => src.clone(),
             Token::Mod(src) => src.clone(),
+            Token::Return(src) => src.clone(),
         }
     }
 
@@ -264,6 +266,7 @@ impl Token {
             Token::Eof(_) => "\0".into(),
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),
+            Token::Return(_) => "return".into(),
         }
     }
 }

@@ -1,0 +1,10 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/code_blocks.pr
+---
+module:
+  - "fn main () void { let a = 4; { mut b = a; {  } } }"
+lexer_error: []
+parser_error: []
+
