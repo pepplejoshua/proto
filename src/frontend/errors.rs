@@ -19,4 +19,5 @@ pub enum ParseError {
     MalformedDeclaration(String, SourceRef),
     NoVariableAtTopLevel(SourceRef, Option<String>),
     MisuseOfPubKeyword(String, SourceRef),
+    UnterminatedCodeBlock(SourceRef, Option<String>),
 }

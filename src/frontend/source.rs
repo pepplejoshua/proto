@@ -280,6 +280,10 @@ impl SourceReporter {
                     .to_string();
                 self.report_with_ref(&src, msg, tip);
             }
+            ParseError::UnterminatedCodeBlock(src, tip) => {
+                let msg = "Code block was not terminated.".to_string();
+                self.report_with_ref(&src, msg, tip);
+            }
         }
     }
 

@@ -2,10 +2,13 @@ use super::{
     ast::{Expr, Instruction, Module},
     errors::{LexError, ParseError},
     lexer::Lexer,
+    source::SourceRef,
     token::Token,
     types::Type,
 };
 
+#[allow(dead_code)]
+#[derive(Debug, Clone, Copy)]
 enum ParseScope {
     TopLevel,
     FnBody,
@@ -56,10 +59,10 @@ impl Parser {
     // this function will return one Instruction at
     // a time.
     pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
-        let cur: Token = self.cur_token();
+        let mut cur: Token = self.cur_token();
         match &cur {
-            Token::Fn(_) => self.parse_fn_def(false),
-            Token::Let(_) => self.parse_const_decl(),
+            Token::Fn(_) => self.parse_fn_def(false, None),
+            Token::Let(_) => self.parse_const_decl(false, None),
             // prevent mutable bindings at the top level
             // use a ParseContext type to distinguish between:
             // - top level declarations
@@ -71,26 +74,32 @@ impl Parser {
                     self.parse_var_decl()
                 } else {
                     // declaring variables at the top level is not allowed
-                    return Err(ParseError::NoVariableAtTopLevel(
+                    Err(ParseError::NoVariableAtTopLevel(
                         cur.get_source_ref(),
                         Some("Consider if this can be declared as a constant (use let instead of mut).".into()),
-                    ));
+                    ))
                 }
             }
-            Token::LCurly(_) => todo!(),
-            // Token::Pub(_) => {
-            // collect pub and then check what type of
-            // declaration is coming next
-            // public declaration in a file can include:
-            // - functions
-            // - modules
-            // - user defined types (structs and in the future, enums)
-            // - constant declarations (let bindings)
-            // let pub_direc = cur;
-            // self.advance_index();
-            // cur = self.cur_token();
-
-            // }
+            Token::LCurly(_) => self.parse_code_block(),
+            Token::Pub(_) => {
+                // collect pub and then check what type of
+                // declaration is coming next
+                // public declaration in a file can include:
+                // - functions
+                // - modules
+                // - user defined types (structs and in the future, enums)
+                // - constant declarations (let bindings)
+                let pub_ref = cur.get_source_ref();
+                self.advance_index();
+                cur = self.cur_token();
+                match cur {
+                    Token::Fn(_) => self.parse_fn_def(true, Some(pub_ref)),
+                    Token::Mod(_) => self.parse_module(true, Some(pub_ref)),
+                    Token::Let(_) => self.parse_const_decl(true, Some(pub_ref)),
+                    _ => todo!(),
+                }
+            }
+            Token::Mod(_) => self.parse_module(false, None),
             _ => self.parse_assignment_or_expr_instruc(),
         }
     }
@@ -138,7 +147,60 @@ impl Parser {
         }
     }
 
-    fn parse_fn_def(&mut self, is_public: bool) -> Result<Instruction, ParseError> {
+    fn parse_module(
+        &mut self,
+        is_public: bool,
+        pub_ref: Option<SourceRef>,
+    ) -> Result<Instruction, ParseError> {
+        let mut mod_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+
+        let mod_name = self.parse_id(false)?;
+        let body = self.parse_code_block()?;
+        mod_ref = mod_ref.combine(body.source_ref());
+        if is_public {
+            mod_ref = mod_ref.combine(pub_ref.unwrap());
+        }
+
+        Ok(Instruction::Module {
+            name: mod_name,
+            body: Box::new(body),
+            src: mod_ref,
+            is_public,
+        })
+    }
+
+    fn parse_code_block(&mut self) -> Result<Instruction, ParseError> {
+        let mut block_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+
+        let mut instructions: Vec<Instruction> = vec![];
+        let mut cur = self.cur_token();
+        while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
+            let instruction = self.next_instruction()?;
+            instructions.push(instruction);
+        }
+
+        cur = self.cur_token();
+        if matches!(cur, Token::RCurly(_)) {
+            block_ref = block_ref.combine(cur.get_source_ref());
+            self.advance_index();
+        } else {
+            block_ref = block_ref.combine(cur.get_source_ref());
+            let tip = "Terminate code block with '}'. E.g: '{ // content }'.".to_string();
+            return Err(ParseError::UnterminatedCodeBlock(block_ref, Some(tip)));
+        }
+        Ok(Instruction::CodeBlock {
+            src: block_ref,
+            instructions,
+        })
+    }
+
+    fn parse_fn_def(
+        &mut self,
+        is_public: bool,
+        pub_ref: Option<SourceRef>,
+    ) -> Result<Instruction, ParseError> {
         let temp_scope = self.parse_scope;
         self.parse_scope = ParseScope::FnBody;
         let start = self.cur_token();
@@ -146,7 +208,7 @@ impl Parser {
 
         let mut cur = self.cur_token();
         let label;
-        if let Token::Identifier(name, _) = cur {
+        if let Token::Identifier(_, _) = &cur {
             label = Some(cur.clone());
             self.advance_index();
             cur = self.cur_token();
@@ -208,11 +270,10 @@ impl Parser {
         }
 
         // parse return type
-        let return_type = None;
+        let return_type;
         if cur.is_type_token() {
             return_type = Some(cur.to_type());
             self.advance_index();
-            cur = self.cur_token();
         } else {
             // report that a type is expected
             return Err(ParseError::Expected(
@@ -225,16 +286,26 @@ impl Parser {
         // set the scope of this instruction to be Fn (to allow parsing variables)
         let fn_body = self.next_instruction()?;
         self.parse_scope = temp_scope;
+        let ret_type = return_type.unwrap();
+        let mut fn_ref = start.get_source_ref().combine(fn_body.source_ref());
+        if is_public {
+            fn_ref = fn_ref.combine(pub_ref.unwrap());
+        }
         Ok(Instruction::FunctionDef {
             name: label.unwrap(),
             params,
-            return_type: return_type.unwrap(),
+            return_type: ret_type,
             body: Box::new(fn_body),
             is_public,
+            src: fn_ref,
         })
     }
 
-    fn parse_const_decl(&mut self) -> Result<Instruction, ParseError> {
+    fn parse_const_decl(
+        &mut self,
+        is_public: bool,
+        pub_ref: Option<SourceRef>,
+    ) -> Result<Instruction, ParseError> {
         let start = self.cur_token();
         self.advance_index(); // skip past "let"
 
@@ -280,12 +351,16 @@ impl Parser {
                 let end_ref = cur.get_source_ref();
                 self.advance_index();
                 let name = label.unwrap();
+                let mut decl_ref = start.get_source_ref().combine(end_ref);
+                if is_public {
+                    decl_ref = decl_ref.combine(pub_ref.unwrap());
+                }
                 Ok(Instruction::ConstantDecl {
                     const_name: name,
                     const_type,
                     init_expr: init_value,
-                    src_ref: start.get_source_ref().combine(end_ref),
-                    public: false,
+                    src_ref: decl_ref,
+                    is_public: false,
                 })
             }
             _ => {

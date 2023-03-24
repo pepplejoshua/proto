@@ -111,7 +111,7 @@ pub enum Instruction {
         const_type: Option<Type>,
         init_expr: Expr,
         src_ref: SourceRef,
-        public: bool,
+        is_public: bool,
     },
     VariableDecl(Token, Option<Type>, Option<Expr>, SourceRef),
     AssignmentIns(Expr, Expr),
@@ -121,6 +121,17 @@ pub enum Instruction {
         params: Vec<Expr>,
         return_type: Type,
         body: Box<Instruction>,
+        is_public: bool,
+        src: SourceRef,
+    },
+    CodeBlock {
+        src: SourceRef,
+        instructions: Vec<Instruction>,
+    },
+    Module {
+        name: Expr,
+        body: Box<Instruction>,
+        src: SourceRef,
         is_public: bool,
     },
 }
@@ -134,7 +145,7 @@ impl Instruction {
                 const_type: t,
                 init_expr,
                 src_ref: _,
-                public: _,
+                is_public: _,
             } => match t {
                 Some(c_type) => {
                     format!(
@@ -171,6 +182,7 @@ impl Instruction {
                 return_type,
                 body,
                 is_public,
+                src: _,
             } => {
                 // collect param strings
                 let mut param_strs = String::new();
@@ -180,13 +192,83 @@ impl Instruction {
                         param_strs.push_str(", ");
                     }
                 }
-                let str_rep = format!("fn {} ({param_strs}) {}", name.as_str(), body.as_str());
+                let str_rep = format!(
+                    "fn {} ({param_strs}) {} {}",
+                    name.as_str(),
+                    return_type.as_str(),
+                    body.as_str()
+                );
                 if *is_public {
-                    ("pub ".to_string() + &str_rep).into()
+                    "pub ".to_string() + &str_rep
                 } else {
                     str_rep
                 }
             }
+            Instruction::CodeBlock {
+                src: _,
+                instructions,
+            } => {
+                let mut ins_str = "{ ".to_string();
+
+                for (id, ins) in instructions.iter().enumerate() {
+                    ins_str.push_str(&ins.as_str());
+
+                    if id + 1 < instructions.len() {
+                        ins_str.push(' ');
+                    }
+                }
+                ins_str + " }"
+            }
+            Instruction::Module {
+                name,
+                body,
+                src: _,
+                is_public,
+            } => {
+                let mod_str = format!("mod {} {}", name.as_str(), body.as_str());
+                if *is_public {
+                    mod_str
+                } else {
+                    "pub ".to_string() + &mod_str
+                }
+            }
+        }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        match self {
+            Instruction::ConstantDecl {
+                const_name: _,
+                const_type: _,
+                init_expr: _,
+                src_ref,
+                is_public: _,
+            } => src_ref.clone(),
+            Instruction::VariableDecl(_, _, _, src) => src.clone(),
+            Instruction::AssignmentIns(target, value) => {
+                target.source_ref().combine(value.source_ref())
+            }
+            Instruction::ExpressionIns(expr, terminator) => {
+                expr.source_ref().combine(terminator.get_source_ref())
+            }
+            Instruction::FunctionDef {
+                name: _,
+                params: _,
+                return_type: _,
+                body: _,
+                is_public: _,
+                src,
+            } => src.clone(),
+            Instruction::CodeBlock {
+                src,
+                instructions: _,
+            } => src.clone(),
+            Instruction::Module {
+                name: _,
+                body: _,
+                src,
+                is_public: _,
+            } => src.clone(),
         }
     }
 }
