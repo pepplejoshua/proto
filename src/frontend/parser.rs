@@ -49,11 +49,27 @@ impl Parser {
                 Ok(instruc) => main_module.add_instruction(instruc),
                 Err(err) => {
                     self.parser_errors.push(err.clone());
-                    self.skip_to_next_instruction_start();
+                    if matches!(err, ParseError::CannotParseAnExpression(_)) {
+                        self.recover_from_err();
+                    }
                 }
             }
         }
         main_module
+    }
+
+    fn recover_from_err(&mut self) {
+        while !self.no_more_tokens() {
+            let cur = self.cur_token();
+            match cur {
+                Token::Pub(_) | Token::Mut(_) | Token::Let(_) | Token::Fn(_) | Token::Mod(_) => {
+                    break
+                }
+                _ => {
+                    self.advance_index();
+                }
+            }
+        }
     }
 
     fn report_error(&mut self, err: ParseError) {
@@ -84,7 +100,7 @@ impl Parser {
             }
             Token::LCurly(_) => {
                 let blk = self.parse_code_block()?;
-                if !matches!(self.parse_scope, ParseScope::TopLevel) {
+                if matches!(self.parse_scope, ParseScope::CodeBlock | ParseScope::FnBody) {
                     Ok(blk)
                 } else {
                     // declaring variables at the top level is not allowed
@@ -144,24 +160,6 @@ impl Parser {
         matches!(self.cur_token(), Token::Eof(_))
     }
 
-    // used to recover from parsing errors
-    fn skip_to_next_instruction_start(&mut self) {
-        // read till we see one of:
-        // - ;
-        // - }
-        loop {
-            let cur = self.cur_token();
-            match cur {
-                Token::Semicolon(_) | Token::RCurly(_) => {
-                    self.advance_index();
-                    break;
-                }
-                Token::Eof(_) => break,
-                _ => self.advance_index(),
-            }
-        }
-    }
-
     fn parse_module(
         &mut self,
         is_public: bool,
@@ -192,7 +190,9 @@ impl Parser {
         // - function
         // - module
         let prev_scope = self.parse_scope;
-        self.parse_scope = ParseScope::CodeBlock;
+        if !matches!(self.parse_scope, ParseScope::FnBody) {
+            self.parse_scope = ParseScope::CodeBlock;
+        }
         let mut block_ref = self.cur_token().get_source_ref();
         self.advance_index();
 
@@ -201,9 +201,9 @@ impl Parser {
         while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
             let instruction = self.next_instruction()?;
             instructions.push(instruction);
+            cur = self.cur_token();
         }
 
-        cur = self.cur_token();
         if matches!(cur, Token::RCurly(_)) {
             block_ref = block_ref.combine(cur.get_source_ref());
             self.advance_index();
@@ -258,7 +258,7 @@ impl Parser {
         // parse the parameters of the function
         let mut params: Vec<Expr> = vec![];
         let mut too_many_params = false;
-        'parameters: while !self.no_more_tokens() && !matches!(cur, Token::RParen(_)) {
+        'parameters: while !self.no_more_tokens() {
             if !too_many_params && params.len() > 256 {
                 self.report_error(ParseError::TooManyFnParams(
                     start.get_source_ref().combine(cur.get_source_ref()),
@@ -278,7 +278,6 @@ impl Parser {
             match cur {
                 Token::RParen(_) => {
                     self.advance_index();
-                    cur = self.cur_token();
                     break 'parameters;
                 }
                 Token::Comma(_) => {
@@ -296,6 +295,7 @@ impl Parser {
         }
 
         // parse return type
+        cur = self.cur_token();
         let return_type;
         if cur.is_type_token() {
             return_type = Some(cur.to_type());
@@ -732,6 +732,7 @@ impl Parser {
                 let id = cur;
                 cur = self.cur_token();
                 if cur.is_type_token() {
+                    self.advance_index();
                     Ok(Expr::Id(id, Some(cur.to_type())))
                 } else {
                     Err(ParseError::Expected(
@@ -841,10 +842,7 @@ impl Parser {
                     cur.get_source_ref().combine(maybe_rparen.get_source_ref()),
                 ))
             }
-            _ => {
-                println!("{cur:?}");
-                Err(ParseError::CannotParseAnExpression(cur.get_source_ref()))
-            }
+            _ => Err(ParseError::CannotParseAnExpression(cur.get_source_ref())),
         }
     }
 }

@@ -174,6 +174,7 @@ impl Token {
                 | Token::Usize(_)
                 | Token::Bool(_)
                 | Token::Char(_)
+                | Token::Void(_)
         )
     }
 
@@ -191,6 +192,7 @@ impl Token {
             Token::Usize(_) => Type::USize,
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
+            Token::Void(_) => Type::Void,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }

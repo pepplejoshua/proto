@@ -1,14 +1,14 @@
 ---
 source: src/frontend/parser.rs
+assertion_line: 867
 expression: res
 input_file: src/frontend/parser_inputs/consts_and_vars.pr
 ---
 module:
   - let a i8 = 32;
-  - mut b = 0;
   - let c = false;
-  - mut d;
   - let e usize = 0;
+  - "fn main () void { mut b = a; mut d = not c; }"
 lexer_error: []
 parser_error: []
 

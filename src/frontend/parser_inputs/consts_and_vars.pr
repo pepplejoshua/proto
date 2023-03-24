@@ -1,5 +1,8 @@
 let a i8 = 32;
-mut b = 0;
 let c = false;
-mut d;
 let e usize = 0;
+
+fn main() void {
+    mut b = a;
+    mut d = not c;
+}
