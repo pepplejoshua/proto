@@ -265,8 +265,9 @@ impl SourceReporter {
                 let msg = "Malformed declaration.".to_string();
                 self.report_with_ref(&src, msg, Some(tip))
             }
-            ParseError::MisuseOfPubKeyword(tip, src) => {
-                let msg = "Pub keyword can only be used with function and module declarations."
+            ParseError::MisuseOfPubKeyword(src) => {
+                let msg = "Misuse of 'pub' keyword.".to_string();
+                let tip = "'pub' keyword can only be used with function, constant and module declarations."
                     .to_string();
                 self.report_with_ref(&src, msg, Some(tip))
             }
@@ -275,14 +276,22 @@ impl SourceReporter {
                 let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::NoVariableAtTopLevel(src, tip) => {
+            ParseError::NoVariableAtTopLevel(src) => {
                 let msg = "Variable declarations are not allowed at the top level of a module."
                     .to_string();
-                self.report_with_ref(&src, msg, tip);
+                let tip =
+                    "Consider if this can be declared as a constant (use let instead of mut)."
+                        .into();
+                self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::UnterminatedCodeBlock(src, tip) => {
                 let msg = "Code block was not terminated.".to_string();
                 self.report_with_ref(&src, msg, tip);
+            }
+            ParseError::NoCodeBlockAtTopLevel(src) => {
+                let msg = "".to_string();
+                let tip = "Code blocks are only allowed a".into();
+                self.report_with_ref(&src, msg, Some(tip));
             }
         }
     }

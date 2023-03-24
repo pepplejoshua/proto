@@ -1,4 +1,4 @@
-use super::source::SourceRef;
+use super::{source::SourceRef, token::Token};
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -12,12 +12,18 @@ pub enum LexError {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParseError {
     Expected(String, SourceRef, Option<String>),
-    ConstantDeclarationNeedsInitValue(SourceRef),
+    ConstantDeclarationNeedsInitValue { src: SourceRef, skip_to: String },
     CannotParseAnExpression(SourceRef),
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
     MalformedDeclaration(String, SourceRef),
-    NoVariableAtTopLevel(SourceRef, Option<String>),
-    MisuseOfPubKeyword(String, SourceRef),
+    NoVariableAtTopLevel(SourceRef),
+    NoCodeBlockAtTopLevel(SourceRef),
+    MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
 }
+
+// for:
+// - CannotParseAnExpression: provide more ParseScopes to allow this work better.
+//   I can use the context to provide a better skip_to() token
+//   Perhaps, it can halt on this error?

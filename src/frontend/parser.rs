@@ -1,5 +1,5 @@
 use super::{
-    ast::{Expr, Instruction, Module},
+    ast::{CompilationModule, Expr, Instruction},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
@@ -39,8 +39,8 @@ impl Parser {
         p
     }
 
-    pub fn parse(&mut self) -> Module {
-        let mut main_module = Module::new();
+    pub fn parse(&mut self) -> CompilationModule {
+        let mut main_module = CompilationModule::new();
 
         while !self.no_more_tokens() {
             let ins = self.next_instruction();
@@ -48,12 +48,16 @@ impl Parser {
             match ins {
                 Ok(instruc) => main_module.add_instruction(instruc),
                 Err(err) => {
-                    self.parser_errors.push(err);
+                    self.parser_errors.push(err.clone());
                     self.skip_to_next_instruction_start();
                 }
             }
         }
         main_module
+    }
+
+    fn report_error(&mut self, err: ParseError) {
+        self.parser_errors.push(err);
     }
 
     // this function will return one Instruction at
@@ -70,17 +74,23 @@ impl Parser {
             // mutable declarations are allowed in grouped code but not
             // top level code
             Token::Mut(_) => {
+                let var = self.parse_var_decl()?;
                 if !matches!(self.parse_scope, ParseScope::TopLevel) {
-                    self.parse_var_decl()
+                    Ok(var)
                 } else {
                     // declaring variables at the top level is not allowed
-                    Err(ParseError::NoVariableAtTopLevel(
-                        cur.get_source_ref(),
-                        Some("Consider if this can be declared as a constant (use let instead of mut).".into()),
-                    ))
+                    Err(ParseError::NoVariableAtTopLevel(var.source_ref()))
                 }
             }
-            Token::LCurly(_) => self.parse_code_block(),
+            Token::LCurly(_) => {
+                let blk = self.parse_code_block()?;
+                if !matches!(self.parse_scope, ParseScope::TopLevel) {
+                    Ok(blk)
+                } else {
+                    // declaring variables at the top level is not allowed
+                    Err(ParseError::NoCodeBlockAtTopLevel(blk.source_ref()))
+                }
+            }
             Token::Pub(_) => {
                 // collect pub and then check what type of
                 // declaration is coming next
@@ -96,7 +106,12 @@ impl Parser {
                     Token::Fn(_) => self.parse_fn_def(true, Some(pub_ref)),
                     Token::Mod(_) => self.parse_module(true, Some(pub_ref)),
                     Token::Let(_) => self.parse_const_decl(true, Some(pub_ref)),
-                    _ => todo!(),
+                    _ => {
+                        let ins = self.next_instruction()?;
+                        Err(ParseError::MisuseOfPubKeyword(
+                            ins.source_ref().combine(pub_ref),
+                        ))
+                    }
                 }
             }
             Token::Mod(_) => self.parse_module(false, None),
@@ -152,6 +167,8 @@ impl Parser {
         is_public: bool,
         pub_ref: Option<SourceRef>,
     ) -> Result<Instruction, ParseError> {
+        let prev_scope = self.parse_scope;
+        self.parse_scope = ParseScope::Module;
         let mut mod_ref = self.cur_token().get_source_ref();
         self.advance_index();
 
@@ -161,7 +178,7 @@ impl Parser {
         if is_public {
             mod_ref = mod_ref.combine(pub_ref.unwrap());
         }
-
+        self.parse_scope = prev_scope;
         Ok(Instruction::Module {
             name: mod_name,
             body: Box::new(body),
@@ -171,6 +188,11 @@ impl Parser {
     }
 
     fn parse_code_block(&mut self) -> Result<Instruction, ParseError> {
+        // if the surrounding scope is the top level:
+        // - function
+        // - module
+        let prev_scope = self.parse_scope;
+        self.parse_scope = ParseScope::CodeBlock;
         let mut block_ref = self.cur_token().get_source_ref();
         self.advance_index();
 
@@ -190,6 +212,7 @@ impl Parser {
             let tip = "Terminate code block with '}'. E.g: '{ // content }'.".to_string();
             return Err(ParseError::UnterminatedCodeBlock(block_ref, Some(tip)));
         }
+        self.parse_scope = prev_scope;
         Ok(Instruction::CodeBlock {
             src: block_ref,
             instructions,
@@ -234,18 +257,21 @@ impl Parser {
 
         // parse the parameters of the function
         let mut params: Vec<Expr> = vec![];
-
+        let mut too_many_params = false;
         'parameters: while !self.no_more_tokens() && !matches!(cur, Token::RParen(_)) {
-            if params.len() > 256 {
-                return Err(ParseError::TooManyFnParams(
+            if !too_many_params && params.len() > 256 {
+                self.report_error(ParseError::TooManyFnParams(
                     start.get_source_ref().combine(cur.get_source_ref()),
                 ));
+                too_many_params = true;
             }
 
             cur = self.cur_token();
             if !matches!(cur, Token::RParen(_)) {
                 let param = self.parse_id(true)?;
-                params.push(param);
+                if !too_many_params {
+                    params.push(param);
+                }
                 cur = self.cur_token();
             }
 
@@ -651,17 +677,21 @@ impl Parser {
                     self.advance_index();
 
                     let mut args: Vec<Expr> = vec![];
+                    let mut too_many_args = false;
                     'args: while !self.no_more_tokens() {
-                        if args.len() > 256 {
-                            return Err(ParseError::TooManyFnArgs(
+                        if !too_many_args && args.len() > 256 {
+                            self.report_error(ParseError::TooManyFnArgs(
                                 lhs.source_ref().combine(cur.get_source_ref()),
                             ));
+                            too_many_args = true;
                         }
 
                         cur = self.cur_token();
                         if !matches!(cur, Token::RParen(_)) {
                             let arg = self.parse_expr()?;
-                            args.push(arg);
+                            if !too_many_args {
+                                args.push(arg);
+                            }
                             cur = self.cur_token();
                         }
 

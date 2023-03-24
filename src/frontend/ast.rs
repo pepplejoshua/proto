@@ -274,13 +274,13 @@ impl Instruction {
 }
 
 #[derive(Debug, Clone)]
-pub struct Module {
+pub struct CompilationModule {
     pub instructions: Vec<Instruction>,
 }
 
-impl Module {
-    pub fn new() -> Module {
-        Module {
+impl CompilationModule {
+    pub fn new() -> CompilationModule {
+        CompilationModule {
             instructions: vec![],
         }
     }
