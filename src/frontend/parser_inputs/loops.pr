@@ -1,5 +1,4 @@
 fn main() void {
-
 }
 
 fn inf_loop() void {
@@ -21,6 +20,7 @@ fn while_loop() void {
 
 //fn iter_loop() void {
 //    mut sum = 0;
+//    todo when iterators can be implemented as traits
 //    foreach counter in 0..10 {
 //        sum = sum + counter;
 //    }
