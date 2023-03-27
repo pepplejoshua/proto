@@ -12,6 +12,7 @@ pub enum Type {
     USize,
     Bool,
     Char,
+    Void,
 }
 
 #[allow(dead_code)]
@@ -30,6 +31,7 @@ impl Type {
             Type::USize => "usize".into(),
             Type::Bool => "bool".into(),
             Type::Char => "char".into(),
+            Type::Void => "void".into(),
         }
     }
 }

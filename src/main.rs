@@ -66,28 +66,21 @@ fn main() {
                     if let Token::Eof(_) = tok {
                         break;
                     }
-                    println!("{}", tok.as_str());
                 }
                 Err(le) => reporter.report_lexer_error(&le),
             }
         }
     } else {
         let mut parser = Parser::new(lexer);
-        let main_mod = parser.parse();
+        let _main_mod = parser.parse();
 
-        let has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
+        let _has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
         for le in parser.lexer_errors {
             reporter.report_lexer_error(&le);
         }
 
         for pe in parser.parser_errors {
             reporter.report_parse_error(pe);
-        }
-
-        if !has_errors {
-            for ins in main_mod.instructions {
-                println!("{}", ins.as_str());
-            }
         }
     }
 }

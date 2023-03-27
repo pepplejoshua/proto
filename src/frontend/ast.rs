@@ -106,27 +106,70 @@ impl Expr {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Instruction {
-    ConstantDecl(Token, Option<Type>, Expr, SourceRef),
+    ConstantDecl {
+        const_name: Token,
+        const_type: Option<Type>,
+        init_expr: Expr,
+        src_ref: SourceRef,
+        is_public: bool,
+    },
     VariableDecl(Token, Option<Type>, Option<Expr>, SourceRef),
     AssignmentIns(Expr, Expr),
     ExpressionIns(Expr, Token),
+    FunctionDef {
+        name: Token,
+        params: Vec<Expr>,
+        return_type: Type,
+        body: Box<Instruction>,
+        is_public: bool,
+        src: SourceRef,
+    },
+    InfiniteLoop {
+        src: SourceRef,
+        body: Box<Instruction>,
+    },
+    WhileLoop {
+        src: SourceRef,
+        condition: Expr,
+        body: Box<Instruction>,
+    },
+    CodeBlock {
+        src: SourceRef,
+        instructions: Vec<Instruction>,
+    },
+    Module {
+        name: Expr,
+        body: Box<Instruction>,
+        src: SourceRef,
+        is_public: bool,
+    },
+    Return {
+        src: SourceRef,
+        value: Expr,
+    },
 }
 
 #[allow(dead_code)]
 impl Instruction {
     pub fn as_str(&self) -> String {
         match self {
-            Instruction::ConstantDecl(name, t, init, _) => match t {
+            Instruction::ConstantDecl {
+                const_name,
+                const_type: t,
+                init_expr,
+                src_ref: _,
+                is_public: _,
+            } => match t {
                 Some(c_type) => {
                     format!(
                         "let {} {} = {};",
-                        name.as_str(),
+                        const_name.as_str(),
                         c_type.as_str(),
-                        init.as_str()
+                        init_expr.as_str()
                     )
                 }
                 None => {
-                    format!("let {} = {};", name.as_str(), init.as_str())
+                    format!("let {} = {};", const_name.as_str(), init_expr.as_str())
                 }
             },
             Instruction::VariableDecl(name, t, init, _) => match (t, init) {
@@ -146,18 +189,131 @@ impl Instruction {
                 format!("{} = {};", target.as_str(), value.as_str())
             }
             Instruction::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
+            Instruction::FunctionDef {
+                name,
+                params,
+                return_type,
+                body,
+                is_public,
+                src: _,
+            } => {
+                // collect param strings
+                let mut param_strs = String::new();
+                for (i, param) in params.iter().enumerate() {
+                    param_strs.push_str(&param.as_str());
+                    if i + 1 < params.len() {
+                        param_strs.push_str(", ");
+                    }
+                }
+                let str_rep = format!(
+                    "fn {} ({param_strs}) {} {}",
+                    name.as_str(),
+                    return_type.as_str(),
+                    body.as_str()
+                );
+                if *is_public {
+                    "pub ".to_string() + &str_rep
+                } else {
+                    str_rep
+                }
+            }
+            Instruction::CodeBlock {
+                src: _,
+                instructions,
+            } => {
+                let mut ins_str = "{ ".to_string();
+
+                for (id, ins) in instructions.iter().enumerate() {
+                    ins_str.push_str(&ins.as_str());
+
+                    if id + 1 < instructions.len() {
+                        ins_str.push(' ');
+                    }
+                }
+                ins_str + " }"
+            }
+            Instruction::Module {
+                name,
+                body,
+                src: _,
+                is_public,
+            } => {
+                let mod_str = format!("mod {} {}", name.as_str(), body.as_str());
+                if *is_public {
+                    mod_str
+                } else {
+                    "pub ".to_string() + &mod_str
+                }
+            }
+            Instruction::Return { src: _, value } => {
+                format!("return {}", value.as_str())
+            }
+            Instruction::InfiniteLoop { src: _, body } => {
+                format!("loop {}", body.as_str())
+            }
+            Instruction::WhileLoop {
+                src: _,
+                condition,
+                body,
+            } => {
+                format!("while {} {}", condition.as_str(), body.as_str())
+            }
+        }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        match self {
+            Instruction::ConstantDecl {
+                const_name: _,
+                const_type: _,
+                init_expr: _,
+                src_ref,
+                is_public: _,
+            } => src_ref.clone(),
+            Instruction::VariableDecl(_, _, _, src) => src.clone(),
+            Instruction::AssignmentIns(target, value) => {
+                target.source_ref().combine(value.source_ref())
+            }
+            Instruction::ExpressionIns(expr, terminator) => {
+                expr.source_ref().combine(terminator.get_source_ref())
+            }
+            Instruction::FunctionDef {
+                name: _,
+                params: _,
+                return_type: _,
+                body: _,
+                is_public: _,
+                src,
+            } => src.clone(),
+            Instruction::CodeBlock {
+                src,
+                instructions: _,
+            } => src.clone(),
+            Instruction::Module {
+                name: _,
+                body: _,
+                src,
+                is_public: _,
+            } => src.clone(),
+            Instruction::Return { src, value: _ } => src.clone(),
+            Instruction::InfiniteLoop { src, body: _ } => src.clone(),
+            Instruction::WhileLoop {
+                src,
+                condition: _,
+                body: _,
+            } => src.clone(),
         }
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct Module {
+pub struct CompilationModule {
     pub instructions: Vec<Instruction>,
 }
 
-impl Module {
-    pub fn new() -> Module {
-        Module {
+impl CompilationModule {
+    pub fn new() -> CompilationModule {
+        CompilationModule {
             instructions: vec![],
         }
     }

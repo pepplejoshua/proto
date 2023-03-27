@@ -12,6 +12,7 @@ pub struct SourceFile {
     pub col: usize,
     pub line: usize,
     pub lines: Vec<String>,
+    pub longest_line_count: usize,
 }
 
 #[allow(dead_code)]
@@ -25,6 +26,7 @@ impl SourceFile {
             col: 0,
             line: 0,
             lines: vec![],
+            longest_line_count: 0,
         };
         src_file.read_file();
         src_file
@@ -265,12 +267,50 @@ impl SourceReporter {
                 let msg = "Malformed declaration.".to_string();
                 self.report_with_ref(&src, msg, Some(tip))
             }
+            ParseError::MisuseOfPubKeyword(src) => {
+                let msg = "Misuse of 'pub' keyword.".to_string();
+                let tip = "'pub' keyword can only be used with function, constant and module declarations."
+                    .to_string();
+                self.report_with_ref(&src, msg, Some(tip))
+            }
+            ParseError::TooManyFnParams(src) => {
+                let msg = "Function definitions only allow 256 parameters.".to_string();
+                let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::NoVariableAtTopLevel(src) => {
+                let msg = "Variable declarations are not allowed at the top level of a module."
+                    .to_string();
+                let tip =
+                    "Consider if this can be declared as a constant (use let instead of mut)."
+                        .into();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::UnterminatedCodeBlock(src, tip) => {
+                let msg = "Code block was not terminated.".to_string();
+                self.report_with_ref(&src, msg, tip);
+            }
+            ParseError::NoCodeBlockAtTopLevel(src) => {
+                let msg = "Code block found at top level".to_string();
+                let tip =
+                    "Code blocks are only allowed within functions and other code blocks.".into();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::ReturnInstructionOutsideFunction(src) => {
+                let msg = "A return instruction can only be used in a function.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            ParseError::NoLoopAtTopLevel(src) => {
+                let msg = "Loop found at top level".to_string();
+                let tip = "Loops are only allowed within functions.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 
     fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
         let err_col = "d_red";
-        let target_col = "l_cyan";
+        let target_col = "l_magenta";
         let tip_col = "l_yellow";
         let line_col = "l_green";
         let mut output = String::new();
@@ -283,7 +323,7 @@ impl SourceReporter {
         output.push_str(&format!(
             "   *[_, l_white:d_black]File '{f_name}'[/] *[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]\n",
             src.start_line + 1,
-            src.start_line + 2
+            src.start_col + 1
         ));
 
         // add actual target lines
@@ -292,7 +332,7 @@ impl SourceReporter {
         let pre_slice = &f_line[..src.start_col];
         let f_target_slice = &f_line[src.start_col..];
         output.push_str(&format!(
-            "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, _, {target_col}:d_black]{f_target_slice}[/]\n",
+            "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
             src.start_line + 1,
         ));
 
@@ -300,7 +340,7 @@ impl SourceReporter {
         for line_no in src.start_line + 1..src.end_line {
             let target_line = self.src.lines[line_no].clone();
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, _, {target_col}:d_black]{target_line}[/]\n",
+                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
                 line_no + 1,
             ));
         }
@@ -311,7 +351,7 @@ impl SourceReporter {
             let l_target_slice = &l_line[..src.end_col];
             let post_slice = &l_line[src.end_col..];
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, _, {target_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
+                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
                 src.end_line + 1,
             ));
         }

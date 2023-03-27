@@ -18,6 +18,9 @@ pub enum Token {
     False(SourceRef),
     Character(SourceRef, char),
     Use(SourceRef),
+    Pub(SourceRef),
+    Mod(SourceRef),
+    Return(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -45,8 +48,8 @@ pub enum Token {
     // delimiters
     LParen(SourceRef),
     RParen(SourceRef),
-    LBrace(SourceRef),
-    RBrace(SourceRef),
+    LCurly(SourceRef),
+    RCurly(SourceRef),
     LBracket(SourceRef),
     RBracket(SourceRef),
     Semicolon(SourceRef),
@@ -113,8 +116,8 @@ impl Token {
             Token::Not(src) => src.clone(),
             Token::LParen(src) => src.clone(),
             Token::RParen(src) => src.clone(),
-            Token::LBrace(src) => src.clone(),
-            Token::RBrace(src) => src.clone(),
+            Token::LCurly(src) => src.clone(),
+            Token::RCurly(src) => src.clone(),
             Token::LBracket(src) => src.clone(),
             Token::RBracket(src) => src.clone(),
             Token::Semicolon(src) => src.clone(),
@@ -152,6 +155,9 @@ impl Token {
             Token::Use(src) => src.clone(),
             Token::Break(src) => src.clone(),
             Token::Continue(src) => src.clone(),
+            Token::Pub(src) => src.clone(),
+            Token::Mod(src) => src.clone(),
+            Token::Return(src) => src.clone(),
         }
     }
 
@@ -170,6 +176,7 @@ impl Token {
                 | Token::Usize(_)
                 | Token::Bool(_)
                 | Token::Char(_)
+                | Token::Void(_)
         )
     }
 
@@ -187,6 +194,7 @@ impl Token {
             Token::Usize(_) => Type::USize,
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
+            Token::Void(_) => Type::Void,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }
@@ -224,8 +232,8 @@ impl Token {
             Token::Not(_) => "not".into(),
             Token::LParen(_) => "(".into(),
             Token::RParen(_) => ")".into(),
-            Token::LBrace(_) => "{".into(),
-            Token::RBrace(_) => "}".into(),
+            Token::LCurly(_) => "{".into(),
+            Token::RCurly(_) => "}".into(),
             Token::LBracket(_) => "[".into(),
             Token::RBracket(_) => "]".into(),
             Token::Semicolon(_) => ";".into(),
@@ -256,6 +264,9 @@ impl Token {
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
             Token::Eof(_) => "\0".into(),
+            Token::Pub(_) => "pub".into(),
+            Token::Mod(_) => "mod".into(),
+            Token::Return(_) => "return".into(),
         }
     }
 }
