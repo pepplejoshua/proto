@@ -300,6 +300,11 @@ impl SourceReporter {
                 let msg = "A return instruction can only be used in a function.".to_string();
                 self.report_with_ref(&src, msg, None);
             }
+            ParseError::NoLoopAtTopLevel(src) => {
+                let msg = "Loop found at top level".to_string();
+                let tip = "Loops are only allowed within functions.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 

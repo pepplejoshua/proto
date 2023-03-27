@@ -12,6 +12,7 @@ use super::{
 enum ParseScope {
     TopLevel,
     FnBody,
+    Loop,
     CodeBlock,
     Module,
 }
@@ -91,20 +92,36 @@ impl Parser {
             // top level code
             Token::Mut(_) => {
                 let var = self.parse_var_decl()?;
-                if !matches!(self.parse_scope, ParseScope::TopLevel) {
-                    Ok(var)
-                } else {
+                if matches!(self.parse_scope, ParseScope::TopLevel | ParseScope::Module) {
                     // declaring variables at the top level is not allowed
                     Err(ParseError::NoVariableAtTopLevel(var.source_ref()))
+                } else {
+                    Ok(var)
+                }
+            }
+            Token::Loop(_) => {
+                let inf_loop = self.parse_inf_loop()?;
+                if matches!(self.parse_scope, ParseScope::TopLevel) {
+                    Err(ParseError::NoLoopAtTopLevel(inf_loop.source_ref()))
+                } else {
+                    Ok(inf_loop)
+                }
+            }
+            Token::While(_) => {
+                let while_loop = self.parse_while_loop()?;
+                if matches!(self.parse_scope, ParseScope::TopLevel) {
+                    Err(ParseError::NoLoopAtTopLevel(while_loop.source_ref()))
+                } else {
+                    Ok(while_loop)
                 }
             }
             Token::LCurly(_) => {
                 let blk = self.parse_code_block()?;
-                if matches!(self.parse_scope, ParseScope::CodeBlock | ParseScope::FnBody) {
-                    Ok(blk)
-                } else {
-                    // declaring variables at the top level is not allowed
+                if matches!(self.parse_scope, ParseScope::TopLevel | ParseScope::Module) {
+                    // declaring code blocks at the top level is not allowed
                     Err(ParseError::NoCodeBlockAtTopLevel(blk.source_ref()))
+                } else {
+                    Ok(blk)
                 }
             }
             Token::Return(_) => {
@@ -216,7 +233,7 @@ impl Parser {
 
     fn parse_code_block(&mut self) -> Result<Instruction, ParseError> {
         let prev_scope = self.parse_scope;
-        if !matches!(self.parse_scope, ParseScope::FnBody) {
+        if !matches!(self.parse_scope, ParseScope::FnBody | ParseScope::Loop) {
             self.parse_scope = ParseScope::CodeBlock;
         }
         let mut block_ref = self.cur_token().get_source_ref();
@@ -436,6 +453,36 @@ impl Parser {
                 ))
             }
         }
+    }
+
+    fn parse_inf_loop(&mut self) -> Result<Instruction, ParseError> {
+        let loop_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+
+        let temp = self.parse_scope;
+        self.parse_scope = ParseScope::Loop;
+        let body = self.next_instruction()?;
+        self.parse_scope = temp;
+        Ok(Instruction::InfiniteLoop {
+            src: loop_ref.combine(body.source_ref()),
+            body: Box::new(body),
+        })
+    }
+
+    fn parse_while_loop(&mut self) -> Result<Instruction, ParseError> {
+        let loop_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+
+        let condition = self.parse_expr()?;
+        let temp = self.parse_scope;
+        self.parse_scope = ParseScope::Loop;
+        let body = self.next_instruction()?;
+        self.parse_scope = temp;
+        Ok(Instruction::WhileLoop {
+            src: loop_ref.combine(body.source_ref()),
+            condition,
+            body: Box::new(body),
+        })
     }
 
     fn parse_var_decl(&mut self) -> Result<Instruction, ParseError> {

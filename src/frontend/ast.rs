@@ -124,6 +124,15 @@ pub enum Instruction {
         is_public: bool,
         src: SourceRef,
     },
+    InfiniteLoop {
+        src: SourceRef,
+        body: Box<Instruction>,
+    },
+    WhileLoop {
+        src: SourceRef,
+        condition: Expr,
+        body: Box<Instruction>,
+    },
     CodeBlock {
         src: SourceRef,
         instructions: Vec<Instruction>,
@@ -239,6 +248,16 @@ impl Instruction {
             Instruction::Return { src: _, value } => {
                 format!("return {}", value.as_str())
             }
+            Instruction::InfiniteLoop { src: _, body } => {
+                format!("loop {}", body.as_str())
+            }
+            Instruction::WhileLoop {
+                src: _,
+                condition,
+                body,
+            } => {
+                format!("while {} {}", condition.as_str(), body.as_str())
+            }
         }
     }
 
@@ -277,6 +296,12 @@ impl Instruction {
                 is_public: _,
             } => src.clone(),
             Instruction::Return { src, value: _ } => src.clone(),
+            Instruction::InfiniteLoop { src, body: _ } => src.clone(),
+            Instruction::WhileLoop {
+                src,
+                condition: _,
+                body: _,
+            } => src.clone(),
         }
     }
 }

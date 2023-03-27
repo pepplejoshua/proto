@@ -19,12 +19,8 @@ pub enum ParseError {
     MalformedDeclaration(String, SourceRef),
     NoVariableAtTopLevel(SourceRef),
     NoCodeBlockAtTopLevel(SourceRef),
+    NoLoopAtTopLevel(SourceRef),
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
 }
-
-// for:
-// - CannotParseAnExpression: provide more ParseScopes to allow this work better.
-//   I can use the context to provide a better skip_to() token
-//   Perhaps, it can halt on this error?
