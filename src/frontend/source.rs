@@ -305,6 +305,14 @@ impl SourceReporter {
                 let tip = "Loops are only allowed within functions.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::NoBreakOutsideLoop(src) => {
+                let msg = "A break instruction can only be used inside a loop.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            ParseError::NoContinueOutsideLoop(src) => {
+                let msg = "A continue instruction can only be used inside a loop.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
         }
     }
 

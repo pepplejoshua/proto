@@ -24,8 +24,16 @@ pub struct Parser {
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
+    compilation_module: CompilationModule,
 }
 
+// TODO: Implement a better error recovery system
+// This will allow things like:
+// - code blocks will continue parsing even if there is an error in an instruction
+// - this means functions will continue parsing even if there is an error in an instruction
+// - there might be a way to recover from errors in expressions, but I am not sure. This is
+//   important since a lot of instructions are composed of expressions or other instructions
+//   which may contain expressions.
 #[allow(dead_code)]
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
@@ -35,31 +43,32 @@ impl Parser {
             parser_errors: vec![],
             lexed_token: None,
             parse_scope: ParseScope::TopLevel,
+            compilation_module: CompilationModule::new(),
         };
         p.advance_index();
         p
     }
 
-    pub fn parse(&mut self) -> CompilationModule {
-        let mut main_module = CompilationModule::new();
-
+    pub fn parse(&mut self) {
         while !self.no_more_tokens() {
             let ins = self.next_instruction();
 
             match ins {
-                Ok(instruc) => main_module.add_instruction(instruc),
+                Ok(instruc) => self.compilation_module.add_instruction(instruc),
                 Err(err) => {
                     self.parser_errors.push(err.clone());
                     if matches!(
                         err,
-                        ParseError::CannotParseAnExpression(_) | ParseError::Expected(_, _, _),
+                        ParseError::CannotParseAnExpression(_)
+                            | ParseError::Expected(_, _, _)
+                            | ParseError::NoBreakOutsideLoop(_)
+                            | ParseError::NoContinueOutsideLoop(_),
                     ) {
                         self.recover_from_err();
                     }
                 }
             }
         }
-        main_module
     }
 
     fn recover_from_err(&mut self) {
@@ -85,6 +94,7 @@ impl Parser {
     pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
+            Token::Use(_) => self.parse_use_dependency(),
             Token::Fn(_) => self.parse_fn_def(false, None),
             Token::Let(_) => self.parse_const_decl(false, None),
             // prevent mutable bindings at the top level
@@ -100,6 +110,22 @@ impl Parser {
                     Err(ParseError::NoVariableAtTopLevel(var.source_ref()))
                 } else {
                     Ok(var)
+                }
+            }
+            Token::Break(_) => {
+                let break_ins = self.parse_break_ins()?;
+                if !matches!(self.parse_scope, ParseScope::Loop) {
+                    Err(ParseError::NoBreakOutsideLoop(break_ins.source_ref()))
+                } else {
+                    Ok(break_ins)
+                }
+            }
+            Token::Continue(_) => {
+                let continue_ins = self.parse_continue_ins()?;
+                if !matches!(self.parse_scope, ParseScope::Loop) {
+                    Err(ParseError::NoContinueOutsideLoop(continue_ins.source_ref()))
+                } else {
+                    Ok(continue_ins)
                 }
             }
             Token::Loop(_) => {
@@ -263,6 +289,10 @@ impl Parser {
             src: block_ref,
             instructions,
         })
+    }
+
+    fn parse_use_dependency(&mut self) -> Result<Instruction, ParseError> {
+        todo!("parse_use_dependency");
     }
 
     fn parse_fn_def(
@@ -455,6 +485,42 @@ impl Parser {
                     Some(tip),
                 ))
             }
+        }
+    }
+
+    fn parse_break_ins(&mut self) -> Result<Instruction, ParseError> {
+        let break_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+        // check for a semicolon
+        let cur = self.cur_token();
+        if let Token::Semicolon(_) = cur {
+            self.advance_index();
+            Ok(Instruction::Break(break_ref.combine(cur.get_source_ref())))
+        } else {
+            Err(ParseError::Expected(
+                "';' to terminate the break statement.".into(),
+                cur.get_source_ref(),
+                Some("Terminate the break statement with a ';'. E.g: 'break;'".into()),
+            ))
+        }
+    }
+
+    fn parse_continue_ins(&mut self) -> Result<Instruction, ParseError> {
+        let continue_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+        // check for a semicolon
+        let cur = self.cur_token();
+        if let Token::Semicolon(_) = cur {
+            self.advance_index();
+            Ok(Instruction::Continue(
+                continue_ref.combine(cur.get_source_ref()),
+            ))
+        } else {
+            Err(ParseError::Expected(
+                "';' to terminate the continue statement.".into(),
+                cur.get_source_ref(),
+                Some("Terminate the continue statement with a ';'. E.g: 'continue;'".into()),
+            ))
         }
     }
 
@@ -1009,7 +1075,8 @@ fn test_parser() {
         let lexer = Lexer::new(src);
         let mut parser = Parser::new(lexer);
 
-        let module = parser.parse();
+        parser.parse();
+        let module = parser.compilation_module;
         let l_errs = parser.lexer_errors;
         let p_errs = parser.parser_errors;
 

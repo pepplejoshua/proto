@@ -171,6 +171,8 @@ pub enum Instruction {
         src: SourceRef,
         value: Expr,
     },
+    Break(SourceRef),
+    Continue(SourceRef),
 }
 
 #[allow(dead_code)]
@@ -282,6 +284,8 @@ impl Instruction {
             } => {
                 format!("while {} {}", condition.as_str(), body.as_str())
             }
+            Instruction::Break(_) => "break;".to_string(),
+            Instruction::Continue(_) => "continue;".to_string(),
         }
     }
 
@@ -326,6 +330,8 @@ impl Instruction {
                 condition: _,
                 body: _,
             } => src.clone(),
+            Instruction::Break(src) => src.clone(),
+            Instruction::Continue(src) => src.clone(),
         }
     }
 }
