@@ -80,7 +80,7 @@ fn main() {
         }
 
         for pe in parser.parser_errors {
-            reporter.report_parse_error(pe);
+            reporter.report_parser_error(pe);
         }
     }
 }

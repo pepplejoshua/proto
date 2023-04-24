@@ -244,7 +244,7 @@ impl SourceReporter {
         }
     }
 
-    pub fn report_parse_error(&self, pe: ParseError) {
+    pub fn report_parser_error(&self, pe: ParseError) {
         match pe {
             ParseError::Expected(msg, src, tip) => {
                 self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
@@ -313,6 +313,11 @@ impl SourceReporter {
                 let msg = "A continue instruction can only be used inside a loop.".to_string();
                 self.report_with_ref(&src, msg, None);
             }
+            ParseError::TooManyErrors(src) => {
+                let msg = "Too many errors during parsing. Stopping.".to_string();
+                let tip = "Errors might be cascading. Try fixing some and retrying.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 
@@ -334,35 +339,45 @@ impl SourceReporter {
             src.start_col + 1
         ));
 
-        // TODO: instead of the below method of showing
-        // - start line
-        // - lines in between
-        // - end line
-        // I can do an optional check to see if the start and end lines are the same
-        // and if so, just show the one line with the target area highlighted
-        // this will be much cleaner and easier to read
-
-        // add actual target lines
-        // - add first line of target area
-        let f_line = self.src.lines[src.start_line].clone();
-        let pre_slice = &f_line[..src.start_col];
-        let f_target_slice = &f_line[src.start_col..];
-        output.push_str(&format!(
-            "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
-            src.start_line + 1,
-        ));
-
-        // add any lines between
-        for line_no in src.start_line + 1..src.end_line {
-            let target_line = self.src.lines[line_no].clone();
+        if src.start_line == src.end_line {
+            let line = self.src.lines[src.start_line].clone();
+            let pre_slice = &line[..src.start_col];
+            let end_col = if src.end_col >= line.len() {
+                line.len() - 1
+            } else {
+                src.end_col
+            };
+            let target_slice = &line[src.start_col..=end_col];
+            let post_slice = if end_col + 1 < line.len() {
+                &line[end_col + 1..]
+            } else {
+                ""
+            };
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
-                line_no + 1,
+                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
+                src.start_line + 1,
             ));
-        }
+        } else {
+            // add actual target lines
+            // - add first line of target area
+            let f_line = self.src.lines[src.start_line].clone();
+            let pre_slice = &f_line[..src.start_col];
+            let f_target_slice = &f_line[src.start_col..];
+            output.push_str(&format!(
+                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
+                src.start_line + 1,
+            ));
 
-        // - add last line of target area (if it is not the same as first line)
-        if src.end_line != src.start_line {
+            // add any lines between
+            for line_no in src.start_line + 1..src.end_line {
+                let target_line = self.src.lines[line_no].clone();
+                output.push_str(&format!(
+                    "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
+                    line_no + 1,
+                ));
+            }
+
+            // - add last line of target area (if it is not the same as first line)
             let l_line = &self.src.lines[src.end_line].clone();
             let l_target_slice = &l_line[..src.end_col];
             let post_slice = &l_line[src.end_col..];

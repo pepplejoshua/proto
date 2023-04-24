@@ -4,7 +4,7 @@ use super::token::Token;
 
 #[allow(dead_code)]
 pub struct Lexer {
-    src: SourceFile,
+    pub src: SourceFile,
     last_lexed: Option<Token>,
 }
 

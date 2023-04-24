@@ -56,7 +56,7 @@ impl Parser {
             match ins {
                 Ok(instruc) => self.compilation_module.add_instruction(instruc),
                 Err(err) => {
-                    self.parser_errors.push(err.clone());
+                    self.report_error(err.clone());
                     if matches!(
                         err,
                         ParseError::CannotParseAnExpression(_)
@@ -87,6 +87,26 @@ impl Parser {
 
     fn report_error(&mut self, err: ParseError) {
         self.parser_errors.push(err);
+        // if we have reached 10 errors, stop parsing
+        // exit quietly without Rust stack trace
+        if self.parser_errors.len() >= 10 {
+            // show all errors and exit
+            use super::source::SourceReporter;
+            let reporter = SourceReporter::new(self.lexer.src.clone());
+            for err in self.lexer_errors.iter() {
+                reporter.report_lexer_error(err);
+            }
+
+            for err in self.parser_errors.iter() {
+                reporter.report_parser_error(err.clone());
+            }
+
+            let too_many_errors = ParseError::TooManyErrors(self.cur_token().get_source_ref());
+            reporter.report_parser_error(too_many_errors);
+            // process exit with error code to show
+            // user error
+            std::process::exit(1);
+        }
     }
 
     // this function will return one Instruction at
@@ -271,8 +291,15 @@ impl Parser {
         let mut instructions: Vec<Instruction> = vec![];
         let mut cur = self.cur_token();
         while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
-            let instruction = self.next_instruction()?;
-            instructions.push(instruction);
+            let instruction = self.next_instruction();
+            if instruction.is_err() {
+                // record the error and continue parsing
+                self.report_error(instruction.err().unwrap());
+                // update the current token
+                cur = self.cur_token();
+                continue;
+            }
+            instructions.push(instruction.unwrap());
             cur = self.cur_token();
         }
 
