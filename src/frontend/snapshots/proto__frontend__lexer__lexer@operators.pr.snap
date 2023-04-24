@@ -31,4 +31,5 @@ stringified_tokens:
   - ": at [start_line:3 start_col:14 end_line:3 end_col:15 flat_start:57 flat_end:58]"
   - ", at [start_line:3 start_col:16 end_line:3 end_col:17 flat_start:59 flat_end:60]"
   - ". at [start_line:3 start_col:18 end_line:3 end_col:19 flat_start:61 flat_end:62]"
+  - ":: at [start_line:4 start_col:0 end_line:4 end_col:2 flat_start:63 flat_end:65]"
 

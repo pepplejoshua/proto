@@ -54,6 +54,7 @@ pub enum Token {
     RBracket(SourceRef),
     Semicolon(SourceRef),
     Colon(SourceRef),
+    Scope(SourceRef),
     Comma(SourceRef),
     Dot(SourceRef),
 
@@ -158,6 +159,7 @@ impl Token {
             Token::Pub(src) => src.clone(),
             Token::Mod(src) => src.clone(),
             Token::Return(src) => src.clone(),
+            Token::Scope(src) => src.clone(),
         }
     }
 
@@ -267,6 +269,7 @@ impl Token {
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),
             Token::Return(_) => "return".into(),
+            Token::Scope(_) => "::".into(),
         }
     }
 }

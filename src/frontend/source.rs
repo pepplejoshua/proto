@@ -326,6 +326,14 @@ impl SourceReporter {
             src.start_col + 1
         ));
 
+        // TODO: instead of the below method of showing
+        // - start line
+        // - lines in between
+        // - end line
+        // I can do an optional check to see if the start and end lines are the same
+        // and if so, just show the one line with the target area highlighted
+        // this will be much cleaner and easier to read
+
         // add actual target lines
         // - add first line of target area
         let f_line = self.src.lines[src.start_line].clone();

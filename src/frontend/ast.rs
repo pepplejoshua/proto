@@ -12,8 +12,14 @@ pub enum Expr {
     FnCall {
         func: Box<Expr>,
         args: Vec<Expr>,
-        rparen: Token,
+        span: SourceRef,
         fn_type: Option<Type>,
+    },
+    ScopeInto {
+        module: Box<Expr>,
+        target: Box<Expr>,
+        src: SourceRef,
+        resolved_type: Option<Type>,
     },
 }
 
@@ -40,12 +46,18 @@ impl Expr {
                 lhs_ref.combine(rhs_ref)
             }
             Expr::FnCall {
-                func,
+                func: _,
                 args: _,
-                rparen,
+                span,
                 fn_type: _,
-            } => func.source_ref().combine(rparen.get_source_ref()),
+            } => span.clone(),
             Expr::Grouped(_, _, src) => src.clone(),
+            Expr::ScopeInto {
+                module: _,
+                target: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
         }
     }
 
@@ -64,7 +76,7 @@ impl Expr {
             Expr::FnCall {
                 func,
                 args,
-                rparen: _,
+                span: _,
                 fn_type: _,
             } => {
                 let mut fn_str = func.as_str();
@@ -81,6 +93,12 @@ impl Expr {
                 let s = format!("({})", e.as_str());
                 s
             }
+            Expr::ScopeInto {
+                module,
+                target,
+                src: _,
+                resolved_type: _,
+            } => format!("{}::{}", module.as_str(), target.as_str()),
         }
     }
 
@@ -95,10 +113,16 @@ impl Expr {
             Expr::FnCall {
                 func: _,
                 args: _,
-                rparen: _,
+                span: _,
                 fn_type,
             } => fn_type.clone(),
             Expr::Grouped(_, t, _) => t.clone(),
+            Expr::ScopeInto {
+                module: _,
+                target: _,
+                src: _,
+                resolved_type,
+            } => resolved_type.clone(),
         }
     }
 }

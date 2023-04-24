@@ -248,6 +248,18 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
             }
+            ':' => {
+                // if the next character is a ':', return a Scope operator
+                let c = self.src.peek_char();
+                if c == ':' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::Scope(cur_ref.combine(self.src.get_ref())));
+                }
+                // otherwise, return a Colon operator
+                self.src.next_char();
+                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
+            }
             '(' => {
                 self.src.next_char();
                 Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
@@ -279,10 +291,6 @@ impl Lexer {
             '.' => {
                 self.src.next_char();
                 Ok(Token::Dot(cur_ref.combine(self.src.get_ref())))
-            }
-            ':' => {
-                self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
             }
             ';' => {
                 self.src.next_char();

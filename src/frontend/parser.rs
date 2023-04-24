@@ -50,7 +50,10 @@ impl Parser {
                 Ok(instruc) => main_module.add_instruction(instruc),
                 Err(err) => {
                     self.parser_errors.push(err.clone());
-                    if matches!(err, ParseError::CannotParseAnExpression(_)) {
+                    if matches!(
+                        err,
+                        ParseError::CannotParseAnExpression(_) | ParseError::Expected(_, _, _),
+                    ) {
                         self.recover_from_err();
                     }
                 }
@@ -742,7 +745,7 @@ impl Parser {
     fn parse_index_like_exprs(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_primary()?;
 
-        loop {
+        'main_loop: loop {
             let mut cur = self.cur_token();
 
             match cur {
@@ -771,13 +774,13 @@ impl Parser {
                         match cur {
                             Token::RParen(_) => {
                                 lhs = Expr::FnCall {
+                                    span: lhs.source_ref().combine(cur.get_source_ref()),
                                     func: Box::new(lhs),
                                     args,
-                                    rparen: cur,
                                     fn_type: None,
                                 };
                                 self.advance_index();
-                                break 'args;
+                                return Ok(lhs);
                             }
                             Token::Comma(_) => {
                                 self.advance_index();
@@ -789,6 +792,72 @@ impl Parser {
                                 cur.get_source_ref(),
                                 None,
                             )),
+                        }
+                    }
+                }
+                Token::Scope(_) => {
+                    // for now, we want to only allow:
+                    // 1. `foo::bar()` (function call)
+                    // 2. `foo::bar` (variable or constant)
+                    // 3. `foo::bar::baz` (variable or constant)
+                    // 4. `foo::bar::baz()` (function call)
+                    // we cannot allow functions be referenced like variables,
+                    // or constants.
+                    // Make sure lhs is a Identifier or a ScopeInto
+                    match lhs {
+                        Expr::Id(_, _) => {
+                            self.advance_index();
+                            loop {
+                                let rhs = self.parse_primary()?;
+                                match rhs {
+                                    Expr::Id(_, _) => {
+                                        lhs = Expr::ScopeInto {
+                                            src: lhs.source_ref().combine(rhs.source_ref()),
+                                            module: Box::new(lhs),
+                                            target: Box::new(rhs),
+                                            resolved_type: None,
+                                        };
+
+                                        continue 'main_loop;
+                                    }
+                                    _ => {
+                                        return Err(ParseError::Expected(
+                                            "an identifier after '::'.".into(),
+                                            rhs.source_ref(),
+                                            None,
+                                        ))
+                                    }
+                                }
+                            }
+                        }
+                        Expr::ScopeInto { .. } => {
+                            self.advance_index();
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::Id(_, _) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                        resolved_type: None,
+                                    };
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '::'.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ParseError::Expected(
+                                "an identifier or scope into operation before '::'.".into(),
+                                lhs.source_ref(),
+                                None,
+                            ))
                         }
                     }
                 }
