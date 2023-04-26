@@ -129,6 +129,76 @@ impl Expr {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
+pub enum PathAction {
+    ToParentDir,
+    SearchImmediateDirFor(Expr),
+    SearchCoreModulesFor(Expr),
+    SearchProjectRootFor(Expr),
+    SearchLastModuleFor(Expr),
+    SearchCurrentFileFor(Expr),
+    NameLastItemAs(Expr),
+}
+
+#[allow(dead_code)]
+impl PathAction {
+    pub fn is_search_action(&self) -> bool {
+        match self {
+            PathAction::ToParentDir => false,
+            PathAction::NameLastItemAs(_) => false,
+            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => true,
+        }
+    }
+
+    pub fn is_terminating_action(&self) -> bool {
+        match self {
+            PathAction::ToParentDir => false,
+            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::NameLastItemAs(_) => true,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => false,
+        }
+    }
+
+    pub fn allows_naming_last(&self) -> bool {
+        match self {
+            PathAction::ToParentDir => false,
+            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::NameLastItemAs(_) => false,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => false,
+        }
+    }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            PathAction::ToParentDir => "^".to_string(),
+            PathAction::SearchImmediateDirFor(e) => e.as_str(),
+            PathAction::NameLastItemAs(alias) => format!(" as {}", alias.as_str()),
+            PathAction::SearchCoreModulesFor(e) => format!("@{}", e.as_str()),
+            PathAction::SearchProjectRootFor(m) => format!("${}", m.as_str()),
+            PathAction::SearchLastModuleFor(n) => n.as_str(),
+            PathAction::SearchCurrentFileFor(inner_m) => format!("!{}", inner_m.as_str()),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct DependencyPath {
+    pub actions: Vec<PathAction>,
+    pub src: SourceRef,
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Instruction {
     ConstantDecl {
         const_name: Token,
@@ -173,6 +243,10 @@ pub enum Instruction {
     },
     Break(SourceRef),
     Continue(SourceRef),
+    UseDependency {
+        paths: Vec<DependencyPath>,
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
@@ -286,6 +360,21 @@ impl Instruction {
             }
             Instruction::Break(_) => "break;".to_string(),
             Instruction::Continue(_) => "continue;".to_string(),
+            Instruction::UseDependency { paths, src: _ } => {
+                let mut path_str = String::new();
+                for (i, path) in paths.iter().enumerate() {
+                    for (j, part) in path.actions.iter().enumerate() {
+                        path_str.push_str(&part.as_str());
+                        if j + 1 < path.actions.len() {
+                            path_str.push_str("::");
+                        }
+                    }
+                    if i + 1 < paths.len() {
+                        path_str.push_str(", ");
+                    }
+                }
+                format!("use {};", path_str)
+            }
         }
     }
 
@@ -332,6 +421,7 @@ impl Instruction {
             } => src.clone(),
             Instruction::Break(src) => src.clone(),
             Instruction::Continue(src) => src.clone(),
+            Instruction::UseDependency { paths: _, src } => src.clone(),
         }
     }
 }

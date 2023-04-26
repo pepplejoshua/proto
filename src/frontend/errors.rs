@@ -25,5 +25,6 @@ pub enum ParseError {
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
+    UnusualTokenInUsePath(SourceRef),
     TooManyErrors(SourceRef),
 }

@@ -1,5 +1,5 @@
 use super::{
-    ast::{CompilationModule, Expr, Instruction},
+    ast::{CompilationModule, DependencyPath, Expr, Instruction},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
@@ -319,7 +319,23 @@ impl Parser {
     }
 
     fn parse_use_dependency(&mut self) -> Result<Instruction, ParseError> {
-        todo!("parse_use_dependency");
+        let start = self.cur_token();
+        // skip the 'use' keyword
+        self.advance_index();
+        let mut paths_to_import = self.parse_simple_path();
+        let mut cur = self.cur_token();
+
+        todo!()
+    }
+
+    fn parse_simple_path(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+        let mut paths_to_import: Vec<DependencyPath> = vec![];
+
+        let start = self.cur_token();
+
+        if let Token::Identifier(_, _) = start {
+        } else {
+        }
     }
 
     fn parse_fn_def(
@@ -678,9 +694,6 @@ impl Parser {
                 Err(ParseError::MalformedDeclaration(tip, cur.get_source_ref()))
             }
         }
-
-        // cur = self.cur_token();
-        // match cur {}
     }
 
     fn parse_assignment_or_expr_instruc(&mut self) -> Result<Instruction, ParseError> {
@@ -900,26 +913,24 @@ impl Parser {
                     match lhs {
                         Expr::Id(_, _) => {
                             self.advance_index();
-                            loop {
-                                let rhs = self.parse_primary()?;
-                                match rhs {
-                                    Expr::Id(_, _) => {
-                                        lhs = Expr::ScopeInto {
-                                            src: lhs.source_ref().combine(rhs.source_ref()),
-                                            module: Box::new(lhs),
-                                            target: Box::new(rhs),
-                                            resolved_type: None,
-                                        };
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::Id(_, _) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                        resolved_type: None,
+                                    };
 
-                                        continue 'main_loop;
-                                    }
-                                    _ => {
-                                        return Err(ParseError::Expected(
-                                            "an identifier after '::'.".into(),
-                                            rhs.source_ref(),
-                                            None,
-                                        ))
-                                    }
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '::'.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
                                 }
                             }
                         }
