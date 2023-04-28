@@ -321,16 +321,17 @@ impl SourceReporter {
             ParseError::UnusualTokenInUsePath(src) => {
                 let msg = "Unexpected token in use path.".to_string();
                 let mut tip = "Some valid use paths include:\n".to_string();
-                tip.push_str("1.  use immediate_module::inner::other;\n");
-                tip.push_str("2.  use immediate_module::inner as alias;\n");
-                tip.push_str("3.  use immediate::[use_path1, use_path2, ...];\n");
-                tip.push_str("4.  use immediate_module;\n");
-                tip.push_str("5.  use ^::module_in_parent_dir;\n");
-                tip.push_str("6.  use ^::module_in_parent_dir::inner;\n");
-                tip.push_str("7.  use ^::^::module_in_grandparent_dir::inner;\n");
-                tip.push_str("8.  use !module_in_current_file;\n");
-                tip.push_str("9.  use $module_in_project_root;\n");
-                tip.push_str("10. use @core_module::sub_module;\n");
+                tip.push_str("*  use immediate_module::inner::other;\n");
+                tip.push_str("*  use immediate_module::inner as alias;\n");
+                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
+                tip.push_str("*  use immediate_module;\n");
+                tip.push_str("*  use import_everything::*;\n");
+                tip.push_str("*  use ^::module_in_parent_dir;\n");
+                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
+                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
+                tip.push_str("*  use !module_in_current_file;\n");
+                tip.push_str("*  use $module_in_project_root;\n");
+                tip.push_str("*  use @core_module::sub_module;\n");
                 tip.push_str("Please find more information in documentation.");
                 self.report_with_ref(&src, msg, Some(tip));
             }

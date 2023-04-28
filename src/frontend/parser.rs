@@ -1,5 +1,5 @@
 use super::{
-    ast::{CompilationModule, DependencyPath, Expr, Instruction},
+    ast::{CompilationModule, DependencyPath, Expr, Instruction, PathAction},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
@@ -322,19 +322,147 @@ impl Parser {
         let start = self.cur_token();
         // skip the 'use' keyword
         self.advance_index();
-        let mut paths_to_import = self.parse_simple_path();
-        let mut cur = self.cur_token();
+        let paths_to_import = self.parse_path()?;
 
-        todo!()
+        // expect a semicolon
+        let end = self.cur_token();
+        if matches!(end, Token::Semicolon(_)) {
+            self.advance_index();
+            let use_ins = Instruction::UseDependency {
+                paths: paths_to_import,
+                src: start.get_source_ref().combine(end.get_source_ref()),
+            };
+            println!("{}", use_ins.as_str());
+            Ok(use_ins)
+        } else {
+            Err(ParseError::Expected(
+                "Expected ';' to terminate use instruction. ".to_string(),
+                end.get_source_ref(),
+                Some("Provide a ';'. E.g: 'use kids::next::door;'".to_string()),
+            ))
+        }
     }
 
-    fn parse_simple_path(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
-        let mut paths_to_import: Vec<DependencyPath> = vec![];
-
+    fn parse_path(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
         let start = self.cur_token();
+        // allow parsing:
+        // - immediate paths
+        // - ^ paths
+        // - ! paths
+        // - $ paths
+        // - @ paths
+        // all with or without the 'as' alias
+        match start {
+            Token::Identifier(_, _) => Ok(self.parse_simple_path_section()?),
+            // Token::Caret(_)
+            // | Token::Exclamation(_)
+            // | Token::Dollar(_)
+            // | Token::At(_) => Ok(self.parse_complex_path_section()?),
+            _ => Err(ParseError::UnusualTokenInUsePath(start.get_source_ref())),
+        }
+    }
 
-        if let Token::Identifier(_, _) = start {
+    // fn parse_complex_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+    //     let mut cur = self.cur_token();
+    //     let mut dep_paths = vec![];
+
+    //     match cur {
+    //         Token::Identifier(_, _) => {
+    //             let mut path_actions = vec![];
+    //             let end_ref = cur.get_source_ref();
+    //             while
+    //         }
+    //     }
+    // }
+
+    fn parse_simple_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+        let mut cur = self.cur_token();
+        let mut dep_paths = vec![];
+        if let Token::Identifier(_, _) = cur {
+            let mut path_actions = vec![];
+            while let Token::Identifier(_, _) = cur {
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchFor(id));
+
+                if let Token::Scope(_) = self.cur_token() {
+                    self.advance_index();
+                    cur = self.cur_token();
+                } else {
+                    break;
+                }
+            }
+
+            cur = self.cur_token();
+            // look for one of:
+            // - as
+            // - [ to start a nested path
+            match cur {
+                Token::Star(_) => {
+                    self.advance_index();
+                    path_actions.push(PathAction::ImportAll(cur.get_source_ref()));
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+                Token::As(_) => {
+                    self.advance_index();
+                    let alias = self.parse_id(false)?;
+                    path_actions.push(PathAction::NameLastItemAs(alias));
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+                Token::LBracket(_) => {
+                    self.advance_index();
+                    cur = self.cur_token();
+                    while !matches!(cur, Token::RBracket(_)) && !self.no_more_tokens() {
+                        let inner_paths = self.parse_simple_path_section()?;
+                        for inner_path in inner_paths {
+                            let t_dep_path = DependencyPath {
+                                actions: path_actions.clone(),
+                            };
+
+                            let combined_path = t_dep_path.combine(&inner_path);
+                            dep_paths.push(combined_path);
+                            // for inner_action in inner_path.actions {
+                            //     let mut t_path_actions = path_actions.clone();
+                            //     t_path_actions.push(inner_action.clone());
+                            //     dep_paths.push(DependencyPath {
+                            //         actions: t_path_actions,
+                            //     });
+                            // }
+                        }
+                        cur = self.cur_token();
+                        if matches!(cur, Token::Comma(_)) {
+                            self.advance_index();
+                            cur = self.cur_token();
+                        } else {
+                            break;
+                        }
+                    }
+                    if matches!(cur, Token::RBracket(_)) {
+                        self.advance_index();
+                    } else {
+                        return Err(ParseError::Expected(
+                            "a ']' to terminate path section.".to_string(),
+                            cur.get_source_ref(),
+                            Some("Provide a ']'. E.g: '[kids::next::door]'".to_string()),
+                        ));
+                    }
+                }
+                _ => {
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+            }
+            Ok(dep_paths)
         } else {
+            Err(ParseError::Expected(
+                "Expected an identifier to start path section.".to_string(),
+                cur.get_source_ref(),
+                Some("Provide an identifier to start a path. E.g: 'kids::next::door'".to_string()),
+            ))
         }
     }
 

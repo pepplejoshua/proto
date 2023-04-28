@@ -29,6 +29,15 @@ pub enum Token {
     Slash(SourceRef),
     Modulo(SourceRef),
 
+    // special operators
+    As(SourceRef),
+
+    // special characters
+    Caret(SourceRef),
+    Exclamation(SourceRef),
+    Dollar(SourceRef),
+    At(SourceRef),
+
     // comparison
     Equal(SourceRef),
     NotEqual(SourceRef),
@@ -160,6 +169,11 @@ impl Token {
             Token::Mod(src) => src.clone(),
             Token::Return(src) => src.clone(),
             Token::Scope(src) => src.clone(),
+            Token::Caret(src) => src.clone(),
+            Token::Exclamation(src) => src.clone(),
+            Token::Dollar(src) => src.clone(),
+            Token::At(src) => src.clone(),
+            Token::As(src) => src.clone(),
         }
     }
 
@@ -270,6 +284,11 @@ impl Token {
             Token::Mod(_) => "mod".into(),
             Token::Return(_) => "return".into(),
             Token::Scope(_) => "::".into(),
+            Token::Caret(_) => "^".into(),
+            Token::Exclamation(_) => "!".into(),
+            Token::Dollar(_) => "$".into(),
+            Token::At(_) => "@".into(),
+            Token::As(_) => "as".into(),
         }
     }
 }

@@ -130,8 +130,9 @@ impl Expr {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum PathAction {
-    ToParentDir,
-    SearchImmediateDirFor(Expr),
+    ToParentDir(SourceRef),
+    ImportAll(SourceRef),
+    SearchFor(Expr),
     SearchCoreModulesFor(Expr),
     SearchProjectRootFor(Expr),
     SearchLastModuleFor(Expr),
@@ -143,49 +144,66 @@ pub enum PathAction {
 impl PathAction {
     pub fn is_search_action(&self) -> bool {
         match self {
-            PathAction::ToParentDir => false,
+            PathAction::ToParentDir(_) => false,
             PathAction::NameLastItemAs(_) => false,
-            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::SearchFor(_) => true,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
             PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => true,
+            PathAction::ImportAll(_) => false,
         }
     }
 
     pub fn is_terminating_action(&self) -> bool {
         match self {
-            PathAction::ToParentDir => false,
-            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::ToParentDir(_) => false,
+            PathAction::SearchFor(_) => true,
             PathAction::NameLastItemAs(_) => true,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
             PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => false,
+            PathAction::ImportAll(_) => true,
         }
     }
 
     pub fn allows_naming_last(&self) -> bool {
         match self {
-            PathAction::ToParentDir => false,
-            PathAction::SearchImmediateDirFor(_) => true,
+            PathAction::ToParentDir(_) => false,
+            PathAction::SearchFor(_) => true,
             PathAction::NameLastItemAs(_) => false,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
             PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => false,
+            PathAction::ImportAll(_) => false,
         }
     }
 
     pub fn as_str(&self) -> String {
         match self {
-            PathAction::ToParentDir => "^".to_string(),
-            PathAction::SearchImmediateDirFor(e) => e.as_str(),
+            PathAction::ToParentDir(_) => "^".to_string(),
+            PathAction::SearchFor(e) => e.as_str(),
             PathAction::NameLastItemAs(alias) => format!(" as {}", alias.as_str()),
             PathAction::SearchCoreModulesFor(e) => format!("@{}", e.as_str()),
             PathAction::SearchProjectRootFor(m) => format!("${}", m.as_str()),
             PathAction::SearchLastModuleFor(n) => n.as_str(),
             PathAction::SearchCurrentFileFor(inner_m) => format!("!{}", inner_m.as_str()),
+            PathAction::ImportAll(_) => "*".to_string(),
+        }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        match self {
+            PathAction::ToParentDir(src) => src.clone(),
+            PathAction::SearchFor(e) => e.source_ref(),
+            PathAction::SearchCoreModulesFor(e) => e.source_ref(),
+            PathAction::SearchProjectRootFor(e) => e.source_ref(),
+            PathAction::SearchLastModuleFor(e) => e.source_ref(),
+            PathAction::SearchCurrentFileFor(e) => e.source_ref(),
+            PathAction::NameLastItemAs(e) => e.source_ref(),
+            PathAction::ImportAll(src) => src.clone(),
         }
     }
 }
@@ -194,7 +212,24 @@ impl PathAction {
 #[allow(dead_code)]
 pub struct DependencyPath {
     pub actions: Vec<PathAction>,
-    pub src: SourceRef,
+}
+
+#[allow(dead_code)]
+impl DependencyPath {
+    pub fn combine(&self, sub_path: &DependencyPath) -> DependencyPath {
+        let mut actions = self.actions.clone();
+        let mut sub_path_actions = sub_path.actions.clone();
+        actions.append(&mut sub_path_actions);
+        DependencyPath { actions }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        // get first action
+        let first_action = self.actions.first().unwrap();
+        // get last action
+        let last_action = self.actions.last().unwrap();
+        first_action.source_ref().combine(last_action.source_ref())
+    }
 }
 
 #[derive(Debug, Clone)]
