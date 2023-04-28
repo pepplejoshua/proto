@@ -362,8 +362,10 @@ impl SourceReporter {
             let end_col = if src.end_col >= line.len() {
                 line.len() - 1
             } else {
-                src.end_col
+                src.end_col - 1
             };
+            // make sure end_col is not same as start_col
+
             let target_slice = &line[src.start_col..=end_col];
             let post_slice = if end_col + 1 < line.len() {
                 &line[end_col + 1..]

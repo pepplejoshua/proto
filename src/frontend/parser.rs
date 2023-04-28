@@ -459,7 +459,7 @@ impl Parser {
             Ok(dep_paths)
         } else {
             Err(ParseError::Expected(
-                "Expected an identifier to start path section.".to_string(),
+                "an identifier to start path section.".to_string(),
                 cur.get_source_ref(),
                 Some("Provide an identifier to start a path. E.g: 'kids::next::door'".to_string()),
             ))

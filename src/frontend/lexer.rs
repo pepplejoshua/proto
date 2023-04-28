@@ -84,7 +84,9 @@ impl Lexer {
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
             _ => {
-                let err = Err(LexError::InvalidCharacter(self.src.get_ref()));
+                let mut err_ref = self.src.get_ref();
+                err_ref.end_col += 1;
+                let err = Err(LexError::InvalidCharacter(err_ref));
                 self.src.next_char(); // try to keep lexing
                 err
             }
