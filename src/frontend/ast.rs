@@ -12,8 +12,14 @@ pub enum Expr {
     FnCall {
         func: Box<Expr>,
         args: Vec<Expr>,
-        rparen: Token,
+        span: SourceRef,
         fn_type: Option<Type>,
+    },
+    ScopeInto {
+        module: Box<Expr>,
+        target: Box<Expr>,
+        src: SourceRef,
+        resolved_type: Option<Type>,
     },
 }
 
@@ -40,12 +46,18 @@ impl Expr {
                 lhs_ref.combine(rhs_ref)
             }
             Expr::FnCall {
-                func,
+                func: _,
                 args: _,
-                rparen,
+                span,
                 fn_type: _,
-            } => func.source_ref().combine(rparen.get_source_ref()),
+            } => span.clone(),
             Expr::Grouped(_, _, src) => src.clone(),
+            Expr::ScopeInto {
+                module: _,
+                target: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
         }
     }
 
@@ -64,7 +76,7 @@ impl Expr {
             Expr::FnCall {
                 func,
                 args,
-                rparen: _,
+                span: _,
                 fn_type: _,
             } => {
                 let mut fn_str = func.as_str();
@@ -81,6 +93,12 @@ impl Expr {
                 let s = format!("({})", e.as_str());
                 s
             }
+            Expr::ScopeInto {
+                module,
+                target,
+                src: _,
+                resolved_type: _,
+            } => format!("{}::{}", module.as_str(), target.as_str()),
         }
     }
 
@@ -95,11 +113,122 @@ impl Expr {
             Expr::FnCall {
                 func: _,
                 args: _,
-                rparen: _,
+                span: _,
                 fn_type,
             } => fn_type.clone(),
             Expr::Grouped(_, t, _) => t.clone(),
+            Expr::ScopeInto {
+                module: _,
+                target: _,
+                src: _,
+                resolved_type,
+            } => resolved_type.clone(),
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub enum PathAction {
+    ToParentDir(SourceRef),
+    ImportAll(SourceRef),
+    SearchFor(Expr),
+    SearchCoreModulesFor(Expr),
+    SearchProjectRootFor(Expr),
+    SearchLastModuleFor(Expr),
+    SearchCurrentFileFor(Expr),
+    NameLastItemAs(Expr),
+}
+
+#[allow(dead_code)]
+impl PathAction {
+    pub fn is_search_action(&self) -> bool {
+        match self {
+            PathAction::ToParentDir(_) => false,
+            PathAction::NameLastItemAs(_) => false,
+            PathAction::SearchFor(_) => true,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => true,
+            PathAction::ImportAll(_) => false,
+        }
+    }
+
+    pub fn is_terminating_action(&self) -> bool {
+        match self {
+            PathAction::ToParentDir(_) => false,
+            PathAction::SearchFor(_) => true,
+            PathAction::NameLastItemAs(_) => true,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => false,
+            PathAction::ImportAll(_) => true,
+        }
+    }
+
+    pub fn allows_naming_last(&self) -> bool {
+        match self {
+            PathAction::ToParentDir(_) => false,
+            PathAction::SearchFor(_) => true,
+            PathAction::NameLastItemAs(_) => false,
+            PathAction::SearchCoreModulesFor(_) => true,
+            PathAction::SearchProjectRootFor(_) => true,
+            PathAction::SearchLastModuleFor(_) => true,
+            PathAction::SearchCurrentFileFor(_) => false,
+            PathAction::ImportAll(_) => false,
+        }
+    }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            PathAction::ToParentDir(_) => "^".to_string(),
+            PathAction::SearchFor(e) => e.as_str(),
+            PathAction::NameLastItemAs(alias) => format!(" as {}", alias.as_str()),
+            PathAction::SearchCoreModulesFor(e) => format!("@{}", e.as_str()),
+            PathAction::SearchProjectRootFor(m) => format!("${}", m.as_str()),
+            PathAction::SearchLastModuleFor(n) => n.as_str(),
+            PathAction::SearchCurrentFileFor(inner_m) => format!("!{}", inner_m.as_str()),
+            PathAction::ImportAll(_) => "*".to_string(),
+        }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        match self {
+            PathAction::ToParentDir(src) => src.clone(),
+            PathAction::SearchFor(e) => e.source_ref(),
+            PathAction::SearchCoreModulesFor(e) => e.source_ref(),
+            PathAction::SearchProjectRootFor(e) => e.source_ref(),
+            PathAction::SearchLastModuleFor(e) => e.source_ref(),
+            PathAction::SearchCurrentFileFor(e) => e.source_ref(),
+            PathAction::NameLastItemAs(e) => e.source_ref(),
+            PathAction::ImportAll(src) => src.clone(),
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
+pub struct DependencyPath {
+    pub actions: Vec<PathAction>,
+}
+
+#[allow(dead_code)]
+impl DependencyPath {
+    pub fn combine(&self, sub_path: &DependencyPath) -> DependencyPath {
+        let mut actions = self.actions.clone();
+        let mut sub_path_actions = sub_path.actions.clone();
+        actions.append(&mut sub_path_actions);
+        DependencyPath { actions }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        // get first action
+        let first_action = self.actions.first().unwrap();
+        // get last action
+        let last_action = self.actions.last().unwrap();
+        first_action.source_ref().combine(last_action.source_ref())
     }
 }
 
@@ -146,6 +275,12 @@ pub enum Instruction {
     Return {
         src: SourceRef,
         value: Expr,
+    },
+    Break(SourceRef),
+    Continue(SourceRef),
+    UseDependency {
+        paths: Vec<DependencyPath>,
+        src: SourceRef,
     },
 }
 
@@ -258,6 +393,23 @@ impl Instruction {
             } => {
                 format!("while {} {}", condition.as_str(), body.as_str())
             }
+            Instruction::Break(_) => "break;".to_string(),
+            Instruction::Continue(_) => "continue;".to_string(),
+            Instruction::UseDependency { paths, src: _ } => {
+                let mut path_str = String::new();
+                for (i, path) in paths.iter().enumerate() {
+                    for (j, part) in path.actions.iter().enumerate() {
+                        path_str.push_str(&part.as_str());
+                        if j + 1 < path.actions.len() {
+                            path_str.push_str("::");
+                        }
+                    }
+                    if i + 1 < paths.len() {
+                        path_str.push_str(", ");
+                    }
+                }
+                format!("use {};", path_str)
+            }
         }
     }
 
@@ -302,6 +454,9 @@ impl Instruction {
                 condition: _,
                 body: _,
             } => src.clone(),
+            Instruction::Break(src) => src.clone(),
+            Instruction::Continue(src) => src.clone(),
+            Instruction::UseDependency { paths: _, src } => src.clone(),
         }
     }
 }

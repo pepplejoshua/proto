@@ -72,7 +72,7 @@ fn main() {
         }
     } else {
         let mut parser = Parser::new(lexer);
-        let _main_mod = parser.parse();
+        parser.parse();
 
         let _has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
         for le in parser.lexer_errors {
@@ -80,7 +80,7 @@ fn main() {
         }
 
         for pe in parser.parser_errors {
-            reporter.report_parse_error(pe);
+            reporter.report_parser_error(pe);
         }
     }
 }

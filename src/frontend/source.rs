@@ -244,7 +244,7 @@ impl SourceReporter {
         }
     }
 
-    pub fn report_parse_error(&self, pe: ParseError) {
+    pub fn report_parser_error(&self, pe: ParseError) {
         match pe {
             ParseError::Expected(msg, src, tip) => {
                 self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
@@ -305,6 +305,53 @@ impl SourceReporter {
                 let tip = "Loops are only allowed within functions.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::NoBreakOutsideLoop(src) => {
+                let msg = "A break instruction can only be used inside a loop.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            ParseError::NoContinueOutsideLoop(src) => {
+                let msg = "A continue instruction can only be used inside a loop.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            ParseError::TooManyErrors(src) => {
+                let msg = "Too many errors during parsing. Stopping.".to_string();
+                let tip = "Errors might be cascading. Try fixing some and retrying.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::UnusualTokenInUsePath(src) => {
+                let msg = "Unexpected token in use path.".to_string();
+                let mut tip = "Some valid use paths include:\n".to_string();
+                tip.push_str("*  use immediate_module::inner::other;\n");
+                tip.push_str("*  use immediate_module::inner as alias;\n");
+                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
+                tip.push_str("*  use immediate_module;\n");
+                tip.push_str("*  use import_everything::*;\n");
+                tip.push_str("*  use ^::module_in_parent_dir;\n");
+                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
+                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
+                tip.push_str("*  use !module_in_current_file;\n");
+                tip.push_str("*  use $module_in_project_root;\n");
+                tip.push_str("*  use @core_module::sub_module;\n");
+                tip.push_str("Please find more information on use paths  in documentation.");
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::UntermiatedUsePath(src) => {
+                let msg = "Unterminated use path.".to_string();
+                let mut tip = "Some terminated use paths include:\n".to_string();
+                tip.push_str("*  use immediate_module::inner::other;\n");
+                tip.push_str("*  use immediate_module::inner as alias;\n");
+                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
+                tip.push_str("*  use immediate_module;\n");
+                tip.push_str("*  use import_everything::*;\n");
+                tip.push_str("*  use ^::module_in_parent_dir;\n");
+                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
+                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
+                tip.push_str("*  use !module_in_current_file;\n");
+                tip.push_str("*  use $module_in_project_root;\n");
+                tip.push_str("*  use @core_module::sub_module;\n");
+                tip.push_str("Please find more information on use paths in documentation.");
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 
@@ -326,27 +373,47 @@ impl SourceReporter {
             src.start_col + 1
         ));
 
-        // add actual target lines
-        // - add first line of target area
-        let f_line = self.src.lines[src.start_line].clone();
-        let pre_slice = &f_line[..src.start_col];
-        let f_target_slice = &f_line[src.start_col..];
-        output.push_str(&format!(
-            "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
-            src.start_line + 1,
-        ));
+        if src.start_line == src.end_line {
+            let line = self.src.lines[src.start_line].clone();
+            let pre_slice = &line[..src.start_col];
+            let end_col = if src.end_col >= line.len() {
+                line.len() - 1
+            } else {
+                src.end_col - 1
+            };
+            // make sure end_col is not same as start_col
 
-        // add any lines between
-        for line_no in src.start_line + 1..src.end_line {
-            let target_line = self.src.lines[line_no].clone();
+            let target_slice = &line[src.start_col..=end_col];
+            let post_slice = if end_col + 1 < line.len() {
+                &line[end_col + 1..]
+            } else {
+                ""
+            };
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
-                line_no + 1,
+                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
+                src.start_line + 1,
             ));
-        }
+        } else {
+            // add actual target lines
+            // - add first line of target area
+            let f_line = self.src.lines[src.start_line].clone();
+            let pre_slice = &f_line[..src.start_col];
+            let f_target_slice = &f_line[src.start_col..];
+            output.push_str(&format!(
+                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
+                src.start_line + 1,
+            ));
 
-        // - add last line of target area (if it is not the same as first line)
-        if src.end_line != src.start_line {
+            // add any lines between
+            for line_no in src.start_line + 1..src.end_line {
+                let target_line = self.src.lines[line_no].clone();
+                output.push_str(&format!(
+                    "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
+                    line_no + 1,
+                ));
+            }
+
+            // - add last line of target area (if it is not the same as first line)
             let l_line = &self.src.lines[src.end_line].clone();
             let l_target_slice = &l_line[..src.end_col];
             let post_slice = &l_line[src.end_col..];

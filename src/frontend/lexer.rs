@@ -4,7 +4,7 @@ use super::token::Token;
 
 #[allow(dead_code)]
 pub struct Lexer {
-    src: SourceFile,
+    pub src: SourceFile,
     last_lexed: Option<Token>,
 }
 
@@ -77,14 +77,16 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '^' | '$' | '@' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
             // invalid character
             _ => {
-                let err = Err(LexError::InvalidCharacter(self.src.get_ref()));
+                let mut err_ref = self.src.get_ref();
+                err_ref.end_col += 1;
+                let err = Err(LexError::InvalidCharacter(err_ref));
                 self.src.next_char(); // try to keep lexing
                 err
             }
@@ -138,6 +140,7 @@ impl Lexer {
             "use" => Ok(Token::Use(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
             "mod" => Ok(Token::Mod(combined_ref)),
+            "as" => Ok(Token::As(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -199,6 +202,20 @@ impl Lexer {
                 Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
             }
 
+            // special characters
+            '^' => {
+                self.src.next_char();
+                Ok(Token::Caret(cur_ref.combine(self.src.get_ref())))
+            }
+            '@' => {
+                self.src.next_char();
+                Ok(Token::At(cur_ref.combine(self.src.get_ref())))
+            }
+            '$' => {
+                self.src.next_char();
+                Ok(Token::Dollar(cur_ref.combine(self.src.get_ref())))
+            }
+
             // logical operators
             '!' => {
                 // if the next character is a '=', return a NotEqual operator
@@ -210,7 +227,7 @@ impl Lexer {
                 }
                 // otherwise, return a Not operator
                 self.src.next_char();
-                Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::Exclamation(cur_ref.combine(self.src.get_ref())))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
@@ -248,6 +265,18 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
             }
+            ':' => {
+                // if the next character is a ':', return a Scope operator
+                let c = self.src.peek_char();
+                if c == ':' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::Scope(cur_ref.combine(self.src.get_ref())));
+                }
+                // otherwise, return a Colon operator
+                self.src.next_char();
+                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
+            }
             '(' => {
                 self.src.next_char();
                 Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
@@ -279,10 +308,6 @@ impl Lexer {
             '.' => {
                 self.src.next_char();
                 Ok(Token::Dot(cur_ref.combine(self.src.get_ref())))
-            }
-            ':' => {
-                self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
             }
             ';' => {
                 self.src.next_char();

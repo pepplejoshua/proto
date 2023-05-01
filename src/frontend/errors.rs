@@ -20,7 +20,12 @@ pub enum ParseError {
     NoVariableAtTopLevel(SourceRef),
     NoCodeBlockAtTopLevel(SourceRef),
     NoLoopAtTopLevel(SourceRef),
+    NoBreakOutsideLoop(SourceRef),
+    NoContinueOutsideLoop(SourceRef),
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
+    UnusualTokenInUsePath(SourceRef),
+    UntermiatedUsePath(SourceRef),
+    TooManyErrors(SourceRef),
 }
