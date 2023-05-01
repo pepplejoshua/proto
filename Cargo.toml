@@ -13,6 +13,3 @@ serde_json = "1.0.94"
 
 [dev-dependencies]
 insta = { version = "1.28.0", features = [ "glob", "yaml"] }
-
-[profile.dev.package.insta]
-opt-level = 3

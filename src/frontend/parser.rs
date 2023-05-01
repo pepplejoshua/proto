@@ -332,7 +332,6 @@ impl Parser {
                 paths: paths_to_import,
                 src: start.get_source_ref().combine(end.get_source_ref()),
             };
-            println!("{}", use_ins.as_str());
             Ok(use_ins)
         } else {
             Err(ParseError::Expected(
