@@ -353,47 +353,113 @@ impl Parser {
         // - @ paths
         // all with or without the 'as' alias
         match start {
-            Token::Identifier(_, _) => Ok(self.parse_simple_path_section()?),
-            // Token::Caret(_)
-            // | Token::Exclamation(_)
-            // | Token::Dollar(_)
-            // | Token::At(_) => Ok(self.parse_complex_path_section()?),
+            Token::Identifier(_, _) | Token::Caret(_) => self.parse_simple_path_section(true),
+            Token::Exclamation(_) | Token::Dollar(_) | Token::At(_) => {
+                self.parse_directive_path_section()
+            }
             _ => Err(ParseError::UnusualTokenInUsePath(start.get_source_ref())),
         }
     }
 
-    // fn parse_complex_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
-    //     let mut cur = self.cur_token();
-    //     let mut dep_paths = vec![];
+    fn parse_directive_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+        let cur = self.cur_token();
+        let mut dep_paths = vec![];
+        let mut path_actions = vec![];
+        // this will parse one of the following directives:
+        // 1. !module_in_current_file
+        // 2. $module_in_project_root
+        // 3. @module_in_core_library
+        match cur {
+            Token::Exclamation(_) => {
+                // this is a module in the current file
+                // skip the '!' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchCurrentFileFor(id));
+            }
+            Token::Dollar(_) => {
+                // this is a module in the project root
+                // skip the '$' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchProjectRootFor(id));
+            }
+            Token::At(_) => {
+                // this is a module in the std
+                // skip the '@' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchCoreModulesFor(id));
+            }
+            _ => {
+                unreachable!("parse_directive_path_section called with invalid token");
+            }
+        }
 
-    //     match cur {
-    //         Token::Identifier(_, _) => {
-    //             let mut path_actions = vec![];
-    //             let end_ref = cur.get_source_ref();
-    //             while
-    //         }
-    //     }
-    // }
+        if let Token::Scope(_) = self.cur_token() {
+            self.advance_index();
+            let simple_dep_paths = self.parse_simple_path_section(false)?;
 
-    fn parse_simple_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+            for simple_dep_path in simple_dep_paths {
+                let t_dep_path = DependencyPath {
+                    actions: path_actions.clone(),
+                };
+
+                let combined_path = t_dep_path.combine(&simple_dep_path);
+                dep_paths.push(combined_path);
+            }
+            Ok(dep_paths)
+        } else {
+            dep_paths.push(DependencyPath {
+                actions: path_actions,
+            });
+            Ok(dep_paths)
+        }
+    }
+
+    fn parse_simple_path_section(
+        &mut self,
+        allow_caret: bool,
+    ) -> Result<Vec<DependencyPath>, ParseError> {
         let mut cur = self.cur_token();
         let mut dep_paths = vec![];
-        if let Token::Identifier(_, _) = cur {
+
+        let mut match_condition = if allow_caret {
+            matches!(cur, Token::Identifier(_, _) | Token::Caret(_))
+        } else {
+            matches!(cur, Token::Identifier(_, _))
+        };
+        // this will parse either an identifier or a caret
+        if match_condition {
             let mut path_actions = vec![];
-            while let Token::Identifier(_, _) = cur {
-                let id = self.parse_id(false)?;
-                path_actions.push(PathAction::SearchFor(id));
+            let mut expects_path_section = false;
+            while match_condition {
+                if let Token::Identifier(_, _) = cur {
+                    let id = self.parse_id(false)?;
+                    path_actions.push(PathAction::SearchFor(id));
+                } else {
+                    path_actions.push(PathAction::ToParentDir(cur.get_source_ref()));
+                    self.advance_index();
+                }
 
                 if let Token::Scope(_) = self.cur_token() {
                     self.advance_index();
                     cur = self.cur_token();
+                    match_condition = if allow_caret {
+                        matches!(cur, Token::Identifier(_, _) | Token::Caret(_))
+                    } else {
+                        matches!(cur, Token::Identifier(_, _))
+                    };
+                    expects_path_section = true;
                 } else {
+                    expects_path_section = false;
                     break;
                 }
             }
 
             cur = self.cur_token();
             // look for one of:
+            // - *
             // - as
             // - [ to start a nested path
             match cur {
@@ -416,7 +482,7 @@ impl Parser {
                     self.advance_index();
                     cur = self.cur_token();
                     while !matches!(cur, Token::RBracket(_)) && !self.no_more_tokens() {
-                        let inner_paths = self.parse_simple_path_section()?;
+                        let inner_paths = self.parse_simple_path_section(allow_caret)?;
                         for inner_path in inner_paths {
                             let t_dep_path = DependencyPath {
                                 actions: path_actions.clone(),
@@ -424,13 +490,6 @@ impl Parser {
 
                             let combined_path = t_dep_path.combine(&inner_path);
                             dep_paths.push(combined_path);
-                            // for inner_action in inner_path.actions {
-                            //     let mut t_path_actions = path_actions.clone();
-                            //     t_path_actions.push(inner_action.clone());
-                            //     dep_paths.push(DependencyPath {
-                            //         actions: t_path_actions,
-                            //     });
-                            // }
                         }
                         cur = self.cur_token();
                         if matches!(cur, Token::Comma(_)) {
@@ -451,6 +510,41 @@ impl Parser {
                     }
                 }
                 _ => {
+                    if expects_path_section {
+                        let msg = if allow_caret {
+                            "a '^', '*', 'as' or '[' to continue use path section.".to_string()
+                        } else {
+                            "a '*', 'as' or '[' to continue use path section.".to_string()
+                        };
+                        let tip = if allow_caret {
+                            let mut text =
+                                "Provide a '^', '*', 'as' or '[' to continue use path section.'"
+                                    .to_string();
+                            text.push_str("E.g:\n");
+                            text.push_str("*  use immediate_module::inner::other;\n");
+                            text.push_str("*  use immediate_module::inner as alias;\n");
+                            text.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
+                            text.push_str("*  use immediate_module;\n");
+                            text.push_str("*  use import_everything::*;\n");
+                            text.push_str("*  use ^::module_in_parent_dir;\n");
+                            text.push_str("*  use ^::module_in_parent_dir::inner;\n");
+                            text.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
+                            text
+                        } else {
+                            let mut text =
+                                "Provide a '*', 'as' or '[' to continue use path section.'"
+                                    .to_string();
+                            text.push_str("E.g:\n");
+                            text.push_str("*  use @array::Array as core_array;\n");
+                            text.push_str("*  use @array::Array;\n");
+                            text.push_str("*  use @array::[Array, Array2D];\n");
+                            text.push_str("*  use @array;\n");
+                            text.push_str("*  use !my_module::*;\n");
+                            text.push_str("*  use $some_module_in_root::[a, b]");
+                            text
+                        };
+                        return Err(ParseError::Expected(msg, cur.get_source_ref(), Some(tip)));
+                    }
                     dep_paths.push(DependencyPath {
                         actions: path_actions,
                     });
@@ -459,9 +553,9 @@ impl Parser {
             Ok(dep_paths)
         } else {
             Err(ParseError::Expected(
-                "an identifier to start path section.".to_string(),
+                "an identifier or caret (^) as path section.".to_string(),
                 cur.get_source_ref(),
-                Some("Provide an identifier to start a path. E.g: 'kids::next::door'".to_string()),
+                None,
             ))
         }
     }

@@ -26,5 +26,6 @@ pub enum ParseError {
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
     UnusualTokenInUsePath(SourceRef),
+    UntermiatedUsePath(SourceRef),
     TooManyErrors(SourceRef),
 }
