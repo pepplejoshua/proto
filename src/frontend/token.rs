@@ -16,7 +16,6 @@ pub enum Token {
     Void(SourceRef),
     True(SourceRef),
     False(SourceRef),
-    Character(SourceRef, char),
     Use(SourceRef),
     Pub(SourceRef),
     Mod(SourceRef),
@@ -79,6 +78,8 @@ pub enum Token {
     U32Literal(u32, SourceRef),
     U64Literal(u64, SourceRef),
     UsizeLiteral(usize, SourceRef),
+    CharLiteral(SourceRef, char),
+    StringLiteral(SourceRef, String),
 
     // primitive types
     I8(SourceRef),
@@ -137,7 +138,7 @@ impl Token {
             Token::Void(src) => src.clone(),
             Token::True(src) => src.clone(),
             Token::False(src) => src.clone(),
-            Token::Character(src, _) => src.clone(),
+            Token::CharLiteral(src, _) => src.clone(),
             Token::Identifier(_, src) => src.clone(),
             Token::I8(src) => src.clone(),
             Token::I16(src) => src.clone(),
@@ -174,6 +175,7 @@ impl Token {
             Token::Dollar(src) => src.clone(),
             Token::At(src) => src.clone(),
             Token::As(src) => src.clone(),
+            Token::StringLiteral(src, _) => src.clone(),
         }
     }
 
@@ -246,7 +248,7 @@ impl Token {
             Token::Void(_) => "void".into(),
             Token::True(_) => "true".into(),
             Token::False(_) => "false".into(),
-            Token::Character(_, c) => format!("'{c}'"),
+            Token::CharLiteral(_, c) => format!("'{c}'"),
             Token::Use(_) => "use".into(),
             Token::Plus(_) => "+".into(),
             Token::Minus(_) => "-".into(),
@@ -306,6 +308,7 @@ impl Token {
             Token::Dollar(_) => "$".into(),
             Token::At(_) => "@".into(),
             Token::As(_) => "as".into(),
+            Token::StringLiteral(_, src) => format!("'{src}'"),
         }
     }
 }

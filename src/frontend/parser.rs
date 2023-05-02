@@ -345,7 +345,6 @@ impl Parser {
                         src: span,
                         block: ins,
                     };
-                    println!("directive ins: {}", direc.as_str());
                     Ok(direc)
                 }
                 None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
@@ -1021,7 +1020,6 @@ impl Parser {
                                 expr,
                                 resolved_type: None,
                             };
-                            println!("directive expr: {}", direc.as_str());
                             Ok(direc)
                         }
                         None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
@@ -1317,6 +1315,16 @@ impl Parser {
         let cur = self.cur_token();
 
         match cur {
+            Token::StringLiteral(_, _) => {
+                let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));
+                self.advance_index();
+                res
+            }
+            Token::CharLiteral(_, _) => {
+                let res = Ok(Expr::CharacterLiteral(cur, Some(Type::Char)));
+                self.advance_index();
+                res
+            }
             Token::Identifier(_, _) => {
                 let res = Ok(Expr::Id(cur, None));
                 self.advance_index();

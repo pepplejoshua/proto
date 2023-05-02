@@ -5,6 +5,8 @@ use super::{source::SourceRef, token::Token, types::Type};
 pub enum Expr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
+    StringLiteral(Token, Option<Type>),
+    CharacterLiteral(Token, Option<Type>),
     Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Comparison(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Boolean(Token, Option<Type>),
@@ -71,6 +73,8 @@ impl Expr {
                 resolved_type: _,
                 src,
             } => src.clone(),
+            Expr::StringLiteral(t, _) => t.get_source_ref(),
+            Expr::CharacterLiteral(t, _) => t.get_source_ref(),
         }
     }
 
@@ -124,6 +128,8 @@ impl Expr {
                     format!("@{}", directive.as_str())
                 }
             }
+            Expr::StringLiteral(tok, _) => format!("\"{}\"", tok.as_str()),
+            Expr::CharacterLiteral(tok, _) => format!("'{}'", tok.as_str()),
         }
     }
 
@@ -154,6 +160,8 @@ impl Expr {
                 resolved_type,
                 src: _,
             } => resolved_type.clone(),
+            Expr::StringLiteral(_, t) => t.clone(),
+            Expr::CharacterLiteral(_, t) => t.clone(),
         }
     }
 }

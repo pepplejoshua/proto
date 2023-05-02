@@ -6,6 +6,9 @@ pub enum LexError {
     InvalidCharacter(SourceRef),
     CannotMakeSignedNumber(SourceRef),
     CannotMakeUnsignedNumber(SourceRef),
+    EmptyCharacterLiteral(SourceRef),
+    UnterminatedCharacterLiteral(SourceRef),
+    UnterminatedStringLiteral(SourceRef),
 }
 
 #[allow(dead_code)]

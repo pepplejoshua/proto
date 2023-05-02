@@ -93,6 +93,11 @@ impl SourceFile {
         self.text.chars().nth(self.flat_index + 1).unwrap()
     }
 
+    // check if we are at end of file
+    pub fn is_eof(&self) -> bool {
+        self.flat_index >= self.text.len()
+    }
+
     // current character without advancing the fields
     pub fn cur_char(&self) -> char {
         if self.flat_index >= self.text.len() {
@@ -240,6 +245,26 @@ impl SourceReporter {
             LexError::CannotMakeUnsignedNumber(src) => {
                 let msg = "Number too large to fit any unsigned integer type.".to_string();
                 self.report_with_ref(src, msg, None);
+            }
+            LexError::EmptyCharacterLiteral(src) => {
+                let msg = "Empty character literal.".to_string();
+                let mut tip = "Character literals must contain a single character.\n".to_string();
+                tip.push_str("E.g: 'a' is a character, while '' is not.");
+                self.report_with_ref(src, msg, Some(tip));
+            }
+            LexError::UnterminatedCharacterLiteral(src) => {
+                let msg = "Unterminated character literal.".to_string();
+                let mut tip = "Character literals must be terminated with a '.\n".to_string();
+                tip.push_str("E.g: 'a' is a character, while 'a is not.");
+                self.report_with_ref(src, msg, Some(tip));
+            }
+            LexError::UnterminatedStringLiteral(src) => {
+                let msg = "Unterminated string literal.".to_string();
+                let mut tip = "String literals must be terminated with a \".\n".to_string();
+                tip.push_str(
+                    "E.g: '\"hello world\"' is a string literal, while '\"hello world' is not.",
+                );
+                self.report_with_ref(src, msg, Some(tip));
             }
         }
     }

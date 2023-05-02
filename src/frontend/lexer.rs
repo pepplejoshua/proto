@@ -82,6 +82,10 @@ impl Lexer {
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
+            // ' which is used to start characters or strings
+            '\'' => self.lex_char(),
+            // " which is used to start strings
+            '"' => self.lex_string(),
             // invalid character
             _ => {
                 let mut err_ref = self.src.get_ref();
@@ -315,6 +319,81 @@ impl Lexer {
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
         }
+    }
+
+    fn lex_string(&mut self) -> Result<Token, LexError> {
+        let mut span = self.src.get_ref();
+        let mut content = String::new();
+
+        // read all characters until terminating "
+        while !self.src.is_eof() {
+            let c = self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            if c == '"' {
+                break;
+            } else if c == '\\' {
+                // if the next character is a ", add it to the content
+                let c = self.src.next_char();
+                span = span.combine(self.src.get_ref());
+                if c == '"' {
+                    content.push('"');
+                } else {
+                    // otherwise, add the escape character
+                    content.push('\\');
+                    content.push(c);
+                }
+            } else {
+                content.push(c);
+            }
+        }
+
+        // if the string is not terminated, return an error
+        if self.src.is_eof() {
+            Err(LexError::UnterminatedStringLiteral(span))
+        } else {
+            self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            Ok(Token::StringLiteral(span, content))
+        }
+    }
+
+    // try to lex a character
+    fn lex_char(&mut self) -> Result<Token, LexError> {
+        let mut span = self.src.get_ref();
+        let mut content = String::new();
+
+        // read single character
+        let c = self.src.next_char();
+        span = span.combine(self.src.get_ref());
+
+        // if the next character is a ', return an error
+        if c == '\'' {
+            return Err(LexError::EmptyCharacterLiteral(span));
+        } else if c == '\\' {
+            // if the next character is a ', add it to the content
+            let c = self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            if c == '\'' {
+                content.push('\'');
+            } else {
+                // otherwise, add the escape character
+                content.push('\\');
+                content.push(c);
+            }
+        } else {
+            content.push(c);
+        }
+
+        // if the next character is not a ', return an error
+        let c = self.src.next_char();
+        span = span.combine(self.src.get_ref());
+        if c != '\'' {
+            return Err(LexError::UnterminatedCharacterLiteral(span));
+        }
+
+        self.src.next_char();
+        span = span.combine(self.src.get_ref());
+        Ok(Token::CharLiteral(span, content.chars().next().unwrap()))
     }
 
     // try to lex a number
