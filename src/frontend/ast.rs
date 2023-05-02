@@ -326,6 +326,10 @@ pub enum Instruction {
         block: Option<Box<Instruction>>,
         src: SourceRef,
     },
+    // ConditionalBranchIns {
+    //     pairs: Vec<(Expr, Box<Instruction>)>,
+    //     src: SourceRef,
+    // },
 }
 
 #[allow(dead_code)]

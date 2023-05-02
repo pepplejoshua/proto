@@ -114,7 +114,7 @@ impl Parser {
 
     // this function will return one Instruction at
     // a time.
-    pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
+    fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
             Token::At(_) => self.parse_directive_instruction(),
@@ -994,54 +994,8 @@ impl Parser {
         }
     }
 
-    fn parse_directive_expr(&mut self) -> Result<Expr, ParseError> {
-        let start = self.cur_token();
-        match start {
-            Token::At(_) => {
-                self.advance_index();
-                let cur = self.cur_token();
-                if let Token::Identifier(name, _) = &cur {
-                    let binding = DIRECTIVES_EXPRS.get(name);
-                    match binding {
-                        Some(needs_additional_expr) => {
-                            let directive = self.parse_id(false)?;
-                            let mut expr = None;
-                            let mut span = self.cur_token().get_source_ref();
-                            if *needs_additional_expr {
-                                self.allow_directive_expr_use = false;
-                                let e = self.parse_expr()?;
-                                self.allow_directive_expr_use = true;
-                                span = span.combine(e.source_ref());
-                                expr = Some(Box::new(e));
-                            }
-                            let direc = Expr::DirectiveExpr {
-                                directive: Box::new(directive),
-                                src: start.get_source_ref().combine(span),
-                                expr,
-                                resolved_type: None,
-                            };
-                            Ok(direc)
-                        }
-                        None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
-                    }
-                } else {
-                    Err(ParseError::Expected(
-                        "an identifier to name the directive after '@'.".into(),
-                        cur.get_source_ref(),
-                        Some("Provide a name for the directive. E.g: '@filename'".into()),
-                    ))
-                }
-            }
-            _ => self.parse_or(),
-        }
-    }
-
     fn parse_expr(&mut self) -> Result<Expr, ParseError> {
-        if self.allow_directive_expr_use {
-            self.parse_directive_expr()
-        } else {
-            self.parse_or()
-        }
+        self.parse_or()
     }
 
     fn parse_or(&mut self) -> Result<Expr, ParseError> {
@@ -1311,10 +1265,48 @@ impl Parser {
         }
     }
 
+    fn parse_directive_expr(&mut self) -> Result<Expr, ParseError> {
+        let start = self.cur_token();
+        self.advance_index();
+        let cur = self.cur_token();
+        if let Token::Identifier(name, _) = &cur {
+            let binding = DIRECTIVES_EXPRS.get(name);
+            match binding {
+                Some(needs_additional_expr) => {
+                    let directive = self.parse_id(false)?;
+                    let mut expr = None;
+                    let mut span = self.cur_token().get_source_ref();
+                    if *needs_additional_expr {
+                        self.allow_directive_expr_use = false;
+                        let e = self.parse_expr()?;
+                        self.allow_directive_expr_use = true;
+                        span = span.combine(e.source_ref());
+                        expr = Some(Box::new(e));
+                    }
+                    let direc = Expr::DirectiveExpr {
+                        directive: Box::new(directive),
+                        src: start.get_source_ref().combine(span),
+                        expr,
+                        resolved_type: None,
+                    };
+                    Ok(direc)
+                }
+                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
+            }
+        } else {
+            Err(ParseError::Expected(
+                "an identifier to name the directive after '@'.".into(),
+                cur.get_source_ref(),
+                Some("Provide a name for the directive. E.g: '@filename'".into()),
+            ))
+        }
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
 
         match cur {
+            Token::At(_) => self.parse_directive_expr(),
             Token::StringLiteral(_, _) => {
                 let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));
                 self.advance_index();

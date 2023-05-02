@@ -1,0 +1,10 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/directives.pr
+---
+module:
+  - "fn main () void { let a = @run 0 * 0; @inline { mut sum = 0; while a < 2 { sum = sum + a; a = a + 1; } } let filename = @filename; let text = \"'a piece of text'\"; let character = ''a''; }"
+lexer_error: []
+parser_error: []
+

@@ -74,13 +74,20 @@ fn main() {
         let mut parser = Parser::new(lexer);
         parser.parse();
 
-        let _has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
-        for le in parser.lexer_errors {
-            reporter.report_lexer_error(&le);
+        if !parser.lexer_errors.is_empty() {
+            for le in parser.lexer_errors {
+                reporter.report_lexer_error(&le);
+            }
+        } else {
+            reporter.show_info("No errors during lexing.".to_string());
         }
 
-        for pe in parser.parser_errors {
-            reporter.report_parser_error(pe);
+        if !parser.parser_errors.is_empty() {
+            for pe in parser.parser_errors {
+                reporter.report_parser_error(pe);
+            }
+        } else {
+            reporter.show_info("No errors during parsing.".to_string());
         }
     }
 }
