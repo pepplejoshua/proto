@@ -74,13 +74,13 @@ impl Parser {
     fn recover_from_err(&mut self) {
         while !self.no_more_tokens() {
             let cur = self.cur_token();
-            match cur {
-                Token::Pub(_) | Token::Mut(_) | Token::Let(_) | Token::Fn(_) | Token::Mod(_) => {
-                    break
-                }
-                _ => {
-                    self.advance_index();
-                }
+            if cur.is_terminator() {
+                self.advance_index();
+                break;
+            } else if cur.begins_instruction() {
+                break;
+            } else {
+                self.advance_index();
             }
         }
     }
@@ -295,6 +295,7 @@ impl Parser {
             if instruction.is_err() {
                 // record the error and continue parsing
                 self.report_error(instruction.err().unwrap());
+                self.recover_from_err();
                 // update the current token
                 cur = self.cur_token();
                 continue;

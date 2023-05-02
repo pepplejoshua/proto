@@ -177,6 +177,23 @@ impl Token {
         }
     }
 
+    pub fn is_terminator(&self) -> bool {
+        matches!(self, Token::Semicolon(_) | Token::RCurly(_) | Token::Eof(_))
+    }
+
+    pub fn begins_instruction(&self) -> bool {
+        matches!(
+            self,
+            Token::Let(_)
+                | Token::LCurly(_)
+                | Token::Loop(_)
+                | Token::While(_)
+                | Token::Use(_)
+                | Token::Mod(_)
+                | Token::Pub(_)
+        )
+    }
+
     pub fn is_type_token(&self) -> bool {
         matches!(
             self,

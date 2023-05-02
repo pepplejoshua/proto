@@ -315,7 +315,8 @@ impl SourceReporter {
             }
             ParseError::TooManyErrors(src) => {
                 let msg = "Too many errors during parsing. Stopping.".to_string();
-                let tip = "Errors might be cascading. Try fixing some and retrying.".to_string();
+                let tip =
+                    "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::UnusualTokenInUsePath(src) => {
@@ -335,7 +336,7 @@ impl SourceReporter {
                 tip.push_str("Please find more information on use paths  in documentation.");
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::UntermiatedUsePath(src) => {
+            ParseError::UnterminatedUsePath(src) => {
                 let msg = "Unterminated use path.".to_string();
                 let mut tip = "Some terminated use paths include:\n".to_string();
                 tip.push_str("*  use immediate_module::inner::other;\n");
