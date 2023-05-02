@@ -308,7 +308,7 @@ impl Token {
             Token::Dollar(_) => "$".into(),
             Token::At(_) => "@".into(),
             Token::As(_) => "as".into(),
-            Token::StringLiteral(_, src) => format!("'{src}'"),
+            Token::StringLiteral(_, src) => format!("\"{src}\""),
         }
     }
 }

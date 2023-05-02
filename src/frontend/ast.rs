@@ -128,8 +128,8 @@ impl Expr {
                     format!("@{}", directive.as_str())
                 }
             }
-            Expr::StringLiteral(tok, _) => format!("\"{}\"", tok.as_str()),
-            Expr::CharacterLiteral(tok, _) => format!("'{}'", tok.as_str()),
+            Expr::StringLiteral(literal, _) => literal.as_str(),
+            Expr::CharacterLiteral(literal, _) => literal.as_str(),
         }
     }
 
@@ -326,10 +326,10 @@ pub enum Instruction {
         block: Option<Box<Instruction>>,
         src: SourceRef,
     },
-    // ConditionalBranchIns {
-    //     pairs: Vec<(Expr, Box<Instruction>)>,
-    //     src: SourceRef,
-    // },
+    ConditionalBranchIns {
+        pairs: Vec<(Option<Expr>, Box<Instruction>)>,
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
@@ -469,6 +469,31 @@ impl Instruction {
                     format!("@{}", directive.as_str())
                 }
             }
+            Instruction::ConditionalBranchIns { pairs, src: _ } => {
+                let mut str_rep = String::new();
+                for i in 0..pairs.len() {
+                    let (cond, ins) = &pairs[i];
+                    if i == 0 {
+                        // for the first pair, we do if <cond> <ins>
+                        str_rep.push_str(&format!(
+                            "if {} {}",
+                            cond.clone().unwrap().as_str(),
+                            ins.as_str()
+                        ));
+                    } else if i < pairs.len() - 1 {
+                        // for the rest, we do else if <cond> <ins>
+                        str_rep.push_str(&format!(
+                            " else if {} {}",
+                            cond.clone().unwrap().as_str(),
+                            ins.as_str()
+                        ));
+                    } else {
+                        // for the last, we do else <ins>
+                        str_rep.push_str(&format!(" else {}", ins.as_str()));
+                    }
+                }
+                str_rep
+            }
         }
     }
 
@@ -521,6 +546,7 @@ impl Instruction {
                 block: _,
                 src,
             } => src.clone(),
+            Instruction::ConditionalBranchIns { pairs: _, src } => src.clone(),
         }
     }
 }

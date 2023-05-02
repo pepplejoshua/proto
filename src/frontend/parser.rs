@@ -119,6 +119,7 @@ impl Parser {
         match &cur {
             Token::At(_) => self.parse_directive_instruction(),
             Token::Use(_) => self.parse_use_dependency(),
+            Token::If(_) => self.parse_conditional_branch_ins(),
             Token::Fn(_) => self.parse_fn_def(false, None),
             Token::Let(_) => self.parse_const_decl(false, None),
             // prevent mutable bindings at the top level
@@ -790,6 +791,51 @@ impl Parser {
                 ))
             }
         }
+    }
+
+    fn parse_conditional_branch_ins(&mut self) -> Result<Instruction, ParseError> {
+        self.advance_index(); // skip past "if"
+        let mut span = self.cur_token().get_source_ref();
+
+        // get condition for if statement
+        let if_cond = self.parse_expr()?;
+        span = span.combine(if_cond.source_ref());
+
+        // get body of if statement
+        let if_body = self.next_instruction()?;
+        span = span.combine(if_body.source_ref());
+
+        let mut pairs = vec![(Some(if_cond), Box::new(if_body))];
+
+        // check for else
+        let mut cur = self.cur_token();
+        while let Token::Else(_) = cur {
+            self.advance_index(); // skip past "else"
+
+            // check for if
+            cur = self.cur_token();
+            if let Token::If(_) = cur {
+                self.advance_index(); // skip past "if"
+
+                let else_if_cond = self.parse_expr()?;
+
+                let else_if_body = self.next_instruction()?;
+                span = span.combine(else_if_body.source_ref());
+
+                pairs.push((Some(else_if_cond), Box::new(else_if_body)));
+                cur = self.cur_token();
+            } else {
+                // else body
+                let else_body = self.next_instruction()?;
+                span = span.combine(else_body.source_ref());
+
+                pairs.push((None, Box::new(else_body)));
+                break;
+            }
+        }
+
+        let cond_branch_ins = Instruction::ConditionalBranchIns { pairs, src: span };
+        Ok(cond_branch_ins)
     }
 
     fn parse_break_ins(&mut self) -> Result<Instruction, ParseError> {
