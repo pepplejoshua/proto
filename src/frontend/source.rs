@@ -353,6 +353,12 @@ impl SourceReporter {
                 tip.push_str("Please find more information on use paths in documentation.");
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::UnknownCompilerDirective(src) => {
+                let msg = "Unknown compiler directive.".to_string();
+                let tip = "Please find more information on compiler directives in documentation."
+                    .to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 

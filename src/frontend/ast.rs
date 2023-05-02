@@ -1,6 +1,7 @@
 use super::{source::SourceRef, token::Token, types::Type};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Expr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
@@ -20,6 +21,12 @@ pub enum Expr {
         target: Box<Expr>,
         src: SourceRef,
         resolved_type: Option<Type>,
+    },
+    DirectiveExpr {
+        directive: Box<Expr>,
+        expr: Option<Box<Expr>>,
+        resolved_type: Option<Type>,
+        src: SourceRef,
     },
 }
 
@@ -57,6 +64,12 @@ impl Expr {
                 target: _,
                 src,
                 resolved_type: _,
+            } => src.clone(),
+            Expr::DirectiveExpr {
+                directive: _,
+                expr: _,
+                resolved_type: _,
+                src,
             } => src.clone(),
         }
     }
@@ -99,6 +112,18 @@ impl Expr {
                 src: _,
                 resolved_type: _,
             } => format!("{}::{}", module.as_str(), target.as_str()),
+            Expr::DirectiveExpr {
+                directive,
+                expr,
+                resolved_type: _,
+                src: _,
+            } => {
+                if let Some(expr) = expr {
+                    format!("@{} {}", directive.as_str(), expr.as_str())
+                } else {
+                    format!("@{}", directive.as_str())
+                }
+            }
         }
     }
 
@@ -122,6 +147,12 @@ impl Expr {
                 target: _,
                 src: _,
                 resolved_type,
+            } => resolved_type.clone(),
+            Expr::DirectiveExpr {
+                directive: _,
+                expr: _,
+                resolved_type,
+                src: _,
             } => resolved_type.clone(),
         }
     }
@@ -282,6 +313,11 @@ pub enum Instruction {
         paths: Vec<DependencyPath>,
         src: SourceRef,
     },
+    DirectiveInstruction {
+        directive: Expr,
+        block: Option<Box<Instruction>>,
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
@@ -410,6 +446,17 @@ impl Instruction {
                 }
                 format!("use {};", path_str)
             }
+            Instruction::DirectiveInstruction {
+                directive,
+                block,
+                src: _,
+            } => {
+                if let Some(block) = block {
+                    format!("@{} {}", directive.as_str(), block.as_str())
+                } else {
+                    format!("@{}", directive.as_str())
+                }
+            }
         }
     }
 
@@ -457,6 +504,11 @@ impl Instruction {
             Instruction::Break(src) => src.clone(),
             Instruction::Continue(src) => src.clone(),
             Instruction::UseDependency { paths: _, src } => src.clone(),
+            Instruction::DirectiveInstruction {
+                directive: _,
+                block: _,
+                src,
+            } => src.clone(),
         }
     }
 }

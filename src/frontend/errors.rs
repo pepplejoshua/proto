@@ -27,5 +27,6 @@ pub enum ParseError {
     ReturnInstructionOutsideFunction(SourceRef),
     UnusualTokenInUsePath(SourceRef),
     UnterminatedUsePath(SourceRef),
+    UnknownCompilerDirective(SourceRef),
     TooManyErrors(SourceRef),
 }
