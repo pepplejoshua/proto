@@ -1404,10 +1404,27 @@ impl Parser {
         }
     }
 
+    fn parse_init_named_struct(&mut self) -> Result<Expr, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // consume ':'
+
+        let name = self.parse_id(false)?;
+        let fields = self.parse_key_value_bindings(false)?;
+        span = span.combine(fields.source_ref());
+        let init_named_struct = Expr::NamedStructInit {
+            name: Box::new(name),
+            fields,
+            src: span,
+            resolved_type: None,
+        };
+        Ok(init_named_struct)
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
 
         match cur {
+            Token::Colon(_) => self.parse_init_named_struct(),
             Token::At(_) => self.parse_directive_expr(),
             Token::StringLiteral(_, _) => {
                 let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));

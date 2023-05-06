@@ -30,6 +30,12 @@ pub enum Expr {
         resolved_type: Option<Type>,
         src: SourceRef,
     },
+    NamedStructInit {
+        name: Box<Expr>,
+        fields: KeyValueBindings,
+        src: SourceRef,
+        resolved_type: Option<Type>,
+    },
 }
 
 #[allow(dead_code)]
@@ -75,6 +81,12 @@ impl Expr {
             } => src.clone(),
             Expr::StringLiteral(t, _) => t.get_source_ref(),
             Expr::CharacterLiteral(t, _) => t.get_source_ref(),
+            Expr::NamedStructInit {
+                name: _,
+                fields: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
         }
     }
 
@@ -136,6 +148,16 @@ impl Expr {
             }
             Expr::StringLiteral(literal, _) => literal.as_str(),
             Expr::CharacterLiteral(literal, _) => literal.as_str(),
+            Expr::NamedStructInit {
+                name,
+                fields,
+                src: _,
+                resolved_type: _,
+            } => {
+                let mut s = format!(":{} ", name.as_str());
+                s.push_str(&fields.as_str());
+                s
+            }
         }
     }
 
@@ -168,6 +190,12 @@ impl Expr {
             } => resolved_type.clone(),
             Expr::StringLiteral(_, t) => t.clone(),
             Expr::CharacterLiteral(_, t) => t.clone(),
+            Expr::NamedStructInit {
+                name: _,
+                fields: _,
+                src: _,
+                resolved_type,
+            } => resolved_type.clone(),
         }
     }
 }

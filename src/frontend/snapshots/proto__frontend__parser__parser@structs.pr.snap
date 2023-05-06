@@ -1,0 +1,11 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/structs.pr
+---
+module:
+  - ":SourceFile { path str, text str = \"\", flat_index usize = 0, col usize = 0, line usize = 0 }"
+  - "fn main () void { mut src = :SourceFile { path = \"./using_constructor.pr\" }; }"
+lexer_error: []
+parser_error: []
+

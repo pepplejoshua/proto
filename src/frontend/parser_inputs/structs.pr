@@ -1,0 +1,16 @@
+// This is a sample for user defined structs
+
+// simple struct that uses defaults
+:SourceFile {
+    path str,
+    text str = "",
+    flat_index usize = 0,
+    col usize = 0,
+    line usize = 0,
+}
+
+fn main() void {
+    // since we allow defaults, we can focus on the
+    // members we care about initializing
+    mut src = :SourceFile { path = "./using_constructor.pr" };
+}
