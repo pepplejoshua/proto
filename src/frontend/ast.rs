@@ -80,7 +80,13 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Id(tok, _) => tok.as_str(),
+            Expr::Id(tok, maybe_type) => {
+                let mut s = tok.as_str().to_string();
+                if let Some(t) = maybe_type {
+                    s.push_str(&format!(" {}", t.as_str()));
+                }
+                s
+            }
             Expr::Number(num, _) => num.as_str(),
             Expr::Binary(op, lhs, rhs, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
@@ -273,7 +279,43 @@ impl DependencyPath {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
+pub struct KeyValueBindings {
+    pub pairs: Vec<(Expr, Option<Expr>)>,
+    pub span: SourceRef,
+}
+
+#[allow(dead_code)]
+impl KeyValueBindings {
+    pub fn as_str(&self) -> String {
+        let mut s = String::from("{ ");
+        for (index, (k, v)) in self.pairs.iter().enumerate() {
+            s.push_str(&k.as_str());
+            if let Some(v) = v {
+                s.push_str(" = ");
+                s.push_str(&v.as_str());
+            }
+
+            if index < self.pairs.len() - 1 {
+                s.push_str(", ");
+            }
+        }
+        s.push_str(" }");
+        s
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        self.span.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Instruction {
+    NamedStructDecl {
+        name: Expr,
+        fields: KeyValueBindings,
+        src: SourceRef,
+    },
     ConstantDecl {
         const_name: Token,
         const_type: Option<Type>,
@@ -336,6 +378,13 @@ pub enum Instruction {
 impl Instruction {
     pub fn as_str(&self) -> String {
         match self {
+            Instruction::NamedStructDecl {
+                name,
+                fields,
+                src: _,
+            } => {
+                format!(":{} {}", name.as_str(), fields.as_str())
+            }
             Instruction::ConstantDecl {
                 const_name,
                 const_type: t,
@@ -547,6 +596,11 @@ impl Instruction {
                 src,
             } => src.clone(),
             Instruction::ConditionalBranchIns { pairs: _, src } => src.clone(),
+            Instruction::NamedStructDecl {
+                name: _,
+                fields: _,
+                src,
+            } => src.clone(),
         }
     }
 }

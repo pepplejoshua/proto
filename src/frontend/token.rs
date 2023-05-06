@@ -94,6 +94,7 @@ pub enum Token {
     Usize(SourceRef),
     Bool(SourceRef),
     Char(SourceRef),
+    Str(SourceRef),
 
     // misc
     Eof(SourceRef),
@@ -152,6 +153,7 @@ impl Token {
             Token::Usize(src) => src.clone(),
             Token::Bool(src) => src.clone(),
             Token::Char(src) => src.clone(),
+            Token::Str(src) => src.clone(),
             Token::I8Literal(_, src) => src.clone(),
             Token::I16Literal(_, src) => src.clone(),
             Token::I32Literal(_, src) => src.clone(),
@@ -193,6 +195,7 @@ impl Token {
                 | Token::Use(_)
                 | Token::Mod(_)
                 | Token::Pub(_)
+                | Token::At(_)
         )
     }
 
@@ -212,6 +215,7 @@ impl Token {
                 | Token::Bool(_)
                 | Token::Char(_)
                 | Token::Void(_)
+                | Token::Str(_)
         )
     }
 
@@ -230,6 +234,7 @@ impl Token {
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
             Token::Void(_) => Type::Void,
+            Token::Str(_) => Type::Str,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }
@@ -298,6 +303,7 @@ impl Token {
             Token::Usize(_) => "usize".into(),
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
+            Token::Str(_) => "str".into(),
             Token::Eof(_) => "\0".into(),
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),

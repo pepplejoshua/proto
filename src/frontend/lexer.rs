@@ -162,6 +162,7 @@ impl Lexer {
             "usize" => Ok(Token::Usize(combined_ref)),
             "bool" => Ok(Token::Bool(combined_ref)),
             "char" => Ok(Token::Char(combined_ref)),
+            "str" => Ok(Token::Str(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }

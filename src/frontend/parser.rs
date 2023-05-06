@@ -1,5 +1,5 @@
 use super::{
-    ast::{CompilationModule, DependencyPath, Expr, Instruction, PathAction},
+    ast::{CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction},
     directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
     errors::{LexError, ParseError},
     lexer::Lexer,
@@ -29,13 +29,6 @@ pub struct Parser {
     allow_directive_expr_use: bool,
 }
 
-// TODO: Implement a better error recovery system
-// This will allow things like:
-// - code blocks will continue parsing even if there is an error in an instruction
-// - this means functions will continue parsing even if there is an error in an instruction
-// - there might be a way to recover from errors in expressions, but I am not sure. This is
-//   important since a lot of instructions are composed of expressions or other instructions
-//   which may contain expressions.
 #[allow(dead_code)]
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
@@ -117,6 +110,7 @@ impl Parser {
     fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
+            Token::Colon(_) => self.parse_struct_decl(),
             Token::At(_) => self.parse_directive_instruction(),
             Token::Use(_) => self.parse_use_dependency(),
             Token::If(_) => self.parse_conditional_branch_ins(),
@@ -904,6 +898,68 @@ impl Parser {
         })
     }
 
+    fn parse_struct_decl(&mut self) -> Result<Instruction, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // skip past ":"
+        let name = self.parse_id(false)?;
+        let key_value_pairs = self.parse_key_value_bindings(true)?;
+        span = span.combine(key_value_pairs.source_ref());
+        let named_struct = Instruction::NamedStructDecl {
+            name,
+            fields: key_value_pairs,
+            src: span,
+        };
+        Ok(named_struct)
+    }
+
+    // parses key-value bindings for structs
+    fn parse_key_value_bindings(
+        &mut self,
+        parse_type: bool,
+    ) -> Result<KeyValueBindings, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        let mut bindings = Vec::new();
+
+        self.advance_index(); // skip past "{"
+        let mut cur = self.cur_token();
+        while let Token::Identifier(_, _) = cur {
+            let name = self.parse_id(parse_type)?;
+            span = span.combine(name.source_ref());
+
+            cur = self.cur_token();
+            if let Token::Assign(_) = cur {
+                self.advance_index(); // skip past "="
+                let expr = self.parse_expr()?;
+                span = span.combine(expr.source_ref());
+                bindings.push((name, Some(expr)));
+            } else {
+                bindings.push((name, None));
+            }
+
+            cur = self.cur_token();
+            if let Token::Comma(_) = cur {
+                self.advance_index(); // skip past ","
+                cur = self.cur_token();
+                span = span.combine(cur.get_source_ref());
+            } else if let Token::RCurly(_) = cur {
+                span = span.combine(cur.get_source_ref());
+                break;
+            } else {
+                return Err(ParseError::Expected(
+                    "a ',' between fields or '}' to terminate the struct.".into(),
+                    cur.get_source_ref(),
+                    Some("Terminate the struct field with a ',' or terminate the struct with a '}'. E.g: 'field1 = value, field2 = value }'".into()),
+                ));
+            }
+        }
+
+        self.advance_index(); // skip past "}"
+        Ok(KeyValueBindings {
+            span,
+            pairs: bindings,
+        })
+    }
+
     fn parse_var_decl(&mut self) -> Result<Instruction, ParseError> {
         let start = self.cur_token();
         self.advance_index(); // skip past "let"
@@ -1293,7 +1349,7 @@ impl Parser {
                             "to parse a type for the preceding identifier, '{}'.",
                             id.as_str()
                         ),
-                        id.get_source_ref().combine(cur.get_source_ref()),
+                        id.get_source_ref(),
                         Some("Please provide a type for this identifier.".into()),
                     ))
                 }
