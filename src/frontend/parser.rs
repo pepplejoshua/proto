@@ -1,5 +1,6 @@
 use super::{
-    ast::{CompilationModule, DependencyPath, Expr, Instruction, PathAction},
+    ast::{CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction},
+    directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
@@ -25,15 +26,9 @@ pub struct Parser {
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
     compilation_module: CompilationModule,
+    allow_directive_expr_use: bool,
 }
 
-// TODO: Implement a better error recovery system
-// This will allow things like:
-// - code blocks will continue parsing even if there is an error in an instruction
-// - this means functions will continue parsing even if there is an error in an instruction
-// - there might be a way to recover from errors in expressions, but I am not sure. This is
-//   important since a lot of instructions are composed of expressions or other instructions
-//   which may contain expressions.
 #[allow(dead_code)]
 impl Parser {
     pub fn new(l: Lexer) -> Parser {
@@ -44,6 +39,7 @@ impl Parser {
             lexed_token: None,
             parse_scope: ParseScope::TopLevel,
             compilation_module: CompilationModule::new(),
+            allow_directive_expr_use: true,
         };
         p.advance_index();
         p
@@ -74,13 +70,13 @@ impl Parser {
     fn recover_from_err(&mut self) {
         while !self.no_more_tokens() {
             let cur = self.cur_token();
-            match cur {
-                Token::Pub(_) | Token::Mut(_) | Token::Let(_) | Token::Fn(_) | Token::Mod(_) => {
-                    break
-                }
-                _ => {
-                    self.advance_index();
-                }
+            if cur.is_terminator() {
+                self.advance_index();
+                break;
+            } else if cur.begins_instruction() {
+                break;
+            } else {
+                self.advance_index();
             }
         }
     }
@@ -111,10 +107,13 @@ impl Parser {
 
     // this function will return one Instruction at
     // a time.
-    pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
+    fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
+            Token::Colon(_) => self.parse_struct_decl(),
+            Token::At(_) => self.parse_directive_instruction(),
             Token::Use(_) => self.parse_use_dependency(),
+            Token::If(_) => self.parse_conditional_branch_ins(),
             Token::Fn(_) => self.parse_fn_def(false, None),
             Token::Let(_) => self.parse_const_decl(false, None),
             // prevent mutable bindings at the top level
@@ -295,6 +294,7 @@ impl Parser {
             if instruction.is_err() {
                 // record the error and continue parsing
                 self.report_error(instruction.err().unwrap());
+                self.recover_from_err();
                 // update the current token
                 cur = self.cur_token();
                 continue;
@@ -318,6 +318,41 @@ impl Parser {
         })
     }
 
+    fn parse_directive_instruction(&mut self) -> Result<Instruction, ParseError> {
+        let start = self.cur_token();
+        // skip the '@' token
+        self.advance_index();
+        let cur = self.cur_token();
+        if let Token::Identifier(name, _) = &cur {
+            let binding = DIRECTIVES_INS.get(name);
+            match binding {
+                Some(needs_additional_ins) => {
+                    let directive = self.parse_id(false)?;
+                    let mut ins = None;
+                    let mut span = start.get_source_ref();
+                    if *needs_additional_ins {
+                        let block = self.parse_code_block()?;
+                        span = span.combine(block.source_ref());
+                        ins = Some(Box::new(block));
+                    }
+                    let direc = Instruction::DirectiveInstruction {
+                        directive,
+                        src: span,
+                        block: ins,
+                    };
+                    Ok(direc)
+                }
+                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
+            }
+        } else {
+            Err(ParseError::Expected(
+                "an identifier to name the directive after '@'".to_string(),
+                cur.get_source_ref(),
+                Some("Provide a name for the directive. E.g: '@run { ... }'".to_string()),
+            ))
+        }
+    }
+
     fn parse_use_dependency(&mut self) -> Result<Instruction, ParseError> {
         let start = self.cur_token();
         // skip the 'use' keyword
@@ -332,7 +367,6 @@ impl Parser {
                 paths: paths_to_import,
                 src: start.get_source_ref().combine(end.get_source_ref()),
             };
-            println!("{}", use_ins.as_str());
             Ok(use_ins)
         } else {
             Err(ParseError::Expected(
@@ -753,6 +787,51 @@ impl Parser {
         }
     }
 
+    fn parse_conditional_branch_ins(&mut self) -> Result<Instruction, ParseError> {
+        self.advance_index(); // skip past "if"
+        let mut span = self.cur_token().get_source_ref();
+
+        // get condition for if statement
+        let if_cond = self.parse_expr()?;
+        span = span.combine(if_cond.source_ref());
+
+        // get body of if statement
+        let if_body = self.next_instruction()?;
+        span = span.combine(if_body.source_ref());
+
+        let mut pairs = vec![(Some(if_cond), Box::new(if_body))];
+
+        // check for else
+        let mut cur = self.cur_token();
+        while let Token::Else(_) = cur {
+            self.advance_index(); // skip past "else"
+
+            // check for if
+            cur = self.cur_token();
+            if let Token::If(_) = cur {
+                self.advance_index(); // skip past "if"
+
+                let else_if_cond = self.parse_expr()?;
+
+                let else_if_body = self.next_instruction()?;
+                span = span.combine(else_if_body.source_ref());
+
+                pairs.push((Some(else_if_cond), Box::new(else_if_body)));
+                cur = self.cur_token();
+            } else {
+                // else body
+                let else_body = self.next_instruction()?;
+                span = span.combine(else_body.source_ref());
+
+                pairs.push((None, Box::new(else_body)));
+                break;
+            }
+        }
+
+        let cond_branch_ins = Instruction::ConditionalBranchIns { pairs, src: span };
+        Ok(cond_branch_ins)
+    }
+
     fn parse_break_ins(&mut self) -> Result<Instruction, ParseError> {
         let break_ref = self.cur_token().get_source_ref();
         self.advance_index();
@@ -816,6 +895,68 @@ impl Parser {
             src: loop_ref.combine(body.source_ref()),
             condition,
             body: Box::new(body),
+        })
+    }
+
+    fn parse_struct_decl(&mut self) -> Result<Instruction, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // skip past ":"
+        let name = self.parse_id(false)?;
+        let key_value_pairs = self.parse_key_value_bindings(true)?;
+        span = span.combine(key_value_pairs.source_ref());
+        let named_struct = Instruction::NamedStructDecl {
+            name,
+            fields: key_value_pairs,
+            src: span,
+        };
+        Ok(named_struct)
+    }
+
+    // parses key-value bindings for structs
+    fn parse_key_value_bindings(
+        &mut self,
+        parse_type: bool,
+    ) -> Result<KeyValueBindings, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        let mut bindings = Vec::new();
+
+        self.advance_index(); // skip past "{"
+        let mut cur = self.cur_token();
+        while let Token::Identifier(_, _) = cur {
+            let name = self.parse_id(parse_type)?;
+            span = span.combine(name.source_ref());
+
+            cur = self.cur_token();
+            if let Token::Assign(_) = cur {
+                self.advance_index(); // skip past "="
+                let expr = self.parse_expr()?;
+                span = span.combine(expr.source_ref());
+                bindings.push((name, Some(expr)));
+            } else {
+                bindings.push((name, None));
+            }
+
+            cur = self.cur_token();
+            if let Token::Comma(_) = cur {
+                self.advance_index(); // skip past ","
+                cur = self.cur_token();
+                span = span.combine(cur.get_source_ref());
+            } else if let Token::RCurly(_) = cur {
+                span = span.combine(cur.get_source_ref());
+                break;
+            } else {
+                return Err(ParseError::Expected(
+                    "a ',' between fields or '}' to terminate the struct.".into(),
+                    cur.get_source_ref(),
+                    Some("Terminate the struct field with a ',' or terminate the struct with a '}'. E.g: 'field1 = value, field2 = value }'".into()),
+                ));
+            }
+        }
+
+        self.advance_index(); // skip past "}"
+        Ok(KeyValueBindings {
+            span,
+            pairs: bindings,
         })
     }
 
@@ -1208,7 +1349,7 @@ impl Parser {
                             "to parse a type for the preceding identifier, '{}'.",
                             id.as_str()
                         ),
-                        id.get_source_ref().combine(cur.get_source_ref()),
+                        id.get_source_ref(),
                         Some("Please provide a type for this identifier.".into()),
                     ))
                 }
@@ -1226,10 +1367,75 @@ impl Parser {
         }
     }
 
+    fn parse_directive_expr(&mut self) -> Result<Expr, ParseError> {
+        let start = self.cur_token();
+        self.advance_index();
+        let cur = self.cur_token();
+        if let Token::Identifier(name, _) = &cur {
+            let binding = DIRECTIVES_EXPRS.get(name);
+            match binding {
+                Some(needs_additional_expr) => {
+                    let directive = self.parse_id(false)?;
+                    let mut expr = None;
+                    let mut span = self.cur_token().get_source_ref();
+                    if *needs_additional_expr {
+                        self.allow_directive_expr_use = false;
+                        let e = self.parse_expr()?;
+                        self.allow_directive_expr_use = true;
+                        span = span.combine(e.source_ref());
+                        expr = Some(Box::new(e));
+                    }
+                    let direc = Expr::DirectiveExpr {
+                        directive: Box::new(directive),
+                        src: start.get_source_ref().combine(span),
+                        expr,
+                        resolved_type: None,
+                    };
+                    Ok(direc)
+                }
+                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
+            }
+        } else {
+            Err(ParseError::Expected(
+                "an identifier to name the directive after '@'.".into(),
+                cur.get_source_ref(),
+                Some("Provide a name for the directive. E.g: '@filename'".into()),
+            ))
+        }
+    }
+
+    fn parse_init_named_struct(&mut self) -> Result<Expr, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // consume ':'
+
+        let name = self.parse_id(false)?;
+        let fields = self.parse_key_value_bindings(false)?;
+        span = span.combine(fields.source_ref());
+        let init_named_struct = Expr::NamedStructInit {
+            name: Box::new(name),
+            fields,
+            src: span,
+            resolved_type: None,
+        };
+        Ok(init_named_struct)
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
 
         match cur {
+            Token::Colon(_) => self.parse_init_named_struct(),
+            Token::At(_) => self.parse_directive_expr(),
+            Token::StringLiteral(_, _) => {
+                let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));
+                self.advance_index();
+                res
+            }
+            Token::CharLiteral(_, _) => {
+                let res = Ok(Expr::CharacterLiteral(cur, Some(Type::Char)));
+                self.advance_index();
+                res
+            }
             Token::Identifier(_, _) => {
                 let res = Ok(Expr::Id(cur, None));
                 self.advance_index();

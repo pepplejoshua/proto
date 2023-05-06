@@ -1,9 +1,12 @@
 use super::{source::SourceRef, token::Token, types::Type};
 
 #[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Expr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
+    StringLiteral(Token, Option<Type>),
+    CharacterLiteral(Token, Option<Type>),
     Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Comparison(Token, Box<Expr>, Box<Expr>, Option<Type>),
     Boolean(Token, Option<Type>),
@@ -18,6 +21,18 @@ pub enum Expr {
     ScopeInto {
         module: Box<Expr>,
         target: Box<Expr>,
+        src: SourceRef,
+        resolved_type: Option<Type>,
+    },
+    DirectiveExpr {
+        directive: Box<Expr>,
+        expr: Option<Box<Expr>>,
+        resolved_type: Option<Type>,
+        src: SourceRef,
+    },
+    NamedStructInit {
+        name: Box<Expr>,
+        fields: KeyValueBindings,
         src: SourceRef,
         resolved_type: Option<Type>,
     },
@@ -58,12 +73,32 @@ impl Expr {
                 src,
                 resolved_type: _,
             } => src.clone(),
+            Expr::DirectiveExpr {
+                directive: _,
+                expr: _,
+                resolved_type: _,
+                src,
+            } => src.clone(),
+            Expr::StringLiteral(t, _) => t.get_source_ref(),
+            Expr::CharacterLiteral(t, _) => t.get_source_ref(),
+            Expr::NamedStructInit {
+                name: _,
+                fields: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
         }
     }
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Id(tok, _) => tok.as_str(),
+            Expr::Id(tok, maybe_type) => {
+                let mut s = tok.as_str().to_string();
+                if let Some(t) = maybe_type {
+                    s.push_str(&format!(" {}", t.as_str()));
+                }
+                s
+            }
             Expr::Number(num, _) => num.as_str(),
             Expr::Binary(op, lhs, rhs, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
@@ -99,6 +134,30 @@ impl Expr {
                 src: _,
                 resolved_type: _,
             } => format!("{}::{}", module.as_str(), target.as_str()),
+            Expr::DirectiveExpr {
+                directive,
+                expr,
+                resolved_type: _,
+                src: _,
+            } => {
+                if let Some(expr) = expr {
+                    format!("@{} {}", directive.as_str(), expr.as_str())
+                } else {
+                    format!("@{}", directive.as_str())
+                }
+            }
+            Expr::StringLiteral(literal, _) => literal.as_str(),
+            Expr::CharacterLiteral(literal, _) => literal.as_str(),
+            Expr::NamedStructInit {
+                name,
+                fields,
+                src: _,
+                resolved_type: _,
+            } => {
+                let mut s = format!(":{} ", name.as_str());
+                s.push_str(&fields.as_str());
+                s
+            }
         }
     }
 
@@ -120,6 +179,20 @@ impl Expr {
             Expr::ScopeInto {
                 module: _,
                 target: _,
+                src: _,
+                resolved_type,
+            } => resolved_type.clone(),
+            Expr::DirectiveExpr {
+                directive: _,
+                expr: _,
+                resolved_type,
+                src: _,
+            } => resolved_type.clone(),
+            Expr::StringLiteral(_, t) => t.clone(),
+            Expr::CharacterLiteral(_, t) => t.clone(),
+            Expr::NamedStructInit {
+                name: _,
+                fields: _,
                 src: _,
                 resolved_type,
             } => resolved_type.clone(),
@@ -234,7 +307,43 @@ impl DependencyPath {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
+pub struct KeyValueBindings {
+    pub pairs: Vec<(Expr, Option<Expr>)>,
+    pub span: SourceRef,
+}
+
+#[allow(dead_code)]
+impl KeyValueBindings {
+    pub fn as_str(&self) -> String {
+        let mut s = String::from("{ ");
+        for (index, (k, v)) in self.pairs.iter().enumerate() {
+            s.push_str(&k.as_str());
+            if let Some(v) = v {
+                s.push_str(" = ");
+                s.push_str(&v.as_str());
+            }
+
+            if index < self.pairs.len() - 1 {
+                s.push_str(", ");
+            }
+        }
+        s.push_str(" }");
+        s
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        self.span.clone()
+    }
+}
+
+#[derive(Debug, Clone)]
+#[allow(dead_code)]
 pub enum Instruction {
+    NamedStructDecl {
+        name: Expr,
+        fields: KeyValueBindings,
+        src: SourceRef,
+    },
     ConstantDecl {
         const_name: Token,
         const_type: Option<Type>,
@@ -282,12 +391,28 @@ pub enum Instruction {
         paths: Vec<DependencyPath>,
         src: SourceRef,
     },
+    DirectiveInstruction {
+        directive: Expr,
+        block: Option<Box<Instruction>>,
+        src: SourceRef,
+    },
+    ConditionalBranchIns {
+        pairs: Vec<(Option<Expr>, Box<Instruction>)>,
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
 impl Instruction {
     pub fn as_str(&self) -> String {
         match self {
+            Instruction::NamedStructDecl {
+                name,
+                fields,
+                src: _,
+            } => {
+                format!(":{} {}", name.as_str(), fields.as_str())
+            }
             Instruction::ConstantDecl {
                 const_name,
                 const_type: t,
@@ -410,6 +535,42 @@ impl Instruction {
                 }
                 format!("use {};", path_str)
             }
+            Instruction::DirectiveInstruction {
+                directive,
+                block,
+                src: _,
+            } => {
+                if let Some(block) = block {
+                    format!("@{} {}", directive.as_str(), block.as_str())
+                } else {
+                    format!("@{}", directive.as_str())
+                }
+            }
+            Instruction::ConditionalBranchIns { pairs, src: _ } => {
+                let mut str_rep = String::new();
+                for i in 0..pairs.len() {
+                    let (cond, ins) = &pairs[i];
+                    if i == 0 {
+                        // for the first pair, we do if <cond> <ins>
+                        str_rep.push_str(&format!(
+                            "if {} {}",
+                            cond.clone().unwrap().as_str(),
+                            ins.as_str()
+                        ));
+                    } else if i < pairs.len() - 1 {
+                        // for the rest, we do else if <cond> <ins>
+                        str_rep.push_str(&format!(
+                            " else if {} {}",
+                            cond.clone().unwrap().as_str(),
+                            ins.as_str()
+                        ));
+                    } else {
+                        // for the last, we do else <ins>
+                        str_rep.push_str(&format!(" else {}", ins.as_str()));
+                    }
+                }
+                str_rep
+            }
         }
     }
 
@@ -457,6 +618,17 @@ impl Instruction {
             Instruction::Break(src) => src.clone(),
             Instruction::Continue(src) => src.clone(),
             Instruction::UseDependency { paths: _, src } => src.clone(),
+            Instruction::DirectiveInstruction {
+                directive: _,
+                block: _,
+                src,
+            } => src.clone(),
+            Instruction::ConditionalBranchIns { pairs: _, src } => src.clone(),
+            Instruction::NamedStructDecl {
+                name: _,
+                fields: _,
+                src,
+            } => src.clone(),
         }
     }
 }

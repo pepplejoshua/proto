@@ -16,7 +16,6 @@ pub enum Token {
     Void(SourceRef),
     True(SourceRef),
     False(SourceRef),
-    Character(SourceRef, char),
     Use(SourceRef),
     Pub(SourceRef),
     Mod(SourceRef),
@@ -79,6 +78,8 @@ pub enum Token {
     U32Literal(u32, SourceRef),
     U64Literal(u64, SourceRef),
     UsizeLiteral(usize, SourceRef),
+    CharLiteral(SourceRef, char),
+    StringLiteral(SourceRef, String),
 
     // primitive types
     I8(SourceRef),
@@ -93,6 +94,7 @@ pub enum Token {
     Usize(SourceRef),
     Bool(SourceRef),
     Char(SourceRef),
+    Str(SourceRef),
 
     // misc
     Eof(SourceRef),
@@ -137,7 +139,7 @@ impl Token {
             Token::Void(src) => src.clone(),
             Token::True(src) => src.clone(),
             Token::False(src) => src.clone(),
-            Token::Character(src, _) => src.clone(),
+            Token::CharLiteral(src, _) => src.clone(),
             Token::Identifier(_, src) => src.clone(),
             Token::I8(src) => src.clone(),
             Token::I16(src) => src.clone(),
@@ -151,6 +153,7 @@ impl Token {
             Token::Usize(src) => src.clone(),
             Token::Bool(src) => src.clone(),
             Token::Char(src) => src.clone(),
+            Token::Str(src) => src.clone(),
             Token::I8Literal(_, src) => src.clone(),
             Token::I16Literal(_, src) => src.clone(),
             Token::I32Literal(_, src) => src.clone(),
@@ -174,7 +177,26 @@ impl Token {
             Token::Dollar(src) => src.clone(),
             Token::At(src) => src.clone(),
             Token::As(src) => src.clone(),
+            Token::StringLiteral(src, _) => src.clone(),
         }
+    }
+
+    pub fn is_terminator(&self) -> bool {
+        matches!(self, Token::Semicolon(_) | Token::RCurly(_) | Token::Eof(_))
+    }
+
+    pub fn begins_instruction(&self) -> bool {
+        matches!(
+            self,
+            Token::Let(_)
+                | Token::LCurly(_)
+                | Token::Loop(_)
+                | Token::While(_)
+                | Token::Use(_)
+                | Token::Mod(_)
+                | Token::Pub(_)
+                | Token::At(_)
+        )
     }
 
     pub fn is_type_token(&self) -> bool {
@@ -193,6 +215,7 @@ impl Token {
                 | Token::Bool(_)
                 | Token::Char(_)
                 | Token::Void(_)
+                | Token::Str(_)
         )
     }
 
@@ -211,6 +234,7 @@ impl Token {
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
             Token::Void(_) => Type::Void,
+            Token::Str(_) => Type::Str,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }
@@ -229,7 +253,7 @@ impl Token {
             Token::Void(_) => "void".into(),
             Token::True(_) => "true".into(),
             Token::False(_) => "false".into(),
-            Token::Character(_, c) => format!("'{c}'"),
+            Token::CharLiteral(_, c) => format!("'{c}'"),
             Token::Use(_) => "use".into(),
             Token::Plus(_) => "+".into(),
             Token::Minus(_) => "-".into(),
@@ -279,6 +303,7 @@ impl Token {
             Token::Usize(_) => "usize".into(),
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
+            Token::Str(_) => "str".into(),
             Token::Eof(_) => "\0".into(),
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),
@@ -289,6 +314,7 @@ impl Token {
             Token::Dollar(_) => "$".into(),
             Token::At(_) => "@".into(),
             Token::As(_) => "as".into(),
+            Token::StringLiteral(_, src) => format!("\"{src}\""),
         }
     }
 }

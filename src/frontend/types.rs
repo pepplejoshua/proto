@@ -13,6 +13,7 @@ pub enum Type {
     Bool,
     Char,
     Void,
+    Str,
 }
 
 #[allow(dead_code)]
@@ -32,6 +33,7 @@ impl Type {
             Type::Bool => "bool".into(),
             Type::Char => "char".into(),
             Type::Void => "void".into(),
+            Type::Str => "str".into(),
         }
     }
 }

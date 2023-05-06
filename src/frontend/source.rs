@@ -93,6 +93,11 @@ impl SourceFile {
         self.text.chars().nth(self.flat_index + 1).unwrap()
     }
 
+    // check if we are at end of file
+    pub fn is_eof(&self) -> bool {
+        self.flat_index >= self.text.len()
+    }
+
     // current character without advancing the fields
     pub fn cur_char(&self) -> char {
         if self.flat_index >= self.text.len() {
@@ -241,6 +246,26 @@ impl SourceReporter {
                 let msg = "Number too large to fit any unsigned integer type.".to_string();
                 self.report_with_ref(src, msg, None);
             }
+            LexError::EmptyCharacterLiteral(src) => {
+                let msg = "Empty character literal.".to_string();
+                let mut tip = "Character literals must contain a single character.\n".to_string();
+                tip.push_str("E.g: 'a' is a character, while '' is not.");
+                self.report_with_ref(src, msg, Some(tip));
+            }
+            LexError::UnterminatedCharacterLiteral(src) => {
+                let msg = "Unterminated character literal.".to_string();
+                let mut tip = "Character literals must be terminated with a '.\n".to_string();
+                tip.push_str("E.g: 'a' is a character, while 'a is not.");
+                self.report_with_ref(src, msg, Some(tip));
+            }
+            LexError::UnterminatedStringLiteral(src) => {
+                let msg = "Unterminated string literal.".to_string();
+                let mut tip = "String literals must be terminated with a \".\n".to_string();
+                tip.push_str(
+                    "E.g: '\"hello world\"' is a string literal, while '\"hello world' is not.",
+                );
+                self.report_with_ref(src, msg, Some(tip));
+            }
         }
     }
 
@@ -315,7 +340,8 @@ impl SourceReporter {
             }
             ParseError::TooManyErrors(src) => {
                 let msg = "Too many errors during parsing. Stopping.".to_string();
-                let tip = "Errors might be cascading. Try fixing some and retrying.".to_string();
+                let tip =
+                    "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::UnusualTokenInUsePath(src) => {
@@ -335,7 +361,7 @@ impl SourceReporter {
                 tip.push_str("Please find more information on use paths  in documentation.");
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::UntermiatedUsePath(src) => {
+            ParseError::UnterminatedUsePath(src) => {
                 let msg = "Unterminated use path.".to_string();
                 let mut tip = "Some terminated use paths include:\n".to_string();
                 tip.push_str("*  use immediate_module::inner::other;\n");
@@ -352,7 +378,18 @@ impl SourceReporter {
                 tip.push_str("Please find more information on use paths in documentation.");
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::UnknownCompilerDirective(src) => {
+                let msg = "Unknown compiler directive.".to_string();
+                let tip = "Please find more information on compiler directives in documentation."
+                    .to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
+    }
+
+    pub fn show_info(&self, msg: String) {
+        let output = format!("*[_, *, l_green:d_black]Info:[/] *[*, l_white:d_black]{msg}[/]");
+        println!("{}", pastel(&output));
     }
 
     fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
