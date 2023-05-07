@@ -380,8 +380,6 @@ impl Parser {
             }
         }
 
-        // let paths_to_import = self.parse_path()?;
-
         // expect a semicolon
         let end = self.cur_token();
         if matches!(end, Token::Semicolon(_)) {
