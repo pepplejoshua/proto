@@ -357,7 +357,30 @@ impl Parser {
         let start = self.cur_token();
         // skip the 'use' keyword
         self.advance_index();
-        let paths_to_import = self.parse_path()?;
+
+        let mut paths_to_import = vec![];
+        while !self.no_more_tokens() {
+            let paths = self.parse_path()?;
+            paths_to_import.extend(paths);
+
+            // expect a comma
+            let cur = self.cur_token();
+            if matches!(cur, Token::Comma(_)) {
+                self.advance_index();
+            } else if matches!(cur, Token::Semicolon(_)) {
+                break;
+            } else {
+                return Err(ParseError::Expected(
+                    "Expected ',' to separate paths in use instruction. ".to_string(),
+                    cur.get_source_ref(),
+                    Some(
+                        "Provide a ',' to separate paths. E.g: 'use kids::next::door, cartoon::network;'".to_string(),
+                    ),
+                ));
+            }
+        }
+
+        // let paths_to_import = self.parse_path()?;
 
         // expect a semicolon
         let end = self.cur_token();
@@ -367,6 +390,7 @@ impl Parser {
                 paths: paths_to_import,
                 src: start.get_source_ref().combine(end.get_source_ref()),
             };
+            println!("use ins: {}", use_ins.as_str());
             Ok(use_ins)
         } else {
             Err(ParseError::Expected(
