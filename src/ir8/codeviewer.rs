@@ -39,11 +39,11 @@ impl CodeViewer {
     }
 
     pub fn increase_padding(&mut self) {
-        self.left_padding += 4;
+        self.left_padding += 2;
     }
 
     pub fn decrease_padding(&mut self) {
-        self.left_padding -= 4;
+        self.left_padding -= 2;
     }
 
     pub fn pad_text(&self, text: String) -> String {
