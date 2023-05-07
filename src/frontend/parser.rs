@@ -25,7 +25,7 @@ pub struct Parser {
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
-    compilation_module: CompilationModule,
+    pub compilation_module: CompilationModule,
     allow_directive_expr_use: bool,
 }
 
@@ -173,32 +173,43 @@ impl Parser {
                 }
             }
             Token::Return(_) => {
-                let ret_ref = cur.get_source_ref();
+                let mut ret_ref = cur.get_source_ref();
                 self.advance_index();
-                let value = self.parse_expr()?;
-
                 let cur = self.cur_token();
-                let c_ref = ret_ref.combine(cur.get_source_ref());
-                if !matches!(cur, Token::Semicolon(_)) {
-                    return Err(ParseError::Expected(
-                        "a ';' to terminate the return expression.".into(),
-                        c_ref,
-                        Some(format!(
-                            "Terminate return instruction: 'return {};'",
-                            value.as_str()
-                        )),
-                    ));
+                let value = if let Token::Semicolon(_) = cur {
+                    // return with no value
+                    None
                 } else {
-                    self.advance_index();
-                }
+                    // return with a value
+                    let res = self.parse_expr()?;
+                    // make sure there is a semi colon following.
+                    // if not, report an error
+                    let cur = self.cur_token();
+                    if let Token::Semicolon(_) = cur {
+                        self.advance_index();
+                        ret_ref = ret_ref.combine(cur.get_source_ref());
+                        Some(res)
+                    } else {
+                        let tip = format!(
+                            "Terminate return statement with ';'. E.g: return {};",
+                            res.as_str()
+                        );
+                        return Err(ParseError::Expected(
+                            "a ';' to terminate return instruction.".to_string(),
+                            cur.get_source_ref(),
+                            Some(tip),
+                        ));
+                    }
+                };
 
                 // we can only return things in functions
                 if matches!(self.parse_scope, ParseScope::FnBody) {
-                    Ok(Instruction::Return { src: c_ref, value })
+                    Ok(Instruction::Return {
+                        src: ret_ref,
+                        value,
+                    })
                 } else {
-                    Err(ParseError::ReturnInstructionOutsideFunction(
-                        ret_ref.combine(c_ref),
-                    ))
+                    Err(ParseError::ReturnInstructionOutsideFunction(ret_ref))
                 }
             }
             Token::Pub(_) => {
@@ -388,7 +399,6 @@ impl Parser {
                 paths: paths_to_import,
                 src: start.get_source_ref().combine(end.get_source_ref()),
             };
-            println!("use ins: {}", use_ins.as_str());
             Ok(use_ins)
         } else {
             Err(ParseError::Expected(

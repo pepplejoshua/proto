@@ -383,7 +383,7 @@ pub enum Instruction {
     },
     Return {
         src: SourceRef,
-        value: Expr,
+        value: Option<Expr>,
     },
     Break(SourceRef),
     Continue(SourceRef),
@@ -506,7 +506,11 @@ impl Instruction {
                 }
             }
             Instruction::Return { src: _, value } => {
-                format!("return {}", value.as_str())
+                if let Some(value) = value {
+                    format!("return {};", value.as_str())
+                } else {
+                    "return;".to_string()
+                }
             }
             Instruction::InfiniteLoop { src: _, body } => {
                 format!("loop {}", body.as_str())

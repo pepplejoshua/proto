@@ -6,11 +6,13 @@ use frontend::{
     parser::Parser,
     source::{SourceFile, SourceReporter},
 };
+use ir8::{codeviewer::CodeViewer, lowir::LowIRModule, visitir::apply_to_module};
 use serde::Deserialize;
 
 use crate::frontend::token::Token;
 
 mod frontend;
+mod ir8;
 mod pastel;
 
 const USAGE: &str = "
@@ -78,16 +80,26 @@ fn main() {
             for le in parser.lexer_errors {
                 reporter.report_lexer_error(&le);
             }
-        } else {
-            reporter.show_info("No errors during lexing.".to_string());
         }
+        // else {
+        //     reporter.show_info("No errors during lexing.".to_string());
+        // }
 
         if !parser.parser_errors.is_empty() {
             for pe in parser.parser_errors {
                 reporter.report_parser_error(pe);
             }
-        } else {
-            reporter.show_info("No errors during parsing.".to_string());
         }
+        // else {
+        //     reporter.show_info("No errors during parsing.".to_string());
+        // }
+
+        let module = parser.compilation_module;
+        let mut ir_mod = LowIRModule::new();
+        ir_mod.lowir(module);
+        let mut show_code = CodeViewer::new(ir_mod.ins_pool.clone(), ir_mod.expr_pool.clone());
+        let res = apply_to_module(&mut show_code, &ir_mod);
+        let res = show_code.unwrap(res);
+        println!("{}", res.join("\n"));
     }
 }
