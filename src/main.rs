@@ -100,6 +100,6 @@ fn main() {
         let mut show_code = CodeViewer::new(ir_mod.ins_pool.clone(), ir_mod.expr_pool.clone());
         let res = apply_to_module(&mut show_code, &ir_mod);
         let res = show_code.unwrap(res);
-        println!("{}", res.join("\n"));
+        println!("{}", res.join("\n\n"));
     }
 }

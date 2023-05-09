@@ -88,6 +88,8 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
             }
         }
         self.decrease_padding();
+        view.push('\n');
+        view.push_str(&self.pad_text("}".to_string()));
         Ok(view)
     }
 
@@ -106,10 +108,8 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
                 view.push_str(&self.pad_text(format!(":{} ", name)));
                 if fields.pairs.len() > 0 {
                     view.push_str(&self.visit_pairs(&fields)?);
-                    view.push('\n');
-                    view.push_str(&self.pad_text("}".to_string()));
                 } else {
-                    view.push_str(" }");
+                    view.push_str("{ }");
                 }
                 Ok(view)
             }
@@ -209,12 +209,13 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
                 } else {
                     view.push('\n');
                     self.increase_padding();
+                    let mut ins_strs = vec![];
                     for ins in instructions {
-                        view.push_str(&self.visit_ins(&ins)?);
-                        view.push('\n');
+                        ins_strs.push(self.visit_ins(&ins)?);
                     }
                     self.decrease_padding();
-                    view.push_str(&self.pad_text("}\n".to_string()));
+                    view.push_str(&ins_strs.join("\n\n"));
+                    view.push_str(&("\n".to_string() + &self.pad_text("}".to_string())));
                 }
                 Ok(view)
             }
@@ -271,9 +272,9 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
                     self.block_type = CodeBlockType::InstructionPart;
                     let block = self.visit_ins(&block)?;
                     self.block_type = block_type;
-                    Ok(format!("@{} {}", directive, block))
+                    Ok(self.pad_text(format!("@{} {}", directive, block)))
                 } else {
-                    Ok(format!("@{}", directive))
+                    Ok(self.pad_text(format!("@{};", directive)))
                 }
             }
             LowIRIns::ConditionalBranchIns { pairs, src: _ } => {
@@ -285,10 +286,10 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
                     if i == 0 {
                         let cond = self.visit_expr(&cond.clone().unwrap())?;
                         let ins = self.visit_ins(&ins)?;
-                        self.increase_padding();
+                        // self.increase_padding();
                         // for the first pair, we do if <cond> <ins>
                         view.push_str(&self.pad_text(format!("if {} {}", cond, ins)));
-                        self.decrease_padding();
+                        // self.decrease_padding();
                     } else if i < pairs.len() - 1 {
                         let cond = self.visit_expr(&cond.clone().unwrap())?;
                         let ins = self.visit_ins(&ins)?;
