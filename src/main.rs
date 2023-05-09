@@ -6,7 +6,7 @@ use frontend::{
     parser::Parser,
     source::{SourceFile, SourceReporter},
 };
-use ir8::{codeviewer::CodeViewer, lowir::LowIRModule, visitir::apply_to_module};
+use ir8::lowir::LowIRModule;
 use serde::Deserialize;
 
 use crate::frontend::token::Token;
@@ -56,7 +56,7 @@ fn main() {
     let path = fs::canonicalize(PathBuf::from(path)).unwrap();
     let path = path.to_str().unwrap().to_string();
 
-    let src = SourceFile::new(path);
+    let src = SourceFile::new(path.clone());
     let reporter = SourceReporter::new(src.clone());
     let mut lexer = Lexer::new(src);
 
@@ -97,9 +97,15 @@ fn main() {
         let module = parser.compilation_module;
         let mut ir_mod = LowIRModule::new();
         ir_mod.lowir(module);
-        let mut show_code = CodeViewer::new(ir_mod.ins_pool.clone(), ir_mod.expr_pool.clone());
-        let res = apply_to_module(&mut show_code, &ir_mod);
-        let res = show_code.unwrap(res);
-        println!("{}", res.join("\n\n"));
+        // let mut tomato = Tomato::new(
+        //     path.clone(),
+        //     ir_mod.ins_pool.clone(),
+        //     ir_mod.expr_pool.clone(),
+        // );
+
+        // match tomato.format(&ir_mod) {
+        //     Ok(()) => reporter.show_info(format!("formatted {}", path)),
+        //     Err(e) => reporter.show_info(format!("failed to format {}: {}", path, e)),
+        // }
     }
 }
