@@ -30,6 +30,29 @@ impl Lexer {
         }
     }
 
+    fn lex_comment(&mut self) -> Result<Token, LexError> {
+        let start = self.src.cur_char();
+        let mut content = String::from(start);
+        let mut span = self.src.get_ref();
+        // skip both '/' characters
+        content.push(self.src.next_char());
+        span = span.combine(self.src.get_ref());
+        self.src.next_char();
+
+        while !self.src.is_eof() {
+            let cur = self.src.cur_char();
+            span = span.combine(self.src.get_ref());
+            self.src.next_char();
+            if cur != '\n' {
+                content.push(cur);
+                continue;
+            } else {
+                break;
+            }
+        }
+        Ok(Token::SingleLineComment(span, content))
+    }
+
     // process comments
     fn process_comment(&mut self) {
         let start = self.src.cur_char();
@@ -56,15 +79,13 @@ impl Lexer {
 
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexError> {
-        while self.src.cur_char().is_whitespace()
-            || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
-        {
+        while self.src.cur_char().is_whitespace() {
             // skip all preceding whitespace
             self.skip_whitespace();
             // process comments
             // eventually, it'll get documentation comments
             // for now, it just skips single line comments
-            self.process_comment();
+            // self.process_comment();
         }
 
         // get the current character
@@ -184,6 +205,8 @@ impl Lexer {
             }
         }
 
+        // || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
+
         match cur {
             // arithmetic operators
             '+' => {
@@ -199,6 +222,10 @@ impl Lexer {
                 Ok(Token::Star(cur_ref.combine(self.src.get_ref())))
             }
             '/' => {
+                // if the next character is a '/', lex a comment
+                if self.src.peek_char() == '/' {
+                    return self.lex_comment();
+                }
                 self.src.next_char();
                 Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
             }

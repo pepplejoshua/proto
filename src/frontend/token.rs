@@ -80,6 +80,7 @@ pub enum Token {
     UsizeLiteral(usize, SourceRef),
     CharLiteral(SourceRef, char),
     StringLiteral(SourceRef, String),
+    SingleLineComment(SourceRef, String),
 
     // primitive types
     I8(SourceRef),
@@ -104,6 +105,7 @@ pub enum Token {
 impl Token {
     pub fn get_source_ref(&self) -> SourceRef {
         match self {
+            Token::SingleLineComment(src, _) => src.clone(),
             Token::Fn(src) => src.clone(),
             Token::Let(src) => src.clone(),
             Token::Mut(src) => src.clone(),
@@ -196,6 +198,7 @@ impl Token {
                 | Token::Mod(_)
                 | Token::Pub(_)
                 | Token::At(_)
+                | Token::SingleLineComment(_, _)
         )
     }
 
@@ -315,6 +318,7 @@ impl Token {
             Token::At(_) => "@".into(),
             Token::As(_) => "as".into(),
             Token::StringLiteral(_, src) => format!("\"{src}\""),
+            Token::SingleLineComment(_, src) => src.clone(),
         }
     }
 }

@@ -6,7 +6,7 @@ use frontend::{
     parser::Parser,
     source::{SourceFile, SourceReporter},
 };
-use ir8::lowir::LowIRModule;
+use ir8::{lowir::LowIRModule, tomato::Tomato};
 use serde::Deserialize;
 
 use crate::frontend::token::Token;
@@ -97,15 +97,15 @@ fn main() {
         let module = parser.compilation_module;
         let mut ir_mod = LowIRModule::new();
         ir_mod.lowir(module);
-        // let mut tomato = Tomato::new(
-        //     path.clone(),
-        //     ir_mod.ins_pool.clone(),
-        //     ir_mod.expr_pool.clone(),
-        // );
+        let mut tomato = Tomato::new(
+            path.clone(),
+            ir_mod.ins_pool.clone(),
+            ir_mod.expr_pool.clone(),
+        );
 
-        // match tomato.format(&ir_mod) {
-        //     Ok(()) => reporter.show_info(format!("formatted {}", path)),
-        //     Err(e) => reporter.show_info(format!("failed to format {}: {}", path, e)),
-        // }
+        match tomato.format(&ir_mod) {
+            Ok(()) => reporter.show_info(format!("formatted {}", path)),
+            Err(e) => reporter.show_info(format!("failed to format {}: {}", path, e)),
+        }
     }
 }

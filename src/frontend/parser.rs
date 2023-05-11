@@ -110,6 +110,13 @@ impl Parser {
     fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
+            Token::SingleLineComment(src, comment) => {
+                self.advance_index();
+                Ok(Instruction::SingleLineComment {
+                    comment: comment.to_string(),
+                    src: src.clone(),
+                })
+            }
             Token::Colon(_) => self.parse_struct_decl(),
             Token::At(_) => self.parse_directive_instruction(),
             Token::Use(_) => self.parse_use_dependency(),

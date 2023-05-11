@@ -4,6 +4,8 @@ expression: res
 input_file: src/frontend/lexer_inputs/comments.pr
 ---
 stringified_tokens:
+  - "// This is a comment\\nsome_ident false at [start_line:0 start_col:0 end_line:0 end_col:38 flat_start:0 flat_end:38]"
+  - "// This is another comment at [start_line:1 start_col:0 end_line:1 end_col:26 flat_start:39 flat_end:65]"
   - "some_other_ident at [start_line:2 start_col:0 end_line:2 end_col:16 flat_start:66 flat_end:82]"
   - "true at [start_line:2 start_col:17 end_line:2 end_col:21 flat_start:83 flat_end:87]"
 
