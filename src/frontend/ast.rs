@@ -400,12 +400,17 @@ pub enum Instruction {
         pairs: Vec<(Option<Expr>, Box<Instruction>)>,
         src: SourceRef,
     },
+    SingleLineComment {
+        comment: String,
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
 impl Instruction {
     pub fn as_str(&self) -> String {
         match self {
+            Instruction::SingleLineComment { comment, src: _ } => comment.clone(),
             Instruction::NamedStructDecl {
                 name,
                 fields,
@@ -580,6 +585,7 @@ impl Instruction {
 
     pub fn source_ref(&self) -> SourceRef {
         match self {
+            Instruction::SingleLineComment { comment: _, src } => src.clone(),
             Instruction::ConstantDecl {
                 const_name: _,
                 const_type: _,

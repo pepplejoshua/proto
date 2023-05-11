@@ -268,6 +268,10 @@ impl ExprPool {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum LowIRIns {
+    SingleLineComment {
+        comment: String,
+        src: SourceRef,
+    },
     NamedStructDecl {
         name: ExprRef,
         fields: KeyValueBindings,
@@ -334,6 +338,7 @@ pub enum LowIRIns {
 impl LowIRIns {
     pub fn as_str(&self) -> String {
         match self {
+            LowIRIns::SingleLineComment { comment, src: _ } => comment.clone(),
             LowIRIns::NamedStructDecl {
                 name,
                 fields,
@@ -546,6 +551,10 @@ impl InsPool {
 
     pub fn lowir(&mut self, epool: &mut ExprPool, ins: Instruction) -> InsRef {
         match ins {
+            Instruction::SingleLineComment { comment, src } => {
+                let ins = LowIRIns::SingleLineComment { comment, src };
+                self.add(ins)
+            }
             Instruction::NamedStructDecl { name, fields, src } => {
                 let name_ref = epool.lowir(name);
                 let fields = epool.lowir_bindings(fields);

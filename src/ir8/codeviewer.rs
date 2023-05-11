@@ -98,6 +98,10 @@ impl VisitsLowIR<String, String, String> for CodeViewer {
         let ins_node = self.ins_pool.get(&ins);
 
         match ins_node {
+            LowIRIns::SingleLineComment { comment, src: _ } => {
+                let comment = comment.clone();
+                Ok(self.pad_text(comment))
+            }
             LowIRIns::NamedStructDecl {
                 name,
                 fields,

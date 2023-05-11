@@ -25,7 +25,7 @@ impl Tomato {
         let res = apply_to_module(&mut self.viewer, &ir_module);
         let res = self.viewer.unwrap(res);
 
-        let contents = res.join("\n\n");
+        let contents = res.join("\n");
         self.update_file_contents(contents)
     }
 
