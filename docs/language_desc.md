@@ -58,7 +58,7 @@ Hello, world!
 ```rs
 use std::io::println;
 
-fn main() {
+fn main() void {
   // a comment starts with "//" and ends when the line terminates.
   // comments are for the reader. the compiler will not read them,
   // so you are free to write as many as you like.
@@ -90,7 +90,7 @@ Hello, world!
 ```rs
 use @io::println;
 
-fn main() {
+fn main() void {
   // integers
   let one_times_two i32 = 1 * 2;
   println("1 * 2 = {#}", one_times_two);
