@@ -4,7 +4,7 @@ use super::token::Token;
 
 #[allow(dead_code)]
 pub struct Lexer {
-    src: SourceFile,
+    pub src: SourceFile,
     last_lexed: Option<Token>,
 }
 
@@ -28,6 +28,29 @@ impl Lexer {
                 break;
             }
         }
+    }
+
+    fn lex_comment(&mut self) -> Result<Token, LexError> {
+        let start = self.src.cur_char();
+        let mut content = String::from(start);
+        let mut span = self.src.get_ref();
+        // skip both '/' characters
+        content.push(self.src.next_char());
+        span = span.combine(self.src.get_ref());
+        self.src.next_char();
+
+        while !self.src.is_eof() {
+            let cur = self.src.cur_char();
+            span = span.combine(self.src.get_ref());
+            self.src.next_char();
+            if cur != '\n' {
+                content.push(cur);
+                continue;
+            } else {
+                break;
+            }
+        }
+        Ok(Token::SingleLineComment(span, content))
     }
 
     // process comments
@@ -56,15 +79,13 @@ impl Lexer {
 
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexError> {
-        while self.src.cur_char().is_whitespace()
-            || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
-        {
+        while self.src.cur_char().is_whitespace() {
             // skip all preceding whitespace
             self.skip_whitespace();
             // process comments
             // eventually, it'll get documentation comments
             // for now, it just skips single line comments
-            self.process_comment();
+            // self.process_comment();
         }
 
         // get the current character
@@ -77,14 +98,20 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '^' | '$' | '@' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
+            // ' which is used to start characters or strings
+            '\'' => self.lex_char(),
+            // " which is used to start strings
+            '"' => self.lex_string(),
             // invalid character
             _ => {
-                let err = Err(LexError::InvalidCharacter(self.src.get_ref()));
+                let mut err_ref = self.src.get_ref();
+                err_ref.end_col += 1;
+                let err = Err(LexError::InvalidCharacter(err_ref));
                 self.src.next_char(); // try to keep lexing
                 err
             }
@@ -138,6 +165,7 @@ impl Lexer {
             "use" => Ok(Token::Use(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
             "mod" => Ok(Token::Mod(combined_ref)),
+            "as" => Ok(Token::As(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -155,6 +183,7 @@ impl Lexer {
             "usize" => Ok(Token::Usize(combined_ref)),
             "bool" => Ok(Token::Bool(combined_ref)),
             "char" => Ok(Token::Char(combined_ref)),
+            "str" => Ok(Token::Str(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }
@@ -176,6 +205,8 @@ impl Lexer {
             }
         }
 
+        // || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
+
         match cur {
             // arithmetic operators
             '+' => {
@@ -191,12 +222,30 @@ impl Lexer {
                 Ok(Token::Star(cur_ref.combine(self.src.get_ref())))
             }
             '/' => {
+                // if the next character is a '/', lex a comment
+                if self.src.peek_char() == '/' {
+                    return self.lex_comment();
+                }
                 self.src.next_char();
                 Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
             }
             '%' => {
                 self.src.next_char();
                 Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
+            }
+
+            // special characters
+            '^' => {
+                self.src.next_char();
+                Ok(Token::Caret(cur_ref.combine(self.src.get_ref())))
+            }
+            '@' => {
+                self.src.next_char();
+                Ok(Token::At(cur_ref.combine(self.src.get_ref())))
+            }
+            '$' => {
+                self.src.next_char();
+                Ok(Token::Dollar(cur_ref.combine(self.src.get_ref())))
             }
 
             // logical operators
@@ -210,7 +259,7 @@ impl Lexer {
                 }
                 // otherwise, return a Not operator
                 self.src.next_char();
-                Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::Exclamation(cur_ref.combine(self.src.get_ref())))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
@@ -248,6 +297,18 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
             }
+            ':' => {
+                // if the next character is a ':', return a Scope operator
+                let c = self.src.peek_char();
+                if c == ':' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::Scope(cur_ref.combine(self.src.get_ref())));
+                }
+                // otherwise, return a Colon operator
+                self.src.next_char();
+                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
+            }
             '(' => {
                 self.src.next_char();
                 Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
@@ -280,16 +341,87 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Dot(cur_ref.combine(self.src.get_ref())))
             }
-            ':' => {
-                self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
-            }
             ';' => {
                 self.src.next_char();
                 Ok(Token::Semicolon(cur_ref.combine(self.src.get_ref())))
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
         }
+    }
+
+    fn lex_string(&mut self) -> Result<Token, LexError> {
+        let mut span = self.src.get_ref();
+        let mut content = String::new();
+
+        // read all characters until terminating "
+        while !self.src.is_eof() {
+            let c = self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            if c == '"' {
+                break;
+            } else if c == '\\' {
+                // if the next character is a ", add it to the content
+                let c = self.src.next_char();
+                span = span.combine(self.src.get_ref());
+                if c == '"' {
+                    content.push('"');
+                } else {
+                    // otherwise, add the escape character
+                    content.push('\\');
+                    content.push(c);
+                }
+            } else {
+                content.push(c);
+            }
+        }
+
+        // if the string is not terminated, return an error
+        if self.src.is_eof() {
+            Err(LexError::UnterminatedStringLiteral(span))
+        } else {
+            self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            Ok(Token::StringLiteral(span, content))
+        }
+    }
+
+    // try to lex a character
+    fn lex_char(&mut self) -> Result<Token, LexError> {
+        let mut span = self.src.get_ref();
+        let mut content = String::new();
+
+        // read single character
+        let c = self.src.next_char();
+        span = span.combine(self.src.get_ref());
+
+        // if the next character is a ', return an error
+        if c == '\'' {
+            return Err(LexError::EmptyCharacterLiteral(span));
+        } else if c == '\\' {
+            // if the next character is a ', add it to the content
+            let c = self.src.next_char();
+            span = span.combine(self.src.get_ref());
+            if c == '\'' {
+                content.push('\'');
+            } else {
+                // otherwise, add the escape character
+                content.push('\\');
+                content.push(c);
+            }
+        } else {
+            content.push(c);
+        }
+
+        // if the next character is not a ', return an error
+        let c = self.src.next_char();
+        span = span.combine(self.src.get_ref());
+        if c != '\'' {
+            return Err(LexError::UnterminatedCharacterLiteral(span));
+        }
+
+        self.src.next_char();
+        span = span.combine(self.src.get_ref());
+        Ok(Token::CharLiteral(span, content.chars().next().unwrap()))
     }
 
     // try to lex a number

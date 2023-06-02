@@ -1,0 +1,11 @@
+"this is a string"
+'a' 'b' 'c' 'd' '\n' '\t' '\0' '\b' '\r' '\f' '\\' '\'' '\"'
+"this is a string with 'quotes'"
+"this is a string with \"quotes\""
+"this is a string with \n new line"
+"this is a string with \t tab"
+"this is a string with \b backspace"
+"this is a string with \r carriage return"
+"this is a string with \f form feed"
+"this is a string with \\ backslash"
+"this is a string with \0 null character"

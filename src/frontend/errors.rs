@@ -6,6 +6,9 @@ pub enum LexError {
     InvalidCharacter(SourceRef),
     CannotMakeSignedNumber(SourceRef),
     CannotMakeUnsignedNumber(SourceRef),
+    EmptyCharacterLiteral(SourceRef),
+    UnterminatedCharacterLiteral(SourceRef),
+    UnterminatedStringLiteral(SourceRef),
 }
 
 #[allow(dead_code)]
@@ -20,7 +23,13 @@ pub enum ParseError {
     NoVariableAtTopLevel(SourceRef),
     NoCodeBlockAtTopLevel(SourceRef),
     NoLoopAtTopLevel(SourceRef),
+    NoBreakOutsideLoop(SourceRef),
+    NoContinueOutsideLoop(SourceRef),
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
+    UnusualTokenInUsePath(SourceRef),
+    UnterminatedUsePath(SourceRef),
+    UnknownCompilerDirective(SourceRef),
+    TooManyErrors(SourceRef),
 }

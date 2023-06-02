@@ -1,5 +1,6 @@
 use super::{
-    ast::{CompilationModule, Expr, Instruction},
+    ast::{CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction},
+    directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
@@ -24,6 +25,8 @@ pub struct Parser {
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
+    pub compilation_module: CompilationModule,
+    allow_directive_expr_use: bool,
 }
 
 #[allow(dead_code)]
@@ -35,53 +38,89 @@ impl Parser {
             parser_errors: vec![],
             lexed_token: None,
             parse_scope: ParseScope::TopLevel,
+            compilation_module: CompilationModule::new(),
+            allow_directive_expr_use: true,
         };
         p.advance_index();
         p
     }
 
-    pub fn parse(&mut self) -> CompilationModule {
-        let mut main_module = CompilationModule::new();
-
+    pub fn parse(&mut self) {
         while !self.no_more_tokens() {
             let ins = self.next_instruction();
 
             match ins {
-                Ok(instruc) => main_module.add_instruction(instruc),
+                Ok(instruc) => self.compilation_module.add_instruction(instruc),
                 Err(err) => {
-                    self.parser_errors.push(err.clone());
-                    if matches!(err, ParseError::CannotParseAnExpression(_)) {
+                    self.report_error(err.clone());
+                    if matches!(
+                        err,
+                        ParseError::CannotParseAnExpression(_)
+                            | ParseError::Expected(_, _, _)
+                            | ParseError::NoBreakOutsideLoop(_)
+                            | ParseError::NoContinueOutsideLoop(_),
+                    ) {
                         self.recover_from_err();
                     }
                 }
             }
         }
-        main_module
     }
 
     fn recover_from_err(&mut self) {
         while !self.no_more_tokens() {
             let cur = self.cur_token();
-            match cur {
-                Token::Pub(_) | Token::Mut(_) | Token::Let(_) | Token::Fn(_) | Token::Mod(_) => {
-                    break
-                }
-                _ => {
-                    self.advance_index();
-                }
+            if cur.is_terminator() {
+                self.advance_index();
+                break;
+            } else if cur.begins_instruction() {
+                break;
+            } else {
+                self.advance_index();
             }
         }
     }
 
     fn report_error(&mut self, err: ParseError) {
         self.parser_errors.push(err);
+        // if we have reached 10 errors, stop parsing
+        // exit quietly without Rust stack trace
+        if self.parser_errors.len() >= 10 {
+            // show all errors and exit
+            use super::source::SourceReporter;
+            let reporter = SourceReporter::new(self.lexer.src.clone());
+            for err in self.lexer_errors.iter() {
+                reporter.report_lexer_error(err);
+            }
+
+            for err in self.parser_errors.iter() {
+                reporter.report_parser_error(err.clone());
+            }
+
+            let too_many_errors = ParseError::TooManyErrors(self.cur_token().get_source_ref());
+            reporter.report_parser_error(too_many_errors);
+            // process exit with error code to show
+            // user error
+            std::process::exit(1);
+        }
     }
 
     // this function will return one Instruction at
     // a time.
-    pub fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
+    fn next_instruction(&mut self) -> Result<Instruction, ParseError> {
         let mut cur: Token = self.cur_token();
         match &cur {
+            Token::SingleLineComment(src, comment) => {
+                self.advance_index();
+                Ok(Instruction::SingleLineComment {
+                    comment: comment.to_string(),
+                    src: src.clone(),
+                })
+            }
+            Token::Colon(_) => self.parse_struct_decl(),
+            Token::At(_) => self.parse_directive_instruction(),
+            Token::Use(_) => self.parse_use_dependency(),
+            Token::If(_) => self.parse_conditional_branch_ins(),
             Token::Fn(_) => self.parse_fn_def(false, None),
             Token::Let(_) => self.parse_const_decl(false, None),
             // prevent mutable bindings at the top level
@@ -97,6 +136,22 @@ impl Parser {
                     Err(ParseError::NoVariableAtTopLevel(var.source_ref()))
                 } else {
                     Ok(var)
+                }
+            }
+            Token::Break(_) => {
+                let break_ins = self.parse_break_ins()?;
+                if !matches!(self.parse_scope, ParseScope::Loop) {
+                    Err(ParseError::NoBreakOutsideLoop(break_ins.source_ref()))
+                } else {
+                    Ok(break_ins)
+                }
+            }
+            Token::Continue(_) => {
+                let continue_ins = self.parse_continue_ins()?;
+                if !matches!(self.parse_scope, ParseScope::Loop) {
+                    Err(ParseError::NoContinueOutsideLoop(continue_ins.source_ref()))
+                } else {
+                    Ok(continue_ins)
                 }
             }
             Token::Loop(_) => {
@@ -125,32 +180,43 @@ impl Parser {
                 }
             }
             Token::Return(_) => {
-                let ret_ref = cur.get_source_ref();
+                let mut ret_ref = cur.get_source_ref();
                 self.advance_index();
-                let value = self.parse_expr()?;
-
                 let cur = self.cur_token();
-                let c_ref = ret_ref.combine(cur.get_source_ref());
-                if !matches!(cur, Token::Semicolon(_)) {
-                    return Err(ParseError::Expected(
-                        "a ';' to terminate the return expression.".into(),
-                        c_ref,
-                        Some(format!(
-                            "Terminate return instruction: 'return {};'",
-                            value.as_str()
-                        )),
-                    ));
+                let value = if let Token::Semicolon(_) = cur {
+                    // return with no value
+                    None
                 } else {
-                    self.advance_index();
-                }
+                    // return with a value
+                    let res = self.parse_expr()?;
+                    // make sure there is a semi colon following.
+                    // if not, report an error
+                    let cur = self.cur_token();
+                    if let Token::Semicolon(_) = cur {
+                        self.advance_index();
+                        ret_ref = ret_ref.combine(cur.get_source_ref());
+                        Some(res)
+                    } else {
+                        let tip = format!(
+                            "Terminate return statement with ';'. E.g: return {};",
+                            res.as_str()
+                        );
+                        return Err(ParseError::Expected(
+                            "a ';' to terminate return instruction.".to_string(),
+                            cur.get_source_ref(),
+                            Some(tip),
+                        ));
+                    }
+                };
 
                 // we can only return things in functions
                 if matches!(self.parse_scope, ParseScope::FnBody) {
-                    Ok(Instruction::Return { src: c_ref, value })
+                    Ok(Instruction::Return {
+                        src: ret_ref,
+                        value,
+                    })
                 } else {
-                    Err(ParseError::ReturnInstructionOutsideFunction(
-                        ret_ref.combine(c_ref),
-                    ))
+                    Err(ParseError::ReturnInstructionOutsideFunction(ret_ref))
                 }
             }
             Token::Pub(_) => {
@@ -242,8 +308,16 @@ impl Parser {
         let mut instructions: Vec<Instruction> = vec![];
         let mut cur = self.cur_token();
         while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
-            let instruction = self.next_instruction()?;
-            instructions.push(instruction);
+            let instruction = self.next_instruction();
+            if instruction.is_err() {
+                // record the error and continue parsing
+                self.report_error(instruction.err().unwrap());
+                self.recover_from_err();
+                // update the current token
+                cur = self.cur_token();
+                continue;
+            }
+            instructions.push(instruction.unwrap());
             cur = self.cur_token();
         }
 
@@ -260,6 +334,303 @@ impl Parser {
             src: block_ref,
             instructions,
         })
+    }
+
+    fn parse_directive_instruction(&mut self) -> Result<Instruction, ParseError> {
+        let start = self.cur_token();
+        // skip the '@' token
+        self.advance_index();
+        let cur = self.cur_token();
+        if let Token::Identifier(name, _) = &cur {
+            let binding = DIRECTIVES_INS.get(name);
+            match binding {
+                Some(needs_additional_ins) => {
+                    let directive = self.parse_id(false)?;
+                    let mut ins = None;
+                    let mut span = start.get_source_ref();
+                    if *needs_additional_ins {
+                        let block = self.parse_code_block()?;
+                        span = span.combine(block.source_ref());
+                        ins = Some(Box::new(block));
+                    }
+                    let direc = Instruction::DirectiveInstruction {
+                        directive,
+                        src: span,
+                        block: ins,
+                    };
+                    Ok(direc)
+                }
+                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
+            }
+        } else {
+            Err(ParseError::Expected(
+                "an identifier to name the directive after '@'".to_string(),
+                cur.get_source_ref(),
+                Some("Provide a name for the directive. E.g: '@run { ... }'".to_string()),
+            ))
+        }
+    }
+
+    fn parse_use_dependency(&mut self) -> Result<Instruction, ParseError> {
+        let start = self.cur_token();
+        // skip the 'use' keyword
+        self.advance_index();
+
+        let mut paths_to_import = vec![];
+        while !self.no_more_tokens() {
+            let paths = self.parse_path()?;
+            paths_to_import.extend(paths);
+
+            // expect a comma
+            let cur = self.cur_token();
+            if matches!(cur, Token::Comma(_)) {
+                self.advance_index();
+            } else if matches!(cur, Token::Semicolon(_)) {
+                break;
+            } else {
+                return Err(ParseError::Expected(
+                    "Expected ',' to separate paths in use instruction. ".to_string(),
+                    cur.get_source_ref(),
+                    Some(
+                        "Provide a ',' to separate paths. E.g: 'use kids::next::door, cartoon::network;'".to_string(),
+                    ),
+                ));
+            }
+        }
+
+        // expect a semicolon
+        let end = self.cur_token();
+        if matches!(end, Token::Semicolon(_)) {
+            self.advance_index();
+            let use_ins = Instruction::UseDependency {
+                paths: paths_to_import,
+                src: start.get_source_ref().combine(end.get_source_ref()),
+            };
+            Ok(use_ins)
+        } else {
+            Err(ParseError::Expected(
+                "Expected ';' to terminate use instruction. ".to_string(),
+                end.get_source_ref(),
+                Some("Provide a ';'. E.g: 'use kids::next::door;'".to_string()),
+            ))
+        }
+    }
+
+    fn parse_path(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+        let start = self.cur_token();
+        // allow parsing:
+        // - immediate paths
+        // - ^ paths
+        // - ! paths
+        // - $ paths
+        // - @ paths
+        // all with or without the 'as' alias
+        match start {
+            Token::Identifier(_, _) | Token::Caret(_) => self.parse_simple_path_section(true),
+            Token::Exclamation(_) | Token::Dollar(_) | Token::At(_) => {
+                self.parse_directive_path_section()
+            }
+            _ => Err(ParseError::UnusualTokenInUsePath(start.get_source_ref())),
+        }
+    }
+
+    fn parse_directive_path_section(&mut self) -> Result<Vec<DependencyPath>, ParseError> {
+        let cur = self.cur_token();
+        let mut dep_paths = vec![];
+        let mut path_actions = vec![];
+        // this will parse one of the following directives:
+        // 1. !module_in_current_file
+        // 2. $module_in_project_root
+        // 3. @module_in_core_library
+        match cur {
+            Token::Exclamation(_) => {
+                // this is a module in the current file
+                // skip the '!' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchCurrentFileFor(id));
+            }
+            Token::Dollar(_) => {
+                // this is a module in the project root
+                // skip the '$' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchProjectRootFor(id));
+            }
+            Token::At(_) => {
+                // this is a module in the std
+                // skip the '@' token
+                self.advance_index();
+                let id = self.parse_id(false)?;
+                path_actions.push(PathAction::SearchCoreModulesFor(id));
+            }
+            _ => {
+                unreachable!("parse_directive_path_section called with invalid token");
+            }
+        }
+
+        if let Token::Scope(_) = self.cur_token() {
+            self.advance_index();
+            let simple_dep_paths = self.parse_simple_path_section(false)?;
+
+            for simple_dep_path in simple_dep_paths {
+                let t_dep_path = DependencyPath {
+                    actions: path_actions.clone(),
+                };
+
+                let combined_path = t_dep_path.combine(&simple_dep_path);
+                dep_paths.push(combined_path);
+            }
+            Ok(dep_paths)
+        } else {
+            dep_paths.push(DependencyPath {
+                actions: path_actions,
+            });
+            Ok(dep_paths)
+        }
+    }
+
+    fn parse_simple_path_section(
+        &mut self,
+        allow_caret: bool,
+    ) -> Result<Vec<DependencyPath>, ParseError> {
+        let mut cur = self.cur_token();
+        let mut dep_paths = vec![];
+
+        let mut match_condition = if allow_caret {
+            matches!(cur, Token::Identifier(_, _) | Token::Caret(_))
+        } else {
+            matches!(cur, Token::Identifier(_, _))
+        };
+        // this will parse either an identifier or a caret
+        if match_condition {
+            let mut path_actions = vec![];
+            let mut expects_path_section = false;
+            while match_condition {
+                if let Token::Identifier(_, _) = cur {
+                    let id = self.parse_id(false)?;
+                    path_actions.push(PathAction::SearchFor(id));
+                } else {
+                    path_actions.push(PathAction::ToParentDir(cur.get_source_ref()));
+                    self.advance_index();
+                }
+
+                if let Token::Scope(_) = self.cur_token() {
+                    self.advance_index();
+                    cur = self.cur_token();
+                    match_condition = if allow_caret {
+                        matches!(cur, Token::Identifier(_, _) | Token::Caret(_))
+                    } else {
+                        matches!(cur, Token::Identifier(_, _))
+                    };
+                    expects_path_section = true;
+                } else {
+                    expects_path_section = false;
+                    break;
+                }
+            }
+
+            cur = self.cur_token();
+            // look for one of:
+            // - *
+            // - as
+            // - [ to start a nested path
+            match cur {
+                Token::Star(_) => {
+                    self.advance_index();
+                    path_actions.push(PathAction::ImportAll(cur.get_source_ref()));
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+                Token::As(_) => {
+                    self.advance_index();
+                    let alias = self.parse_id(false)?;
+                    path_actions.push(PathAction::NameLastItemAs(alias));
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+                Token::LBracket(_) => {
+                    self.advance_index();
+                    cur = self.cur_token();
+                    while !matches!(cur, Token::RBracket(_)) && !self.no_more_tokens() {
+                        let inner_paths = self.parse_simple_path_section(allow_caret)?;
+                        for inner_path in inner_paths {
+                            let t_dep_path = DependencyPath {
+                                actions: path_actions.clone(),
+                            };
+
+                            let combined_path = t_dep_path.combine(&inner_path);
+                            dep_paths.push(combined_path);
+                        }
+                        cur = self.cur_token();
+                        if matches!(cur, Token::Comma(_)) {
+                            self.advance_index();
+                            cur = self.cur_token();
+                        } else {
+                            break;
+                        }
+                    }
+                    if matches!(cur, Token::RBracket(_)) {
+                        self.advance_index();
+                    } else {
+                        return Err(ParseError::Expected(
+                            "a ']' to terminate path section.".to_string(),
+                            cur.get_source_ref(),
+                            Some("Provide a ']'. E.g: '[kids::next::door]'".to_string()),
+                        ));
+                    }
+                }
+                _ => {
+                    if expects_path_section {
+                        let msg = if allow_caret {
+                            "a '^', '*', 'as' or '[' to continue use path section.".to_string()
+                        } else {
+                            "a '*', 'as' or '[' to continue use path section.".to_string()
+                        };
+                        let tip = if allow_caret {
+                            let mut text =
+                                "Provide a '^', '*', 'as' or '[' to continue use path section.'"
+                                    .to_string();
+                            text.push_str("E.g:\n");
+                            text.push_str("*  use immediate_module::inner::other;\n");
+                            text.push_str("*  use immediate_module::inner as alias;\n");
+                            text.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
+                            text.push_str("*  use immediate_module;\n");
+                            text.push_str("*  use import_everything::*;\n");
+                            text.push_str("*  use ^::module_in_parent_dir;\n");
+                            text.push_str("*  use ^::module_in_parent_dir::inner;\n");
+                            text.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
+                            text
+                        } else {
+                            let mut text =
+                                "Provide a '*', 'as' or '[' to continue use path section.'"
+                                    .to_string();
+                            text.push_str("E.g:\n");
+                            text.push_str("*  use @array::Array as core_array;\n");
+                            text.push_str("*  use @array::Array;\n");
+                            text.push_str("*  use @array::[Array, Array2D];\n");
+                            text.push_str("*  use @array;\n");
+                            text.push_str("*  use !my_module::*;\n");
+                            text.push_str("*  use $some_module_in_root::[a, b]");
+                            text
+                        };
+                        return Err(ParseError::Expected(msg, cur.get_source_ref(), Some(tip)));
+                    }
+                    dep_paths.push(DependencyPath {
+                        actions: path_actions,
+                    });
+                }
+            }
+            Ok(dep_paths)
+        } else {
+            Err(ParseError::Expected(
+                "an identifier or caret (^) as path section.".to_string(),
+                cur.get_source_ref(),
+                None,
+            ))
+        }
     }
 
     fn parse_fn_def(
@@ -455,6 +826,87 @@ impl Parser {
         }
     }
 
+    fn parse_conditional_branch_ins(&mut self) -> Result<Instruction, ParseError> {
+        self.advance_index(); // skip past "if"
+        let mut span = self.cur_token().get_source_ref();
+
+        // get condition for if statement
+        let if_cond = self.parse_expr()?;
+        span = span.combine(if_cond.source_ref());
+
+        // get body of if statement
+        let if_body = self.next_instruction()?;
+        span = span.combine(if_body.source_ref());
+
+        let mut pairs = vec![(Some(if_cond), Box::new(if_body))];
+
+        // check for else
+        let mut cur = self.cur_token();
+        while let Token::Else(_) = cur {
+            self.advance_index(); // skip past "else"
+
+            // check for if
+            cur = self.cur_token();
+            if let Token::If(_) = cur {
+                self.advance_index(); // skip past "if"
+
+                let else_if_cond = self.parse_expr()?;
+
+                let else_if_body = self.next_instruction()?;
+                span = span.combine(else_if_body.source_ref());
+
+                pairs.push((Some(else_if_cond), Box::new(else_if_body)));
+                cur = self.cur_token();
+            } else {
+                // else body
+                let else_body = self.next_instruction()?;
+                span = span.combine(else_body.source_ref());
+
+                pairs.push((None, Box::new(else_body)));
+                break;
+            }
+        }
+
+        let cond_branch_ins = Instruction::ConditionalBranchIns { pairs, src: span };
+        Ok(cond_branch_ins)
+    }
+
+    fn parse_break_ins(&mut self) -> Result<Instruction, ParseError> {
+        let break_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+        // check for a semicolon
+        let cur = self.cur_token();
+        if let Token::Semicolon(_) = cur {
+            self.advance_index();
+            Ok(Instruction::Break(break_ref.combine(cur.get_source_ref())))
+        } else {
+            Err(ParseError::Expected(
+                "';' to terminate the break statement.".into(),
+                cur.get_source_ref(),
+                Some("Terminate the break statement with a ';'. E.g: 'break;'".into()),
+            ))
+        }
+    }
+
+    fn parse_continue_ins(&mut self) -> Result<Instruction, ParseError> {
+        let continue_ref = self.cur_token().get_source_ref();
+        self.advance_index();
+        // check for a semicolon
+        let cur = self.cur_token();
+        if let Token::Semicolon(_) = cur {
+            self.advance_index();
+            Ok(Instruction::Continue(
+                continue_ref.combine(cur.get_source_ref()),
+            ))
+        } else {
+            Err(ParseError::Expected(
+                "';' to terminate the continue statement.".into(),
+                cur.get_source_ref(),
+                Some("Terminate the continue statement with a ';'. E.g: 'continue;'".into()),
+            ))
+        }
+    }
+
     fn parse_inf_loop(&mut self) -> Result<Instruction, ParseError> {
         let loop_ref = self.cur_token().get_source_ref();
         self.advance_index();
@@ -482,6 +934,68 @@ impl Parser {
             src: loop_ref.combine(body.source_ref()),
             condition,
             body: Box::new(body),
+        })
+    }
+
+    fn parse_struct_decl(&mut self) -> Result<Instruction, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // skip past ":"
+        let name = self.parse_id(false)?;
+        let key_value_pairs = self.parse_key_value_bindings(true)?;
+        span = span.combine(key_value_pairs.source_ref());
+        let named_struct = Instruction::NamedStructDecl {
+            name,
+            fields: key_value_pairs,
+            src: span,
+        };
+        Ok(named_struct)
+    }
+
+    // parses key-value bindings for structs
+    fn parse_key_value_bindings(
+        &mut self,
+        parse_type: bool,
+    ) -> Result<KeyValueBindings, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        let mut bindings = Vec::new();
+
+        self.advance_index(); // skip past "{"
+        let mut cur = self.cur_token();
+        while let Token::Identifier(_, _) = cur {
+            let name = self.parse_id(parse_type)?;
+            span = span.combine(name.source_ref());
+
+            cur = self.cur_token();
+            if let Token::Assign(_) = cur {
+                self.advance_index(); // skip past "="
+                let expr = self.parse_expr()?;
+                span = span.combine(expr.source_ref());
+                bindings.push((name, Some(expr)));
+            } else {
+                bindings.push((name, None));
+            }
+
+            cur = self.cur_token();
+            if let Token::Comma(_) = cur {
+                self.advance_index(); // skip past ","
+                cur = self.cur_token();
+                span = span.combine(cur.get_source_ref());
+            } else if let Token::RCurly(_) = cur {
+                span = span.combine(cur.get_source_ref());
+                break;
+            } else {
+                return Err(ParseError::Expected(
+                    "a ',' between fields or '}' to terminate the struct.".into(),
+                    cur.get_source_ref(),
+                    Some("Terminate the struct field with a ',' or terminate the struct with a '}'. E.g: 'field1 = value, field2 = value }'".into()),
+                ));
+            }
+        }
+
+        self.advance_index(); // skip past "}"
+        Ok(KeyValueBindings {
+            span,
+            pairs: bindings,
         })
     }
 
@@ -582,9 +1096,6 @@ impl Parser {
                 Err(ParseError::MalformedDeclaration(tip, cur.get_source_ref()))
             }
         }
-
-        // cur = self.cur_token();
-        // match cur {}
     }
 
     fn parse_assignment_or_expr_instruc(&mut self) -> Result<Instruction, ParseError> {
@@ -742,7 +1253,7 @@ impl Parser {
     fn parse_index_like_exprs(&mut self) -> Result<Expr, ParseError> {
         let mut lhs = self.parse_primary()?;
 
-        loop {
+        'main_loop: loop {
             let mut cur = self.cur_token();
 
             match cur {
@@ -771,13 +1282,13 @@ impl Parser {
                         match cur {
                             Token::RParen(_) => {
                                 lhs = Expr::FnCall {
+                                    span: lhs.source_ref().combine(cur.get_source_ref()),
                                     func: Box::new(lhs),
                                     args,
-                                    rparen: cur,
                                     fn_type: None,
                                 };
                                 self.advance_index();
-                                break 'args;
+                                return Ok(lhs);
                             }
                             Token::Comma(_) => {
                                 self.advance_index();
@@ -789,6 +1300,70 @@ impl Parser {
                                 cur.get_source_ref(),
                                 None,
                             )),
+                        }
+                    }
+                }
+                Token::Scope(_) => {
+                    // for now, we want to only allow:
+                    // 1. `foo::bar()` (function call)
+                    // 2. `foo::bar` (variable or constant)
+                    // 3. `foo::bar::baz` (variable or constant)
+                    // 4. `foo::bar::baz()` (function call)
+                    // we cannot allow functions be referenced like variables,
+                    // or constants.
+                    // Make sure lhs is a Identifier or a ScopeInto
+                    match lhs {
+                        Expr::Id(_, _) => {
+                            self.advance_index();
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::Id(_, _) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                        resolved_type: None,
+                                    };
+
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '::'.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
+                        Expr::ScopeInto { .. } => {
+                            self.advance_index();
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::Id(_, _) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                        resolved_type: None,
+                                    };
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '::'.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ParseError::Expected(
+                                "an identifier or scope into operation before '::'.".into(),
+                                lhs.source_ref(),
+                                None,
+                            ))
                         }
                     }
                 }
@@ -813,7 +1388,7 @@ impl Parser {
                             "to parse a type for the preceding identifier, '{}'.",
                             id.as_str()
                         ),
-                        id.get_source_ref().combine(cur.get_source_ref()),
+                        id.get_source_ref(),
                         Some("Please provide a type for this identifier.".into()),
                     ))
                 }
@@ -831,10 +1406,75 @@ impl Parser {
         }
     }
 
+    fn parse_directive_expr(&mut self) -> Result<Expr, ParseError> {
+        let start = self.cur_token();
+        self.advance_index();
+        let cur = self.cur_token();
+        if let Token::Identifier(name, _) = &cur {
+            let binding = DIRECTIVES_EXPRS.get(name);
+            match binding {
+                Some(needs_additional_expr) => {
+                    let directive = self.parse_id(false)?;
+                    let mut expr = None;
+                    let mut span = self.cur_token().get_source_ref();
+                    if *needs_additional_expr {
+                        self.allow_directive_expr_use = false;
+                        let e = self.parse_expr()?;
+                        self.allow_directive_expr_use = true;
+                        span = span.combine(e.source_ref());
+                        expr = Some(Box::new(e));
+                    }
+                    let direc = Expr::DirectiveExpr {
+                        directive: Box::new(directive),
+                        src: start.get_source_ref().combine(span),
+                        expr,
+                        resolved_type: None,
+                    };
+                    Ok(direc)
+                }
+                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
+            }
+        } else {
+            Err(ParseError::Expected(
+                "an identifier to name the directive after '@'.".into(),
+                cur.get_source_ref(),
+                Some("Provide a name for the directive. E.g: '@filename'".into()),
+            ))
+        }
+    }
+
+    fn parse_init_named_struct(&mut self) -> Result<Expr, ParseError> {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // consume ':'
+
+        let name = self.parse_id(false)?;
+        let fields = self.parse_key_value_bindings(false)?;
+        span = span.combine(fields.source_ref());
+        let init_named_struct = Expr::NamedStructInit {
+            name: Box::new(name),
+            fields,
+            src: span,
+            resolved_type: None,
+        };
+        Ok(init_named_struct)
+    }
+
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
 
         match cur {
+            Token::Colon(_) => self.parse_init_named_struct(),
+            Token::At(_) => self.parse_directive_expr(),
+            Token::StringLiteral(_, _) => {
+                let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));
+                self.advance_index();
+                res
+            }
+            Token::CharLiteral(_, _) => {
+                let res = Ok(Expr::CharacterLiteral(cur, Some(Type::Char)));
+                self.advance_index();
+                res
+            }
             Token::Identifier(_, _) => {
                 let res = Ok(Expr::Id(cur, None));
                 self.advance_index();
@@ -940,7 +1580,8 @@ fn test_parser() {
         let lexer = Lexer::new(src);
         let mut parser = Parser::new(lexer);
 
-        let module = parser.parse();
+        parser.parse();
+        let module = parser.compilation_module;
         let l_errs = parser.lexer_errors;
         let p_errs = parser.parser_errors;
 

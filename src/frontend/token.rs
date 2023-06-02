@@ -16,7 +16,6 @@ pub enum Token {
     Void(SourceRef),
     True(SourceRef),
     False(SourceRef),
-    Character(SourceRef, char),
     Use(SourceRef),
     Pub(SourceRef),
     Mod(SourceRef),
@@ -28,6 +27,15 @@ pub enum Token {
     Star(SourceRef),
     Slash(SourceRef),
     Modulo(SourceRef),
+
+    // special operators
+    As(SourceRef),
+
+    // special characters
+    Caret(SourceRef),
+    Exclamation(SourceRef),
+    Dollar(SourceRef),
+    At(SourceRef),
 
     // comparison
     Equal(SourceRef),
@@ -54,6 +62,7 @@ pub enum Token {
     RBracket(SourceRef),
     Semicolon(SourceRef),
     Colon(SourceRef),
+    Scope(SourceRef),
     Comma(SourceRef),
     Dot(SourceRef),
 
@@ -69,6 +78,9 @@ pub enum Token {
     U32Literal(u32, SourceRef),
     U64Literal(u64, SourceRef),
     UsizeLiteral(usize, SourceRef),
+    CharLiteral(SourceRef, char),
+    StringLiteral(SourceRef, String),
+    SingleLineComment(SourceRef, String),
 
     // primitive types
     I8(SourceRef),
@@ -83,6 +95,7 @@ pub enum Token {
     Usize(SourceRef),
     Bool(SourceRef),
     Char(SourceRef),
+    Str(SourceRef),
 
     // misc
     Eof(SourceRef),
@@ -92,6 +105,7 @@ pub enum Token {
 impl Token {
     pub fn get_source_ref(&self) -> SourceRef {
         match self {
+            Token::SingleLineComment(src, _) => src.clone(),
             Token::Fn(src) => src.clone(),
             Token::Let(src) => src.clone(),
             Token::Mut(src) => src.clone(),
@@ -127,7 +141,7 @@ impl Token {
             Token::Void(src) => src.clone(),
             Token::True(src) => src.clone(),
             Token::False(src) => src.clone(),
-            Token::Character(src, _) => src.clone(),
+            Token::CharLiteral(src, _) => src.clone(),
             Token::Identifier(_, src) => src.clone(),
             Token::I8(src) => src.clone(),
             Token::I16(src) => src.clone(),
@@ -141,6 +155,7 @@ impl Token {
             Token::Usize(src) => src.clone(),
             Token::Bool(src) => src.clone(),
             Token::Char(src) => src.clone(),
+            Token::Str(src) => src.clone(),
             Token::I8Literal(_, src) => src.clone(),
             Token::I16Literal(_, src) => src.clone(),
             Token::I32Literal(_, src) => src.clone(),
@@ -158,7 +173,33 @@ impl Token {
             Token::Pub(src) => src.clone(),
             Token::Mod(src) => src.clone(),
             Token::Return(src) => src.clone(),
+            Token::Scope(src) => src.clone(),
+            Token::Caret(src) => src.clone(),
+            Token::Exclamation(src) => src.clone(),
+            Token::Dollar(src) => src.clone(),
+            Token::At(src) => src.clone(),
+            Token::As(src) => src.clone(),
+            Token::StringLiteral(src, _) => src.clone(),
         }
+    }
+
+    pub fn is_terminator(&self) -> bool {
+        matches!(self, Token::Semicolon(_) | Token::RCurly(_) | Token::Eof(_))
+    }
+
+    pub fn begins_instruction(&self) -> bool {
+        matches!(
+            self,
+            Token::Let(_)
+                | Token::LCurly(_)
+                | Token::Loop(_)
+                | Token::While(_)
+                | Token::Use(_)
+                | Token::Mod(_)
+                | Token::Pub(_)
+                | Token::At(_)
+                | Token::SingleLineComment(_, _)
+        )
     }
 
     pub fn is_type_token(&self) -> bool {
@@ -177,6 +218,7 @@ impl Token {
                 | Token::Bool(_)
                 | Token::Char(_)
                 | Token::Void(_)
+                | Token::Str(_)
         )
     }
 
@@ -195,6 +237,7 @@ impl Token {
             Token::Bool(_) => Type::Bool,
             Token::Char(_) => Type::Char,
             Token::Void(_) => Type::Void,
+            Token::Str(_) => Type::Str,
             _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
         }
     }
@@ -213,7 +256,7 @@ impl Token {
             Token::Void(_) => "void".into(),
             Token::True(_) => "true".into(),
             Token::False(_) => "false".into(),
-            Token::Character(_, c) => format!("'{c}'"),
+            Token::CharLiteral(_, c) => format!("'{c}'"),
             Token::Use(_) => "use".into(),
             Token::Plus(_) => "+".into(),
             Token::Minus(_) => "-".into(),
@@ -263,10 +306,19 @@ impl Token {
             Token::Usize(_) => "usize".into(),
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
+            Token::Str(_) => "str".into(),
             Token::Eof(_) => "\0".into(),
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),
             Token::Return(_) => "return".into(),
+            Token::Scope(_) => "::".into(),
+            Token::Caret(_) => "^".into(),
+            Token::Exclamation(_) => "!".into(),
+            Token::Dollar(_) => "$".into(),
+            Token::At(_) => "@".into(),
+            Token::As(_) => "as".into(),
+            Token::StringLiteral(_, src) => format!("\"{src}\""),
+            Token::SingleLineComment(_, src) => src.clone(),
         }
     }
 }

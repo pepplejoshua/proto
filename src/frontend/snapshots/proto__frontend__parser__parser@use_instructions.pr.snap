@@ -1,0 +1,17 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/use_instructions.pr
+---
+module:
+  - "use other::a::b::c::d::*;"
+  - "use other::a, other::b, other::c::d, other::c::e, other::c::f, other::^::other::g;"
+  - "use ^::prototyping::other::a::^::other::a;"
+  - "use @arrays::Array::other::a;"
+  - use $some_module_at_root;
+  - "pub mod some_fns { pub fn public_fn () void { private_fn(); } fn private_fn () void { println(1); } }"
+  - "use !some_fns::public_fn;"
+  - "fn main () void { public_fn(); other::some_mod::public_fn(); }"
+lexer_error: []
+parser_error: []
+

@@ -6,11 +6,13 @@ use frontend::{
     parser::Parser,
     source::{SourceFile, SourceReporter},
 };
+use ir8::{lowir::LowIRModule, tomato::Tomato};
 use serde::Deserialize;
 
 use crate::frontend::token::Token;
 
 mod frontend;
+mod ir8;
 mod pastel;
 
 const USAGE: &str = "
@@ -54,7 +56,7 @@ fn main() {
     let path = fs::canonicalize(PathBuf::from(path)).unwrap();
     let path = path.to_str().unwrap().to_string();
 
-    let src = SourceFile::new(path);
+    let src = SourceFile::new(path.clone());
     let reporter = SourceReporter::new(src.clone());
     let mut lexer = Lexer::new(src);
 
@@ -72,15 +74,38 @@ fn main() {
         }
     } else {
         let mut parser = Parser::new(lexer);
-        let _main_mod = parser.parse();
+        parser.parse();
 
-        let _has_errors = !parser.lexer_errors.is_empty() || !parser.parser_errors.is_empty();
-        for le in parser.lexer_errors {
-            reporter.report_lexer_error(&le);
+        if !parser.lexer_errors.is_empty() {
+            for le in parser.lexer_errors {
+                reporter.report_lexer_error(&le);
+            }
         }
+        // else {
+        //     reporter.show_info("No errors during lexing.".to_string());
+        // }
 
-        for pe in parser.parser_errors {
-            reporter.report_parse_error(pe);
+        if !parser.parser_errors.is_empty() {
+            for pe in parser.parser_errors {
+                reporter.report_parser_error(pe);
+            }
+        }
+        // else {
+        //     reporter.show_info("No errors during parsing.".to_string());
+        // }
+
+        let module = parser.compilation_module;
+        let mut ir_mod = LowIRModule::new();
+        ir_mod.lowir(module);
+        let mut tomato = Tomato::new(
+            path.clone(),
+            ir_mod.ins_pool.clone(),
+            ir_mod.expr_pool.clone(),
+        );
+
+        match tomato.format(&ir_mod) {
+            Ok(()) => reporter.show_info(format!("formatted {}", path)),
+            Err(e) => reporter.show_info(format!("failed to format {}: {}", path, e)),
         }
     }
 }

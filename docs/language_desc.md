@@ -33,7 +33,7 @@ The Standard Library for Proto has its own documentation. It can be found [here]
 #### **`hello.pr`**
 
 ```rs
-use std::io::println;
+use @io::println;
 
 fn main() void {
   println("Hello, {#}!", "world");
@@ -77,6 +77,7 @@ Hello, world!
 ```
 
 > Documentation comments will be done later when work starts on adding it to proto.
+> Multiline comments will be added along with documentation comments.
 
 <br>
 
@@ -87,11 +88,11 @@ Hello, world!
 #### **`values_constants.pr`**
 
 ```rs
-use std::io::println;
+use @io::println;
 
 fn main() void {
   // integers
-  let one_times_two: i32 = 1 * 2;
+  let one_times_two i32 = 1 * 2;
   println("1 * 2 = {#}", one_times_two);
 
   // boolean
@@ -103,10 +104,10 @@ fn main() void {
   );
 
   // characters
-  let a: char = 'a';
+  let a char = 'a';
 
   // string literals
-  let literal: str = "this is {#} string literal";
+  let literal str = "this is {#} string literal";
   println(literal, a);
 }
 ```
@@ -132,19 +133,20 @@ this is a string literal
 
 | Type        | Description                                       | Lexer? | Parser? |
 | ----------- | ------------------------------------------------- | ------ | ------- |
-| **`i8`**    | signed 8-bit integer                              | ✅     | ❌      |
-| **`i16`**   | signed 16-bit integer                             | ✅     | ❌      |
-| **`i32`**   | signed 32-bit integer                             | ✅     | ❌      |
-| **`i64`**   | signed 64-bit integer                             | ✅     | ❌      |
-| **`isize`** | signed pointer-sized integer. platform specific   | ✅     | ❌      |
-| **`u8`**    | unsigned 8-bit integer                            | ✅     | ❌      |
-| **`u16`**   | unsigned 16-bit integer                           | ✅     | ❌      |
-| **`u32`**   | unsigned 32-bit integer                           | ✅     | ❌      |
-| **`u64`**   | unsigned 64-bit integer                           | ✅     | ❌      |
-| **`usize`** | unsigned pointer-sized integer. platform specific | ✅     | ❌      |
-| **`bool`**  | `true` or `false`                                 | ✅     | ❌      |
-| **`void`**  | `void` as in, nothing                             | ✅     | ❌      |
-| **`char`**  | a utf-8 character (can be stored in u8 as well)   | ✅     | ❌      |
+| **`i8`**    | signed 8-bit integer                              | ✅     | ✅      |
+| **`i16`**   | signed 16-bit integer                             | ✅     | ✅      |
+| **`i32`**   | signed 32-bit integer                             | ✅     | ✅      |
+| **`i64`**   | signed 64-bit integer                             | ✅     | ✅      |
+| **`isize`** | signed pointer-sized integer. platform specific   | ✅     | ✅      |
+| **`u8`**    | unsigned 8-bit integer                            | ✅     | ✅      |
+| **`u16`**   | unsigned 16-bit integer                           | ✅     | ✅      |
+| **`u32`**   | unsigned 32-bit integer                           | ✅     | ✅      |
+| **`u64`**   | unsigned 64-bit integer                           | ✅     | ✅      |
+| **`usize`** | unsigned pointer-sized integer. platform specific | ✅     | ✅      |
+| **`bool`**  | `true` or `false`                                 | ✅     | ✅      |
+| **`void`**  | `void` as in, nothing                             | ✅     | ✅      |
+| **`char`**  | a utf-8 character                                 | ✅     | ✅      |
+| **`str`**   | a string of characters                            | ✅     | ✅      |
 | **`type`**  | the type of types                                 | ⏸      | ⏸       |
 
 <br>

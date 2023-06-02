@@ -4,9 +4,9 @@ expression: res
 input_file: src/frontend/parser_inputs/fn_def.pr
 ---
 module:
-  - "fn add (a, b) i64 { return a + b }"
+  - "fn add (a i64, b i64) i64 { return a + b; }"
   - "fn do_nothing () void {  }"
-  - fn do_nothing_ () void return 1
+  - fn do_nothing_ () void return 1;
 lexer_error: []
 parser_error: []
 

@@ -1,0 +1,20 @@
+mod some_fns {
+    pub fn public_fn() void {
+    }
+
+    fn private_fn() void {
+    }
+}
+
+pub mod some_mod {
+    pub fn public_fn() void {
+    }
+
+    fn private_fn() void {
+    }
+}
+
+fn main() void {
+    some_fns::public_fn();
+    some_mod::public_fn();
+}
