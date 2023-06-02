@@ -5,11 +5,10 @@ use frontend::{
     lexer::Lexer,
     parser::Parser,
     source::{SourceFile, SourceReporter},
+    token::Token,
 };
 use ir8::{lowir::LowIRModule, tomato::Tomato};
 use serde::Deserialize;
-
-use crate::frontend::token::Token;
 
 mod frontend;
 mod ir8;
