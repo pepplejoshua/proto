@@ -13,13 +13,3 @@ A compiler/tooling project for the Proto programming language. This project is a
 The language description can be found [here](docs/language_desc.md).
 
 <br>
-
-# Tools
-
-This project will come with a few tools:
-
-1. [prc](src/prc/README.md), the proto compiler which can be called standalone.
-
-2. [proto](src/proto/README.md), the toolkit for the Proto programming language. 
-
-3. [proton](src/proton/README.md), the virtual machine for proto.

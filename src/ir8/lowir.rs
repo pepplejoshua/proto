@@ -7,8 +7,6 @@ use crate::frontend::{
     types::Type,
 };
 
-// use super::visitir::{VisitIRError, VisitsLowIR};
-
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct KeyValueBindings {
