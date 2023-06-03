@@ -10,6 +10,7 @@ use frontend::{
 use ir8::{lowir::LowIRModule, tomato::Tomato};
 use serde::Deserialize;
 
+mod analysis;
 mod frontend;
 mod ir8;
 mod pastel;

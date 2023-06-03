@@ -547,11 +547,11 @@ impl InsPool {
         }
     }
 
-    pub fn lowir(&mut self, epool: &mut ExprPool, ins: Instruction) -> InsRef {
+    pub fn lowir(&mut self, epool: &mut ExprPool, ins: Instruction) -> (InsRef, Vec<usize>) {
         match ins {
             Instruction::SingleLineComment { comment, src } => {
                 let ins = LowIRIns::SingleLineComment { comment, src };
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::NamedStructDecl { name, fields, src } => {
                 let name_ref = epool.lowir(name);
@@ -561,7 +561,7 @@ impl InsPool {
                     fields,
                     src,
                 };
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::ConstantDecl {
                 const_name,
@@ -578,23 +578,23 @@ impl InsPool {
                     src_ref,
                     is_public,
                 };
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::VariableDecl(name, var_type, init_expr, span) => {
                 let init_expr = init_expr.map(|e| epool.lowir(e));
                 let ins = LowIRIns::VariableDecl(name, var_type, init_expr, span);
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::AssignmentIns(dest, target) => {
                 let dest = epool.lowir(dest);
                 let target = epool.lowir(target);
                 let ins = LowIRIns::AssignmentIns(dest, target);
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::ExpressionIns(expr, semi) => {
                 let expr = epool.lowir(expr);
                 let ins = LowIRIns::ExpressionIns(expr, semi);
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::FunctionDef {
                 name,
@@ -605,7 +605,7 @@ impl InsPool {
                 src,
             } => {
                 let params = params.into_iter().map(|p| epool.lowir(p)).collect();
-                let body = self.lowir(epool, *body);
+                let (body, dependencies) = self.lowir(epool, *body);
                 let ins = LowIRIns::FunctionDef {
                     name,
                     params,
@@ -614,12 +614,12 @@ impl InsPool {
                     is_public,
                     src,
                 };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
             Instruction::InfiniteLoop { src, body } => {
-                let body = self.lowir(epool, *body);
+                let (body, dependencies) = self.lowir(epool, *body);
                 let ins = LowIRIns::InfiniteLoop { src, body };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
             Instruction::WhileLoop {
                 src,
@@ -627,21 +627,29 @@ impl InsPool {
                 body,
             } => {
                 let condition = epool.lowir(condition);
-                let body = self.lowir(epool, *body);
+                let (body, dependencies) = self.lowir(epool, *body);
                 let ins = LowIRIns::WhileLoop {
                     src,
                     condition,
                     body,
                 };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
             Instruction::CodeBlock { src, instructions } => {
-                let instructions = instructions
-                    .into_iter()
-                    .map(|i| self.lowir(epool, i))
-                    .collect();
-                let ins = LowIRIns::CodeBlock { src, instructions };
-                self.add(ins)
+                let mut new_instructions = vec![];
+                let mut dependencies = vec![];
+
+                for i in instructions {
+                    let (ins, deps) = self.lowir(epool, i);
+                    new_instructions.push(ins);
+                    dependencies.extend(deps);
+                }
+
+                let ins = LowIRIns::CodeBlock {
+                    src,
+                    instructions: new_instructions,
+                };
+                (self.add(ins), dependencies)
             }
             Instruction::Module {
                 name,
@@ -650,31 +658,31 @@ impl InsPool {
                 is_public,
             } => {
                 let name = epool.lowir(name);
-                let body = self.lowir(epool, *body);
+                let (body, dependencies) = self.lowir(epool, *body);
                 let ins = LowIRIns::Module {
                     name,
                     body,
                     src,
                     is_public,
                 };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
             Instruction::Return { src, value } => {
                 let value = value.map(|v| epool.lowir(v));
                 let ins = LowIRIns::Return { src, value };
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::Break(src) => {
                 let ins = LowIRIns::Break(src);
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::Continue(src) => {
                 let ins = LowIRIns::Continue(src);
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::UseDependency { paths, src } => {
                 let ins = LowIRIns::UseDependency { paths, src };
-                self.add(ins)
+                (self.add(ins), vec![])
             }
             Instruction::DirectiveInstruction {
                 directive,
@@ -682,30 +690,33 @@ impl InsPool {
                 src,
             } => {
                 let directive = epool.lowir(directive);
-                let block = block.map(|b| self.lowir(epool, *b));
+                let (block, dependencies) = block.map(|b| self.lowir(epool, *b)).unwrap();
                 let ins = LowIRIns::DirectiveInstruction {
                     directive,
-                    block,
+                    block: Some(block),
                     src,
                 };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
             Instruction::ConditionalBranchIns { pairs, src } => {
+                let mut dependencies = vec![];
                 let pairs = pairs
                     .into_iter()
                     .map(|(cond, body)| {
                         if let Some(cond) = cond {
                             let cond = epool.lowir(cond);
-                            let body = self.lowir(epool, *body);
+                            let (body, c_dependencies) = self.lowir(epool, *body);
+                            dependencies.extend(c_dependencies);
                             (Some(cond), body)
                         } else {
-                            let body = self.lowir(epool, *body);
+                            let (body, c_dependencies) = self.lowir(epool, *body);
+                            dependencies.extend(c_dependencies);
                             (None, body)
                         }
                     })
                     .collect();
                 let ins = LowIRIns::ConditionalBranchIns { pairs, src };
-                self.add(ins)
+                (self.add(ins), dependencies)
             }
         }
     }
@@ -720,6 +731,7 @@ pub struct LowIRModule {
     pub ins_pool: InsPool,
     pub expr_pool: ExprPool,
     pub top_level: Vec<InsRef>,
+    pub dependencies: Vec<usize>,
 }
 
 #[allow(dead_code)]
@@ -729,13 +741,17 @@ impl LowIRModule {
             ins_pool: InsPool::new(),
             expr_pool: ExprPool::new(),
             top_level: Vec::new(),
+            dependencies: Vec::new(),
         }
     }
 
     pub fn lowir(&mut self, cm: CompilationModule) {
+        let mut module_dependencies = vec![];
         for ins in cm.instructions {
-            let id = self.ins_pool.lowir(&mut self.expr_pool, ins);
+            let (id, dependencies) = self.ins_pool.lowir(&mut self.expr_pool, ins);
+            module_dependencies.extend(dependencies);
             self.top_level.push(id);
         }
+        self.dependencies = module_dependencies;
     }
 }
