@@ -1,11 +1,16 @@
-use crate::ir8::lowir::LowIRModule;
+use crate::ir8::lowir::{LowIRIns, LowIRModule};
 
-pub struct ExtractDependencies<'a> {
-    module: &'a LowIRModule,
+pub fn extract(module: &LowIRModule) -> Vec<LowIRIns> {
+    let mut dependencies = vec![];
+
+    for ins in &module.ins_pool.pool {
+        if let LowIRIns::UseDependency { paths: _, src: _ } = ins {
+            dependencies.push(ins.clone());
+        }
+    }
+    dependencies
 }
 
-impl<'a> ExtractDependencies<'a> {
-    pub fn new(module: &'a LowIRModule) -> Self {
-        ExtractDependencies { module }
-    }
+pub fn resolve_use_to_path(use_ins: &LowIRIns) -> String {
+    todo!("resolve_use_to_path")
 }
