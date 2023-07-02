@@ -36,12 +36,38 @@ struct Args {
     flag_f: String,
 }
 
+#[allow(dead_code)]
+enum Backend {
+    PIR, // will go to PVM
+    CPP, // will go to C++
+}
+
+#[allow(dead_code)]
 enum Stage {
     Lexer,
     Parser,
+    PfmtFile,
 }
 
+#[allow(dead_code)]
+struct ProtoConfig {
+    backend: Backend,
+    target_file: String,
+    max_stage: Stage,
+    show_help: bool,
+}
+
+// fn create_config(args: Vec<String>) {
+//     let args = args.iter().skip(1);
+//     for arg in args {
+//         println!("{}", arg);
+//     }
+// }
+
 fn main() {
+    // let args = env::args().collect::<Vec<String>>();
+    // let config = create_config(args);
+
     let args: Args = Docopt::new(USAGE)
         .and_then(|d| d.deserialize())
         .unwrap_or_else(|e| e.exit());
