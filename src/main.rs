@@ -1,6 +1,5 @@
 use std::{env, fs, path::PathBuf};
 
-use docopt::Docopt;
 use frontend::{
     lexer::Lexer,
     parser::Parser,
@@ -8,7 +7,6 @@ use frontend::{
     token::Token,
 };
 use pir::ir::{PIRModule, PIRModulePass};
-use serde::Deserialize;
 
 use crate::tools::pfmt::Pfmt;
 
@@ -18,23 +16,24 @@ mod pir;
 mod tools;
 
 const USAGE: &str = "
-Usage: proto (-h | -l | -p) -f <FILE>
+Usage: proto command [options]?
 
-Options:
-    -h, --help  Show this message.
-    -l          Run lexer and show its output.
-    -p          Run parser and show its output.
-    -f <FILE>   File to be processed.
+commands:
+    - c | compile <file> [configurations]?
+        - [configurations]:
+            (*) backends:
+                - pir (default): use PIR backend.
+                - cpp: use C++ backend.
+            (*) stages:
+                - lex: stop after lexing.
+                - parse: stop after parsing.
+                - fmt (default): stop after formatting.
+            (*) flags:
+                - nofmt: do not format the file. Default: false.
+                - dbg: show debug info. Default: false.
+                - help: show this help message. Default: false.
+    - h | help: show this help message.
 ";
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct Args {
-    flag_h: bool,
-    flag_l: bool,
-    flag_p: bool,
-    flag_f: String,
-}
 
 #[allow(dead_code)]
 enum Backend {
@@ -50,35 +49,114 @@ enum Stage {
 }
 
 #[allow(dead_code)]
+enum Command {
+    Compile,
+}
+
+#[allow(dead_code)]
 struct ProtoConfig {
+    cmd: Option<Command>,
     backend: Backend,
     target_file: String,
     max_stage: Stage,
     show_help: bool,
+    dbg_info: bool,
 }
 
-// fn create_config(args: Vec<String>) {
-//     let args = args.iter().skip(1);
-//     for arg in args {
-//         println!("{}", arg);
-//     }
-// }
+fn create_config(args: Vec<String>) -> ProtoConfig {
+    let mut args = args.iter().skip(1);
+
+    // make sure there is at least 1 more arg
+    if args.len() < 1 {
+        return ProtoConfig {
+            cmd: None,
+            backend: Backend::PIR,
+            target_file: "".to_string(),
+            max_stage: Stage::PfmtFile,
+            show_help: true,
+            dbg_info: false,
+        };
+    }
+
+    // expect one of:
+    // c which will accept a file name and configurations
+    let command = args.next().unwrap();
+    match command.as_str() {
+        "c" | "compile" => {
+            // make sure there is at least 1 more arg
+            // which is the file name
+            if args.len() < 1 {
+                return ProtoConfig {
+                    cmd: None,
+                    backend: Backend::PIR,
+                    target_file: "".to_string(),
+                    max_stage: Stage::PfmtFile,
+                    show_help: true,
+                    dbg_info: false,
+                };
+            }
+            let target_file = args.next().unwrap();
+            let mut backend = Backend::PIR;
+            let mut max_stage = Stage::PfmtFile;
+            let mut show_help = false;
+            let mut dbg_info = false;
+            for arg in args {
+                match arg.as_str() {
+                    "pir" => backend = Backend::PIR,
+                    "cpp" => backend = Backend::CPP,
+                    "lex" => max_stage = Stage::Lexer,
+                    "parse" => max_stage = Stage::Parser,
+                    "fmt" => max_stage = Stage::PfmtFile,
+                    "dbg" => dbg_info = true,
+                    "help" => show_help = true,
+                    _ => {}
+                }
+            }
+            ProtoConfig {
+                cmd: Some(Command::Compile),
+                backend,
+                target_file: target_file.to_string(),
+                max_stage,
+                show_help,
+                dbg_info,
+            }
+        }
+        "h" | "help" => ProtoConfig {
+            backend: Backend::PIR,
+            target_file: "".to_string(),
+            max_stage: Stage::PfmtFile,
+            show_help: true,
+            dbg_info: false,
+            cmd: None,
+        },
+        _ => ProtoConfig {
+            backend: Backend::PIR,
+            target_file: "".to_string(),
+            max_stage: Stage::PfmtFile,
+            show_help: true,
+            dbg_info: false,
+            cmd: None,
+        },
+    }
+}
+
+fn show_help() {
+    println!("{}", USAGE);
+}
 
 fn main() {
-    // let args = env::args().collect::<Vec<String>>();
-    // let config = create_config(args);
+    let args = env::args().collect::<Vec<String>>();
+    let config = create_config(args);
 
-    let args: Args = Docopt::new(USAGE)
-        .and_then(|d| d.deserialize())
-        .unwrap_or_else(|e| e.exit());
+    if config.show_help {
+        show_help();
+    }
 
-    let stage = if args.flag_l {
-        Stage::Lexer
-    } else {
-        Stage::Parser
-    };
+    if let None = config.cmd {
+        return;
+    }
 
-    let fpath = args.flag_f;
+    let fpath = config.target_file;
     let cwd = env::current_dir().unwrap();
     let path = format!("{}/{}", cwd.display(), fpath);
     let path = fs::canonicalize(PathBuf::from(path)).unwrap();
@@ -88,7 +166,7 @@ fn main() {
     let reporter = SourceReporter::new(src.clone());
     let mut lexer = Lexer::new(src);
 
-    if let Stage::Lexer = stage {
+    if let Stage::Lexer = config.max_stage {
         loop {
             let maybe_tok = lexer.next_token();
             match maybe_tok {
@@ -100,34 +178,43 @@ fn main() {
                 Err(le) => reporter.report_lexer_error(&le),
             }
         }
-    } else {
-        let mut parser = Parser::new(lexer);
-        parser.parse();
+    }
 
-        if !parser.lexer_errors.is_empty() {
-            for le in parser.lexer_errors {
-                reporter.report_lexer_error(&le);
-            }
+    let mut parser = Parser::new(lexer);
+    parser.parse();
+
+    if !parser.lexer_errors.is_empty() {
+        for le in parser.lexer_errors {
+            reporter.report_lexer_error(&le);
         }
-        // else {
-        //     reporter.show_info("No errors during lexing.".to_string());
-        // }
+    }
 
-        if !parser.parser_errors.is_empty() {
-            for pe in parser.parser_errors {
-                reporter.report_parser_error(pe);
-            }
+    if config.dbg_info {
+        reporter.show_info("No errors during lexing.".to_string());
+    }
+
+    if !parser.parser_errors.is_empty() {
+        for pe in parser.parser_errors {
+            reporter.report_parser_error(pe);
         }
-        // else {
-        //     reporter.show_info("No errors during parsing.".to_string());
-        // }
+    }
 
-        let module = parser.compilation_module;
-        let mut ir_mod = PIRModule::new(module, path);
+    if config.dbg_info {
+        reporter.show_info("No errors during parsing.".to_string());
+    }
+
+    let module = parser.compilation_module;
+    let mut ir_mod = PIRModule::new(module, path);
+
+    if let Stage::PfmtFile = config.max_stage {
         let mut pfmt = Pfmt::new(&mut ir_mod);
         let res = pfmt.process();
         match res {
-            Ok(msg) => reporter.show_info(msg),
+            Ok(msg) => {
+                if config.dbg_info {
+                    reporter.show_info(msg);
+                }
+            }
             Err(e) => reporter.show_error(e),
         }
     }
