@@ -9,7 +9,8 @@ use frontend::{
 };
 use pir::ir::{PIRModule, PIRModulePass};
 use serde::Deserialize;
-use tools::pcodeview::PCodeView;
+
+use crate::tools::pfmt::Pfmt;
 
 mod frontend;
 mod pastel;
@@ -96,11 +97,12 @@ fn main() {
         // }
 
         let module = parser.compilation_module;
-        let mut ir_mod = PIRModule::new(module);
-
-        let mut code_view = PCodeView::new(&mut ir_mod);
-        let res = code_view.process_module().unwrap();
-
-        println!("{}", res);
+        let mut ir_mod = PIRModule::new(module, path);
+        let mut pfmt = Pfmt::new(&mut ir_mod);
+        let res = pfmt.process();
+        match res {
+            Ok(msg) => reporter.show_info(msg),
+            Err(e) => reporter.show_error(e),
+        }
     }
 }

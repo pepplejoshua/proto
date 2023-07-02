@@ -392,6 +392,11 @@ impl SourceReporter {
         println!("{}", pastel(&output));
     }
 
+    pub fn show_error(&self, msg: String) {
+        let output = format!("*[_, *, l_red:d_black]Error:[/] *[*, l_white:d_black]{msg}[/]");
+        println!("{}", pastel(&output));
+    }
+
     fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
         let err_col = "d_red";
         let target_col = "l_magenta";

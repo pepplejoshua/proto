@@ -720,15 +720,17 @@ pub struct PIRModule {
     pub ins_pool: InsPool,
     pub expr_pool: ExprPool,
     pub top_level: Vec<InsRef>,
+    pub path: String,
 }
 
 #[allow(dead_code)]
 impl PIRModule {
-    pub fn new(cm: CompilationModule) -> PIRModule {
+    pub fn new(cm: CompilationModule, path: String) -> PIRModule {
         let mut pirmod = PIRModule {
             ins_pool: InsPool::new(),
             expr_pool: ExprPool::new(),
             top_level: Vec::new(),
+            path,
         };
         for ins in cm.instructions {
             let id = pirmod.ins_pool.to_pir(&mut pirmod.expr_pool, ins);
@@ -739,10 +741,22 @@ impl PIRModule {
 }
 
 #[allow(dead_code)]
-pub trait PIRModulePass<'a, A, B, C, M, T> {
-    fn process_ins(&mut self, ins: &InsRef) -> Result<A, T>;
-    fn process_expr(&mut self, expr: &ExprRef) -> Result<B, T>;
-    fn process_pairs(&mut self, kv: &KeyValueBindings) -> Result<C, T>;
-    fn process_module(&mut self) -> Result<M, T>;
-    fn new(module: &'a mut PIRModule) -> Self;
+pub trait PIRModulePass<'a, InsRes, ExprRes, KVRes, ModRes, Error> {
+    fn process_ins(&mut self, ins: &InsRef) -> Result<InsRes, Error>;
+    fn process_expr(&mut self, expr: &ExprRef) -> Result<ExprRes, Error>;
+    fn process_pairs(&mut self, kv: &KeyValueBindings) -> Result<KVRes, Error>;
+    fn process_module(&mut self) -> Result<Vec<InsRes>, Error> {
+        let mut res = vec![];
+
+        let module = self.get_module();
+        for ins_ref in module.top_level.iter() {
+            let ins_res = self.process_ins(&ins_ref)?;
+            res.push(ins_res);
+        }
+
+        Ok(res)
+    }
+    fn process(&mut self) -> Result<ModRes, Error>;
+    fn new(module: &'a PIRModule) -> Self;
+    fn get_module(&mut self) -> &'a PIRModule;
 }

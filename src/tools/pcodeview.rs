@@ -377,23 +377,20 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
         Ok(view)
     }
 
-    fn process_module(&mut self) -> Result<String, ()> {
-        let mut res = vec![];
-
-        let module = self.module.unwrap();
-        for ins_ref in module.top_level.iter() {
-            let ins_str = self.process_ins(&ins_ref)?;
-            res.push(ins_str);
-        }
-
-        Ok(res.join("\n"))
+    fn process(&mut self) -> Result<String, ()> {
+        let content = self.process_module()?;
+        Ok(content.join("\n"))
     }
 
-    fn new(module: &'a mut PIRModule) -> Self {
+    fn new(module: &'a PIRModule) -> Self {
         Self {
             left_padding: 0,
             module: Some(module),
             block_type: CodeBlockType::Regular,
         }
+    }
+
+    fn get_module(&mut self) -> &'a PIRModule {
+        self.module.unwrap()
     }
 }
