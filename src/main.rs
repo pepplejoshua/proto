@@ -7,13 +7,14 @@ use frontend::{
     source::{SourceFile, SourceReporter},
     token::Token,
 };
-use ir8::{lowir::LowIRModule, tomato::Tomato};
+use pir::ir::{PIRModule, PIRModulePass};
 use serde::Deserialize;
+use tools::pcodeview::PCodeView;
 
-mod analysis;
 mod frontend;
-mod ir8;
 mod pastel;
+mod pir;
+mod tools;
 
 const USAGE: &str = "
 Usage: proto (-h | -l | -p) -f <FILE>
@@ -95,17 +96,11 @@ fn main() {
         // }
 
         let module = parser.compilation_module;
-        let mut ir_mod = LowIRModule::new();
-        ir_mod.lowir(module);
-        let mut tomato = Tomato::new(
-            path.clone(),
-            ir_mod.ins_pool.clone(),
-            ir_mod.expr_pool.clone(),
-        );
+        let mut ir_mod = PIRModule::new(module);
 
-        match tomato.format(&ir_mod) {
-            Ok(()) => reporter.show_info(format!("formatted {}", path)),
-            Err(e) => reporter.show_info(format!("failed to format {}: {}", path, e)),
-        }
+        let mut code_view = PCodeView::new(&mut ir_mod);
+        let res = code_view.process_module().unwrap();
+
+        println!("{}", res);
     }
 }

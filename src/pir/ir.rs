@@ -40,7 +40,7 @@ impl KeyValueBindings {
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum LowIRExpr {
+pub enum PIRExpr {
     Id(Token, Option<Type>),
     Number(Token, Option<Type>),
     StringLiteral(Token, Option<Type>),
@@ -77,37 +77,37 @@ pub enum LowIRExpr {
 }
 
 #[allow(dead_code)]
-impl LowIRExpr {
+impl PIRExpr {
     pub fn type_info(&self) -> Option<Type> {
         match &self {
-            LowIRExpr::Id(_, t) => t.clone(),
-            LowIRExpr::Number(_, t) => t.clone(),
-            LowIRExpr::Binary(_, _, _, t) => t.clone(),
-            LowIRExpr::Boolean(_, t) => t.clone(),
-            LowIRExpr::Unary(_, _, t) => t.clone(),
-            LowIRExpr::Comparison(_, _, _, t) => t.clone(),
-            LowIRExpr::FnCall {
+            PIRExpr::Id(_, t) => t.clone(),
+            PIRExpr::Number(_, t) => t.clone(),
+            PIRExpr::Binary(_, _, _, t) => t.clone(),
+            PIRExpr::Boolean(_, t) => t.clone(),
+            PIRExpr::Unary(_, _, t) => t.clone(),
+            PIRExpr::Comparison(_, _, _, t) => t.clone(),
+            PIRExpr::FnCall {
                 func: _,
                 args: _,
                 span: _,
                 fn_type,
             } => fn_type.clone(),
-            LowIRExpr::Grouped(_, t, _) => t.clone(),
-            LowIRExpr::ScopeInto {
+            PIRExpr::Grouped(_, t, _) => t.clone(),
+            PIRExpr::ScopeInto {
                 module: _,
                 target: _,
                 src: _,
                 resolved_type,
             } => resolved_type.clone(),
-            LowIRExpr::DirectiveExpr {
+            PIRExpr::DirectiveExpr {
                 directive: _,
                 expr: _,
                 resolved_type,
                 src: _,
             } => resolved_type.clone(),
-            LowIRExpr::StringLiteral(_, t) => t.clone(),
-            LowIRExpr::CharacterLiteral(_, t) => t.clone(),
-            LowIRExpr::NamedStructInit {
+            PIRExpr::StringLiteral(_, t) => t.clone(),
+            PIRExpr::CharacterLiteral(_, t) => t.clone(),
+            PIRExpr::NamedStructInit {
                 name: _,
                 fields: _,
                 src: _,
@@ -131,7 +131,7 @@ impl ExprRef {
 
 #[derive(Debug, Clone)]
 pub struct ExprPool {
-    pub pool: Vec<LowIRExpr>,
+    pub pool: Vec<PIRExpr>,
 }
 
 #[allow(dead_code)]
@@ -140,7 +140,7 @@ impl ExprPool {
         ExprPool { pool: Vec::new() }
     }
 
-    fn add(&mut self, expr: LowIRExpr) -> ExprRef {
+    fn add(&mut self, expr: PIRExpr) -> ExprRef {
         self.pool.push(expr);
         ExprRef {
             loc: self.pool.len() - 1,
@@ -149,28 +149,28 @@ impl ExprPool {
 
     pub fn lowir(&mut self, expr: Expr) -> ExprRef {
         match expr {
-            Expr::Id(id, t) => self.add(LowIRExpr::Id(id, t)),
-            Expr::Number(n, t) => self.add(LowIRExpr::Number(n, t)),
-            Expr::StringLiteral(s, t) => self.add(LowIRExpr::StringLiteral(s, t)),
-            Expr::CharacterLiteral(c, t) => self.add(LowIRExpr::CharacterLiteral(c, t)),
+            Expr::Id(id, t) => self.add(PIRExpr::Id(id, t)),
+            Expr::Number(n, t) => self.add(PIRExpr::Number(n, t)),
+            Expr::StringLiteral(s, t) => self.add(PIRExpr::StringLiteral(s, t)),
+            Expr::CharacterLiteral(c, t) => self.add(PIRExpr::CharacterLiteral(c, t)),
             Expr::Binary(op, lhs, rhs, t) => {
                 let lhs = self.lowir(*lhs);
                 let rhs = self.lowir(*rhs);
-                self.add(LowIRExpr::Binary(op, lhs, rhs, t))
+                self.add(PIRExpr::Binary(op, lhs, rhs, t))
             }
             Expr::Comparison(op, lhs, rhs, t) => {
                 let lhs = self.lowir(*lhs);
                 let rhs = self.lowir(*rhs);
-                self.add(LowIRExpr::Comparison(op, lhs, rhs, t))
+                self.add(PIRExpr::Comparison(op, lhs, rhs, t))
             }
-            Expr::Boolean(b, t) => self.add(LowIRExpr::Boolean(b, t)),
+            Expr::Boolean(b, t) => self.add(PIRExpr::Boolean(b, t)),
             Expr::Unary(op, expr, t) => {
                 let expr = self.lowir(*expr);
-                self.add(LowIRExpr::Unary(op, expr, t))
+                self.add(PIRExpr::Unary(op, expr, t))
             }
             Expr::Grouped(expr, t, src) => {
                 let expr = self.lowir(*expr);
-                self.add(LowIRExpr::Grouped(expr, t, src))
+                self.add(PIRExpr::Grouped(expr, t, src))
             }
             Expr::FnCall {
                 func,
@@ -183,7 +183,7 @@ impl ExprPool {
                     .into_iter()
                     .map(|arg| self.lowir(arg))
                     .collect::<Vec<ExprRef>>();
-                self.add(LowIRExpr::FnCall {
+                self.add(PIRExpr::FnCall {
                     func,
                     args,
                     span,
@@ -198,7 +198,7 @@ impl ExprPool {
             } => {
                 let module = self.lowir(*module);
                 let target = self.lowir(*target);
-                self.add(LowIRExpr::ScopeInto {
+                self.add(PIRExpr::ScopeInto {
                     module,
                     target,
                     src,
@@ -213,7 +213,7 @@ impl ExprPool {
             } => {
                 let directive = self.lowir(*directive);
                 let expr = expr.map(|expr| self.lowir(*expr));
-                self.add(LowIRExpr::DirectiveExpr {
+                self.add(PIRExpr::DirectiveExpr {
                     directive,
                     expr,
                     resolved_type,
@@ -227,8 +227,8 @@ impl ExprPool {
                 resolved_type,
             } => {
                 let name = self.lowir(*name);
-                let fields = self.lowir_bindings(fields);
-                self.add(LowIRExpr::NamedStructInit {
+                let fields = self.pir_bindings(fields);
+                self.add(PIRExpr::NamedStructInit {
                     name,
                     fields,
                     src,
@@ -238,7 +238,7 @@ impl ExprPool {
         }
     }
 
-    fn lowir_bindings(&mut self, bindings: TreeKVBindings) -> KeyValueBindings {
+    fn pir_bindings(&mut self, bindings: TreeKVBindings) -> KeyValueBindings {
         let nbindings = bindings
             .pairs
             .iter()
@@ -258,14 +258,14 @@ impl ExprPool {
         }
     }
 
-    pub fn get(&self, expr_ref: &ExprRef) -> LowIRExpr {
+    pub fn get(&self, expr_ref: &ExprRef) -> PIRExpr {
         self.pool[expr_ref.loc].clone()
     }
 }
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
-pub enum LowIRIns {
+pub enum PIRIns {
     SingleLineComment {
         comment: String,
         src: SourceRef,
@@ -333,18 +333,18 @@ pub enum LowIRIns {
     },
 }
 
-impl LowIRIns {
+impl PIRIns {
     pub fn as_str(&self) -> String {
         match self {
-            LowIRIns::SingleLineComment { comment, src: _ } => comment.clone(),
-            LowIRIns::NamedStructDecl {
+            PIRIns::SingleLineComment { comment, src: _ } => comment.clone(),
+            PIRIns::NamedStructDecl {
                 name,
                 fields,
                 src: _,
             } => {
                 format!(":{} {}", name.as_str(), fields.as_str())
             }
-            LowIRIns::ConstantDecl {
+            PIRIns::ConstantDecl {
                 const_name,
                 const_type: t,
                 init_expr,
@@ -363,7 +363,7 @@ impl LowIRIns {
                     format!("let {} = {};", const_name.as_str(), init_expr.as_str())
                 }
             },
-            LowIRIns::VariableDecl(name, t, init, _) => match (t, init) {
+            PIRIns::VariableDecl(name, t, init, _) => match (t, init) {
                 (None, None) => format!("mut {};", name.as_str()),
                 (None, Some(init)) => format!("mut {} = {};", name.as_str(), init.as_str()),
                 (Some(c_type), None) => {
@@ -376,11 +376,11 @@ impl LowIRIns {
                     init.as_str()
                 ),
             },
-            LowIRIns::AssignmentIns(target, value) => {
+            PIRIns::AssignmentIns(target, value) => {
                 format!("{} = {};", target.as_str(), value.as_str())
             }
-            LowIRIns::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
-            LowIRIns::FunctionDef {
+            PIRIns::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
+            PIRIns::FunctionDef {
                 name,
                 params,
                 return_type,
@@ -408,7 +408,7 @@ impl LowIRIns {
                     str_rep
                 }
             }
-            LowIRIns::CodeBlock {
+            PIRIns::CodeBlock {
                 src: _,
                 instructions,
             } => {
@@ -423,7 +423,7 @@ impl LowIRIns {
                 }
                 ins_str + " }"
             }
-            LowIRIns::Module {
+            PIRIns::Module {
                 name,
                 body,
                 src: _,
@@ -436,23 +436,23 @@ impl LowIRIns {
                     "pub ".to_string() + &mod_str
                 }
             }
-            LowIRIns::Return { src: _, value } => match value {
+            PIRIns::Return { src: _, value } => match value {
                 Some(v) => format!("return {};", v.as_str()),
                 None => "return;".to_string(),
             },
-            LowIRIns::InfiniteLoop { src: _, body } => {
+            PIRIns::InfiniteLoop { src: _, body } => {
                 format!("loop {}", body.as_str())
             }
-            LowIRIns::WhileLoop {
+            PIRIns::WhileLoop {
                 src: _,
                 condition,
                 body,
             } => {
                 format!("while {} {}", condition.as_str(), body.as_str())
             }
-            LowIRIns::Break(_) => "break;".to_string(),
-            LowIRIns::Continue(_) => "continue;".to_string(),
-            LowIRIns::UseDependency { paths, src: _ } => {
+            PIRIns::Break(_) => "break;".to_string(),
+            PIRIns::Continue(_) => "continue;".to_string(),
+            PIRIns::UseDependency { paths, src: _ } => {
                 let mut path_str = String::new();
                 for (i, path) in paths.iter().enumerate() {
                     for (j, part) in path.actions.iter().enumerate() {
@@ -467,7 +467,7 @@ impl LowIRIns {
                 }
                 format!("use {};", path_str)
             }
-            LowIRIns::DirectiveInstruction {
+            PIRIns::DirectiveInstruction {
                 directive,
                 block,
                 src: _,
@@ -478,7 +478,7 @@ impl LowIRIns {
                     format!("@{}", directive.as_str())
                 }
             }
-            LowIRIns::ConditionalBranchIns { pairs, src: _ } => {
+            PIRIns::ConditionalBranchIns { pairs, src: _ } => {
                 let mut str_rep = String::new();
                 for i in 0..pairs.len() {
                     let (cond, ins) = &pairs[i];
@@ -522,7 +522,7 @@ impl InsRef {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub struct InsPool {
-    pub pool: Vec<LowIRIns>,
+    pub pool: Vec<PIRIns>,
 }
 
 #[allow(dead_code)]
@@ -531,7 +531,7 @@ impl InsPool {
         InsPool { pool: Vec::new() }
     }
 
-    fn exists(&self, ins: &LowIRIns) -> Option<InsRef> {
+    fn exists(&self, ins: &PIRIns) -> Option<InsRef> {
         for (i, ins2) in self.pool.iter().enumerate() {
             if ins.as_str() == ins2.as_str() {
                 return Some(InsRef { loc: i });
@@ -540,23 +540,23 @@ impl InsPool {
         None
     }
 
-    fn add(&mut self, ins: LowIRIns) -> InsRef {
+    fn add(&mut self, ins: PIRIns) -> InsRef {
         self.pool.push(ins);
         InsRef {
             loc: self.pool.len() - 1,
         }
     }
 
-    pub fn lowir(&mut self, epool: &mut ExprPool, ins: Instruction) -> InsRef {
+    pub fn to_pir(&mut self, epool: &mut ExprPool, ins: Instruction) -> InsRef {
         match ins {
             Instruction::SingleLineComment { comment, src } => {
-                let ins = LowIRIns::SingleLineComment { comment, src };
+                let ins = PIRIns::SingleLineComment { comment, src };
                 self.add(ins)
             }
             Instruction::NamedStructDecl { name, fields, src } => {
                 let name_ref = epool.lowir(name);
-                let fields = epool.lowir_bindings(fields);
-                let ins = LowIRIns::NamedStructDecl {
+                let fields = epool.pir_bindings(fields);
+                let ins = PIRIns::NamedStructDecl {
                     name: name_ref,
                     fields,
                     src,
@@ -571,7 +571,7 @@ impl InsPool {
                 is_public,
             } => {
                 let init_expr = epool.lowir(init_expr);
-                let ins = LowIRIns::ConstantDecl {
+                let ins = PIRIns::ConstantDecl {
                     const_name,
                     const_type,
                     init_expr,
@@ -582,18 +582,18 @@ impl InsPool {
             }
             Instruction::VariableDecl(name, var_type, init_expr, span) => {
                 let init_expr = init_expr.map(|e| epool.lowir(e));
-                let ins = LowIRIns::VariableDecl(name, var_type, init_expr, span);
+                let ins = PIRIns::VariableDecl(name, var_type, init_expr, span);
                 self.add(ins)
             }
             Instruction::AssignmentIns(dest, target) => {
                 let dest = epool.lowir(dest);
                 let target = epool.lowir(target);
-                let ins = LowIRIns::AssignmentIns(dest, target);
+                let ins = PIRIns::AssignmentIns(dest, target);
                 self.add(ins)
             }
             Instruction::ExpressionIns(expr, semi) => {
                 let expr = epool.lowir(expr);
-                let ins = LowIRIns::ExpressionIns(expr, semi);
+                let ins = PIRIns::ExpressionIns(expr, semi);
                 self.add(ins)
             }
             Instruction::FunctionDef {
@@ -605,8 +605,8 @@ impl InsPool {
                 src,
             } => {
                 let params = params.into_iter().map(|p| epool.lowir(p)).collect();
-                let body = self.lowir(epool, *body);
-                let ins = LowIRIns::FunctionDef {
+                let body = self.to_pir(epool, *body);
+                let ins = PIRIns::FunctionDef {
                     name,
                     params,
                     return_type,
@@ -617,8 +617,8 @@ impl InsPool {
                 self.add(ins)
             }
             Instruction::InfiniteLoop { src, body } => {
-                let body = self.lowir(epool, *body);
-                let ins = LowIRIns::InfiniteLoop { src, body };
+                let body = self.to_pir(epool, *body);
+                let ins = PIRIns::InfiniteLoop { src, body };
                 self.add(ins)
             }
             Instruction::WhileLoop {
@@ -627,8 +627,8 @@ impl InsPool {
                 body,
             } => {
                 let condition = epool.lowir(condition);
-                let body = self.lowir(epool, *body);
-                let ins = LowIRIns::WhileLoop {
+                let body = self.to_pir(epool, *body);
+                let ins = PIRIns::WhileLoop {
                     src,
                     condition,
                     body,
@@ -638,9 +638,9 @@ impl InsPool {
             Instruction::CodeBlock { src, instructions } => {
                 let instructions = instructions
                     .into_iter()
-                    .map(|i| self.lowir(epool, i))
+                    .map(|i| self.to_pir(epool, i))
                     .collect();
-                let ins = LowIRIns::CodeBlock { src, instructions };
+                let ins = PIRIns::CodeBlock { src, instructions };
                 self.add(ins)
             }
             Instruction::Module {
@@ -650,8 +650,8 @@ impl InsPool {
                 is_public,
             } => {
                 let name = epool.lowir(name);
-                let body = self.lowir(epool, *body);
-                let ins = LowIRIns::Module {
+                let body = self.to_pir(epool, *body);
+                let ins = PIRIns::Module {
                     name,
                     body,
                     src,
@@ -661,19 +661,19 @@ impl InsPool {
             }
             Instruction::Return { src, value } => {
                 let value = value.map(|v| epool.lowir(v));
-                let ins = LowIRIns::Return { src, value };
+                let ins = PIRIns::Return { src, value };
                 self.add(ins)
             }
             Instruction::Break(src) => {
-                let ins = LowIRIns::Break(src);
+                let ins = PIRIns::Break(src);
                 self.add(ins)
             }
             Instruction::Continue(src) => {
-                let ins = LowIRIns::Continue(src);
+                let ins = PIRIns::Continue(src);
                 self.add(ins)
             }
             Instruction::UseDependency { paths, src } => {
-                let ins = LowIRIns::UseDependency { paths, src };
+                let ins = PIRIns::UseDependency { paths, src };
                 self.add(ins)
             }
             Instruction::DirectiveInstruction {
@@ -682,8 +682,8 @@ impl InsPool {
                 src,
             } => {
                 let directive = epool.lowir(directive);
-                let block = block.map(|b| self.lowir(epool, *b));
-                let ins = LowIRIns::DirectiveInstruction {
+                let block = block.map(|b| self.to_pir(epool, *b));
+                let ins = PIRIns::DirectiveInstruction {
                     directive,
                     block,
                     src,
@@ -696,46 +696,53 @@ impl InsPool {
                     .map(|(cond, body)| {
                         if let Some(cond) = cond {
                             let cond = epool.lowir(cond);
-                            let body = self.lowir(epool, *body);
+                            let body = self.to_pir(epool, *body);
                             (Some(cond), body)
                         } else {
-                            let body = self.lowir(epool, *body);
+                            let body = self.to_pir(epool, *body);
                             (None, body)
                         }
                     })
                     .collect();
-                let ins = LowIRIns::ConditionalBranchIns { pairs, src };
+                let ins = PIRIns::ConditionalBranchIns { pairs, src };
                 self.add(ins)
             }
         }
     }
 
-    pub fn get(&self, ins_ref: &InsRef) -> LowIRIns {
+    pub fn get(&self, ins_ref: &InsRef) -> PIRIns {
         self.pool[ins_ref.loc].clone()
     }
 }
 
 #[derive(Debug, Clone)]
-pub struct LowIRModule {
+pub struct PIRModule {
     pub ins_pool: InsPool,
     pub expr_pool: ExprPool,
     pub top_level: Vec<InsRef>,
 }
 
 #[allow(dead_code)]
-impl LowIRModule {
-    pub fn new() -> LowIRModule {
-        LowIRModule {
+impl PIRModule {
+    pub fn new(cm: CompilationModule) -> PIRModule {
+        let mut pirmod = PIRModule {
             ins_pool: InsPool::new(),
             expr_pool: ExprPool::new(),
             top_level: Vec::new(),
-        }
-    }
-
-    pub fn lowir(&mut self, cm: CompilationModule) {
+        };
         for ins in cm.instructions {
-            let id = self.ins_pool.lowir(&mut self.expr_pool, ins);
-            self.top_level.push(id);
+            let id = pirmod.ins_pool.to_pir(&mut pirmod.expr_pool, ins);
+            pirmod.top_level.push(id);
         }
+        pirmod
     }
+}
+
+#[allow(dead_code)]
+pub trait PIRModulePass<'a, A, B, C, M, T> {
+    fn process_ins(&mut self, ins: &InsRef) -> Result<A, T>;
+    fn process_expr(&mut self, expr: &ExprRef) -> Result<B, T>;
+    fn process_pairs(&mut self, kv: &KeyValueBindings) -> Result<C, T>;
+    fn process_module(&mut self) -> Result<M, T>;
+    fn new(module: &'a mut PIRModule) -> Self;
 }
