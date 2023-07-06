@@ -1,5 +1,6 @@
 use std::{env, fs, path::PathBuf};
 
+use analysis_a::dependency_res::DependencyResolvr;
 use frontend::{
     lexer::Lexer,
     parser::Parser,
@@ -8,8 +9,9 @@ use frontend::{
 };
 use pir::ir::{PIRModule, PIRModulePass};
 
-use crate::tools::pfmt::Pfmt;
+// use crate::tools::pfmt::Pfmt;
 
+mod analysis_a;
 mod frontend;
 mod pastel;
 mod pir;
@@ -46,6 +48,7 @@ enum Stage {
     Lexer,
     Parser,
     PfmtFile,
+    DependencyResolvr,
 }
 
 #[allow(dead_code)]
@@ -107,6 +110,7 @@ fn create_config(args: Vec<String>) -> ProtoConfig {
                     "lex" => max_stage = Stage::Lexer,
                     "parse" => max_stage = Stage::Parser,
                     "fmt" => max_stage = Stage::PfmtFile,
+                    "dep" => max_stage = Stage::DependencyResolvr,
                     "dbg" => dbg_info = true,
                     "help" => show_help = true,
                     _ => {}
@@ -207,15 +211,23 @@ fn main() {
     let mut ir_mod = PIRModule::new(module, path);
 
     if let Stage::PfmtFile = config.max_stage {
-        let mut pfmt = Pfmt::new(&mut ir_mod);
-        let res = pfmt.process();
+        // let mut pfmt = Pfmt::new(&mut ir_mod);
+        // let res = pfmt.process();
+        // match res {
+        //     Ok(msg) if config.dbg_info => reporter.show_info(msg),
+        //     Err(e) => reporter.show_error(e),
+        //     _ => {}
+        // }
+    }
+
+    if let Stage::DependencyResolvr = config.max_stage {
+        let mut dep_resolvr = DependencyResolvr::new(&mut ir_mod);
+        let res = dep_resolvr.process();
         match res {
-            Ok(msg) => {
-                if config.dbg_info {
-                    reporter.show_info(msg);
-                }
+            Ok(indices) => {
+                let _ = dep_resolvr.resolve(indices);
             }
-            Err(e) => reporter.show_error(e),
+            Err(_) => todo!(),
         }
     }
 }

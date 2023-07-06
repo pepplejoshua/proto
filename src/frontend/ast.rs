@@ -208,7 +208,6 @@ pub enum PathAction {
     SearchFor(Expr),
     SearchCoreModulesFor(Expr),
     SearchProjectRootFor(Expr),
-    SearchLastModuleFor(Expr),
     SearchCurrentFileFor(Expr),
     NameLastItemAs(Expr),
 }
@@ -222,7 +221,6 @@ impl PathAction {
             PathAction::SearchFor(_) => true,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => true,
             PathAction::ImportAll(_) => false,
         }
@@ -235,7 +233,6 @@ impl PathAction {
             PathAction::NameLastItemAs(_) => true,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => false,
             PathAction::ImportAll(_) => true,
         }
@@ -248,7 +245,6 @@ impl PathAction {
             PathAction::NameLastItemAs(_) => false,
             PathAction::SearchCoreModulesFor(_) => true,
             PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchLastModuleFor(_) => true,
             PathAction::SearchCurrentFileFor(_) => false,
             PathAction::ImportAll(_) => false,
         }
@@ -261,7 +257,6 @@ impl PathAction {
             PathAction::NameLastItemAs(alias) => format!(" as {}", alias.as_str()),
             PathAction::SearchCoreModulesFor(e) => format!("@{}", e.as_str()),
             PathAction::SearchProjectRootFor(m) => format!("${}", m.as_str()),
-            PathAction::SearchLastModuleFor(n) => n.as_str(),
             PathAction::SearchCurrentFileFor(inner_m) => format!("!{}", inner_m.as_str()),
             PathAction::ImportAll(_) => "*".to_string(),
         }
@@ -273,7 +268,6 @@ impl PathAction {
             PathAction::SearchFor(e) => e.source_ref(),
             PathAction::SearchCoreModulesFor(e) => e.source_ref(),
             PathAction::SearchProjectRootFor(e) => e.source_ref(),
-            PathAction::SearchLastModuleFor(e) => e.source_ref(),
             PathAction::SearchCurrentFileFor(e) => e.source_ref(),
             PathAction::NameLastItemAs(e) => e.source_ref(),
             PathAction::ImportAll(src) => src.clone(),
@@ -302,6 +296,17 @@ impl DependencyPath {
         // get last action
         let last_action = self.actions.last().unwrap();
         first_action.source_ref().combine(last_action.source_ref())
+    }
+
+    pub fn as_str(&self) -> String {
+        let mut s = String::new();
+        for (index, action) in self.actions.iter().enumerate() {
+            s.push_str(&action.as_str());
+            if index < self.actions.len() - 1 {
+                s.push_str("::");
+            }
+        }
+        s
     }
 }
 

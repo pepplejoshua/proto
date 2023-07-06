@@ -147,29 +147,29 @@ impl ExprPool {
         }
     }
 
-    pub fn lowir(&mut self, expr: Expr) -> ExprRef {
+    pub fn to_pir(&mut self, expr: Expr) -> ExprRef {
         match expr {
             Expr::Id(id, t) => self.add(PIRExpr::Id(id, t)),
             Expr::Number(n, t) => self.add(PIRExpr::Number(n, t)),
             Expr::StringLiteral(s, t) => self.add(PIRExpr::StringLiteral(s, t)),
             Expr::CharacterLiteral(c, t) => self.add(PIRExpr::CharacterLiteral(c, t)),
             Expr::Binary(op, lhs, rhs, t) => {
-                let lhs = self.lowir(*lhs);
-                let rhs = self.lowir(*rhs);
+                let lhs = self.to_pir(*lhs);
+                let rhs = self.to_pir(*rhs);
                 self.add(PIRExpr::Binary(op, lhs, rhs, t))
             }
             Expr::Comparison(op, lhs, rhs, t) => {
-                let lhs = self.lowir(*lhs);
-                let rhs = self.lowir(*rhs);
+                let lhs = self.to_pir(*lhs);
+                let rhs = self.to_pir(*rhs);
                 self.add(PIRExpr::Comparison(op, lhs, rhs, t))
             }
             Expr::Boolean(b, t) => self.add(PIRExpr::Boolean(b, t)),
             Expr::Unary(op, expr, t) => {
-                let expr = self.lowir(*expr);
+                let expr = self.to_pir(*expr);
                 self.add(PIRExpr::Unary(op, expr, t))
             }
             Expr::Grouped(expr, t, src) => {
-                let expr = self.lowir(*expr);
+                let expr = self.to_pir(*expr);
                 self.add(PIRExpr::Grouped(expr, t, src))
             }
             Expr::FnCall {
@@ -178,10 +178,10 @@ impl ExprPool {
                 span,
                 fn_type,
             } => {
-                let func = self.lowir(*func);
+                let func = self.to_pir(*func);
                 let args = args
                     .into_iter()
-                    .map(|arg| self.lowir(arg))
+                    .map(|arg| self.to_pir(arg))
                     .collect::<Vec<ExprRef>>();
                 self.add(PIRExpr::FnCall {
                     func,
@@ -196,8 +196,8 @@ impl ExprPool {
                 src,
                 resolved_type,
             } => {
-                let module = self.lowir(*module);
-                let target = self.lowir(*target);
+                let module = self.to_pir(*module);
+                let target = self.to_pir(*target);
                 self.add(PIRExpr::ScopeInto {
                     module,
                     target,
@@ -211,8 +211,8 @@ impl ExprPool {
                 resolved_type,
                 src,
             } => {
-                let directive = self.lowir(*directive);
-                let expr = expr.map(|expr| self.lowir(*expr));
+                let directive = self.to_pir(*directive);
+                let expr = expr.map(|expr| self.to_pir(*expr));
                 self.add(PIRExpr::DirectiveExpr {
                     directive,
                     expr,
@@ -226,7 +226,7 @@ impl ExprPool {
                 src,
                 resolved_type,
             } => {
-                let name = self.lowir(*name);
+                let name = self.to_pir(*name);
                 let fields = self.pir_bindings(fields);
                 self.add(PIRExpr::NamedStructInit {
                     name,
@@ -243,9 +243,9 @@ impl ExprPool {
             .pairs
             .iter()
             .map(|pair| {
-                let key = self.lowir(pair.0.clone());
+                let key = self.to_pir(pair.0.clone());
                 if let Some(value) = pair.1.clone() {
-                    let value = self.lowir(value);
+                    let value = self.to_pir(value);
                     (key, Some(value))
                 } else {
                     (key, None)
@@ -554,7 +554,7 @@ impl InsPool {
                 self.add(ins)
             }
             Instruction::NamedStructDecl { name, fields, src } => {
-                let name_ref = epool.lowir(name);
+                let name_ref = epool.to_pir(name);
                 let fields = epool.pir_bindings(fields);
                 let ins = PIRIns::NamedStructDecl {
                     name: name_ref,
@@ -570,7 +570,7 @@ impl InsPool {
                 src_ref,
                 is_public,
             } => {
-                let init_expr = epool.lowir(init_expr);
+                let init_expr = epool.to_pir(init_expr);
                 let ins = PIRIns::ConstantDecl {
                     const_name,
                     const_type,
@@ -581,18 +581,18 @@ impl InsPool {
                 self.add(ins)
             }
             Instruction::VariableDecl(name, var_type, init_expr, span) => {
-                let init_expr = init_expr.map(|e| epool.lowir(e));
+                let init_expr = init_expr.map(|e| epool.to_pir(e));
                 let ins = PIRIns::VariableDecl(name, var_type, init_expr, span);
                 self.add(ins)
             }
             Instruction::AssignmentIns(dest, target) => {
-                let dest = epool.lowir(dest);
-                let target = epool.lowir(target);
+                let dest = epool.to_pir(dest);
+                let target = epool.to_pir(target);
                 let ins = PIRIns::AssignmentIns(dest, target);
                 self.add(ins)
             }
             Instruction::ExpressionIns(expr, semi) => {
-                let expr = epool.lowir(expr);
+                let expr = epool.to_pir(expr);
                 let ins = PIRIns::ExpressionIns(expr, semi);
                 self.add(ins)
             }
@@ -604,7 +604,7 @@ impl InsPool {
                 is_public,
                 src,
             } => {
-                let params = params.into_iter().map(|p| epool.lowir(p)).collect();
+                let params = params.into_iter().map(|p| epool.to_pir(p)).collect();
                 let body = self.to_pir(epool, *body);
                 let ins = PIRIns::FunctionDef {
                     name,
@@ -626,7 +626,7 @@ impl InsPool {
                 condition,
                 body,
             } => {
-                let condition = epool.lowir(condition);
+                let condition = epool.to_pir(condition);
                 let body = self.to_pir(epool, *body);
                 let ins = PIRIns::WhileLoop {
                     src,
@@ -649,7 +649,7 @@ impl InsPool {
                 src,
                 is_public,
             } => {
-                let name = epool.lowir(name);
+                let name = epool.to_pir(name);
                 let body = self.to_pir(epool, *body);
                 let ins = PIRIns::Module {
                     name,
@@ -660,7 +660,7 @@ impl InsPool {
                 self.add(ins)
             }
             Instruction::Return { src, value } => {
-                let value = value.map(|v| epool.lowir(v));
+                let value = value.map(|v| epool.to_pir(v));
                 let ins = PIRIns::Return { src, value };
                 self.add(ins)
             }
@@ -681,7 +681,7 @@ impl InsPool {
                 block,
                 src,
             } => {
-                let directive = epool.lowir(directive);
+                let directive = epool.to_pir(directive);
                 let block = block.map(|b| self.to_pir(epool, *b));
                 let ins = PIRIns::DirectiveInstruction {
                     directive,
@@ -695,7 +695,7 @@ impl InsPool {
                     .into_iter()
                     .map(|(cond, body)| {
                         if let Some(cond) = cond {
-                            let cond = epool.lowir(cond);
+                            let cond = epool.to_pir(cond);
                             let body = self.to_pir(epool, *body);
                             (Some(cond), body)
                         } else {
