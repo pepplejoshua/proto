@@ -7,12 +7,14 @@ use frontend::{
     source::{SourceFile, SourceReporter},
     token::Token,
 };
+use name_resolution::name_resolver::Resolver;
 use pir::ir::{PIRModule, PIRModulePass};
 
 // use crate::tools::pfmt::Pfmt;
 
 mod analysis_a;
 mod frontend;
+mod name_resolution;
 mod pastel;
 mod pir;
 mod tools;
@@ -38,20 +40,24 @@ commands:
 ";
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 enum Backend {
     PIR, // will go to PVM
     CPP, // will go to C++
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 enum Stage {
     Lexer,
     Parser,
     PfmtFile,
     DependencyResolvr,
+    NameResolution,
 }
 
 #[allow(dead_code)]
+#[derive(Clone, Copy)]
 enum Command {
     Compile,
 }
@@ -111,6 +117,7 @@ fn create_config(args: Vec<String>) -> ProtoConfig {
                     "parse" => max_stage = Stage::Parser,
                     "fmt" => max_stage = Stage::PfmtFile,
                     "dep" => max_stage = Stage::DependencyResolvr,
+                    "name" => max_stage = Stage::NameResolution,
                     "dbg" => dbg_info = true,
                     "help" => show_help = true,
                     _ => {}
@@ -229,5 +236,10 @@ fn main() {
             }
             Err(_) => todo!(),
         }
+    }
+
+    if let Stage::NameResolution = config.max_stage {
+        let mut name_resolver = Resolver::new(&ir_mod);
+        let _res = name_resolver.process();
     }
 }
