@@ -16,6 +16,7 @@ mod frontend;
 mod pastel;
 mod pir;
 mod tools;
+mod vm;
 
 const USAGE: &str = "
 Usage: proto command [options]?
