@@ -19,11 +19,11 @@ pub struct PCodeView<'a> {
 #[allow(dead_code)]
 impl<'a> PCodeView<'a> {
     pub fn increase_padding(&mut self) {
-        self.left_padding += 2;
+        self.left_padding += 4;
     }
 
     pub fn decrease_padding(&mut self) {
-        self.left_padding -= 2;
+        self.left_padding -= 4;
     }
 
     pub fn pad_text(&self, text: String) -> String {
@@ -67,7 +67,7 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
             } => {
                 let const_name = const_name.as_str();
                 let init_expr = self.process_expr(&init_expr)?;
-                let mut view = format!("let {} = {}", const_name, init_expr);
+                let mut view = format!("let {} = {};", const_name, init_expr);
                 if is_public {
                     view = format!("pub {}", view);
                 }
@@ -77,9 +77,9 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                 let var_name = var_name.as_str();
                 if let Some(init_expr) = init_expr {
                     let init_expr = self.process_expr(&init_expr)?;
-                    Ok(self.pad_text(format!("mut {} = {}", var_name, init_expr)))
+                    Ok(self.pad_text(format!("mut {} = {};", var_name, init_expr)))
                 } else {
-                    Ok(self.pad_text(format!("mut {}", var_name)))
+                    Ok(self.pad_text(format!("mut {};", var_name)))
                 }
             }
             PIRIns::AssignmentIns(target, val) => {
@@ -159,7 +159,7 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                         ins_strs.push(self.process_ins(&ins)?);
                     }
                     self.decrease_padding();
-                    view.push_str(&ins_strs.join("\n\n"));
+                    view.push_str(&ins_strs.join("\n"));
                     view.push_str(&("\n".to_string() + &self.pad_text("}".to_string())));
                 }
                 Ok(view)
@@ -204,7 +204,7 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                         path_str.push_str(", ");
                     }
                 }
-                Ok(format!("use {};", path_str))
+                Ok(self.pad_text(format!("use {};", path_str)))
             }
             PIRIns::DirectiveInstruction {
                 directive,
