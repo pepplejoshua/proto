@@ -40,7 +40,7 @@ impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
                 module.path, e
             ))
         } else {
-            Ok(format!("Successfully formatted `{}`", module.path))
+            Ok("pfmt complete".to_string())
         }
     }
 
