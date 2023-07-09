@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read};
 
-use super::errors::{DependencyResolvrError, LexError, ParseError};
+use super::errors::{DependencyResolvrError, LexError, ParseError, WorkspaceError};
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -398,6 +398,19 @@ impl SourceReporter {
                 let msg = "Dependency path must contain a file.".to_string();
                 let tip = "Please check if the path is correct.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
+            }
+        }
+    }
+
+    pub fn report_workspace_error(wse: WorkspaceError) {
+        match wse {
+            WorkspaceError::CircularDependency(path) => {
+                let msg = format!(
+                    "Circular dependency detected.
+{}.",
+                    path
+                );
+                SourceReporter::show_error(msg);
             }
         }
     }

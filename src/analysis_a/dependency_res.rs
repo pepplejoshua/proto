@@ -68,13 +68,13 @@ impl<'a> DependencyResolvr<'a> {
         }
 
         // show contents of res array
-        for (index, m) in &res {
-            let dep = ins_pool.get(*index).unwrap();
-            println!("{} resolves to the following path:", dep.as_str());
-            for (path, actions) in m {
-                println!("\t{}: {}", path.display(), actions.as_str());
-            }
-        }
+        // for (index, m) in &res {
+        //     let dep = ins_pool.get(*index).unwrap();
+        //     println!("{} resolves to the following path:", dep.as_str());
+        //     for (path, actions) in m {
+        //         println!("\t{}: {}", path.display(), actions.as_str());
+        //     }
+        // }
 
         return res;
     }

@@ -40,3 +40,9 @@ pub enum DependencyResolvrError {
     UnableToResolvePath(SourceRef),
     DependencyPathMustContainFile(SourceRef),
 }
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub enum WorkspaceError {
+    CircularDependency(String),
+}

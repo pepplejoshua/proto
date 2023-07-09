@@ -3,6 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     analysis_a::dependency_res::DependencyResolvr,
     frontend::{
+        errors::WorkspaceError,
         lexer::Lexer,
         parser::Parser,
         source::{SourceFile, SourceReporter},
@@ -158,7 +159,7 @@ impl Workspace {
                 }
             }
             Err(_) => {
-                let msg = format!("file not found: {}", entry_file);
+                let msg = format!("Provided file was not found: {}", entry_file);
                 SourceReporter::show_error(msg);
                 // TODO: exit with appropriate error code
                 std::process::exit(1);
@@ -179,18 +180,28 @@ impl Workspace {
     }
 
     fn process_file(&mut self, file_path: String, path_stack: &mut Vec<String>) {
+        path_stack.push(file_path.clone());
+
+        // check for circular dependency
+        for (index, path) in path_stack.iter().enumerate() {
+            if *path == file_path && index != path_stack.len() - 1 {
+                // get the path before the current file
+                // process each path in the stack through truncate_path
+                // and then join them with ->
+                let path = path_stack
+                    .iter()
+                    .map(|p| self.truncate_path(p.clone()))
+                    .collect::<Vec<String>>()
+                    .join(" -> ");
+                let error = WorkspaceError::CircularDependency(path);
+                SourceReporter::report_workspace_error(error);
+                std::process::exit(1);
+            }
+        }
+
         // check if file is already processed and stored in files
         if let Some((_, _)) = self.files.get(&file_path) {
             return;
-        }
-
-        // check for circular dependency
-        for path in path_stack.clone() {
-            if path == file_path {
-                let msg = format!("circular dependency detected: {}", file_path);
-                println!("{}", msg);
-                return;
-            }
         }
 
         // if not, process the file
@@ -275,7 +286,7 @@ impl Workspace {
                     }
                     return;
                 }
-                path_stack.push(file_path.clone());
+
                 for (_, bundl) in dependencies_bundl {
                     for (path, _) in bundl {
                         let path_str = path.to_str().unwrap().to_string();
