@@ -12,6 +12,7 @@ use crate::{
     tools::pfmt::Pfmt,
 };
 
+// stages of the pipeline
 #[allow(dead_code)]
 pub enum Stage {
     Lexer,
@@ -19,17 +20,20 @@ pub enum Stage {
     DependencyResolvr,
 }
 
+// commands that can be run
 #[allow(dead_code)]
 pub enum Command {
     Compile,
 }
 
+// backends that are targetted by the compiler
 #[allow(dead_code)]
 pub enum Backend {
     PIR, // will go to PVM
     CPP, // will go to C++
 }
 
+// object for configuring the pipeline
 #[allow(dead_code)]
 pub struct PipelineConfig {
     pub cmd: Option<Command>,
@@ -42,6 +46,7 @@ pub struct PipelineConfig {
 }
 
 impl PipelineConfig {
+    // create a new config from the command line args
     pub fn new_from_args(args: Vec<String>) -> Self {
         let mut args = args.iter().skip(1);
 
@@ -129,6 +134,7 @@ impl PipelineConfig {
     }
 }
 
+// object for storing the pipeline
 pub struct Workspace {
     entry_file: String,
     files: HashMap<String, (SourceFile, PIRModule)>,
@@ -140,13 +146,23 @@ impl Workspace {
         let entry_file = config.target_file.clone();
         let cwd = env::current_dir().unwrap();
         let abs_entry_file = format!("{}/{}", cwd.display(), entry_file);
-        let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file)).unwrap();
-        let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
+        let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file));
 
-        Workspace {
-            entry_file: abs_entry_file,
-            files: HashMap::new(),
-            config,
+        match abs_entry_file {
+            Ok(abs_entry_file) => {
+                let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
+                Workspace {
+                    entry_file: abs_entry_file,
+                    files: HashMap::new(),
+                    config,
+                }
+            }
+            Err(_) => {
+                let msg = format!("file not found: {}", entry_file);
+                SourceReporter::show_error(msg);
+                // TODO: exit with appropriate error code
+                std::process::exit(1);
+            }
         }
     }
 
@@ -180,8 +196,12 @@ impl Workspace {
         // if not, process the file
         let src = SourceFile::new(file_path.clone());
         let reporter = SourceReporter::new(src.clone());
-        let msg = format!("PROCESSING {}", self.truncate_path(file_path.clone()));
-        reporter.show_info(msg);
+
+        if self.config.dbg_info {
+            let msg = format!("PROCESSING: {}", self.truncate_path(file_path.clone()));
+            reporter.show_info(msg);
+        }
+
         let mut lexer = Lexer::new(src.clone());
 
         if let Stage::Lexer = self.config.max_stage {
@@ -237,7 +257,7 @@ impl Workspace {
             let res = pfmt.process();
             match res {
                 Ok(msg) if self.config.dbg_info => reporter.show_info(msg),
-                Err(e) => reporter.show_error(e),
+                Err(e) => SourceReporter::show_error(e),
                 _ => {}
             }
         }
@@ -247,6 +267,14 @@ impl Workspace {
         match res {
             Ok(indices) => {
                 let dependencies_bundl = dep_resolvr.resolve(indices);
+                let errors = dep_resolvr.errors;
+
+                if !errors.is_empty() {
+                    for e in errors {
+                        reporter.report_dep_resolver_error(e);
+                    }
+                    return;
+                }
                 path_stack.push(file_path.clone());
                 for (_, bundl) in dependencies_bundl {
                     for (path, _) in bundl {
@@ -256,7 +284,7 @@ impl Workspace {
                 }
                 path_stack.pop();
             }
-            Err(_) => todo!(),
+            Err(_) => {}
         }
         if self.config.dbg_info {
             reporter.show_info("dependency resolution complete.".to_string());

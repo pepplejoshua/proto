@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read};
 
-use super::errors::{LexError, ParseError};
+use super::errors::{DependencyResolvrError, LexError, ParseError};
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -387,12 +387,27 @@ impl SourceReporter {
         }
     }
 
+    pub fn report_dep_resolver_error(&self, dre: DependencyResolvrError) {
+        match dre {
+            DependencyResolvrError::UnableToResolvePath(src) => {
+                let msg = "Unable to resolve path.".to_string();
+                let tip = "Please check if the path is correct.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            DependencyResolvrError::DependencyPathMustContainFile(src) => {
+                let msg = "Dependency path must contain a file.".to_string();
+                let tip = "Please check if the path is correct.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+        }
+    }
+
     pub fn show_info(&self, msg: String) {
         let output = format!("*[_, *, l_green:d_black]Info:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
     }
 
-    pub fn show_error(&self, msg: String) {
+    pub fn show_error(msg: String) {
         let output = format!("*[_, *, l_red:d_black]Error:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
     }
