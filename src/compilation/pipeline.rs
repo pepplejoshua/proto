@@ -276,8 +276,7 @@ impl Workspace {
         let mut dep_resolvr = DependencyResolvr::new(&mut ir_mod);
         let res = dep_resolvr.process();
         match res {
-            Ok(indices) => {
-                let dependencies_bundl = dep_resolvr.resolve(indices);
+            Ok(dependencies_bundl) => {
                 let errors = dep_resolvr.errors;
 
                 if !errors.is_empty() {

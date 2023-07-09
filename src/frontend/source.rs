@@ -405,11 +405,7 @@ impl SourceReporter {
     pub fn report_workspace_error(wse: WorkspaceError) {
         match wse {
             WorkspaceError::CircularDependency(path) => {
-                let msg = format!(
-                    "Circular dependency detected.
-{}.",
-                    path
-                );
+                let msg = format!("Circular dependency detected.\n{}.", path);
                 SourceReporter::show_error(msg);
             }
         }

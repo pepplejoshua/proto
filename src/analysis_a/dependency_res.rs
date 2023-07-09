@@ -26,59 +26,6 @@ pub struct DependencyResolvr<'a> {
 // - process the actions until we get to a file path. The remainder of the actions will
 //  be the path to the dependency.
 impl<'a> DependencyResolvr<'a> {
-    pub fn resolve(
-        &mut self,
-        dependencies: Vec<usize>,
-    ) -> HashMap<usize, Vec<(PathBuf, DependencyPath)>> {
-        let module = self.get_module();
-        let ins_pool = &module.ins_pool.pool;
-
-        // for each dependency, we will:
-        // - get the Instruction (UseDependency)
-        // - each UseDependency has a list of DependencyPaths:
-        // - each of the DependencyPaths has a list of actions which will be used to get
-        //   the path
-        // - we will process the actions (while updating depenedency path) until we:
-        //   * get to a file path. Stop.
-        //   * get to a folder. Continue.
-        //   * path is invalid. Error.
-        // - once we have a valid file path, whatever is left of the actions
-        //   will be the path to the dependency
-        // - cluster the dependencies by their paths and return that structure
-
-        let mut res: HashMap<usize, Vec<(PathBuf, DependencyPath)>> = HashMap::new();
-
-        for index in dependencies {
-            let dep = ins_pool.get(index).unwrap();
-            if let PIRIns::UseDependency { paths, src } = dep {
-                for path in paths {
-                    let resolved_res = self.evaluate_dependency_path(path, src);
-                    match resolved_res {
-                        Ok((res_path, rem_actions)) => {
-                            // add to res
-                            let res_vec = res.entry(index).or_insert(Vec::new());
-                            res_vec.push((res_path, rem_actions));
-                        }
-                        Err(err) => {
-                            self.errors.push(err);
-                        }
-                    }
-                }
-            }
-        }
-
-        // show contents of res array
-        // for (index, m) in &res {
-        //     let dep = ins_pool.get(*index).unwrap();
-        //     println!("{} resolves to the following path:", dep.as_str());
-        //     for (path, actions) in m {
-        //         println!("\t{}: {}", path.display(), actions.as_str());
-        //     }
-        // }
-
-        return res;
-    }
-
     fn evaluate_dependency_path(
         &mut self,
         dep: &DependencyPath,
@@ -174,7 +121,8 @@ impl<'a> DependencyResolvr<'a> {
     }
 }
 
-impl<'a> PIRModulePass<'a, (), (), (), Vec<usize>, ()> for DependencyResolvr<'a> {
+type DependencyBundle = HashMap<usize, Vec<(PathBuf, DependencyPath)>>;
+impl<'a> PIRModulePass<'a, (), (), (), DependencyBundle, ()> for DependencyResolvr<'a> {
     fn process_ins(&mut self, _: &InsRef) -> Result<(), ()> {
         Ok(())
     }
@@ -187,18 +135,30 @@ impl<'a> PIRModulePass<'a, (), (), (), Vec<usize>, ()> for DependencyResolvr<'a>
         Ok(())
     }
 
-    fn process(&mut self) -> Result<Vec<usize>, ()> {
+    fn process(&mut self) -> Result<DependencyBundle, ()> {
         let module = self.get_module();
         let ins_pool = &module.ins_pool.pool;
-        let mut dependencies = Vec::new();
+        let mut res: HashMap<usize, Vec<(PathBuf, DependencyPath)>> = HashMap::new();
 
         for (index, ins) in ins_pool.iter().enumerate() {
-            if matches!(ins, PIRIns::UseDependency { paths: _, src: _ }) {
-                dependencies.push(index);
+            if let PIRIns::UseDependency { paths, src } = ins {
+                for path in paths {
+                    let resolved_res = self.evaluate_dependency_path(path, src);
+                    match resolved_res {
+                        Ok((res_path, rem_actions)) => {
+                            // add to res
+                            let res_vec = res.entry(index).or_insert(Vec::new());
+                            res_vec.push((res_path, rem_actions));
+                        }
+                        Err(err) => {
+                            self.errors.push(err);
+                        }
+                    }
+                }
             }
         }
 
-        Ok(dependencies)
+        Ok(res)
     }
 
     fn new(module: &'a PIRModule) -> Self {
