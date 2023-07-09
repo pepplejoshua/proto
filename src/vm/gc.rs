@@ -14,6 +14,7 @@ enum Value {
 #[derive(Debug, Clone)]
 enum ObjectData {
     Str(String),
+    List(Vec<Rc<Object>>),
 }
 
 /// Objects are values that live in the heap
@@ -124,7 +125,14 @@ impl GarbageCollector {
             return;
         }
 
-        root.marked.set(true);
+        match &*root.data.borrow() {
+            &ObjectData::Str(_) => root.marked.set(true),
+            &ObjectData::List(ref items) => {
+                for item in items {
+                    self.mark(item);
+                }
+            }
+        }
     }
 
     fn sweep(&mut self) {
@@ -166,6 +174,11 @@ impl GarbageCollector {
 
 #[cfg(test)]
 mod tests {
+    use std::{
+        collections::hash_map::DefaultHasher,
+        hash::{Hash, Hasher},
+    };
+
     use super::*;
 
     struct VM {
@@ -202,6 +215,18 @@ mod tests {
             )
         }
 
+        fn allocate_string(&mut self, data: String) -> Weak<Object> {
+            let mut hasher = DefaultHasher::new();
+            data.hash(&mut hasher);
+            let hash = hasher.finish() as u32;
+
+            if let Some(object) = self.interned_strings.get(&hash) {
+                return Rc::downgrade(&object);
+            }
+
+            self.allocate(ObjectData::Str(data))
+        }
+
         fn collect(&mut self) {
             self.gc.collect_garbage(Roots {
                 stack: &self.stack,
@@ -219,12 +244,12 @@ mod tests {
     fn simple_collection() {
         let mut vm = VM::new();
 
-        let value = Value::Object(vm.allocate(ObjectData::Str("Goodbye".into())));
+        let value = Value::Object(vm.allocate_string("Goodbye".into()));
         vm.push(value);
 
         {
             // Allocate objects
-            let obj2 = vm.allocate(ObjectData::Str("Hello".into()));
+            let obj2 = vm.allocate_string("Hello".into());
 
             obj2.upgrade().as_mut().map(|obj2| {
                 // Modify mutable state within objects
