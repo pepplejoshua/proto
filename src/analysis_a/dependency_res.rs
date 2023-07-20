@@ -25,7 +25,10 @@ pub struct DependencyResolvr<'a> {
 // - process the actions until we get to a file path. The remainder of the actions will
 //  be the path to the dependency.
 impl<'a> DependencyResolvr<'a> {
-    pub fn resolve(&mut self, dependencies: Vec<usize>) {
+    pub fn resolve(
+        &mut self,
+        dependencies: Vec<usize>,
+    ) -> HashMap<usize, Vec<(PathBuf, DependencyPath)>> {
         let module = self.get_module();
         let ins_pool = &module.ins_pool.pool;
 
@@ -64,13 +67,15 @@ impl<'a> DependencyResolvr<'a> {
         }
 
         // show contents of res array
-        for (index, m) in res {
-            let dep = ins_pool.get(index).unwrap();
+        for (index, m) in &res {
+            let dep = ins_pool.get(*index).unwrap();
             println!("{} resolves to the following path:", dep.as_str());
             for (path, actions) in m {
                 println!("\t{}: {}", path.display(), actions.as_str());
             }
         }
+
+        return res;
     }
 
     fn evaluate_dependency_path(
@@ -125,6 +130,7 @@ impl<'a> DependencyResolvr<'a> {
 
             if is_file {
                 // stop
+                search_dep_path.set_extension("pr");
                 break;
             } else {
             }
@@ -143,6 +149,8 @@ impl<'a> DependencyResolvr<'a> {
             let msg = format!("Dependency path must contain a file: {}", dep.as_str());
             return Err(msg);
         }
+
+        search_dep_path.set_extension("pr");
 
         // we have a valid file path
         // we need to collect the remainder of the actions into a Vector of PathActions
