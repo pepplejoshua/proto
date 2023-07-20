@@ -33,3 +33,10 @@ pub enum ParseError {
     UnknownCompilerDirective(SourceRef),
     TooManyErrors(SourceRef),
 }
+
+#[allow(dead_code)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub enum NameResolutionError {
+    SymbolAlreadyExists(SourceRef),
+    UndefinedSymbol(SourceRef),
+}

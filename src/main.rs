@@ -6,6 +6,7 @@ use compilation::pipeline::Workspace;
 mod analysis_a;
 mod compilation;
 mod frontend;
+mod name_resolution;
 mod pastel;
 mod pir;
 mod tools;
