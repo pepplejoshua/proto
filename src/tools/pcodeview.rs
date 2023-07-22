@@ -1,6 +1,4 @@
-use crate::pir::ir::{
-    ExprRef, InsRef, KeyValueBindings, PIRExpr, PIRIns, PIRModule, PIRModulePass,
-};
+use crate::pir::ir::{KeyValueBindings, PIRExpr, PIRIns, PIRModule, PIRModulePass};
 
 #[derive(Clone)]
 #[allow(dead_code)]
@@ -33,7 +31,7 @@ impl<'a> PCodeView<'a> {
 }
 
 impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a> {
-    fn process_ins(&mut self, ins: &InsRef) -> Result<String, ()> {
+    fn process_ins(&mut self, ins: &usize) -> Result<String, ()> {
         // get instruction from pool
         let module = self.module.unwrap();
         let ins_node = module.ins_pool.get(&ins);
@@ -90,6 +88,31 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
             PIRIns::ExpressionIns(expr, _) => {
                 let expr = self.process_expr(&expr)?;
                 Ok(self.pad_text(format!("{};", expr)))
+            }
+            PIRIns::FunctionPrototype {
+                name,
+                params,
+                return_type,
+                is_public,
+                src: _,
+            } => {
+                let name = name.as_str();
+                let mut param_strs = vec![];
+                for param in params {
+                    param_strs.push(self.process_expr(&param)?);
+                }
+                let params = param_strs.join(", ");
+                let return_type = return_type.as_str();
+                let mut view = format!(
+                    "fn {name}({params}) {return_type};",
+                    name = name,
+                    params = params,
+                    return_type = return_type
+                );
+                if is_public {
+                    view = format!("pub {}", view);
+                }
+                Ok(self.pad_text(view))
             }
             PIRIns::FunctionDef {
                 name,
@@ -253,10 +276,23 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                 self.block_type = block_type;
                 Ok(view)
             }
+            PIRIns::TypeExtension {
+                target_type,
+                extensions,
+                src: _,
+            } => {
+                let target_type = target_type.as_str();
+                let block_type = self.block_type.clone();
+                self.block_type = CodeBlockType::InstructionPart;
+                let ext_str = self.process_ins(&extensions)?;
+                self.block_type = block_type;
+                let view = format!("extend {target_type} {ext_str}");
+                Ok(view)
+            }
         }
     }
 
-    fn process_expr(&mut self, expr: &ExprRef) -> Result<String, ()> {
+    fn process_expr(&mut self, expr: &usize) -> Result<String, ()> {
         // get expr from pool
         let module = self.module.unwrap();
         let expr_node = module.expr_pool.get(&expr);

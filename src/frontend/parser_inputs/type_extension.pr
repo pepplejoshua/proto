@@ -1,0 +1,14 @@
+:Person {
+    name str,
+    age i8,
+}
+
+extend Person {
+    pub fn get_name(self Person) str {
+        return name;
+    }
+
+    pub fn get_age(self Person) i8 {
+        return age;
+    }
+}

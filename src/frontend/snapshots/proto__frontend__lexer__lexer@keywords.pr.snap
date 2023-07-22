@@ -31,4 +31,5 @@ stringified_tokens:
   - "char at [start_line:5 start_col:5 end_line:5 end_col:9 flat_start:104 flat_end:108]"
   - "use at [start_line:5 start_col:10 end_line:5 end_col:13 flat_start:109 flat_end:112]"
   - "return at [start_line:5 start_col:14 end_line:5 end_col:20 flat_start:113 flat_end:119]"
+  - "extend at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:120 flat_end:126]"
 

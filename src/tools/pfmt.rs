@@ -1,6 +1,6 @@
 use std::fs;
 
-use crate::pir::ir::{ExprRef, InsRef, KeyValueBindings, PIRModule, PIRModulePass};
+use crate::pir::ir::{KeyValueBindings, PIRModule, PIRModulePass};
 
 use super::pcodeview::PCodeView;
 
@@ -15,11 +15,11 @@ impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
         }
     }
 
-    fn process_ins(&mut self, _: &InsRef) -> Result<(), String> {
+    fn process_ins(&mut self, _: &usize) -> Result<(), String> {
         Ok(())
     }
 
-    fn process_expr(&mut self, _: &ExprRef) -> Result<(), String> {
+    fn process_expr(&mut self, _: &usize) -> Result<(), String> {
         Ok(())
     }
 

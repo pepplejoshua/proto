@@ -7,6 +7,7 @@ module:
   - "fn add (a i64, b i64) i64 { return a + b; }"
   - "fn do_nothing () void {  }"
   - fn do_nothing_ () void return 1;
+  - fn prototype () i64;
 lexer_error: []
 parser_error: []
 
