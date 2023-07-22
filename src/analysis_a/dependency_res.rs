@@ -8,10 +8,9 @@ use crate::{
         ast::{DependencyPath, PathAction},
         source::SourceRef,
     },
-    pir::ir::{ExprRef, InsRef, KeyValueBindings, PIRIns, PIRModule, PIRModulePass},
+    pir::ir::{KeyValueBindings, PIRIns, PIRModule, PIRModulePass},
 };
 
-#[derive(Clone)]
 #[allow(dead_code)]
 pub struct DependencyResolvr<'a> {
     module: Option<&'a PIRModule>,
@@ -63,15 +62,6 @@ impl<'a> DependencyResolvr<'a> {
                         }
                     }
                 }
-            }
-        }
-
-        // show contents of res array
-        for (index, m) in &res {
-            let dep = ins_pool.get(*index).unwrap();
-            println!("{} resolves to the following path:", dep.as_str());
-            for (path, actions) in m {
-                println!("\t{}: {}", path.display(), actions.as_str());
             }
         }
 
@@ -174,11 +164,11 @@ impl<'a> DependencyResolvr<'a> {
 }
 
 impl<'a> PIRModulePass<'a, (), (), (), Vec<usize>, ()> for DependencyResolvr<'a> {
-    fn process_ins(&mut self, _: &InsRef) -> Result<(), ()> {
+    fn process_ins(&mut self, _: &usize) -> Result<(), ()> {
         Ok(())
     }
 
-    fn process_expr(&mut self, _: &ExprRef) -> Result<(), ()> {
+    fn process_expr(&mut self, _: &usize) -> Result<(), ()> {
         Ok(())
     }
 

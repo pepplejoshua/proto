@@ -1,11 +1,13 @@
 use super::{
-    ast::{CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction},
+    ast::{
+        CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction,
+        SemanticType,
+    },
     directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
     token::Token,
-    types::Type,
 };
 
 #[allow(dead_code)]
@@ -16,6 +18,7 @@ enum ParseScope {
     Loop,
     CodeBlock,
     Module,
+    TypeExtension,
 }
 
 #[allow(dead_code)]
@@ -117,6 +120,21 @@ impl Parser {
                     src: src.clone(),
                 })
             }
+            Token::Extend(_) => {
+                if matches!(
+                    self.parse_scope,
+                    ParseScope::Loop
+                        | ParseScope::CodeBlock
+                        | ParseScope::FnBody
+                        | ParseScope::TypeExtension
+                ) {
+                    Err(ParseError::TypeExtensionNotAllowedInThisContext(
+                        cur.get_source_ref(),
+                    ))
+                } else {
+                    self.parse_type_extension()
+                }
+            }
             Token::Colon(_) => self.parse_struct_decl(),
             Token::At(_) => self.parse_directive_instruction(),
             Token::Use(_) => self.parse_use_dependency(),
@@ -131,9 +149,12 @@ impl Parser {
             // top level code
             Token::Mut(_) => {
                 let var = self.parse_var_decl()?;
-                if matches!(self.parse_scope, ParseScope::TopLevel | ParseScope::Module) {
+                if matches!(
+                    self.parse_scope,
+                    ParseScope::Module | ParseScope::TypeExtension
+                ) {
                     // declaring variables at the top level is not allowed
-                    Err(ParseError::NoVariableAtTopLevel(var.source_ref()))
+                    Err(ParseError::NoVariableAtCurrentScope(var.source_ref()))
                 } else {
                     Ok(var)
                 }
@@ -172,9 +193,14 @@ impl Parser {
             }
             Token::LCurly(_) => {
                 let blk = self.parse_code_block()?;
-                if matches!(self.parse_scope, ParseScope::TopLevel | ParseScope::Module) {
+                if matches!(
+                    self.parse_scope,
+                    ParseScope::TopLevel | ParseScope::Module | ParseScope::TypeExtension
+                ) {
                     // declaring code blocks at the top level is not allowed
-                    Err(ParseError::NoCodeBlockAtTopLevel(blk.source_ref()))
+                    Err(ParseError::NoCodeBlockAllowedInCurrentContext(
+                        blk.source_ref(),
+                    ))
                 } else {
                     Ok(blk)
                 }
@@ -299,7 +325,10 @@ impl Parser {
 
     fn parse_code_block(&mut self) -> Result<Instruction, ParseError> {
         let prev_scope = self.parse_scope;
-        if !matches!(self.parse_scope, ParseScope::FnBody | ParseScope::Loop) {
+        if !matches!(
+            self.parse_scope,
+            ParseScope::FnBody | ParseScope::Loop | ParseScope::TypeExtension
+        ) {
             self.parse_scope = ParseScope::CodeBlock;
         }
         let mut block_ref = self.cur_token().get_source_ref();
@@ -633,6 +662,32 @@ impl Parser {
         }
     }
 
+    fn parse_type_extension(&mut self) -> Result<Instruction, ParseError> {
+        let temp_scope = self.parse_scope;
+        self.parse_scope = ParseScope::TypeExtension;
+        let start = self.cur_token(); // `extend` keyword
+        self.advance_index();
+
+        let target_type = self.parse_type();
+        if let None = target_type {
+            return Err(ParseError::Expected(
+                "a type to extend.".to_string(),
+                self.cur_token().get_source_ref(),
+                Some("Provide a type to extend. E.g: 'extend SomeType { }'".to_string()),
+            ));
+        }
+
+        let target_type = target_type.unwrap();
+        let extensions = self.parse_code_block()?;
+        self.parse_scope = temp_scope;
+
+        Ok(Instruction::TypeExtension {
+            target_type,
+            extensions: Box::new(extensions),
+            src: start.get_source_ref(),
+        })
+    }
+
     fn parse_fn_def(
         &mut self,
         is_public: bool,
@@ -711,9 +766,8 @@ impl Parser {
         // parse return type
         cur = self.cur_token();
         let return_type;
-        if cur.is_type_token() {
-            return_type = Some(cur.to_type());
-            self.advance_index();
+        if let Some(sem_type) = self.parse_type() {
+            return_type = Some(sem_type);
         } else {
             // report that a type is expected
             return Err(ParseError::Expected(
@@ -722,6 +776,29 @@ impl Parser {
                 Some("If it returns nothing, use the 'void' type as its return type.".into()),
             ));
         }
+
+        // check if the next token is a semi-colon. If it is,
+        // then this is a function prototype, not a function definition
+        // so we just return a function prototype instruction
+        // and don't parse the function body
+        cur = self.cur_token();
+        if matches!(cur, Token::Semicolon(_)) {
+            self.advance_index();
+            self.parse_scope = temp_scope;
+            let ret_type = return_type.unwrap();
+            let mut fn_ref = start.get_source_ref().combine(cur.get_source_ref());
+            if is_public {
+                fn_ref = fn_ref.combine(pub_ref.unwrap());
+            }
+            return Ok(Instruction::FunctionPrototype {
+                name: label.unwrap(),
+                params,
+                return_type: ret_type,
+                is_public,
+                src: fn_ref,
+            });
+        }
+
         // parse function body, which is just an instruction
         // set the scope of this instruction to be Fn (to allow parsing variables)
         let fn_body = self.next_instruction()?;
@@ -739,6 +816,20 @@ impl Parser {
             is_public,
             src: fn_ref,
         })
+    }
+
+    fn parse_type(&mut self) -> Option<SemanticType> {
+        let cur = self.cur_token();
+        let start = cur.get_source_ref();
+
+        match cur {
+            Token::Identifier(_, _) => {
+                let id = cur.as_str();
+                self.advance_index();
+                Some(SemanticType::SomeIdentifier(id, Some(start)))
+            }
+            _ => None,
+        }
     }
 
     fn parse_const_decl(
@@ -765,12 +856,8 @@ impl Parser {
         }
 
         let mut const_type = None;
-        // try to parse an optional type and/or an optional assignment
-        // this will be replaced with a call to parse_type(try: true)
-        // which will try to parse a type
-        if cur.is_type_token() {
-            const_type = Some(cur.to_type());
-            self.advance_index();
+        if let Some(sem_type) = self.parse_type() {
+            const_type = Some(sem_type);
             cur = self.cur_token();
         }
 
@@ -1022,9 +1109,8 @@ impl Parser {
         // try to parse an optional type and/or an optional assignment
         // this will be replaced with a call to parse_type(try: true)
         // which will try to parse a type
-        if cur.is_type_token() {
-            var_type = Some(cur.to_type());
-            self.advance_index();
+        if let Some(sem_type) = self.parse_type() {
+            var_type = Some(sem_type);
             cur = self.cur_token();
         }
 
@@ -1373,15 +1459,13 @@ impl Parser {
     }
 
     fn parse_id(&mut self, with_type: bool) -> Result<Expr, ParseError> {
-        let mut cur = self.cur_token();
+        let cur = self.cur_token();
         if let Token::Identifier(_, _) = cur {
             self.advance_index();
             if with_type {
                 let id = cur;
-                cur = self.cur_token();
-                if cur.is_type_token() {
-                    self.advance_index();
-                    Ok(Expr::Id(id, Some(cur.to_type())))
+                if let Some(sem_type) = self.parse_type() {
+                    Ok(Expr::Id(id, Some(sem_type)))
                 } else {
                     Err(ParseError::Expected(
                         format!(
@@ -1461,17 +1545,24 @@ impl Parser {
 
     fn parse_primary(&mut self) -> Result<Expr, ParseError> {
         let cur = self.cur_token();
+        let span = cur.get_source_ref();
 
         match cur {
             Token::Colon(_) => self.parse_init_named_struct(),
             Token::At(_) => self.parse_directive_expr(),
             Token::StringLiteral(_, _) => {
-                let res = Ok(Expr::StringLiteral(cur, Some(Type::Str)));
+                let res = Ok(Expr::StringLiteral(
+                    cur,
+                    Some(SemanticType::type_from_loc("str", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::CharLiteral(_, _) => {
-                let res = Ok(Expr::CharacterLiteral(cur, Some(Type::Char)));
+                let res = Ok(Expr::CharacterLiteral(
+                    cur,
+                    Some(SemanticType::type_from_loc("char", span)),
+                ));
                 self.advance_index();
                 res
             }
@@ -1481,58 +1572,91 @@ impl Parser {
                 res
             }
             Token::I8Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::I8)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("i8", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::I16Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::I16)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("i16", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::I32Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::I32)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("i32", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::I64Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::I64)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("i64", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::IsizeLiteral(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::ISize)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("isize", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::U8Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::U8)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("u8", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::U16Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::U16)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("u16", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::U32Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::U32)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("u32", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::U64Literal(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::U64)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("u64", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::UsizeLiteral(_, _) => {
-                let res = Ok(Expr::Number(cur, Some(Type::USize)));
+                let res = Ok(Expr::Number(
+                    cur,
+                    Some(SemanticType::type_from_loc("usize", span)),
+                ));
                 self.advance_index();
                 res
             }
             Token::True(_) | Token::False(_) => {
                 self.advance_index();
-                Ok(Expr::Boolean(cur, Some(Type::Bool)))
+                Ok(Expr::Boolean(
+                    cur,
+                    Some(SemanticType::type_from_loc("bool", span)),
+                ))
             }
             Token::LParen(_) => {
                 // parse group

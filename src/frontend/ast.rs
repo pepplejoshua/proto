@@ -1,40 +1,62 @@
-use super::{source::SourceRef, token::Token, types::Type};
+use super::{source::SourceRef, token::Token};
+
+#[derive(Debug, Clone)]
+pub enum SemanticType {
+    SomeIdentifier(String, Option<SourceRef>),
+}
+
+#[allow(dead_code)]
+impl SemanticType {
+    pub fn as_str(&self) -> String {
+        match self {
+            SemanticType::SomeIdentifier(s, _) => s.clone(),
+        }
+    }
+
+    pub fn type_from(tag: &str) -> Self {
+        SemanticType::SomeIdentifier(tag.to_string(), None)
+    }
+
+    pub fn type_from_loc(tag: &str, at: SourceRef) -> Self {
+        SemanticType::SomeIdentifier(tag.to_string(), Some(at))
+    }
+}
 
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expr {
-    Id(Token, Option<Type>),
-    Number(Token, Option<Type>),
-    StringLiteral(Token, Option<Type>),
-    CharacterLiteral(Token, Option<Type>),
-    Binary(Token, Box<Expr>, Box<Expr>, Option<Type>),
-    Comparison(Token, Box<Expr>, Box<Expr>, Option<Type>),
-    Boolean(Token, Option<Type>),
-    Unary(Token, Box<Expr>, Option<Type>),
-    Grouped(Box<Expr>, Option<Type>, SourceRef),
+    Id(Token, Option<SemanticType>),
+    Number(Token, Option<SemanticType>),
+    StringLiteral(Token, Option<SemanticType>),
+    CharacterLiteral(Token, Option<SemanticType>),
+    Binary(Token, Box<Expr>, Box<Expr>, Option<SemanticType>),
+    Comparison(Token, Box<Expr>, Box<Expr>, Option<SemanticType>),
+    Boolean(Token, Option<SemanticType>),
+    Unary(Token, Box<Expr>, Option<SemanticType>),
+    Grouped(Box<Expr>, Option<SemanticType>, SourceRef),
     FnCall {
         func: Box<Expr>,
         args: Vec<Expr>,
         span: SourceRef,
-        fn_type: Option<Type>,
+        fn_type: Option<SemanticType>,
     },
     ScopeInto {
         module: Box<Expr>,
         target: Box<Expr>,
         src: SourceRef,
-        resolved_type: Option<Type>,
+        resolved_type: Option<SemanticType>,
     },
     DirectiveExpr {
         directive: Box<Expr>,
         expr: Option<Box<Expr>>,
-        resolved_type: Option<Type>,
+        resolved_type: Option<SemanticType>,
         src: SourceRef,
     },
     NamedStructInit {
         name: Box<Expr>,
         fields: KeyValueBindings,
         src: SourceRef,
-        resolved_type: Option<Type>,
+        resolved_type: Option<SemanticType>,
     },
 }
 
@@ -161,7 +183,7 @@ impl Expr {
         }
     }
 
-    pub fn type_info(&self) -> Option<Type> {
+    pub fn type_info(&self) -> Option<SemanticType> {
         match &self {
             Expr::Id(_, t) => t.clone(),
             Expr::Number(_, t) => t.clone(),
@@ -351,18 +373,25 @@ pub enum Instruction {
     },
     ConstantDecl {
         const_name: Token,
-        const_type: Option<Type>,
+        const_type: Option<SemanticType>,
         init_expr: Expr,
         src_ref: SourceRef,
         is_public: bool,
     },
-    VariableDecl(Token, Option<Type>, Option<Expr>, SourceRef),
+    VariableDecl(Token, Option<SemanticType>, Option<Expr>, SourceRef),
     AssignmentIns(Expr, Expr),
     ExpressionIns(Expr, Token),
+    FunctionPrototype {
+        name: Token,
+        params: Vec<Expr>,
+        return_type: SemanticType,
+        is_public: bool,
+        src: SourceRef,
+    },
     FunctionDef {
         name: Token,
         params: Vec<Expr>,
-        return_type: Type,
+        return_type: SemanticType,
         body: Box<Instruction>,
         is_public: bool,
         src: SourceRef,
@@ -407,6 +436,11 @@ pub enum Instruction {
     },
     SingleLineComment {
         comment: String,
+        src: SourceRef,
+    },
+    TypeExtension {
+        target_type: SemanticType,
+        extensions: Box<Instruction>,
         src: SourceRef,
     },
 }
@@ -459,6 +493,32 @@ impl Instruction {
                 format!("{} = {};", target.as_str(), value.as_str())
             }
             Instruction::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
+            Instruction::FunctionPrototype {
+                name,
+                params,
+                return_type,
+                is_public,
+                src: _,
+            } => {
+                // collect param strings
+                let mut param_strs = String::new();
+                for (i, param) in params.iter().enumerate() {
+                    param_strs.push_str(&param.as_str());
+                    if i + 1 < params.len() {
+                        param_strs.push_str(", ");
+                    }
+                }
+                let str_rep = format!(
+                    "fn {} ({param_strs}) {};",
+                    name.as_str(),
+                    return_type.as_str()
+                );
+                if *is_public {
+                    "pub ".to_string() + &str_rep
+                } else {
+                    str_rep
+                }
+            }
             Instruction::FunctionDef {
                 name,
                 params,
@@ -585,6 +645,13 @@ impl Instruction {
                 }
                 str_rep
             }
+            Instruction::TypeExtension {
+                target_type,
+                extensions,
+                src: _,
+            } => {
+                format!("extend {} {}", target_type.as_str(), extensions.as_str())
+            }
         }
     }
 
@@ -605,6 +672,13 @@ impl Instruction {
             Instruction::ExpressionIns(expr, terminator) => {
                 expr.source_ref().combine(terminator.get_source_ref())
             }
+            Instruction::FunctionPrototype {
+                name: _,
+                params: _,
+                return_type: _,
+                is_public: _,
+                src,
+            } => src.clone(),
             Instruction::FunctionDef {
                 name: _,
                 params: _,
@@ -642,6 +716,11 @@ impl Instruction {
             Instruction::NamedStructDecl {
                 name: _,
                 fields: _,
+                src,
+            } => src.clone(),
+            Instruction::TypeExtension {
+                target_type: _,
+                extensions: _,
                 src,
             } => src.clone(),
         }

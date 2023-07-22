@@ -143,11 +143,18 @@ impl Workspace {
         let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file)).unwrap();
         let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
 
-        Workspace {
+        let mut w = Workspace {
             entry_file: abs_entry_file,
             files: HashMap::new(),
             config,
-        }
+        };
+
+        w.process_file(
+            "/Users/iwarilama/Desktop/Code/rust/proto/src/std/primitives.pr".to_string(),
+            &mut vec![],
+        );
+
+        return w;
     }
 
     pub fn compile_workspace(&mut self) {
@@ -210,6 +217,7 @@ impl Workspace {
             for le in parser.lexer_errors {
                 reporter.report_lexer_error(&le);
             }
+            return;
         }
         if self.config.dbg_info {
             reporter.show_info("lexing complete.".to_string());
@@ -219,6 +227,7 @@ impl Workspace {
             for pe in parser.parser_errors {
                 reporter.report_parser_error(pe);
             }
+            return;
         }
         if self.config.dbg_info {
             reporter.show_info("parsing complete.".to_string());
@@ -237,7 +246,10 @@ impl Workspace {
             let res = pfmt.process();
             match res {
                 Ok(msg) if self.config.dbg_info => reporter.show_info(msg),
-                Err(e) => reporter.show_error(e),
+                Err(e) => {
+                    reporter.show_error(e);
+                    return;
+                }
                 _ => {}
             }
         }
@@ -256,10 +268,16 @@ impl Workspace {
                 }
                 path_stack.pop();
             }
-            Err(_) => todo!(),
+            Err(_) => {
+                unreachable!("failed to resolve dependencies for {file_path}.");
+            }
         }
         if self.config.dbg_info {
             reporter.show_info("dependency resolution complete.".to_string());
+        }
+
+        if let Stage::DependencyResolvr = self.config.max_stage {
+            return;
         }
     }
 }

@@ -303,9 +303,12 @@ impl SourceReporter {
                 let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::NoVariableAtTopLevel(src) => {
-                let msg = "Variable declarations are not allowed at the top level of a module."
-                    .to_string();
+            ParseError::NoVariableAtCurrentScope(src) => {
+                let mut msg = "Variable declarations are not allowed:\n".to_string();
+                msg.push_str(
+                    "*  at the top level of module (It is allowed at the top level of the file).\n",
+                );
+                msg.push_str("*  inside a type extension.\n");
                 let tip =
                     "Consider if this can be declared as a constant (use let instead of mut)."
                         .into();
@@ -315,10 +318,12 @@ impl SourceReporter {
                 let msg = "Code block was not terminated.".to_string();
                 self.report_with_ref(&src, msg, tip);
             }
-            ParseError::NoCodeBlockAtTopLevel(src) => {
-                let msg = "Code block found at top level".to_string();
-                let tip =
-                    "Code blocks are only allowed within functions and other code blocks.".into();
+            ParseError::NoCodeBlockAllowedInCurrentContext(src) => {
+                let msg = "Code block is not allowed in this context.".to_string();
+                let mut tip = "Code blocks are not allowed:".to_string();
+                tip.push_str("*  Within type extensions\n");
+                tip.push_str("*  Within modules declarations\n");
+                tip.push_str("*  At the top level of a file.\n");
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::ReturnInstructionOutsideFunction(src) => {
@@ -382,6 +387,13 @@ impl SourceReporter {
                 let msg = "Unknown compiler directive.".to_string();
                 let tip = "Please find more information on compiler directives in documentation."
                     .to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::TypeExtensionNotAllowedInThisContext(src) => {
+                let msg = "Defining a type extension is not allowed in this context.".to_string();
+                let mut tip = "Type extensions are only allowed:\n".to_string();
+                tip.push_str("*  At the top level/scope of a module.\n");
+                tip.push_str("*  Within a module.\n");
                 self.report_with_ref(&src, msg, Some(tip));
             }
         }

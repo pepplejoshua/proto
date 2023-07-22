@@ -1,4 +1,4 @@
-use super::{source::SourceRef, types::Type};
+use super::source::SourceRef;
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
@@ -20,6 +20,7 @@ pub enum Token {
     Pub(SourceRef),
     Mod(SourceRef),
     Return(SourceRef),
+    Extend(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -82,21 +83,6 @@ pub enum Token {
     StringLiteral(SourceRef, String),
     SingleLineComment(SourceRef, String),
 
-    // primitive types
-    I8(SourceRef),
-    I16(SourceRef),
-    I32(SourceRef),
-    I64(SourceRef),
-    Isize(SourceRef),
-    U8(SourceRef),
-    U16(SourceRef),
-    U32(SourceRef),
-    U64(SourceRef),
-    Usize(SourceRef),
-    Bool(SourceRef),
-    Char(SourceRef),
-    Str(SourceRef),
-
     // misc
     Eof(SourceRef),
 }
@@ -143,19 +129,6 @@ impl Token {
             Token::False(src) => src.clone(),
             Token::CharLiteral(src, _) => src.clone(),
             Token::Identifier(_, src) => src.clone(),
-            Token::I8(src) => src.clone(),
-            Token::I16(src) => src.clone(),
-            Token::I32(src) => src.clone(),
-            Token::I64(src) => src.clone(),
-            Token::Isize(src) => src.clone(),
-            Token::U8(src) => src.clone(),
-            Token::U16(src) => src.clone(),
-            Token::U32(src) => src.clone(),
-            Token::U64(src) => src.clone(),
-            Token::Usize(src) => src.clone(),
-            Token::Bool(src) => src.clone(),
-            Token::Char(src) => src.clone(),
-            Token::Str(src) => src.clone(),
             Token::I8Literal(_, src) => src.clone(),
             Token::I16Literal(_, src) => src.clone(),
             Token::I32Literal(_, src) => src.clone(),
@@ -180,6 +153,7 @@ impl Token {
             Token::At(src) => src.clone(),
             Token::As(src) => src.clone(),
             Token::StringLiteral(src, _) => src.clone(),
+            Token::Extend(src) => src.clone(),
         }
     }
 
@@ -199,47 +173,9 @@ impl Token {
                 | Token::Pub(_)
                 | Token::At(_)
                 | Token::SingleLineComment(_, _)
+                | Token::Fn(_)
+                | Token::Extend(_)
         )
-    }
-
-    pub fn is_type_token(&self) -> bool {
-        matches!(
-            self,
-            Token::I8(_)
-                | Token::I16(_)
-                | Token::I32(_)
-                | Token::I64(_)
-                | Token::Isize(_)
-                | Token::U8(_)
-                | Token::U16(_)
-                | Token::U32(_)
-                | Token::U64(_)
-                | Token::Usize(_)
-                | Token::Bool(_)
-                | Token::Char(_)
-                | Token::Void(_)
-                | Token::Str(_)
-        )
-    }
-
-    pub fn to_type(&self) -> Type {
-        match self {
-            Token::I8(_) => Type::I8,
-            Token::I16(_) => Type::I16,
-            Token::I32(_) => Type::I32,
-            Token::I64(_) => Type::I64,
-            Token::Isize(_) => Type::ISize,
-            Token::U8(_) => Type::U8,
-            Token::U16(_) => Type::U16,
-            Token::U32(_) => Type::U32,
-            Token::U64(_) => Type::U64,
-            Token::Usize(_) => Type::USize,
-            Token::Bool(_) => Type::Bool,
-            Token::Char(_) => Type::Char,
-            Token::Void(_) => Type::Void,
-            Token::Str(_) => Type::Str,
-            _ => unreachable!("to_type() called on unexpected Token, {self:?}"),
-        }
     }
 
     pub fn as_str(&self) -> String {
@@ -294,19 +230,6 @@ impl Token {
             Token::U32Literal(num, _) => num.to_string(),
             Token::U64Literal(num, _) => num.to_string(),
             Token::UsizeLiteral(num, _) => num.to_string(),
-            Token::I8(_) => "i8".into(),
-            Token::I16(_) => "i16".into(),
-            Token::I32(_) => "i32".into(),
-            Token::I64(_) => "i64".into(),
-            Token::Isize(_) => "isize".into(),
-            Token::U8(_) => "u8".into(),
-            Token::U16(_) => "u16".into(),
-            Token::U32(_) => "u32".into(),
-            Token::U64(_) => "u64".into(),
-            Token::Usize(_) => "usize".into(),
-            Token::Bool(_) => "bool".into(),
-            Token::Char(_) => "char".into(),
-            Token::Str(_) => "str".into(),
             Token::Eof(_) => "\0".into(),
             Token::Pub(_) => "pub".into(),
             Token::Mod(_) => "mod".into(),
@@ -319,6 +242,7 @@ impl Token {
             Token::As(_) => "as".into(),
             Token::StringLiteral(_, src) => format!("\"{src}\""),
             Token::SingleLineComment(_, src) => src.clone(),
+            Token::Extend(_) => "extend".into(),
         }
     }
 }

@@ -156,7 +156,6 @@ impl Lexer {
             "else" => Ok(Token::Else(combined_ref)),
             "loop" => Ok(Token::Loop(combined_ref)),
             "while" => Ok(Token::While(combined_ref)),
-            "void" => Ok(Token::Void(combined_ref)),
             "true" => Ok(Token::True(combined_ref)),
             "false" => Ok(Token::False(combined_ref)),
             "break" => Ok(Token::Break(combined_ref)),
@@ -166,24 +165,12 @@ impl Lexer {
             "pub" => Ok(Token::Pub(combined_ref)),
             "mod" => Ok(Token::Mod(combined_ref)),
             "as" => Ok(Token::As(combined_ref)),
+            "extend" => Ok(Token::Extend(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
             "not" => Ok(Token::Not(combined_ref)),
 
-            "i8" => Ok(Token::I8(combined_ref)),
-            "i16" => Ok(Token::I16(combined_ref)),
-            "i32" => Ok(Token::I32(combined_ref)),
-            "i64" => Ok(Token::I64(combined_ref)),
-            "isize" => Ok(Token::Isize(combined_ref)),
-            "u8" => Ok(Token::U8(combined_ref)),
-            "u16" => Ok(Token::U16(combined_ref)),
-            "u32" => Ok(Token::U32(combined_ref)),
-            "u64" => Ok(Token::U64(combined_ref)),
-            "usize" => Ok(Token::Usize(combined_ref)),
-            "bool" => Ok(Token::Bool(combined_ref)),
-            "char" => Ok(Token::Char(combined_ref)),
-            "str" => Ok(Token::Str(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }

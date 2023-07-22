@@ -20,8 +20,8 @@ pub enum ParseError {
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
     MalformedDeclaration(String, SourceRef),
-    NoVariableAtTopLevel(SourceRef),
-    NoCodeBlockAtTopLevel(SourceRef),
+    NoVariableAtCurrentScope(SourceRef),
+    NoCodeBlockAllowedInCurrentContext(SourceRef),
     NoLoopAtTopLevel(SourceRef),
     NoBreakOutsideLoop(SourceRef),
     NoContinueOutsideLoop(SourceRef),
@@ -32,6 +32,7 @@ pub enum ParseError {
     UnterminatedUsePath(SourceRef),
     UnknownCompilerDirective(SourceRef),
     TooManyErrors(SourceRef),
+    TypeExtensionNotAllowedInThisContext(SourceRef),
 }
 
 #[allow(dead_code)]
