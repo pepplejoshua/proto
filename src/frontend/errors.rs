@@ -34,10 +34,3 @@ pub enum ParseError {
     TooManyErrors(SourceRef),
     TypeExtensionNotAllowedInThisContext(SourceRef),
 }
-
-#[allow(dead_code)]
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub enum NameResolutionError {
-    SymbolAlreadyExists(SourceRef),
-    UndefinedSymbol(SourceRef),
-}

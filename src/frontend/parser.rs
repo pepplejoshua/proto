@@ -1469,10 +1469,7 @@ impl Parser {
                     Ok(Expr::Id(id, Some(sem_type)))
                 } else {
                     Err(ParseError::Expected(
-                        format!(
-                            "to parse a type for the preceding identifier, '{}'.",
-                            id.as_str()
-                        ),
+                        format!("a type for the preceding identifier, '{}'.", id.as_str()),
                         id.get_source_ref(),
                         Some("Please provide a type for this identifier.".into()),
                     ))

@@ -20,6 +20,18 @@ impl SemanticType {
     pub fn type_from_loc(tag: &str, at: SourceRef) -> Self {
         SemanticType::SomeIdentifier(tag.to_string(), Some(at))
     }
+
+    pub fn get_source_ref(&self) -> Option<SourceRef> {
+        match self {
+            SemanticType::SomeIdentifier(_, s) => s.clone(),
+        }
+    }
+
+    pub fn get_id(&self) -> String {
+        match self {
+            SemanticType::SomeIdentifier(s, _) => s.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

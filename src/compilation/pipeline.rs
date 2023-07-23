@@ -9,6 +9,7 @@ use crate::{
         token::Token,
     },
     pir::ir::{PIRModule, PIRModulePass},
+    semantic_analysis::semantic::SemanticAnalyzr,
     tools::pfmt::Pfmt,
 };
 
@@ -16,7 +17,8 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
-    DependencyResolvr,
+    DependencyResolution,
+    SemanticAnalysis,
 }
 
 #[allow(dead_code)]
@@ -51,7 +53,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::DependencyResolution,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -72,7 +74,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::PIR,
                         target_file: "".to_string(),
-                        max_stage: Stage::DependencyResolvr,
+                        max_stage: Stage::DependencyResolution,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -80,7 +82,7 @@ impl PipelineConfig {
                 }
                 let target_file = args.next().unwrap();
                 let mut backend = Backend::PIR;
-                let mut max_stage = Stage::DependencyResolvr;
+                let mut max_stage = Stage::DependencyResolution;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -90,7 +92,8 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "dep" => max_stage = Stage::DependencyResolvr,
+                        "dep" => max_stage = Stage::DependencyResolution,
+                        "sem" => max_stage = Stage::SemanticAnalysis,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -110,7 +113,7 @@ impl PipelineConfig {
             "h" | "help" => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::DependencyResolution,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -119,7 +122,7 @@ impl PipelineConfig {
             _ => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::DependencyResolution,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -276,8 +279,21 @@ impl Workspace {
             reporter.show_info("dependency resolution complete.".to_string());
         }
 
-        // if let Stage::DependencyResolvr = self.config.max_stage {
-        //     return;
-        // }
+        if let Stage::DependencyResolution = self.config.max_stage {
+            return;
+        }
+
+        let mut analyzr = SemanticAnalyzr::new(&ir_mod);
+        let res = analyzr.process();
+        match res {
+            Ok(_) => {}
+            Err(e) => {
+                reporter.show_error(format!("semantic analysis failed: {:?}", e));
+                return;
+            }
+        }
+        if self.config.dbg_info {
+            reporter.show_info("semantic analysis complete.".to_string());
+        }
     }
 }
