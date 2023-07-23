@@ -13,7 +13,7 @@ use crate::{
 
 #[allow(dead_code)]
 pub struct DependencyResolvr<'a> {
-    module: Option<&'a PIRModule>,
+    module: &'a PIRModule,
     file_path: String,
     resolution_errors: Vec<(String, SourceRef)>,
 }
@@ -28,7 +28,7 @@ impl<'a> DependencyResolvr<'a> {
         &mut self,
         dependencies: Vec<usize>,
     ) -> HashMap<usize, Vec<(PathBuf, DependencyPath)>> {
-        let module = self.get_module();
+        let module = self.module;
         let ins_pool = &module.ins_pool.pool;
 
         // for each dependency, we will:
@@ -177,7 +177,7 @@ impl<'a> PIRModulePass<'a, (), (), (), Vec<usize>, ()> for DependencyResolvr<'a>
     }
 
     fn process(&mut self) -> Result<Vec<usize>, ()> {
-        let module = self.get_module();
+        let module = self.module;
         let ins_pool = &module.ins_pool.pool;
         let mut dependencies = Vec::new();
 
@@ -192,13 +192,13 @@ impl<'a> PIRModulePass<'a, (), (), (), Vec<usize>, ()> for DependencyResolvr<'a>
 
     fn new(module: &'a PIRModule) -> Self {
         Self {
-            module: Some(module),
             file_path: module.path.clone(),
+            module,
             resolution_errors: Vec::new(),
         }
     }
 
     fn get_module(&mut self) -> &'a PIRModule {
-        self.module.unwrap()
+        self.module
     }
 }
