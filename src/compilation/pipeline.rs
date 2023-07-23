@@ -238,11 +238,11 @@ impl Workspace {
         }
 
         let module = parser.compilation_module;
-        let mut ir_mod = PIRModule::new(module, file_path.clone());
+        let ir_mod = PIRModule::new(module, file_path.clone());
         self.files.insert(file_path.clone(), (src, ir_mod.clone()));
 
         if self.config.use_pfmt {
-            let mut pfmt = Pfmt::new(&mut ir_mod);
+            let mut pfmt = Pfmt::new(&ir_mod);
             let res = pfmt.process();
             match res {
                 Ok(msg) if self.config.dbg_info => reporter.show_info(msg),
@@ -254,7 +254,7 @@ impl Workspace {
             }
         }
 
-        let mut dep_resolvr = DependencyResolvr::new(&mut ir_mod);
+        let mut dep_resolvr = DependencyResolvr::new(&ir_mod);
         let res = dep_resolvr.process();
         match res {
             Ok(indices) => {
@@ -276,8 +276,8 @@ impl Workspace {
             reporter.show_info("dependency resolution complete.".to_string());
         }
 
-        if let Stage::DependencyResolvr = self.config.max_stage {
-            return;
-        }
+        // if let Stage::DependencyResolvr = self.config.max_stage {
+        //     return;
+        // }
     }
 }

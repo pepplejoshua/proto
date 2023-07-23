@@ -259,6 +259,7 @@ pub enum PIRIns {
         params: Vec<usize>,
         return_type: SemanticType,
         is_public: bool,
+        defined_as_primitive: bool,
         src: SourceRef,
     },
     FunctionDef {
@@ -385,6 +386,7 @@ impl InsPool {
                 params,
                 return_type,
                 is_public,
+                defined_as_primitive,
                 src,
             } => {
                 let params = params.into_iter().map(|p| epool.to_pir(p)).collect();
@@ -394,6 +396,7 @@ impl InsPool {
                     return_type,
                     is_public,
                     src,
+                    defined_as_primitive,
                 };
                 self.add(ins)
             }

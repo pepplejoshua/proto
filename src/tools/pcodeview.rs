@@ -30,6 +30,7 @@ impl<'a> PCodeView<'a> {
     }
 }
 
+#[allow(dead_code)]
 impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a> {
     fn process_ins(&mut self, ins: &usize) -> Result<String, ()> {
         // get instruction from pool
@@ -94,6 +95,7 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                 params,
                 return_type,
                 is_public,
+                defined_as_primitive: _,
                 src: _,
             } => {
                 let name = name.as_str();

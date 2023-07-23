@@ -26,8 +26,8 @@ impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
     }
 
     fn process(&mut self) -> Result<String, String> {
-        let mut module = self.module;
-        let mut code_view = PCodeView::new(&mut module);
+        let module = self.module;
+        let mut code_view = PCodeView::new(&module);
         let contents = code_view.process().unwrap();
 
         // write out to module path

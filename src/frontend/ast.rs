@@ -386,6 +386,7 @@ pub enum Instruction {
         params: Vec<Expr>,
         return_type: SemanticType,
         is_public: bool,
+        defined_as_primitive: bool,
         src: SourceRef,
     },
     FunctionDef {
@@ -498,6 +499,7 @@ impl Instruction {
                 params,
                 return_type,
                 is_public,
+                defined_as_primitive: _,
                 src: _,
             } => {
                 // collect param strings
@@ -678,6 +680,7 @@ impl Instruction {
                 return_type: _,
                 is_public: _,
                 src,
+                defined_as_primitive: _,
             } => src.clone(),
             Instruction::FunctionDef {
                 name: _,

@@ -378,9 +378,9 @@ impl Parser {
                     let mut ins = None;
                     let mut span = start.get_source_ref();
                     if *needs_additional_ins {
-                        let block = self.parse_code_block()?;
-                        span = span.combine(block.source_ref());
-                        ins = Some(Box::new(block));
+                        let body = self.next_instruction()?;
+                        span = span.combine(body.source_ref());
+                        ins = Some(Box::new(body));
                     }
                     let direc = Instruction::DirectiveInstruction {
                         directive,
@@ -796,6 +796,7 @@ impl Parser {
                 return_type: ret_type,
                 is_public,
                 src: fn_ref,
+                defined_as_primitive: false,
             });
         }
 

@@ -5,7 +5,6 @@ use compilation::pipeline::Workspace;
 
 mod analysis_a;
 mod compilation;
-mod directives_a;
 mod frontend;
 mod pastel;
 mod pir;
