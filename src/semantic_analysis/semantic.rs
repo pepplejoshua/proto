@@ -9,9 +9,10 @@ pub struct SemanticAnalyzr<'a> {
     pub errors: Vec<SemanticAnalysisError>,
 }
 
+#[allow(unused_variables)]
 impl<'a> PIRModulePass<'a, (), (), (), (), SemanticAnalysisError> for SemanticAnalyzr<'a> {
     fn process_ins(&mut self, ins: &usize) -> Result<(), SemanticAnalysisError> {
-        let module = self.get_module();
+        let module = self.module;
         let ins_node = &module.ins_pool.get(&ins);
 
         match ins_node {
@@ -34,7 +35,7 @@ impl<'a> PIRModulePass<'a, (), (), (), (), SemanticAnalysisError> for SemanticAn
     }
 
     fn process(&mut self) -> Result<(), SemanticAnalysisError> {
-        let module = self.get_module();
+        let module = self.module;
         let top_level = &module.top_level;
 
         for ins_ref in top_level {

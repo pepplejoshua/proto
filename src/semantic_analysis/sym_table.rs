@@ -6,12 +6,14 @@ pub enum SemanticAnalysisError {
     RedefinitionOfSymbol(SourceRef),
 }
 
+#[allow(dead_code)]
 #[derive(Clone, PartialEq, Eq)]
 pub enum TypeKind {
     UserDefined,
     Primitive,
 }
 
+#[allow(dead_code)]
 pub struct Symbol {
     identifier: String,             // name of the symbol
     definition_loc: Option<usize>,  // index of the instruction where the symbol is defined
@@ -19,6 +21,7 @@ pub struct Symbol {
     associated_type: Option<usize>, // indexes defined_types array
 }
 
+#[allow(dead_code)]
 pub struct Type {
     identifier: String,
     definition_loc: Option<usize>,
@@ -26,12 +29,14 @@ pub struct Type {
     kind: TypeKind,
 }
 
+#[allow(dead_code)]
 pub struct SymbolTable {
     defined_types: Vec<Type>,
     defined_names: Vec<Symbol>,
     depth: usize,
 }
 
+#[allow(dead_code)]
 impl SymbolTable {
     pub fn new() -> Self {
         let mut sym_table = SymbolTable {

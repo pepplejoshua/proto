@@ -9,7 +9,7 @@ enum CodeBlockType {
 
 #[allow(dead_code)]
 pub struct PCodeView<'a> {
-    module: Option<&'a PIRModule>,
+    module: &'a PIRModule,
     left_padding: u16,
     block_type: CodeBlockType,
 }
@@ -33,7 +33,7 @@ impl<'a> PCodeView<'a> {
 impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a> {
     fn process_ins(&mut self, ins: &usize) -> Result<String, ()> {
         // get instruction from pool
-        let module = self.module.unwrap();
+        let module = self.module;
         let ins_node = module.ins_pool.get(&ins);
 
         match ins_node {
@@ -294,7 +294,7 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
 
     fn process_expr(&mut self, expr: &usize) -> Result<String, ()> {
         // get expr from pool
-        let module = self.module.unwrap();
+        let module = self.module;
         let expr_node = module.expr_pool.get(&expr);
 
         match expr_node {
@@ -421,12 +421,12 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
     fn new(module: &'a PIRModule) -> Self {
         Self {
             left_padding: 0,
-            module: Some(module),
+            module,
             block_type: CodeBlockType::Regular,
         }
     }
 
     fn get_module(&mut self) -> &'a PIRModule {
-        self.module.unwrap()
+        self.module
     }
 }

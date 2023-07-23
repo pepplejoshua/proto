@@ -5,14 +5,12 @@ use crate::pir::ir::{KeyValueBindings, PIRModule, PIRModulePass};
 use super::pcodeview::PCodeView;
 
 pub struct Pfmt<'a> {
-    module: Option<&'a PIRModule>,
+    module: &'a PIRModule,
 }
 
 impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
     fn new(module: &'a PIRModule) -> Self {
-        Self {
-            module: Some(module),
-        }
+        Self { module }
     }
 
     fn process_ins(&mut self, _: &usize) -> Result<(), String> {
@@ -28,7 +26,7 @@ impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
     }
 
     fn process(&mut self) -> Result<String, String> {
-        let mut module = self.module.unwrap();
+        let mut module = self.module;
         let mut code_view = PCodeView::new(&mut module);
         let contents = code_view.process().unwrap();
 
@@ -45,6 +43,6 @@ impl<'a> PIRModulePass<'a, (), (), (), String, String> for Pfmt<'a> {
     }
 
     fn get_module(&mut self) -> &'a PIRModule {
-        self.module.unwrap()
+        self.module
     }
 }

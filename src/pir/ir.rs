@@ -552,6 +552,15 @@ impl PIRModule {
         }
         pirmod
     }
+
+    pub fn empty() -> PIRModule {
+        PIRModule {
+            ins_pool: InsPool::new(),
+            expr_pool: ExprPool::new(),
+            top_level: Vec::new(),
+            path: String::new(),
+        }
+    }
 }
 
 #[allow(dead_code)]
