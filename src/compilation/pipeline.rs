@@ -10,7 +10,7 @@ use crate::{
     },
     pir::ir::{PIRModule, PIRModulePass},
     semantic_analysis::semantic::SemanticAnalyzr,
-    tools::pfmt::Pfmt,
+    tools::{pcodeview::PCodeView, pfmt::Pfmt},
 };
 
 #[allow(dead_code)]
@@ -146,16 +146,17 @@ impl Workspace {
         let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file)).unwrap();
         let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
 
-        let mut w = Workspace {
+        let w = Workspace {
             entry_file: abs_entry_file,
             files: HashMap::new(),
             config,
         };
 
-        w.process_file(
-            "/Users/iwarilama/Desktop/Code/rust/proto/src/std/primitives.pr".to_string(),
-            &mut vec![],
-        );
+        // TODO: add back when std is ready and we can handle directives
+        // w.process_file(
+        //     "/Users/iwarilama/Desktop/Code/rust/proto/src/std/primitives.pr".to_string(),
+        //     &mut vec![],
+        // );
 
         return w;
     }
@@ -241,7 +242,7 @@ impl Workspace {
         }
 
         let module = parser.compilation_module;
-        let ir_mod = PIRModule::new(module, file_path.clone());
+        let mut ir_mod = PIRModule::new(module, file_path.clone());
         self.files.insert(file_path.clone(), (src, ir_mod.clone()));
 
         if self.config.use_pfmt {
@@ -284,16 +285,36 @@ impl Workspace {
         }
 
         let mut analyzr = SemanticAnalyzr::new(&ir_mod);
-        let res = analyzr.process();
+        let _ = analyzr.process();
+        let res = analyzr.extract();
         match res {
-            Ok(_) => {}
-            Err(e) => {
-                reporter.show_error(format!("semantic analysis failed: {:?}", e));
+            Ok(new_mod) => ir_mod = new_mod,
+            Err(errs) => {
+                for e in errs {
+                    reporter.report_semantic_error(e);
+                }
                 return;
             }
         }
+
         if self.config.dbg_info {
             reporter.show_info("semantic analysis complete.".to_string());
+        }
+
+        // println!("{:#?}", ir_mod);
+        // return;
+
+        let mut viewer = PCodeView::new(&ir_mod);
+        let res = viewer.process();
+        match res {
+            Ok(contents) => {
+                // write to terminal
+                println!("{}", contents);
+            }
+            Err(e) => {
+                reporter.show_error(format!("failed to generate PCode: {:?}", e));
+                return;
+            }
         }
     }
 }

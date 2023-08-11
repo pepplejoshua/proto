@@ -72,16 +72,32 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                 }
                 Ok(self.pad_text(view))
             }
-            PIRIns::VariableDecl(var_name, _, init_expr, _) => {
+            PIRIns::VariableDecl(var_name, type_ref, init_expr, _) => {
                 let var_name = var_name.as_str();
-                if let Some(init_expr) = init_expr {
-                    let init_expr = self.process_expr(&init_expr)?;
-                    Ok(self.pad_text(format!("mut {} = {};", var_name, init_expr)))
-                } else {
-                    Ok(self.pad_text(format!("mut {};", var_name)))
+                let mut init_str = "".to_string();
+                if let Some(init) = init_expr {
+                    init_str = self.process_expr(&init)?;
                 }
+
+                let mut var_type = "".to_string();
+                if let Some(type_ref) = type_ref {
+                    var_type = type_ref.as_str();
+                }
+
+                let mut output = format!("mut {var_name}");
+                if !var_type.is_empty() {
+                    output.push_str(&format!(" {}", var_type));
+                }
+
+                if !init_str.is_empty() {
+                    output.push_str(&format!(" = {}", init_str));
+                }
+
+                output.push_str(";");
+
+                Ok(self.pad_text(output))
             }
-            PIRIns::AssignmentIns(target, val) => {
+            PIRIns::AssignmentIns(target, val, _) => {
                 let target = self.process_expr(&target)?;
                 let val = self.process_expr(&val)?;
                 Ok(self.pad_text(format!("{} = {};", target, val)))
@@ -300,28 +316,28 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
         let expr_node = module.expr_pool.get(&expr);
 
         match expr_node {
-            PIRExpr::Id(token, id_type) => {
+            PIRExpr::Id(token, id_type, _) => {
                 if let Some(id_type) = id_type {
                     Ok(format!("{} {}", token.as_str(), id_type.as_str()))
                 } else {
                     Ok(token.as_str())
                 }
             }
-            PIRExpr::Number(num, _) => Ok(num.as_str()),
-            PIRExpr::StringLiteral(lit, _) => Ok(lit.as_str()),
-            PIRExpr::CharacterLiteral(lit, _) => Ok(lit.as_str()),
-            PIRExpr::Binary(operator, lhs, rhs, _) => {
+            PIRExpr::Number(num, _, _) => Ok(num.as_str()),
+            PIRExpr::StringLiteral(lit, _, _) => Ok(lit.as_str()),
+            PIRExpr::CharacterLiteral(lit, _, _) => Ok(lit.as_str()),
+            PIRExpr::Binary(operator, lhs, rhs, _, _) => {
                 let lhs = self.process_expr(&lhs)?;
                 let rhs = self.process_expr(&rhs)?;
                 Ok(format!("{} {} {}", lhs, operator.as_str(), rhs))
             }
-            PIRExpr::Comparison(operator, lhs, rhs, _) => {
+            PIRExpr::Comparison(operator, lhs, rhs, _, _) => {
                 let lhs = self.process_expr(&lhs)?;
                 let rhs = self.process_expr(&rhs)?;
                 Ok(format!("{} {} {}", lhs, operator.as_str(), rhs))
             }
-            PIRExpr::Boolean(lit, _) => Ok(lit.as_str()),
-            PIRExpr::Unary(operator, expr, _) => {
+            PIRExpr::Boolean(lit, _, _) => Ok(lit.as_str()),
+            PIRExpr::Unary(operator, expr, _, _) => {
                 let expr = self.process_expr(&expr)?;
                 Ok(format!("{}{}", operator.as_str(), expr))
             }

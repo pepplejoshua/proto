@@ -224,7 +224,7 @@ pub struct SourceReporter {
     src: SourceFile,
 }
 
-use crate::pastel::pastel;
+use crate::{pastel::pastel, semantic_analysis::sym_table::SemanticAnalysisError};
 
 #[allow(dead_code)]
 impl SourceReporter {
@@ -395,6 +395,44 @@ impl SourceReporter {
                 tip.push_str("*  At the top level/scope of a module.\n");
                 tip.push_str("*  Within a module.\n");
                 self.report_with_ref(&src, msg, Some(tip));
+            }
+        }
+    }
+
+    pub fn report_semantic_error(&self, err: SemanticAnalysisError) {
+        match err {
+            SemanticAnalysisError::UndefinedSymbol(name, src) => {
+                let msg = format!("`{}` is not defined but was referenced.", name);
+                let tip =
+                    "Please make sure that the symbol is defined in the current scope.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            SemanticAnalysisError::RedefinitionOfSymbol(src) => {
+                let msg =
+                    "A symbol with the same name was already defined in this scope.".to_string();
+                self.report_with_ref(&src, msg, None);
+            }
+            SemanticAnalysisError::UndefinedType(type_name, src) => {
+                let msg = format!(
+                    "A type with name `{}` was referenced but is not defined.",
+                    type_name
+                );
+                let tip =
+                    "Please make sure that the type is defined/accessible in the current scope."
+                        .to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            SemanticAnalysisError::UseOfSymbolBeforeInitialization(name, src) => {
+                let msg = format!("`{}` was used before it was initialized.", name);
+                let tip = "Please make sure to initialize symbols before use.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            SemanticAnalysisError::TypeMismatch(type_a, type_b, a_src, b_src) => {
+                let msg = format!(
+                    "Type mismatch. Expected `{}` but found `{}`.",
+                    type_a, type_b
+                );
+                self.report_with_ref(&a_src.combine(b_src), msg, None);
             }
         }
     }

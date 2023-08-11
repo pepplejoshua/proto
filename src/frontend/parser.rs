@@ -1,7 +1,7 @@
 use super::{
     ast::{
         CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings, PathAction,
-        SemanticType,
+        TypeReference,
     },
     directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
     errors::{LexError, ParseError},
@@ -735,6 +735,8 @@ impl Parser {
                 too_many_params = true;
             }
 
+            // TODO: fn some_name(mut param type = init, param_b type = init, param_c type); reuse code from parse_var_decl
+
             cur = self.cur_token();
             if !matches!(cur, Token::RParen(_)) {
                 let param = self.parse_id(true)?;
@@ -819,7 +821,7 @@ impl Parser {
         })
     }
 
-    fn parse_type(&mut self) -> Option<SemanticType> {
+    fn parse_type(&mut self) -> Option<TypeReference> {
         let cur = self.cur_token();
         let start = cur.get_source_ref();
 
@@ -827,7 +829,7 @@ impl Parser {
             Token::Identifier(_, _) => {
                 let id = cur.as_str();
                 self.advance_index();
-                Some(SemanticType::SomeIdentifier(id, Some(start)))
+                Some(TypeReference::IdentifierType(id, Some(start)))
             }
             _ => None,
         }
@@ -1169,6 +1171,18 @@ impl Parser {
             Token::Semicolon(_) => {
                 let end_ref = cur.get_source_ref();
                 self.advance_index();
+
+                // if there is no type, report an error, since there is no
+                // way to infer the type of the variable ahead of its first use/assignment
+                if var_type.is_none() {
+                    let tip =
+                        format!("Provide a type for the variable. E.g: 'mut {var_name} type;'.");
+                    return Err(ParseError::Expected(
+                        "a type for the variable.".into(),
+                        cur.get_source_ref(),
+                        Some(tip),
+                    ));
+                }
                 let name = label.unwrap();
                 Ok(Instruction::VariableDecl(
                     name,
@@ -1208,11 +1222,12 @@ impl Parser {
                         Some(tip),
                     ));
                 }
-                Ok(Instruction::AssignmentIns(target, value))
+                let span = target.source_ref().combine(value.source_ref());
+                Ok(Instruction::AssignmentIns(target, value, span))
             }
             Token::Semicolon(_) => {
-                self.advance_index();
-                Ok(Instruction::ExpressionIns(target, cur))
+                let span = target.source_ref().combine(cur.get_source_ref());
+                Ok(Instruction::ExpressionIns(target, span))
             }
             _ => Err(ParseError::Expected(
                 "a terminated expression or an assignment instruction.".into(),
@@ -1235,7 +1250,8 @@ impl Parser {
                 Token::Or(_) => {
                     self.advance_index();
                     let rhs = self.parse_and()?;
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1251,7 +1267,8 @@ impl Parser {
                 Token::And(_) => {
                     self.advance_index();
                     let rhs = self.parse_equality()?;
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1267,7 +1284,8 @@ impl Parser {
                 Token::Equal(_) | Token::NotEqual(_) => {
                     self.advance_index();
                     let rhs = self.parse_comparison()?;
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1286,7 +1304,8 @@ impl Parser {
                 | Token::LessEqual(_) => {
                     self.advance_index();
                     let rhs = self.parse_term()?;
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1302,7 +1321,8 @@ impl Parser {
                 Token::Plus(_) | Token::Minus(_) => {
                     self.advance_index();
                     let rhs = self.parse_factor()?;
-                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1318,7 +1338,8 @@ impl Parser {
                 Token::Star(_) | Token::Modulo(_) | Token::Slash(_) => {
                     self.advance_index();
                     let rhs = self.parse_unary()?;
-                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), None);
+                    let span = lhs.source_ref().combine(rhs.source_ref());
+                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), None, span);
                 }
                 _ => return Ok(lhs),
             }
@@ -1331,7 +1352,8 @@ impl Parser {
             Token::Not(_) => {
                 self.advance_index();
                 let operand = self.parse_unary()?;
-                Ok(Expr::Unary(cur, Box::new(operand), None))
+                let span = cur.get_source_ref().combine(operand.source_ref());
+                Ok(Expr::Unary(cur, Box::new(operand), None, span))
             }
             _ => self.parse_index_like_exprs(),
         }
@@ -1400,11 +1422,11 @@ impl Parser {
                     // or constants.
                     // Make sure lhs is a Identifier or a ScopeInto
                     match lhs {
-                        Expr::Id(_, _) => {
+                        Expr::Id(..) => {
                             self.advance_index();
                             let rhs = self.parse_primary()?;
                             match rhs {
-                                Expr::Id(_, _) => {
+                                Expr::Id(_, _, _) => {
                                     lhs = Expr::ScopeInto {
                                         src: lhs.source_ref().combine(rhs.source_ref()),
                                         module: Box::new(lhs),
@@ -1427,7 +1449,7 @@ impl Parser {
                             self.advance_index();
                             let rhs = self.parse_primary()?;
                             match rhs {
-                                Expr::Id(_, _) => {
+                                Expr::Id(..) => {
                                     lhs = Expr::ScopeInto {
                                         src: lhs.source_ref().combine(rhs.source_ref()),
                                         module: Box::new(lhs),
@@ -1466,7 +1488,10 @@ impl Parser {
             if with_type {
                 let id = cur;
                 if let Some(sem_type) = self.parse_type() {
-                    Ok(Expr::Id(id, Some(sem_type)))
+                    let span = id
+                        .get_source_ref()
+                        .combine(sem_type.get_source_ref().unwrap());
+                    Ok(Expr::Id(id, Some(sem_type), span))
                 } else {
                     Err(ParseError::Expected(
                         format!("a type for the preceding identifier, '{}'.", id.as_str()),
@@ -1475,7 +1500,8 @@ impl Parser {
                     ))
                 }
             } else {
-                Ok(Expr::Id(cur, None))
+                let span = cur.get_source_ref();
+                Ok(Expr::Id(cur, None, span))
             }
         } else {
             Err(ParseError::Expected(
@@ -1551,28 +1577,36 @@ impl Parser {
             Token::StringLiteral(_, _) => {
                 let res = Ok(Expr::StringLiteral(
                     cur,
-                    Some(SemanticType::type_from_loc("str", span)),
+                    Some(TypeReference::identifier_type_with_loc("str", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
             }
             Token::CharLiteral(_, _) => {
+                let span = cur.get_source_ref();
                 let res = Ok(Expr::CharacterLiteral(
                     cur,
-                    Some(SemanticType::type_from_loc("char", span)),
+                    Some(TypeReference::identifier_type_with_loc(
+                        "char",
+                        span.clone(),
+                    )),
+                    span,
                 ));
                 self.advance_index();
                 res
             }
             Token::Identifier(_, _) => {
-                let res = Ok(Expr::Id(cur, None));
+                let span = cur.get_source_ref();
+                let res = Ok(Expr::Id(cur, None, span));
                 self.advance_index();
                 res
             }
             Token::I8Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("i8", span)),
+                    Some(TypeReference::identifier_type_with_loc("i8", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1580,7 +1614,8 @@ impl Parser {
             Token::I16Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("i16", span)),
+                    Some(TypeReference::identifier_type_with_loc("i16", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1588,7 +1623,8 @@ impl Parser {
             Token::I32Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("i32", span)),
+                    Some(TypeReference::identifier_type_with_loc("i32", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1596,7 +1632,8 @@ impl Parser {
             Token::I64Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("i64", span)),
+                    Some(TypeReference::identifier_type_with_loc("i64", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1604,7 +1641,11 @@ impl Parser {
             Token::IsizeLiteral(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("isize", span)),
+                    Some(TypeReference::identifier_type_with_loc(
+                        "isize",
+                        span.clone(),
+                    )),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1612,7 +1653,8 @@ impl Parser {
             Token::U8Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("u8", span)),
+                    Some(TypeReference::identifier_type_with_loc("u8", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1620,7 +1662,8 @@ impl Parser {
             Token::U16Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("u16", span)),
+                    Some(TypeReference::identifier_type_with_loc("u16", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1628,7 +1671,8 @@ impl Parser {
             Token::U32Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("u32", span)),
+                    Some(TypeReference::identifier_type_with_loc("u32", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1636,7 +1680,8 @@ impl Parser {
             Token::U64Literal(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("u64", span)),
+                    Some(TypeReference::identifier_type_with_loc("u64", span.clone())),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1644,7 +1689,11 @@ impl Parser {
             Token::UsizeLiteral(_, _) => {
                 let res = Ok(Expr::Number(
                     cur,
-                    Some(SemanticType::type_from_loc("usize", span)),
+                    Some(TypeReference::identifier_type_with_loc(
+                        "usize",
+                        span.clone(),
+                    )),
+                    span,
                 ));
                 self.advance_index();
                 res
@@ -1653,7 +1702,11 @@ impl Parser {
                 self.advance_index();
                 Ok(Expr::Boolean(
                     cur,
-                    Some(SemanticType::type_from_loc("bool", span)),
+                    Some(TypeReference::identifier_type_with_loc(
+                        "bool",
+                        span.clone(),
+                    )),
+                    span,
                 ))
             }
             Token::LParen(_) => {

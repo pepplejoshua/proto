@@ -1,7 +1,7 @@
 use crate::frontend::{
     ast::{
         CompilationModule, DependencyPath, Expr, Instruction, KeyValueBindings as TreeKVBindings,
-        SemanticType,
+        TypeReference,
     },
     source::SourceRef,
     token::Token,
@@ -24,51 +24,51 @@ impl KeyValueBindings {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum PIRExpr {
-    Id(Token, Option<SemanticType>),
-    Number(Token, Option<SemanticType>),
-    StringLiteral(Token, Option<SemanticType>),
-    CharacterLiteral(Token, Option<SemanticType>),
-    Binary(Token, usize, usize, Option<SemanticType>),
-    Comparison(Token, usize, usize, Option<SemanticType>),
-    Boolean(Token, Option<SemanticType>),
-    Unary(Token, usize, Option<SemanticType>),
-    Grouped(usize, Option<SemanticType>, SourceRef),
+    Id(Token, Option<TypeReference>, SourceRef),
+    Number(Token, Option<TypeReference>, SourceRef),
+    StringLiteral(Token, Option<TypeReference>, SourceRef),
+    CharacterLiteral(Token, Option<TypeReference>, SourceRef),
+    Binary(Token, usize, usize, Option<TypeReference>, SourceRef),
+    Comparison(Token, usize, usize, Option<TypeReference>, SourceRef),
+    Boolean(Token, Option<TypeReference>, SourceRef),
+    Unary(Token, usize, Option<TypeReference>, SourceRef),
+    Grouped(usize, Option<TypeReference>, SourceRef),
     FnCall {
         func: usize,
         args: Vec<usize>,
         span: SourceRef,
-        fn_type: Option<SemanticType>,
+        fn_type: Option<TypeReference>,
     },
     ScopeInto {
         module: usize,
         target: usize,
         src: SourceRef,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
     },
     DirectiveExpr {
         directive: usize,
         expr: Option<usize>,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
         src: SourceRef,
     },
     NamedStructInit {
         name: usize,
         fields: KeyValueBindings,
         src: SourceRef,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
     },
 }
 
 #[allow(dead_code)]
 impl PIRExpr {
-    pub fn type_info(&self) -> Option<SemanticType> {
+    pub fn type_info(&self) -> Option<TypeReference> {
         match &self {
-            PIRExpr::Id(_, t) => t.clone(),
-            PIRExpr::Number(_, t) => t.clone(),
-            PIRExpr::Binary(_, _, _, t) => t.clone(),
-            PIRExpr::Boolean(_, t) => t.clone(),
-            PIRExpr::Unary(_, _, t) => t.clone(),
-            PIRExpr::Comparison(_, _, _, t) => t.clone(),
+            PIRExpr::Id(_, t, _) => t.clone(),
+            PIRExpr::Number(_, t, _) => t.clone(),
+            PIRExpr::Binary(_, _, _, t, _) => t.clone(),
+            PIRExpr::Boolean(_, t, _) => t.clone(),
+            PIRExpr::Unary(_, _, t, _) => t.clone(),
+            PIRExpr::Comparison(_, _, _, t, _) => t.clone(),
             PIRExpr::FnCall {
                 func: _,
                 args: _,
@@ -88,14 +88,52 @@ impl PIRExpr {
                 resolved_type,
                 src: _,
             } => resolved_type.clone(),
-            PIRExpr::StringLiteral(_, t) => t.clone(),
-            PIRExpr::CharacterLiteral(_, t) => t.clone(),
+            PIRExpr::StringLiteral(_, t, _) => t.clone(),
+            PIRExpr::CharacterLiteral(_, t, _) => t.clone(),
             PIRExpr::NamedStructInit {
                 name: _,
                 fields: _,
                 src: _,
                 resolved_type,
             } => resolved_type.clone(),
+        }
+    }
+
+    pub fn source_ref(&self) -> SourceRef {
+        match &self {
+            PIRExpr::Id(_, _, src) => src.clone(),
+            PIRExpr::Number(_, _, src) => src.clone(),
+            PIRExpr::Binary(_, _, _, _, src) => src.clone(),
+            PIRExpr::Boolean(_, _, src) => src.clone(),
+            PIRExpr::Unary(_, _, _, src) => src.clone(),
+            PIRExpr::Comparison(_, _, _, _, src) => src.clone(),
+            PIRExpr::FnCall {
+                func: _,
+                args: _,
+                span,
+                fn_type: _,
+            } => span.clone(),
+            PIRExpr::Grouped(_, _, src) => src.clone(),
+            PIRExpr::ScopeInto {
+                module: _,
+                target: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
+            PIRExpr::DirectiveExpr {
+                directive: _,
+                expr: _,
+                resolved_type: _,
+                src,
+            } => src.clone(),
+            PIRExpr::StringLiteral(_, _, src) => src.clone(),
+            PIRExpr::CharacterLiteral(_, _, src) => src.clone(),
+            PIRExpr::NamedStructInit {
+                name: _,
+                fields: _,
+                src,
+                resolved_type: _,
+            } => src.clone(),
         }
     }
 }
@@ -118,24 +156,24 @@ impl ExprPool {
 
     pub fn to_pir(&mut self, expr: Expr) -> usize {
         match expr {
-            Expr::Id(id, t) => self.add(PIRExpr::Id(id, t)),
-            Expr::Number(n, t) => self.add(PIRExpr::Number(n, t)),
-            Expr::StringLiteral(s, t) => self.add(PIRExpr::StringLiteral(s, t)),
-            Expr::CharacterLiteral(c, t) => self.add(PIRExpr::CharacterLiteral(c, t)),
-            Expr::Binary(op, lhs, rhs, t) => {
+            Expr::Id(id, t, src) => self.add(PIRExpr::Id(id, t, src)),
+            Expr::Number(n, t, src) => self.add(PIRExpr::Number(n, t, src)),
+            Expr::StringLiteral(s, t, src) => self.add(PIRExpr::StringLiteral(s, t, src)),
+            Expr::CharacterLiteral(c, t, src) => self.add(PIRExpr::CharacterLiteral(c, t, src)),
+            Expr::Binary(op, lhs, rhs, t, src) => {
                 let lhs = self.to_pir(*lhs);
                 let rhs = self.to_pir(*rhs);
-                self.add(PIRExpr::Binary(op, lhs, rhs, t))
+                self.add(PIRExpr::Binary(op, lhs, rhs, t, src))
             }
-            Expr::Comparison(op, lhs, rhs, t) => {
+            Expr::Comparison(op, lhs, rhs, t, src) => {
                 let lhs = self.to_pir(*lhs);
                 let rhs = self.to_pir(*rhs);
-                self.add(PIRExpr::Comparison(op, lhs, rhs, t))
+                self.add(PIRExpr::Comparison(op, lhs, rhs, t, src))
             }
-            Expr::Boolean(b, t) => self.add(PIRExpr::Boolean(b, t)),
-            Expr::Unary(op, expr, t) => {
+            Expr::Boolean(b, t, src) => self.add(PIRExpr::Boolean(b, t, src)),
+            Expr::Unary(op, expr, t, src) => {
                 let expr = self.to_pir(*expr);
-                self.add(PIRExpr::Unary(op, expr, t))
+                self.add(PIRExpr::Unary(op, expr, t, src))
             }
             Expr::Grouped(expr, t, src) => {
                 let expr = self.to_pir(*expr);
@@ -230,6 +268,8 @@ impl ExprPool {
     pub fn get(&self, expr_ref: &usize) -> PIRExpr {
         self.pool[*expr_ref].clone()
     }
+
+    // pub fn get_source_ref(&self, expr_loc: &usize) -> SourceRef {}
 }
 
 #[derive(Debug, Clone)]
@@ -246,18 +286,18 @@ pub enum PIRIns {
     },
     ConstantDecl {
         const_name: Token,
-        const_type: Option<SemanticType>,
+        const_type: Option<TypeReference>,
         init_expr: usize,
         src_ref: SourceRef,
         is_public: bool,
     },
-    VariableDecl(Token, Option<SemanticType>, Option<usize>, SourceRef),
-    AssignmentIns(usize, usize),
-    ExpressionIns(usize, Token),
+    VariableDecl(Token, Option<TypeReference>, Option<usize>, SourceRef),
+    AssignmentIns(usize, usize, SourceRef),
+    ExpressionIns(usize, SourceRef),
     FunctionPrototype {
         name: Token,
         params: Vec<usize>,
-        return_type: SemanticType,
+        return_type: TypeReference,
         is_public: bool,
         defined_as_primitive: bool,
         src: SourceRef,
@@ -265,7 +305,7 @@ pub enum PIRIns {
     FunctionDef {
         name: Token,
         params: Vec<usize>,
-        return_type: SemanticType,
+        return_type: TypeReference,
         body: usize,
         is_public: bool,
         src: SourceRef,
@@ -309,10 +349,37 @@ pub enum PIRIns {
         src: SourceRef,
     },
     TypeExtension {
-        target_type: SemanticType,
+        target_type: TypeReference,
         extensions: usize,
         src: SourceRef,
     },
+}
+
+#[allow(dead_code)]
+impl PIRIns {
+    pub fn source_ref(&self) -> SourceRef {
+        match &self {
+            PIRIns::SingleLineComment { src, .. } => src.clone(),
+            PIRIns::NamedStructDecl { src, .. } => src.clone(),
+            PIRIns::ConstantDecl { src_ref, .. } => src_ref.clone(),
+            PIRIns::VariableDecl(_, _, _, src_ref) => src_ref.clone(),
+            PIRIns::AssignmentIns(_, _, src_ref) => src_ref.clone(),
+            PIRIns::ExpressionIns(_, src_ref) => src_ref.clone(),
+            PIRIns::FunctionPrototype { src, .. } => src.clone(),
+            PIRIns::FunctionDef { src, .. } => src.clone(),
+            PIRIns::InfiniteLoop { src, .. } => src.clone(),
+            PIRIns::WhileLoop { src, .. } => src.clone(),
+            PIRIns::CodeBlock { src, .. } => src.clone(),
+            PIRIns::Module { src, .. } => src.clone(),
+            PIRIns::Return { src, .. } => src.clone(),
+            PIRIns::Break(src) => src.clone(),
+            PIRIns::Continue(src) => src.clone(),
+            PIRIns::UseDependency { src, .. } => src.clone(),
+            PIRIns::DirectiveInstruction { src, .. } => src.clone(),
+            PIRIns::ConditionalBranchIns { src, .. } => src.clone(),
+            PIRIns::TypeExtension { src, .. } => src.clone(),
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -330,6 +397,10 @@ impl InsPool {
     fn add(&mut self, ins: PIRIns) -> usize {
         self.pool.push(ins);
         self.pool.len() - 1
+    }
+
+    pub fn update_node(&mut self, loc: &usize, new_node: PIRIns) {
+        self.pool[*loc] = new_node;
     }
 
     pub fn to_pir(&mut self, epool: &mut ExprPool, ins: Instruction) -> usize {
@@ -370,15 +441,15 @@ impl InsPool {
                 let ins = PIRIns::VariableDecl(name, var_type, init_expr, span);
                 self.add(ins)
             }
-            Instruction::AssignmentIns(dest, target) => {
+            Instruction::AssignmentIns(dest, target, src) => {
                 let dest = epool.to_pir(dest);
                 let target = epool.to_pir(target);
-                let ins = PIRIns::AssignmentIns(dest, target);
+                let ins = PIRIns::AssignmentIns(dest, target, src);
                 self.add(ins)
             }
-            Instruction::ExpressionIns(expr, semi) => {
+            Instruction::ExpressionIns(expr, src) => {
                 let expr = epool.to_pir(expr);
-                let ins = PIRIns::ExpressionIns(expr, semi);
+                let ins = PIRIns::ExpressionIns(expr, src);
                 self.add(ins)
             }
             Instruction::FunctionPrototype {

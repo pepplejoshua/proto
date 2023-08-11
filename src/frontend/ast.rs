@@ -1,35 +1,38 @@
 use super::{source::SourceRef, token::Token};
 
 #[derive(Debug, Clone)]
-pub enum SemanticType {
-    SomeIdentifier(String, Option<SourceRef>),
+#[allow(dead_code)]
+pub enum TypeReference {
+    IdentifierType(String, Option<SourceRef>),
 }
 
 #[allow(dead_code)]
-impl SemanticType {
+impl TypeReference {
     pub fn as_str(&self) -> String {
         match self {
-            SemanticType::SomeIdentifier(s, _) => s.clone(),
+            TypeReference::IdentifierType(s, _) => s.clone(),
+        }
+    }
+
+    pub fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (TypeReference::IdentifierType(s1, _), TypeReference::IdentifierType(s2, _)) => {
+                s1 == s2
+            }
         }
     }
 
     pub fn type_from(tag: &str) -> Self {
-        SemanticType::SomeIdentifier(tag.to_string(), None)
+        TypeReference::IdentifierType(tag.to_string(), None)
     }
 
-    pub fn type_from_loc(tag: &str, at: SourceRef) -> Self {
-        SemanticType::SomeIdentifier(tag.to_string(), Some(at))
+    pub fn identifier_type_with_loc(tag: &str, at: SourceRef) -> Self {
+        TypeReference::IdentifierType(tag.to_string(), Some(at))
     }
 
     pub fn get_source_ref(&self) -> Option<SourceRef> {
         match self {
-            SemanticType::SomeIdentifier(_, s) => s.clone(),
-        }
-    }
-
-    pub fn get_id(&self) -> String {
-        match self {
-            SemanticType::SomeIdentifier(s, _) => s.clone(),
+            TypeReference::IdentifierType(_, s) => s.clone(),
         }
     }
 }
@@ -37,38 +40,50 @@ impl SemanticType {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expr {
-    Id(Token, Option<SemanticType>),
-    Number(Token, Option<SemanticType>),
-    StringLiteral(Token, Option<SemanticType>),
-    CharacterLiteral(Token, Option<SemanticType>),
-    Binary(Token, Box<Expr>, Box<Expr>, Option<SemanticType>),
-    Comparison(Token, Box<Expr>, Box<Expr>, Option<SemanticType>),
-    Boolean(Token, Option<SemanticType>),
-    Unary(Token, Box<Expr>, Option<SemanticType>),
-    Grouped(Box<Expr>, Option<SemanticType>, SourceRef),
+    Id(Token, Option<TypeReference>, SourceRef),
+    Number(Token, Option<TypeReference>, SourceRef),
+    StringLiteral(Token, Option<TypeReference>, SourceRef),
+    CharacterLiteral(Token, Option<TypeReference>, SourceRef),
+    Binary(
+        Token,
+        Box<Expr>,
+        Box<Expr>,
+        Option<TypeReference>,
+        SourceRef,
+    ),
+    Comparison(
+        Token,
+        Box<Expr>,
+        Box<Expr>,
+        Option<TypeReference>,
+        SourceRef,
+    ),
+    Boolean(Token, Option<TypeReference>, SourceRef),
+    Unary(Token, Box<Expr>, Option<TypeReference>, SourceRef),
+    Grouped(Box<Expr>, Option<TypeReference>, SourceRef),
     FnCall {
         func: Box<Expr>,
         args: Vec<Expr>,
         span: SourceRef,
-        fn_type: Option<SemanticType>,
+        fn_type: Option<TypeReference>,
     },
     ScopeInto {
         module: Box<Expr>,
         target: Box<Expr>,
         src: SourceRef,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
     },
     DirectiveExpr {
         directive: Box<Expr>,
         expr: Option<Box<Expr>>,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
         src: SourceRef,
     },
     NamedStructInit {
         name: Box<Expr>,
         fields: KeyValueBindings,
         src: SourceRef,
-        resolved_type: Option<SemanticType>,
+        resolved_type: Option<TypeReference>,
     },
 }
 
@@ -76,24 +91,12 @@ pub enum Expr {
 impl Expr {
     pub fn source_ref(&self) -> SourceRef {
         match &self {
-            Expr::Id(t, _) => t.get_source_ref(),
-            Expr::Number(t, _) => t.get_source_ref(),
-            Expr::Binary(_, lhs, rhs, _) => {
-                let lhs_ref = lhs.source_ref();
-                let rhs_ref = rhs.source_ref();
-                lhs_ref.combine(rhs_ref)
-            }
-            Expr::Boolean(t, _) => t.get_source_ref(),
-            Expr::Unary(operator, operand, _) => {
-                let operator_ref = operator.get_source_ref();
-                let operand_ref = operand.source_ref();
-                operator_ref.combine(operand_ref)
-            }
-            Expr::Comparison(_, lhs, rhs, _) => {
-                let lhs_ref = lhs.source_ref();
-                let rhs_ref = rhs.source_ref();
-                lhs_ref.combine(rhs_ref)
-            }
+            Expr::Id(_, _, s) => s.clone(),
+            Expr::Number(_, _, s) => s.clone(),
+            Expr::Binary(_, _, _, _, s) => s.clone(),
+            Expr::Boolean(_, _, s) => s.clone(),
+            Expr::Unary(_, _, _, s) => s.clone(),
+            Expr::Comparison(_, _, _, _, s) => s.clone(),
             Expr::FnCall {
                 func: _,
                 args: _,
@@ -113,8 +116,8 @@ impl Expr {
                 resolved_type: _,
                 src,
             } => src.clone(),
-            Expr::StringLiteral(t, _) => t.get_source_ref(),
-            Expr::CharacterLiteral(t, _) => t.get_source_ref(),
+            Expr::StringLiteral(_, _, s) => s.clone(),
+            Expr::CharacterLiteral(_, _, s) => s.clone(),
             Expr::NamedStructInit {
                 name: _,
                 fields: _,
@@ -126,22 +129,22 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Id(tok, maybe_type) => {
+            Expr::Id(tok, maybe_type, _) => {
                 let mut s = tok.as_str().to_string();
                 if let Some(t) = maybe_type {
                     s.push_str(&format!(" {}", t.as_str()));
                 }
                 s
             }
-            Expr::Number(num, _) => num.as_str(),
-            Expr::Binary(op, lhs, rhs, _) => {
+            Expr::Number(num, _, _) => num.as_str(),
+            Expr::Binary(op, lhs, rhs, _, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
-            Expr::Comparison(op, lhs, rhs, _) => {
+            Expr::Comparison(op, lhs, rhs, _, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
-            Expr::Boolean(val, _) => val.as_str(),
-            Expr::Unary(op, operand, _) => format!("{} {}", op.as_str(), operand.as_str()),
+            Expr::Boolean(val, _, _) => val.as_str(),
+            Expr::Unary(op, operand, _, _) => format!("{} {}", op.as_str(), operand.as_str()),
             Expr::FnCall {
                 func,
                 args,
@@ -180,8 +183,8 @@ impl Expr {
                     format!("@{}", directive.as_str())
                 }
             }
-            Expr::StringLiteral(literal, _) => literal.as_str(),
-            Expr::CharacterLiteral(literal, _) => literal.as_str(),
+            Expr::StringLiteral(literal, _, _) => literal.as_str(),
+            Expr::CharacterLiteral(literal, _, _) => literal.as_str(),
             Expr::NamedStructInit {
                 name,
                 fields,
@@ -195,14 +198,14 @@ impl Expr {
         }
     }
 
-    pub fn type_info(&self) -> Option<SemanticType> {
+    pub fn type_info(&self) -> Option<TypeReference> {
         match &self {
-            Expr::Id(_, t) => t.clone(),
-            Expr::Number(_, t) => t.clone(),
-            Expr::Binary(_, _, _, t) => t.clone(),
-            Expr::Boolean(_, t) => t.clone(),
-            Expr::Unary(_, _, t) => t.clone(),
-            Expr::Comparison(_, _, _, t) => t.clone(),
+            Expr::Id(_, t, _) => t.clone(),
+            Expr::Number(_, t, _) => t.clone(),
+            Expr::Binary(_, _, _, t, _) => t.clone(),
+            Expr::Boolean(_, t, _) => t.clone(),
+            Expr::Unary(_, _, t, _) => t.clone(),
+            Expr::Comparison(_, _, _, t, _) => t.clone(),
             Expr::FnCall {
                 func: _,
                 args: _,
@@ -222,8 +225,8 @@ impl Expr {
                 resolved_type,
                 src: _,
             } => resolved_type.clone(),
-            Expr::StringLiteral(_, t) => t.clone(),
-            Expr::CharacterLiteral(_, t) => t.clone(),
+            Expr::StringLiteral(_, t, _) => t.clone(),
+            Expr::CharacterLiteral(_, t, _) => t.clone(),
             Expr::NamedStructInit {
                 name: _,
                 fields: _,
@@ -385,18 +388,18 @@ pub enum Instruction {
     },
     ConstantDecl {
         const_name: Token,
-        const_type: Option<SemanticType>,
+        const_type: Option<TypeReference>,
         init_expr: Expr,
         src_ref: SourceRef,
         is_public: bool,
     },
-    VariableDecl(Token, Option<SemanticType>, Option<Expr>, SourceRef),
-    AssignmentIns(Expr, Expr),
-    ExpressionIns(Expr, Token),
+    VariableDecl(Token, Option<TypeReference>, Option<Expr>, SourceRef),
+    AssignmentIns(Expr, Expr, SourceRef),
+    ExpressionIns(Expr, SourceRef),
     FunctionPrototype {
         name: Token,
         params: Vec<Expr>,
-        return_type: SemanticType,
+        return_type: TypeReference,
         is_public: bool,
         defined_as_primitive: bool,
         src: SourceRef,
@@ -404,7 +407,7 @@ pub enum Instruction {
     FunctionDef {
         name: Token,
         params: Vec<Expr>,
-        return_type: SemanticType,
+        return_type: TypeReference,
         body: Box<Instruction>,
         is_public: bool,
         src: SourceRef,
@@ -452,7 +455,7 @@ pub enum Instruction {
         src: SourceRef,
     },
     TypeExtension {
-        target_type: SemanticType,
+        target_type: TypeReference,
         extensions: Box<Instruction>,
         src: SourceRef,
     },
@@ -502,7 +505,7 @@ impl Instruction {
                     init.as_str()
                 ),
             },
-            Instruction::AssignmentIns(target, value) => {
+            Instruction::AssignmentIns(target, value, _) => {
                 format!("{} = {};", target.as_str(), value.as_str())
             }
             Instruction::ExpressionIns(expr, _) => format!("{};", expr.as_str()),
@@ -680,12 +683,10 @@ impl Instruction {
                 is_public: _,
             } => src_ref.clone(),
             Instruction::VariableDecl(_, _, _, src) => src.clone(),
-            Instruction::AssignmentIns(target, value) => {
+            Instruction::AssignmentIns(target, value, _) => {
                 target.source_ref().combine(value.source_ref())
             }
-            Instruction::ExpressionIns(expr, terminator) => {
-                expr.source_ref().combine(terminator.get_source_ref())
-            }
+            Instruction::ExpressionIns(_, src) => src.clone(),
             Instruction::FunctionPrototype {
                 name: _,
                 params: _,
