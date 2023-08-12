@@ -215,7 +215,7 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
                 self.new_module.ins_pool.pool.push(ins_node.clone());
                 Ok(None)
             }
-            PIRIns::VariableDecl(name_t, ref mut type_o, init_o, src) => {
+            PIRIns::VariableDecl(name_t, type_o, init_o, src) => {
                 // make sure name is not already defined in the current scope
                 // TODO: get the SourceRef of the original definition of the symbol
                 // and include it in the error message to improve error messages
@@ -299,6 +299,81 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
                     self.new_module.ins_pool.pool.push(ins_node.clone());
                 } else {
                     unreachable!("No init expression or type provided for Variable Decl");
+                }
+                Ok(None)
+            }
+            PIRIns::ConstantDecl {
+                const_name,
+                const_type,
+                init_expr,
+                src_ref,
+                is_public,
+            } => {
+                // make sure name is not already defined in the current scope
+                // TODO: get the SourceRef of the original definition of the symbol
+                // and include it in the error message to improve error messages
+                if self.symbol_table.shallow_sym_exists(&const_name.as_str()) {
+                    return Err(SemanticAnalysisError::RedefinitionOfSymbol(src_ref.clone()));
+                }
+
+                // make sure type exists
+                let mut expected_const_type_loc = None;
+                if let Some(type_name) = const_type {
+                    let get_type_loc = self
+                        .symbol_table
+                        .get_type_loc(&type_name.as_str(), type_name.get_source_ref().unwrap())?;
+                    expected_const_type_loc = Some(get_type_loc);
+                }
+
+                // type check init_expr
+                let expr_type_loc = self.process_expr(&init_expr)?;
+                if let Some(const_type_loc) = expected_const_type_loc {
+                    // get SourceRef of the type of the constant
+                    // and the SourceRef of the init expression
+                    let const_type_src = const_type.clone().unwrap().get_source_ref().unwrap();
+                    let actual_expr = self.module.expr_pool.get(&init_expr);
+                    let expr_src = actual_expr.source_ref();
+
+                    // compare the types in the symbol table
+                    self.symbol_table.loc_compare_types(
+                        &const_type_loc,
+                        const_type_src,
+                        &expr_type_loc,
+                        expr_src,
+                    )?;
+
+                    let new_sym = Symbol {
+                        identifier: const_name.as_str(),
+                        definition_loc: Some(*ins),
+                        depth: self.symbol_table.depth,
+                        associated_type: Some(expr_type_loc),
+                        been_initialized: true,
+                        is_mutable: false,
+                    };
+
+                    // since the types match, we can set the type of the constant
+                    // to the type of the expression
+                    self.symbol_table.register_sym(new_sym);
+                    self.new_module.ins_pool.pool.push(ins_node.clone());
+                } else {
+                    // if the constant doesn't have a type, then we can just
+                    // set the type of the constant to the type of the expression
+                    let new_sym = Symbol {
+                        identifier: const_name.as_str(),
+                        definition_loc: Some(*ins),
+                        depth: self.symbol_table.depth,
+                        associated_type: Some(expr_type_loc),
+                        been_initialized: true,
+                        is_mutable: false,
+                    };
+                    self.symbol_table.register_sym(new_sym);
+                    self.new_module.ins_pool.pool.push(PIRIns::ConstantDecl {
+                        const_name: const_name.clone(),
+                        const_type: Some(self.symbol_table.make_type_reference(expr_type_loc)),
+                        init_expr: init_expr.clone(),
+                        src_ref: src_ref.clone(),
+                        is_public: *is_public,
+                    });
                 }
                 Ok(None)
             }

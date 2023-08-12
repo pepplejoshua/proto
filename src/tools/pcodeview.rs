@@ -59,14 +59,19 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
             }
             PIRIns::ConstantDecl {
                 const_name,
-                const_type: _,
+                const_type,
                 init_expr,
                 src_ref: _,
                 is_public,
             } => {
                 let const_name = const_name.as_str();
                 let init_expr = self.process_expr(&init_expr)?;
-                let mut view = format!("let {} = {};", const_name, init_expr);
+                let mut const_type_ref = "".to_string();
+                if let Some(type_ref) = const_type {
+                    const_type_ref = type_ref.as_str();
+                }
+
+                let mut view = format!("let {const_name} {const_type_ref} = {init_expr};");
                 if is_public {
                     view = format!("pub {}", view);
                 }
