@@ -1227,6 +1227,7 @@ impl Parser {
             }
             Token::Semicolon(_) => {
                 let span = target.source_ref().combine(cur.get_source_ref());
+                self.advance_index();
                 Ok(Instruction::ExpressionIns(target, span))
             }
             _ => Err(ParseError::Expected(
