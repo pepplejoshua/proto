@@ -9,6 +9,7 @@ pub enum SemanticAnalysisError {
     UndefinedType(String, SourceRef),
     UseOfSymbolBeforeInitialization(String, SourceRef),
     TypeMismatch(String, String, SourceRef, SourceRef),
+    MutationOfImmutableLValue(String, SourceRef),
 }
 
 // A symbol represents a variable, constant, a function or a module

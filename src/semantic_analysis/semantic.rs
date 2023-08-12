@@ -10,6 +10,7 @@ pub struct SemanticAnalyzr<'a> {
     symbol_table: SymbolTable,
     pub errors: Vec<SemanticAnalysisError>,
     new_module: PIRModule,
+    inside_assignment_ins: bool,
 }
 
 impl<'a> SemanticAnalyzr<'a> {
@@ -18,6 +19,17 @@ impl<'a> SemanticAnalyzr<'a> {
             Ok(self.new_module)
         } else {
             Err(self.errors)
+        }
+    }
+
+    fn is_mutable(&self, expr: &PIRExpr) -> Result<(String, bool), SemanticAnalysisError> {
+        match expr {
+            PIRExpr::Id(name, ..) => {
+                let sym = self.symbol_table.get_sym(&name.as_str());
+                let sym = sym.unwrap();
+                Ok((sym.identifier.clone(), sym.is_mutable))
+            }
+            _ => unreachable!("Cannot get mutability of {expr:#?}"),
         }
     }
 }
@@ -115,6 +127,42 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
         let ins_node = &mut module.ins_pool.get(&ins);
 
         match ins_node {
+            PIRIns::Break(_) => Ok(None),
+            PIRIns::Continue(_) => Ok(None),
+            PIRIns::AssignmentIns(dest, val, src) => {
+                // check that dest is a valid expr
+                let prev_inside_assignment = self.inside_assignment_ins;
+                self.inside_assignment_ins = true;
+                let dest_type = self.process_expr(dest)?;
+                self.inside_assignment_ins = prev_inside_assignment;
+
+                // check that dest is a mutable symbol
+                let dest = self.module.expr_pool.get(dest);
+                let (name, is_mutable) = self.is_mutable(&dest)?;
+
+                if !is_mutable {
+                    return Err(SemanticAnalysisError::MutationOfImmutableLValue(
+                        name,
+                        dest.source_ref(),
+                    ));
+                }
+
+                // typecheck the value
+                let val_type = self.process_expr(val)?;
+                let val_expr = self.module.expr_pool.get(val);
+
+                // check that the types match
+                self.symbol_table.loc_compare_types(
+                    &dest_type,
+                    dest.source_ref(),
+                    &val_type,
+                    val_expr.source_ref(),
+                )?;
+
+                // update the new_module
+                self.new_module.ins_pool.pool.push(ins_node.clone());
+                Ok(None)
+            }
             PIRIns::CodeBlock { instructions, .. } => {
                 // create a new scope
                 self.symbol_table.enter_scope();
@@ -405,14 +453,20 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
 
                 // get the location of the type of the symbol and return
                 let def_sym = self.symbol_table.get_sym(&name.as_str()).unwrap();
+                // then we can unwrap the type
+                let id_type = def_sym.associated_type.unwrap();
                 if def_sym.been_initialized {
-                    // then we can unwrap the type
-                    let id_type = def_sym.associated_type.unwrap();
                     // update new_module
                     self.new_module.expr_pool.pool.push(expr_node.clone());
                     return Ok(id_type);
                 } else {
-                    // if the symbol has not been initialized, throw an error
+                    if self.inside_assignment_ins {
+                        self.new_module.expr_pool.pool.push(expr_node.clone());
+                        return Ok(id_type);
+                    }
+
+                    // if the symbol has not been initialized and is not being
+                    // initialized, throw an error
                     return Err(SemanticAnalysisError::UseOfSymbolBeforeInitialization(
                         name.as_str(),
                         name.get_source_ref(),
@@ -483,6 +537,7 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
             symbol_table: SymbolTable::new(),
             errors: Vec::new(),
             new_module: PIRModule::empty(),
+            inside_assignment_ins: false,
         }
     }
 

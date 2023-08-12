@@ -434,6 +434,11 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&a_src.combine(b_src), msg, None);
             }
+            SemanticAnalysisError::MutationOfImmutableLValue(name, src) => {
+                let msg = format!("`{name}` was declared as immutable.");
+                let tip = format!("You can declare it as `mut {name} ...;` to make it mutable.");
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 
