@@ -170,32 +170,28 @@ impl SourceRef {
         )
     }
 
-    // combine 2 SourceRefs to create a new one that:
-    // - has the same file
-    // - has the first occuring start_line and start_col
-    // - has the last occuring end_line and end_col
-    // - has the first occuring flat_start
-    // - has the last occuring flat_end
     pub fn combine(&self, other: SourceRef) -> SourceRef {
-        let start_line = if self.start_line < other.start_line {
-            self.start_line
+        let (start_line, start_col) = if self.start_line < other.start_line {
+            (self.start_line, self.start_col)
+        } else if self.start_line == other.start_line {
+            if self.start_col < other.start_col {
+                (self.start_line, self.start_col)
+            } else {
+                (other.start_line, other.start_col)
+            }
         } else {
-            other.start_line
+            (other.start_line, other.start_col)
         };
-        let start_col = if self.start_col < other.start_col {
-            self.start_col
+        let (end_line, end_col) = if self.end_line > other.end_line {
+            (self.end_line, self.end_col)
+        } else if self.end_line == other.end_line {
+            if self.end_col > other.end_col {
+                (self.end_line, self.end_col)
+            } else {
+                (other.end_line, other.end_col)
+            }
         } else {
-            other.start_col
-        };
-        let end_line = if self.end_line > other.end_line {
-            self.end_line
-        } else {
-            other.end_line
-        };
-        let end_col = if self.end_col > other.end_col {
-            self.end_col
-        } else {
-            other.end_col
+            (other.end_line, other.end_col)
         };
         let flat_start = if self.flat_start < other.flat_start {
             self.flat_start
@@ -439,6 +435,13 @@ impl SourceReporter {
                 let tip = format!("You can declare it as `mut {name} ...;` to make it mutable.");
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            SemanticAnalysisError::ExpectedReturnTypeOf(expected_type, found_type, src) => {
+                let msg = format!(
+                    "Expected return type of `{}` for function but found `{}`.",
+                    expected_type, found_type
+                );
+                self.report_with_ref(&src, msg, None);
+            }
         }
     }
 
@@ -454,7 +457,6 @@ impl SourceReporter {
 
     fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
         let err_col = "d_red";
-        let target_col = "l_magenta";
         let tip_col = "l_yellow";
         let line_col = "l_green";
         let mut output = String::new();
@@ -465,7 +467,7 @@ impl SourceReporter {
         // add file name
         let f_name = &self.src.path;
         output.push_str(&format!(
-            "   *[_, l_white:d_black]File '{f_name}'[/] *[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]\n",
+            "   *[_, l_white:d_black]File '{f_name}:[/]*[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]'\n",
             src.start_line + 1,
             src.start_col + 1
         ));
@@ -487,7 +489,7 @@ impl SourceReporter {
                 ""
             };
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
+                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
                 src.start_line + 1,
             ));
         } else {
@@ -497,7 +499,7 @@ impl SourceReporter {
             let pre_slice = &f_line[..src.start_col];
             let f_target_slice = &f_line[src.start_col..];
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
+                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{f_target_slice}[/]\n",
                 src.start_line + 1,
             ));
 
@@ -505,17 +507,21 @@ impl SourceReporter {
             for line_no in src.start_line + 1..src.end_line {
                 let target_line = self.src.lines[line_no].clone();
                 output.push_str(&format!(
-                    "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
+                    "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{target_line}[/]\n",
                     line_no + 1,
                 ));
             }
 
             // - add last line of target area (if it is not the same as first line)
             let l_line = &self.src.lines[src.end_line].clone();
-            let l_target_slice = &l_line[..src.end_col];
-            let post_slice = &l_line[src.end_col..];
+            let mut end_col = src.end_col;
+            if src.end_col >= l_line.len() {
+                end_col = l_line.len();
+            }
+            let l_target_slice = &l_line[..end_col];
+            let post_slice = &l_line[end_col..];
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
+                "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
                 src.end_line + 1,
             ));
         }
