@@ -210,6 +210,8 @@ impl Parser {
                 self.advance_index();
                 let cur = self.cur_token();
                 let value = if let Token::Semicolon(_) = cur {
+                    self.advance_index();
+                    ret_ref = ret_ref.combine(cur.get_source_ref());
                     // return with no value
                     None
                 } else {
@@ -798,7 +800,6 @@ impl Parser {
                 return_type: ret_type,
                 is_public,
                 src: fn_ref,
-                defined_as_primitive: false,
             });
         }
 

@@ -116,7 +116,6 @@ impl<'a> PIRModulePass<'a, String, String, String, String, ()> for PCodeView<'a>
                 params,
                 return_type,
                 is_public,
-                defined_as_primitive: _,
                 src: _,
             } => {
                 let name = name.as_str();
