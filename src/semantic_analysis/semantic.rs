@@ -53,27 +53,27 @@ impl<'a> SemanticAnalyzr<'a> {
         match body {
             // TODO: control flow paths have to be checked
             PIRIns::CodeBlock { instructions, .. } => {
-                let last_ins = instructions.last();
-                if let Some(last_ins) = last_ins {
-                    let last_ins = self.module.ins_pool.get(last_ins);
-                    self.verify_function_body(&last_ins)
-                } else {
-                    Err(SemanticAnalysisError::ExpectedReturnTypeOf(
-                        expected_return_type.as_str(),
-                        "void".to_string(),
-                        body.source_ref(),
-                    ))
+                // loop over instructiosn backwards
+                for ins in instructions.iter().rev() {
+                    let last_actual_ins = self.module.ins_pool.get(ins);
+                    if matches!(last_actual_ins, PIRIns::SingleLineComment { .. }) {
+                        continue;
+                    } else {
+                        return self.verify_function_body(&last_actual_ins);
+                    }
                 }
-            }
-            PIRIns::Return { .. } => Ok(()),
-            _ => {
-                // println!("body: {:#?}", body);
                 Err(SemanticAnalysisError::ExpectedReturnTypeOf(
                     expected_return_type.as_str(),
                     "void".to_string(),
                     body.source_ref(),
                 ))
             }
+            PIRIns::Return { .. } => Ok(()),
+            _ => Err(SemanticAnalysisError::ExpectedReturnTypeOf(
+                expected_return_type.as_str(),
+                "void".to_string(),
+                body.source_ref(),
+            )),
         }
     }
 }
