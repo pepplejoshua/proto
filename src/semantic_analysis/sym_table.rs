@@ -5,11 +5,14 @@ use crate::frontend::{ast::TypeReference, source::SourceRef};
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum SemanticAnalysisError {
     UndefinedSymbol(String, SourceRef),
-    RedefinitionOfSymbol(SourceRef),
+    RedefinitionOfSymbol(SourceRef), // TODO: include the previous definition location
     UndefinedType(String, SourceRef),
-    UseOfSymbolBeforeInitialization(String, SourceRef),
+    UseOfSymbolBeforeInitialization(String, SourceRef), // TODO: include the definition location
+    // TODO: allow SourceReporter take multiple SourceRefs
     TypeMismatch(String, String, SourceRef, SourceRef),
     MutationOfImmutableLValue(String, SourceRef),
+    // TODO: include the SourceRef of the return type
+    ExpectedReturnTypeOf(String, String, SourceRef),
 }
 
 // A symbol represents a variable, constant, a function or a module

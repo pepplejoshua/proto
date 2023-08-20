@@ -11,6 +11,7 @@ pub struct SemanticAnalyzr<'a> {
     pub errors: Vec<SemanticAnalysisError>,
     new_module: PIRModule,
     inside_assignment_ins: bool,
+    expected_return_type: Option<usize>,
 }
 
 impl<'a> SemanticAnalyzr<'a> {
@@ -30,6 +31,49 @@ impl<'a> SemanticAnalyzr<'a> {
                 Ok((sym.identifier.clone(), sym.is_mutable))
             }
             _ => unreachable!("Cannot get mutability of {expr:#?}"),
+        }
+    }
+
+    // check that all paths return a value
+    // this is done by checking that the last instruction is a return
+    // if it is not, then we return an error
+    // if the last instruction is:
+    // - a code block, we check that the last instruction in the code block is
+    //   a return
+    // - a return, we can rest assured since that has been type checked
+    // - an if, we can check that both branches return a value
+    // - a while, we throw an error since the while loop may never run, or
+    //   may run forever or may never meet the condition to return
+    // - a for, we throw an error since the for loop may never run, or
+    //   may run forever or may never meet the condition to return
+    fn verify_function_body(&self, body: &PIRIns) -> Result<(), SemanticAnalysisError> {
+        let expected_return_type = self
+            .symbol_table
+            .type_at_loc(self.expected_return_type.unwrap());
+        match body {
+            // TODO: control flow paths have to be checked
+            PIRIns::CodeBlock { instructions, .. } => {
+                let last_ins = instructions.last();
+                if let Some(last_ins) = last_ins {
+                    let last_ins = self.module.ins_pool.get(last_ins);
+                    self.verify_function_body(&last_ins)
+                } else {
+                    Err(SemanticAnalysisError::ExpectedReturnTypeOf(
+                        expected_return_type.as_str(),
+                        "void".to_string(),
+                        body.source_ref(),
+                    ))
+                }
+            }
+            PIRIns::Return { .. } => Ok(()),
+            _ => {
+                // println!("body: {:#?}", body);
+                Err(SemanticAnalysisError::ExpectedReturnTypeOf(
+                    expected_return_type.as_str(),
+                    "void".to_string(),
+                    body.source_ref(),
+                ))
+            }
         }
     }
 }
@@ -182,6 +226,15 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
                 self.new_module.ins_pool.pool.push(ins_node.clone());
                 Ok(None)
             }
+            PIRIns::FunctionPrototype {
+                name,
+                params,
+                return_type,
+                is_public,
+                src,
+            } => {
+                todo!()
+            }
             PIRIns::FunctionDef {
                 name,
                 params,
@@ -255,9 +308,27 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
                     self.new_module.expr_pool.pool.push(param.clone());
                 }
 
+                // set the return type expected by the function.
+                // it will affect every return statement in the function's body
+                // it will also determine if having no return statement is valid
+                let cur_expected_return_type = self.expected_return_type.clone();
+                self.expected_return_type = Some(return_type);
+
                 // process the body of the function
                 // TODO: make sure the return type of the function matches the type of the body
                 self.process_ins(body)?;
+
+                // long as the body has passed typechecking, and the return
+                // type is void, we can assume that the function has a valid return
+                // statement
+                if return_type != 12 {
+                    // means it is not void
+                    let body = self.module.ins_pool.get(body);
+                    self.verify_function_body(&body)?;
+                }
+
+                // reset the expected return type
+                self.expected_return_type = cur_expected_return_type;
 
                 // add function to new_module
                 self.new_module.ins_pool.pool.push(ins_node.clone());
@@ -425,6 +496,57 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
                 }
                 Ok(None)
             }
+            PIRIns::ExpressionIns(expr, src) => {
+                self.process_expr(expr)?;
+                self.new_module.ins_pool.pool.push(ins_node.clone());
+                Ok(None)
+            }
+            PIRIns::Return { src, value } => {
+                match (value, self.expected_return_type) {
+                    (None, Some(type_id)) => {
+                        if type_id == 12 {
+                            // which is the index of 'void'
+                            self.new_module.ins_pool.pool.push(ins_node.clone());
+                            return Ok(None);
+                        } else {
+                            let expected_type = self.symbol_table.type_at_loc(type_id);
+                            return Err(SemanticAnalysisError::ExpectedReturnTypeOf(
+                                expected_type.as_str(),
+                                "void".to_string(),
+                                src.clone(),
+                            ));
+                        }
+                    }
+                    (Some(return_value), Some(expected_type)) => {
+                        let actual_type = self.process_expr(&return_value)?;
+                        let actual_type_src = src.clone();
+
+                        // compare the types in the symbol table
+                        let comp_res = self.symbol_table.loc_compare_types(
+                            &expected_type,
+                            src.clone(),
+                            &actual_type,
+                            actual_type_src,
+                        );
+
+                        if let Err(_) = comp_res {
+                            let expected_type = self.symbol_table.type_at_loc(expected_type);
+                            let actual_type = self.symbol_table.type_at_loc(actual_type);
+                            return Err(SemanticAnalysisError::ExpectedReturnTypeOf(
+                                expected_type.as_str(),
+                                actual_type.as_str(),
+                                src.clone(),
+                            ));
+                        } else {
+                            self.new_module.ins_pool.pool.push(ins_node.clone());
+                            return Ok(None);
+                        }
+                    }
+                    _ => {
+                        unreachable!("No expected type set for surrounding function.")
+                    }
+                }
+            }
             _ => {
                 self.new_module.ins_pool.pool.push(ins_node.clone());
                 Ok(None)
@@ -538,6 +660,7 @@ impl<'a> PIRModulePass<'a, Option<usize>, usize, (), (), SemanticAnalysisError>
             errors: Vec::new(),
             new_module: PIRModule::empty(),
             inside_assignment_ins: false,
+            expected_return_type: None,
         }
     }
 
