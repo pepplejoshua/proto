@@ -3,5 +3,5 @@ loop while void true false
 and or not
 i8 i16 i32 i64 isize
 u8 u16 u32 u64 usize
-bool char use return
-extend
+bool char str return comp
+struct

@@ -1,0 +1,11 @@
+---
+source: src/frontend/parser.rs
+expression: res
+input_file: src/frontend/parser_inputs/methods.pr
+---
+module:
+  - "let Person = struct { mut name str; mut age i8; pub fn get_name (self Person) str { return name; } pub fn get_age (self Person) i8 { return age; } };"
+  - "let p = Person { name = \"John\", age = 32 };"
+lexer_error: []
+parser_error: []
+

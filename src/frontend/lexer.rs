@@ -98,7 +98,7 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' | '^' | '$' | '@' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '^' | '$' | '@' | '|' | '?' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
@@ -122,6 +122,30 @@ impl Lexer {
             Err(_) => self.last_lexed = None,
         }
         maybe_token
+    }
+
+    // a multi line string fragment is a string fragment that is
+    // preceded by "||". It goes till the end of the line
+    fn lex_multi_line_string_fragment(&mut self) -> Result<Token, LexError> {
+        let mut content = String::new();
+        let mut span = self.src.get_ref();
+        // skip both '|' characters
+        self.src.next_char();
+        self.src.next_char();
+        span = span.combine(self.src.get_ref());
+
+        while !self.src.is_eof() {
+            let cur = self.src.cur_char();
+            span = span.combine(self.src.get_ref());
+            self.src.next_char();
+            if cur != '\n' {
+                content.push(cur);
+                continue;
+            } else {
+                break;
+            }
+        }
+        Ok(Token::MultiLineStringFragment(span, content))
     }
 
     // lex a potential identifier
@@ -161,11 +185,9 @@ impl Lexer {
             "break" => Ok(Token::Break(combined_ref)),
             "continue" => Ok(Token::Continue(combined_ref)),
             "return" => Ok(Token::Return(combined_ref)),
-            "use" => Ok(Token::Use(combined_ref)),
+            "comp" => Ok(Token::Comp(combined_ref)),
+            "struct" => Ok(Token::Struct(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
-            "mod" => Ok(Token::Mod(combined_ref)),
-            "as" => Ok(Token::As(combined_ref)),
-            "extend" => Ok(Token::Extend(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -179,18 +201,6 @@ impl Lexer {
     fn lex_operator(&mut self) -> Result<Token, LexError> {
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
-        // detect a signed number
-        if cur == '-' {
-            // if the next character is a digit, lex a signed number
-            let peek = self.src.peek_char();
-            if peek.is_ascii_digit() {
-                return self.lex_signed_number();
-            } else {
-                // otherwise, return a minus operator
-                self.src.next_char();
-                return Ok(Token::Minus(cur_ref.combine(self.src.get_ref())));
-            }
-        }
 
         // || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
 
@@ -216,23 +226,28 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
             }
+            '|' => {
+                // if the next character is a '|', lex a multi line string fragment
+                if self.src.peek_char() == '|' {
+                    return self.lex_multi_line_string_fragment();
+                }
+                Err(LexError::InvalidCharacter(
+                    cur_ref.combine(self.src.get_ref()),
+                ))
+            }
             '%' => {
                 self.src.next_char();
                 Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
             }
 
             // special characters
-            '^' => {
-                self.src.next_char();
-                Ok(Token::Caret(cur_ref.combine(self.src.get_ref())))
-            }
             '@' => {
                 self.src.next_char();
                 Ok(Token::At(cur_ref.combine(self.src.get_ref())))
             }
-            '$' => {
+            '?' => {
                 self.src.next_char();
-                Ok(Token::Dollar(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::QuestionMark(cur_ref.combine(self.src.get_ref())))
             }
 
             // logical operators
@@ -284,18 +299,6 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
             }
-            ':' => {
-                // if the next character is a ':', return a Scope operator
-                let c = self.src.peek_char();
-                if c == ':' {
-                    self.src.next_char();
-                    self.src.next_char();
-                    return Ok(Token::Scope(cur_ref.combine(self.src.get_ref())));
-                }
-                // otherwise, return a Colon operator
-                self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
-            }
             '(' => {
                 self.src.next_char();
                 Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
@@ -341,6 +344,8 @@ impl Lexer {
         let mut content = String::new();
 
         // read all characters until terminating "
+        // if a new line is encountered, return an error
+        // if a \ is encountered, read the next character
         while !self.src.is_eof() {
             let c = self.src.next_char();
             span = span.combine(self.src.get_ref());
@@ -357,6 +362,8 @@ impl Lexer {
                     content.push('\\');
                     content.push(c);
                 }
+            } else if c == '\n' {
+                return Err(LexError::UnterminatedStringLiteral(span));
             } else {
                 content.push(c);
             }
@@ -368,7 +375,7 @@ impl Lexer {
         } else {
             self.src.next_char();
             span = span.combine(self.src.get_ref());
-            Ok(Token::StringLiteral(span, content))
+            Ok(Token::SingleLineStringLiteral(span, content))
         }
     }
 
@@ -411,24 +418,11 @@ impl Lexer {
         Ok(Token::CharLiteral(span, content.chars().next().unwrap()))
     }
 
-    // try to lex a number
     fn lex_number(&mut self) -> Result<Token, LexError> {
-        // by default, calling lex_number will lex a signed number
-        // since users tend to perform signed arithmetic more often
-        self.lex_signed_number()
-    }
-
-    // try to lex an unsigned number which is one of:
-    // - i8
-    // - i16
-    // - i32
-    // - i64
-    // - isize
-    fn lex_signed_number(&mut self) -> Result<Token, LexError> {
-        let mut signed_number = String::new();
+        let mut number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
-        signed_number.push(cur);
+        number.push(cur);
 
         // read all characters that are digits
         let mut end_ref;
@@ -436,7 +430,7 @@ impl Lexer {
             let c = self.src.next_char();
             end_ref = self.src.get_ref();
             if c.is_ascii_digit() {
-                signed_number.push(c);
+                number.push(c);
             } else if c == '_' {
                 // ignore underscores
                 continue;
@@ -446,84 +440,8 @@ impl Lexer {
         }
 
         let combined_ref = cur_ref.combine(end_ref);
-        // check if signed_number is i8
-        if let Ok(num) = signed_number.parse::<i8>() {
-            return Ok(Token::I8Literal(num, combined_ref));
-        }
 
-        if let Ok(num) = signed_number.parse::<i16>() {
-            return Ok(Token::I16Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = signed_number.parse::<i32>() {
-            return Ok(Token::I32Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = signed_number.parse::<i64>() {
-            return Ok(Token::I64Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = signed_number.parse::<isize>() {
-            return Ok(Token::IsizeLiteral(num, combined_ref));
-        }
-
-        // if signed_number's first character is not '-',
-        // then attempt to lex an unsigned number
-        self.src.jump_to(&cur_ref);
-        self.lex_unsigned_number()
-    }
-
-    // try to lex an unsigned number which is one of:
-    // - u8
-    // - u16
-    // - u32
-    // - u64
-    // - usize
-    fn lex_unsigned_number(&mut self) -> Result<Token, LexError> {
-        let mut unsigned_number = String::new();
-        let cur_ref = self.src.get_ref();
-        let cur = self.src.cur_char();
-        unsigned_number.push(cur);
-
-        // read all characters that are digits
-        let mut end_ref;
-        loop {
-            let c = self.src.next_char();
-            end_ref = self.src.get_ref();
-            if c.is_ascii_digit() {
-                unsigned_number.push(c);
-            } else if c == '_' {
-                // ignore underscores
-                continue;
-            } else {
-                break;
-            }
-        }
-
-        let combined_ref = cur_ref.combine(end_ref);
-        // check if unsigned_number is u8
-        if let Ok(num) = unsigned_number.parse::<u8>() {
-            return Ok(Token::U8Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = unsigned_number.parse::<u16>() {
-            return Ok(Token::U16Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = unsigned_number.parse::<u32>() {
-            return Ok(Token::U32Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = unsigned_number.parse::<u64>() {
-            return Ok(Token::U64Literal(num, combined_ref));
-        }
-
-        if let Ok(num) = unsigned_number.parse::<usize>() {
-            return Ok(Token::UsizeLiteral(num, combined_ref));
-        }
-
-        // if it is not a valid unsigned number, return an error
-        Err(LexError::CannotMakeUnsignedNumber(combined_ref))
+        return Ok(Token::Integer(number, combined_ref));
     }
 }
 

@@ -1,9 +1,7 @@
-:Person {
-    name str,
-    age i8,
-}
+let Person = struct {
+    mut name str;
+    mut age i8;
 
-extend Person {
     pub fn get_name(self Person) str {
         return name;
     }
@@ -11,4 +9,9 @@ extend Person {
     pub fn get_age(self Person) i8 {
         return age;
     }
-}
+};
+
+let p = Person {
+    name = "John",
+    age = 32,
+};

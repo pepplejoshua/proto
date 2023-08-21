@@ -9,3 +9,5 @@
 "this is a string with \f form feed"
 "this is a string with \\ backslash"
 "this is a string with \0 null character"
+|| this is a multiline string fragment
+|| this is another part of the above string fragment

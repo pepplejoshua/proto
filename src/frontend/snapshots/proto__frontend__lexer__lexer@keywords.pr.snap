@@ -29,7 +29,8 @@ stringified_tokens:
   - "usize at [start_line:4 start_col:15 end_line:4 end_col:20 flat_start:93 flat_end:98]"
   - "bool at [start_line:5 start_col:0 end_line:5 end_col:4 flat_start:99 flat_end:103]"
   - "char at [start_line:5 start_col:5 end_line:5 end_col:9 flat_start:104 flat_end:108]"
-  - "use at [start_line:5 start_col:10 end_line:5 end_col:13 flat_start:109 flat_end:112]"
+  - "str at [start_line:5 start_col:10 end_line:5 end_col:13 flat_start:109 flat_end:112]"
   - "return at [start_line:5 start_col:14 end_line:5 end_col:20 flat_start:113 flat_end:119]"
-  - "extend at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:120 flat_end:126]"
+  - "comp at [start_line:5 start_col:21 end_line:5 end_col:25 flat_start:120 flat_end:124]"
+  - "struct at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:125 flat_end:131]"
 

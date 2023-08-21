@@ -1,16 +1,41 @@
 // This is a sample for user defined structs
+// you can create a struct by either
+// 1. using the struct keyword, which is for structs with methods and
+//    granular control over fields
+// 2. using the .{ } syntax, which is for data-only structs (like C structs?)
 
+// style 1
+// struct with methods
+let SourceFile0 = struct {
+    mut path str;
+    mut text str;
+    mut flat_index usize;
+    mut col usize;
+    mut line usize;
+
+    pub fn make_from_path(path str) SourceFile0 {
+        return SourceFile0 {
+            path = path,
+            text = "",
+            flat_index = 0,
+            col = 0,
+            line = 0,
+        };
+    }
+};
+
+// style 2
 // simple struct that uses defaults
-:SourceFile {
+let SourceFile1 = .{
     path str,
     text str = "",
     flat_index usize = 0,
     col usize = 0,
     line usize = 0,
-}
+};
 
 fn main() void {
     // since we allow defaults, we can focus on the
     // members we care about initializing
-    mut src = :SourceFile { path = "./using_constructor.pr" };
+    mut src = SourceFile { path = "./using_constructor.pr" };
 }

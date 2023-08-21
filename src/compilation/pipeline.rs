@@ -1,16 +1,10 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
-use crate::{
-    analysis_a::dependency_res::DependencyResolvr,
-    frontend::{
-        lexer::Lexer,
-        parser::Parser,
-        source::{SourceFile, SourceReporter},
-        token::Token,
-    },
-    pir::ir::{PIRModule, PIRModulePass},
-    semantic_analysis::semantic::SemanticAnalyzr,
-    tools::{pcodeview::PCodeView, pfmt::Pfmt},
+use crate::frontend::{
+    lexer::Lexer,
+    parser::Parser,
+    source::{SourceFile, SourceReporter},
+    token::Token,
 };
 
 #[allow(dead_code)]
@@ -134,7 +128,7 @@ impl PipelineConfig {
 
 pub struct Workspace {
     entry_file: String,
-    files: HashMap<String, (SourceFile, PIRModule)>,
+    files: HashMap<String, SourceFile>,
     config: PipelineConfig,
 }
 
@@ -175,7 +169,7 @@ impl Workspace {
 
     fn process_file(&mut self, file_path: String, path_stack: &mut Vec<String>) {
         // check if file is already processed and stored in files
-        if let Some((_, _)) = self.files.get(&file_path) {
+        if let Some(_) = self.files.get(&file_path) {
             return;
         }
 
@@ -234,87 +228,17 @@ impl Workspace {
             return;
         }
         if self.config.dbg_info {
+            let _module = parser.compilation_module;
+
+            for ins in _module.instructions {
+                println!("{}", ins.as_str());
+            }
+
             reporter.show_info("parsing complete.".to_string());
         }
 
         if let Stage::Parser = self.config.max_stage {
             return;
-        }
-
-        let module = parser.compilation_module;
-        let mut ir_mod = PIRModule::new(module, file_path.clone());
-        self.files.insert(file_path.clone(), (src, ir_mod.clone()));
-
-        if self.config.use_pfmt {
-            let mut pfmt = Pfmt::new(&ir_mod);
-            let res = pfmt.process();
-            match res {
-                Ok(msg) if self.config.dbg_info => reporter.show_info(msg),
-                Err(e) => {
-                    reporter.show_error(e);
-                    return;
-                }
-                _ => {}
-            }
-        }
-
-        let mut dep_resolvr = DependencyResolvr::new(&ir_mod);
-        let res = dep_resolvr.process();
-        match res {
-            Ok(indices) => {
-                let dependencies_bundl = dep_resolvr.resolve(indices);
-                path_stack.push(file_path.clone());
-                for (_, bundl) in dependencies_bundl {
-                    for (path, _) in bundl {
-                        let path_str = path.to_str().unwrap().to_string();
-                        self.process_file(path_str, path_stack);
-                    }
-                }
-                path_stack.pop();
-            }
-            Err(_) => {
-                unreachable!("failed to resolve dependencies for {file_path}.");
-            }
-        }
-        if self.config.dbg_info {
-            reporter.show_info("dependency resolution complete.".to_string());
-        }
-
-        if let Stage::DependencyResolution = self.config.max_stage {
-            return;
-        }
-
-        let mut analyzr = SemanticAnalyzr::new(&ir_mod);
-        let _ = analyzr.process();
-        let res = analyzr.extract();
-        match res {
-            Ok(new_mod) => ir_mod = new_mod,
-            Err(errs) => {
-                for e in errs {
-                    reporter.report_semantic_error(e);
-                }
-                return;
-            }
-        }
-
-        if self.config.dbg_info {
-            reporter.show_info("semantic analysis complete.".to_string());
-        }
-
-        // println!("{:#?}", ir_mod);
-        // return;
-
-        let mut viewer = PCodeView::new(&ir_mod);
-        let res = viewer.process();
-        match res {
-            Ok(contents) => {
-                // write to terminal
-                println!("{}", contents);
-            }
-            Err(e) => {
-                reporter.show_error(format!("failed to generate PCode: {:?}", e));
-                return;
-            }
         }
     }
 }

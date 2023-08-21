@@ -27,4 +27,6 @@ stringified_tokens:
   - "\"this is a string with \\f form feed\" at [start_line:8 start_col:0 end_line:8 end_col:36 flat_start:295 flat_end:331]"
   - "\"this is a string with \\\\ backslash\" at [start_line:9 start_col:0 end_line:9 end_col:36 flat_start:332 flat_end:368]"
   - "\"this is a string with \\0 null character\" at [start_line:10 start_col:0 end_line:10 end_col:41 flat_start:369 flat_end:410]"
+  - "|| this is a multiline string fragment at [start_line:11 start_col:0 end_line:11 end_col:38 flat_start:411 flat_end:449]"
+  - "|| this is another part of the above string fragment at [start_line:12 start_col:0 end_line:12 end_col:52 flat_start:450 flat_end:502]"
 

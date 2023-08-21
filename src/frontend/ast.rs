@@ -41,50 +41,46 @@ impl TypeReference {
 #[allow(dead_code)]
 pub enum Expr {
     Id(Token, Option<TypeReference>, SourceRef),
-    Number(Token, Option<TypeReference>, SourceRef),
-    StringLiteral(Token, Option<TypeReference>, SourceRef),
-    CharacterLiteral(Token, Option<TypeReference>, SourceRef),
-    Binary(
-        Token,
-        Box<Expr>,
-        Box<Expr>,
-        Option<TypeReference>,
-        SourceRef,
-    ),
-    Comparison(
-        Token,
-        Box<Expr>,
-        Box<Expr>,
-        Option<TypeReference>,
-        SourceRef,
-    ),
-    Boolean(Token, Option<TypeReference>, SourceRef),
-    Unary(Token, Box<Expr>, Option<TypeReference>, SourceRef),
-    Grouped(Box<Expr>, Option<TypeReference>, SourceRef),
+    Number(Token, SourceRef),
+    SingleLineStringLiteral(Token, SourceRef),
+    MultiLineStringLiteral(Vec<Token>, SourceRef),
+    CharacterLiteral(Token, SourceRef),
+    Binary(Token, Box<Expr>, Box<Expr>, SourceRef),
+    Comparison(Token, Box<Expr>, Box<Expr>, SourceRef),
+    Boolean(Token, SourceRef),
+    Unary(Token, Box<Expr>, SourceRef),
+    Grouped(Box<Expr>, SourceRef),
     FnCall {
         func: Box<Expr>,
         args: Vec<Expr>,
         span: SourceRef,
-        fn_type: Option<TypeReference>,
     },
     ScopeInto {
         module: Box<Expr>,
         target: Box<Expr>,
         src: SourceRef,
-        resolved_type: Option<TypeReference>,
     },
     DirectiveExpr {
         directive: Box<Expr>,
         expr: Option<Box<Expr>>,
-        resolved_type: Option<TypeReference>,
         src: SourceRef,
     },
-    NamedStructInit {
+    NamedStructLiteral {
+        // using StructName { a bool, b char } or StructName { a = true, b = 'a' }
         name: Box<Expr>,
         fields: KeyValueBindings,
         src: SourceRef,
-        resolved_type: Option<TypeReference>,
     },
+    AnonStructLiteral {
+        // using .{ a bool, b char }
+        fields: KeyValueBindings,
+        src: SourceRef,
+    },
+    StructDecl {
+        src: SourceRef,
+        contents: Box<Instruction>,
+    },
+    Integer(String, SourceRef),
 }
 
 #[allow(dead_code)]
@@ -92,38 +88,38 @@ impl Expr {
     pub fn source_ref(&self) -> SourceRef {
         match &self {
             Expr::Id(_, _, s) => s.clone(),
-            Expr::Number(_, _, s) => s.clone(),
-            Expr::Binary(_, _, _, _, s) => s.clone(),
-            Expr::Boolean(_, _, s) => s.clone(),
-            Expr::Unary(_, _, _, s) => s.clone(),
-            Expr::Comparison(_, _, _, _, s) => s.clone(),
+            Expr::Number(_, s) => s.clone(),
+            Expr::Binary(_, _, _, s) => s.clone(),
+            Expr::Boolean(_, s) => s.clone(),
+            Expr::Unary(_, _, s) => s.clone(),
+            Expr::Comparison(_, _, _, s) => s.clone(),
             Expr::FnCall {
                 func: _,
                 args: _,
                 span,
-                fn_type: _,
             } => span.clone(),
-            Expr::Grouped(_, _, src) => src.clone(),
+            Expr::Grouped(_, src) => src.clone(),
             Expr::ScopeInto {
                 module: _,
                 target: _,
                 src,
-                resolved_type: _,
             } => src.clone(),
             Expr::DirectiveExpr {
                 directive: _,
                 expr: _,
-                resolved_type: _,
                 src,
             } => src.clone(),
-            Expr::StringLiteral(_, _, s) => s.clone(),
-            Expr::CharacterLiteral(_, _, s) => s.clone(),
-            Expr::NamedStructInit {
+            Expr::SingleLineStringLiteral(_, s) => s.clone(),
+            Expr::CharacterLiteral(_, s) => s.clone(),
+            Expr::MultiLineStringLiteral(_, s) => s.clone(),
+            Expr::Integer(_, s) => s.clone(),
+            Expr::NamedStructLiteral {
                 name: _,
                 fields: _,
                 src,
-                resolved_type: _,
             } => src.clone(),
+            Expr::AnonStructLiteral { fields: _, src } => src.clone(),
+            Expr::StructDecl { src, contents: _ } => src.clone(),
         }
     }
 
@@ -136,20 +132,19 @@ impl Expr {
                 }
                 s
             }
-            Expr::Number(num, _, _) => num.as_str(),
-            Expr::Binary(op, lhs, rhs, _, _) => {
+            Expr::Number(num, _) => num.as_str(),
+            Expr::Binary(op, lhs, rhs, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
-            Expr::Comparison(op, lhs, rhs, _, _) => {
+            Expr::Comparison(op, lhs, rhs, _) => {
                 format!("{} {} {}", lhs.as_str(), op.as_str(), rhs.as_str())
             }
-            Expr::Boolean(val, _, _) => val.as_str(),
-            Expr::Unary(op, operand, _, _) => format!("{} {}", op.as_str(), operand.as_str()),
+            Expr::Boolean(val, _) => val.as_str(),
+            Expr::Unary(op, operand, _) => format!("{} {}", op.as_str(), operand.as_str()),
             Expr::FnCall {
                 func,
                 args,
                 span: _,
-                fn_type: _,
             } => {
                 let mut fn_str = func.as_str();
                 fn_str.push('(');
@@ -161,7 +156,7 @@ impl Expr {
 
                 fn_str + &fn_args.join(", ") + ")"
             }
-            Expr::Grouped(e, _, _) => {
+            Expr::Grouped(e, _) => {
                 let s = format!("({})", e.as_str());
                 s
             }
@@ -169,12 +164,10 @@ impl Expr {
                 module,
                 target,
                 src: _,
-                resolved_type: _,
-            } => format!("{}::{}", module.as_str(), target.as_str()),
+            } => format!("{}.{}", module.as_str(), target.as_str()),
             Expr::DirectiveExpr {
                 directive,
                 expr,
-                resolved_type: _,
                 src: _,
             } => {
                 if let Some(expr) = expr {
@@ -183,167 +176,27 @@ impl Expr {
                     format!("@{}", directive.as_str())
                 }
             }
-            Expr::StringLiteral(literal, _, _) => literal.as_str(),
-            Expr::CharacterLiteral(literal, _, _) => literal.as_str(),
-            Expr::NamedStructInit {
-                name,
-                fields,
-                src: _,
-                resolved_type: _,
-            } => {
-                let mut s = format!(":{} ", name.as_str());
-                s.push_str(&fields.as_str());
+            Expr::SingleLineStringLiteral(literal, _) => literal.as_str(),
+            Expr::CharacterLiteral(literal, _) => literal.as_str(),
+            Expr::MultiLineStringLiteral(literals, _) => {
+                let mut s = String::new();
+                // start each line with ||
+                for (index, line) in literals.iter().enumerate() {
+                    s.push_str("||");
+                    s.push_str(&line.as_str());
+                    if index < literals.len() - 1 {
+                        s.push('\n');
+                    }
+                }
                 s
             }
-        }
-    }
-
-    pub fn type_info(&self) -> Option<TypeReference> {
-        match &self {
-            Expr::Id(_, t, _) => t.clone(),
-            Expr::Number(_, t, _) => t.clone(),
-            Expr::Binary(_, _, _, t, _) => t.clone(),
-            Expr::Boolean(_, t, _) => t.clone(),
-            Expr::Unary(_, _, t, _) => t.clone(),
-            Expr::Comparison(_, _, _, t, _) => t.clone(),
-            Expr::FnCall {
-                func: _,
-                args: _,
-                span: _,
-                fn_type,
-            } => fn_type.clone(),
-            Expr::Grouped(_, t, _) => t.clone(),
-            Expr::ScopeInto {
-                module: _,
-                target: _,
-                src: _,
-                resolved_type,
-            } => resolved_type.clone(),
-            Expr::DirectiveExpr {
-                directive: _,
-                expr: _,
-                resolved_type,
-                src: _,
-            } => resolved_type.clone(),
-            Expr::StringLiteral(_, t, _) => t.clone(),
-            Expr::CharacterLiteral(_, t, _) => t.clone(),
-            Expr::NamedStructInit {
-                name: _,
-                fields: _,
-                src: _,
-                resolved_type,
-            } => resolved_type.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub enum PathAction {
-    ToParentDir(SourceRef),
-    ImportAll(SourceRef),
-    SearchFor(Expr),
-    SearchCoreModulesFor(Expr),
-    SearchProjectRootFor(Expr),
-    SearchCurrentFileFor(Expr),
-    NameLastItemAs(Expr),
-}
-
-#[allow(dead_code)]
-impl PathAction {
-    pub fn is_search_action(&self) -> bool {
-        match self {
-            PathAction::ToParentDir(_) => false,
-            PathAction::NameLastItemAs(_) => false,
-            PathAction::SearchFor(_) => true,
-            PathAction::SearchCoreModulesFor(_) => true,
-            PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchCurrentFileFor(_) => true,
-            PathAction::ImportAll(_) => false,
-        }
-    }
-
-    pub fn is_terminating_action(&self) -> bool {
-        match self {
-            PathAction::ToParentDir(_) => false,
-            PathAction::SearchFor(_) => true,
-            PathAction::NameLastItemAs(_) => true,
-            PathAction::SearchCoreModulesFor(_) => true,
-            PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchCurrentFileFor(_) => false,
-            PathAction::ImportAll(_) => true,
-        }
-    }
-
-    pub fn allows_naming_last(&self) -> bool {
-        match self {
-            PathAction::ToParentDir(_) => false,
-            PathAction::SearchFor(_) => true,
-            PathAction::NameLastItemAs(_) => false,
-            PathAction::SearchCoreModulesFor(_) => true,
-            PathAction::SearchProjectRootFor(_) => true,
-            PathAction::SearchCurrentFileFor(_) => false,
-            PathAction::ImportAll(_) => false,
-        }
-    }
-
-    pub fn as_str(&self) -> String {
-        match self {
-            PathAction::ToParentDir(_) => "^".to_string(),
-            PathAction::SearchFor(e) => e.as_str(),
-            PathAction::NameLastItemAs(alias) => format!(" as {}", alias.as_str()),
-            PathAction::SearchCoreModulesFor(e) => format!("@{}", e.as_str()),
-            PathAction::SearchProjectRootFor(m) => format!("${}", m.as_str()),
-            PathAction::SearchCurrentFileFor(inner_m) => format!("!{}", inner_m.as_str()),
-            PathAction::ImportAll(_) => "*".to_string(),
-        }
-    }
-
-    pub fn source_ref(&self) -> SourceRef {
-        match self {
-            PathAction::ToParentDir(src) => src.clone(),
-            PathAction::SearchFor(e) => e.source_ref(),
-            PathAction::SearchCoreModulesFor(e) => e.source_ref(),
-            PathAction::SearchProjectRootFor(e) => e.source_ref(),
-            PathAction::SearchCurrentFileFor(e) => e.source_ref(),
-            PathAction::NameLastItemAs(e) => e.source_ref(),
-            PathAction::ImportAll(src) => src.clone(),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[allow(dead_code)]
-pub struct DependencyPath {
-    pub actions: Vec<PathAction>,
-}
-
-#[allow(dead_code)]
-impl DependencyPath {
-    pub fn combine(&self, sub_path: &DependencyPath) -> DependencyPath {
-        let mut actions = self.actions.clone();
-        let mut sub_path_actions = sub_path.actions.clone();
-        actions.append(&mut sub_path_actions);
-        DependencyPath { actions }
-    }
-
-    pub fn source_ref(&self) -> SourceRef {
-        // get first action
-        let first_action = self.actions.first().unwrap();
-        // get last action
-        let last_action = self.actions.last().unwrap();
-        first_action.source_ref().combine(last_action.source_ref())
-    }
-
-    pub fn as_str(&self) -> String {
-        let mut s = String::new();
-        for (index, action) in self.actions.iter().enumerate() {
-            s.push_str(&action.as_str());
-            if index < self.actions.len() - 1 {
-                s.push_str("::");
+            Expr::Integer(num, _) => num.clone(),
+            Expr::NamedStructLiteral { name, fields, .. } => {
+                format!("{} {}", name.as_str(), fields.as_str())
             }
+            Expr::AnonStructLiteral { fields, .. } => format!(".{}", fields.as_str()),
+            Expr::StructDecl { src: _, contents } => format!("struct {}", contents.as_str()),
         }
-        s
     }
 }
 
@@ -436,10 +289,6 @@ pub enum Instruction {
     },
     Break(SourceRef),
     Continue(SourceRef),
-    UseDependency {
-        paths: Vec<DependencyPath>,
-        src: SourceRef,
-    },
     DirectiveInstruction {
         directive: Expr,
         block: Option<Box<Instruction>>,
@@ -451,11 +300,6 @@ pub enum Instruction {
     },
     SingleLineComment {
         comment: String,
-        src: SourceRef,
-    },
-    TypeExtension {
-        target_type: TypeReference,
-        extensions: Box<Instruction>,
         src: SourceRef,
     },
 }
@@ -609,21 +453,6 @@ impl Instruction {
             }
             Instruction::Break(_) => "break;".to_string(),
             Instruction::Continue(_) => "continue;".to_string(),
-            Instruction::UseDependency { paths, src: _ } => {
-                let mut path_str = String::new();
-                for (i, path) in paths.iter().enumerate() {
-                    for (j, part) in path.actions.iter().enumerate() {
-                        path_str.push_str(&part.as_str());
-                        if j + 1 < path.actions.len() {
-                            path_str.push_str("::");
-                        }
-                    }
-                    if i + 1 < paths.len() {
-                        path_str.push_str(", ");
-                    }
-                }
-                format!("use {};", path_str)
-            }
             Instruction::DirectiveInstruction {
                 directive,
                 block,
@@ -659,13 +488,6 @@ impl Instruction {
                     }
                 }
                 str_rep
-            }
-            Instruction::TypeExtension {
-                target_type,
-                extensions,
-                src: _,
-            } => {
-                format!("extend {} {}", target_type.as_str(), extensions.as_str())
             }
         }
     }
@@ -719,7 +541,6 @@ impl Instruction {
             } => src.clone(),
             Instruction::Break(src) => src.clone(),
             Instruction::Continue(src) => src.clone(),
-            Instruction::UseDependency { paths: _, src } => src.clone(),
             Instruction::DirectiveInstruction {
                 directive: _,
                 block: _,
@@ -729,11 +550,6 @@ impl Instruction {
             Instruction::NamedStructDecl {
                 name: _,
                 fields: _,
-                src,
-            } => src.clone(),
-            Instruction::TypeExtension {
-                target_type: _,
-                extensions: _,
                 src,
             } => src.clone(),
         }
