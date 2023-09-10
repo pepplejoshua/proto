@@ -13,7 +13,6 @@ pub enum Token {
     While(SourceRef),
     Break(SourceRef),
     Continue(SourceRef),
-    Void(SourceRef),
     True(SourceRef),
     False(SourceRef),
     Pub(SourceRef),
@@ -67,6 +66,23 @@ pub enum Token {
     SingleLineStringLiteral(SourceRef, String),
     MultiLineStringFragment(SourceRef, String),
     SingleLineComment(SourceRef, String),
+
+    // type tags
+    I8(SourceRef),
+    I16(SourceRef),
+    I32(SourceRef),
+    I64(SourceRef),
+    ISize(SourceRef),
+    U8(SourceRef),
+    U16(SourceRef),
+    U32(SourceRef),
+    U64(SourceRef),
+    USize(SourceRef),
+    Bool(SourceRef),
+    Char(SourceRef),
+    Str(SourceRef),
+    Void(SourceRef),
+    Type(SourceRef),
 
     // misc
     Eof(SourceRef),
@@ -126,6 +142,20 @@ impl Token {
             Token::Comp(src) => src.clone(),
             Token::Struct(src) => src.clone(),
             Token::QuestionMark(src) => src.clone(),
+            Token::I8(src) => src.clone(),
+            Token::I16(src) => src.clone(),
+            Token::I32(src) => src.clone(),
+            Token::I64(src) => src.clone(),
+            Token::ISize(src) => src.clone(),
+            Token::U8(src) => src.clone(),
+            Token::U16(src) => src.clone(),
+            Token::U32(src) => src.clone(),
+            Token::U64(src) => src.clone(),
+            Token::USize(src) => src.clone(),
+            Token::Bool(src) => src.clone(),
+            Token::Char(src) => src.clone(),
+            Token::Str(src) => src.clone(),
+            Token::Type(src) => src.clone(),
         }
     }
 
@@ -204,6 +234,20 @@ impl Token {
             Token::Comp(_) => "comp".into(),
             Token::Struct(_) => "struct".into(),
             Token::QuestionMark(_) => "?".into(),
+            Token::I8(_) => "i8".into(),
+            Token::I16(_) => "i16".into(),
+            Token::I32(_) => "i32".into(),
+            Token::I64(_) => "i64".into(),
+            Token::ISize(_) => "isize".into(),
+            Token::U8(_) => "u8".into(),
+            Token::U16(_) => "u16".into(),
+            Token::U32(_) => "u32".into(),
+            Token::U64(_) => "u64".into(),
+            Token::USize(_) => "usize".into(),
+            Token::Bool(_) => "bool".into(),
+            Token::Char(_) => "char".into(),
+            Token::Str(_) => "str".into(),
+            Token::Type(_) => "type".into(),
         }
     }
 }

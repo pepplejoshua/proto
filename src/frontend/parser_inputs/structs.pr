@@ -25,7 +25,7 @@ let SourceFile0 = struct {
 };
 
 // style 2
-// simple struct that uses defaults
+// data struct that uses defaults
 let SourceFile1 = .{
     path str,
     text str = "",

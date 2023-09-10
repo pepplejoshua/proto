@@ -15,7 +15,7 @@ pub enum LexError {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParseError {
     Expected(String, SourceRef, Option<String>),
-    ConstantDeclarationNeedsInitValue(SourceRef),
+    ConstantDeclarationNeedsTypeOrInitValue(SourceRef),
     CannotParseAnExpression(SourceRef),
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
@@ -28,9 +28,8 @@ pub enum ParseError {
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
-    UnusualTokenInUsePath(SourceRef),
-    UnterminatedUsePath(SourceRef),
     UnknownCompilerDirective(SourceRef),
     TooManyErrors(SourceRef),
-    TypeExtensionNotAllowedInThisContext(SourceRef),
+    CannotParseType(SourceRef, Option<String>),
+    TooManyTypes(SourceRef),
 }

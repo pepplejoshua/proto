@@ -1,18 +1,20 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
-use crate::frontend::{
-    lexer::Lexer,
-    parser::Parser,
-    source::{SourceFile, SourceReporter},
-    token::Token,
+use crate::{
+    frontend::{
+        lexer::Lexer,
+        parser::Parser,
+        source::{SourceFile, SourceReporter},
+        token::Token,
+    },
+    repr::{uir::Bundle, uir_gen::gen_uir},
 };
 
 #[allow(dead_code)]
 pub enum Stage {
     Lexer,
     Parser,
-    DependencyResolution,
-    SemanticAnalysis,
+    UIRGen,
 }
 
 #[allow(dead_code)]
@@ -47,7 +49,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolution,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -68,7 +70,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::PIR,
                         target_file: "".to_string(),
-                        max_stage: Stage::DependencyResolution,
+                        max_stage: Stage::UIRGen,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -76,7 +78,7 @@ impl PipelineConfig {
                 }
                 let target_file = args.next().unwrap();
                 let mut backend = Backend::PIR;
-                let mut max_stage = Stage::DependencyResolution;
+                let mut max_stage = Stage::UIRGen;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -86,8 +88,7 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "dep" => max_stage = Stage::DependencyResolution,
-                        "sem" => max_stage = Stage::SemanticAnalysis,
+                        "uir" => max_stage = Stage::UIRGen,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -107,7 +108,7 @@ impl PipelineConfig {
             "h" | "help" => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolution,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -116,7 +117,7 @@ impl PipelineConfig {
             _ => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolution,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -228,9 +229,9 @@ impl Workspace {
             return;
         }
         if self.config.dbg_info {
-            let _module = parser.compilation_module;
+            let _module = &parser.compilation_module;
 
-            for ins in _module.instructions {
+            for ins in _module.instructions.iter() {
                 println!("{}", ins.as_str());
             }
 
@@ -240,5 +241,10 @@ impl Workspace {
         if let Stage::Parser = self.config.max_stage {
             return;
         }
+
+        let mut bundle = Bundle::new();
+        gen_uir(&parser.compilation_module, &mut bundle);
+
+        bundle.show();
     }
 }

@@ -24,8 +24,8 @@ pub struct Parser {
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
-    pub compilation_module: CompilationModule,
     allow_directive_expr_use: bool,
+    pub compilation_module: CompilationModule,
 }
 
 #[allow(dead_code)]
@@ -425,7 +425,7 @@ impl Parser {
         // parse return type
         cur = self.cur_token();
         let return_type;
-        if let Some(sem_type) = self.parse_type() {
+        if let Ok(sem_type) = self.parse_type() {
             return_type = Some(sem_type);
         } else {
             // report that a type is expected
@@ -477,7 +477,7 @@ impl Parser {
         })
     }
 
-    fn parse_type(&mut self) -> Option<TypeReference> {
+    fn parse_type(&mut self) -> Result<TypeReference, ParseError> {
         let cur = self.cur_token();
         let start = cur.get_source_ref();
 
@@ -485,9 +485,169 @@ impl Parser {
             Token::Identifier(_, _) => {
                 let id = cur.as_str();
                 self.advance_index();
-                Some(TypeReference::IdentifierType(id, Some(start)))
+                Ok(TypeReference::IdentifierType(id, start))
             }
-            _ => None,
+            Token::LParen(_) => {
+                self.advance_index();
+                let mut types = vec![];
+                'types: while !self.no_more_tokens() {
+                    if types.len() > 256 {
+                        return Err(ParseError::TooManyTypes(
+                            start.combine(cur.get_source_ref()),
+                        ));
+                    }
+
+                    let cur = self.cur_token();
+                    if !matches!(cur, Token::RParen(_)) {
+                        let ty = self.parse_type()?;
+                        types.push(ty);
+                    }
+
+                    match cur {
+                        Token::RParen(_) => {
+                            self.advance_index();
+                            break 'types;
+                        }
+                        Token::Comma(_) => {
+                            self.advance_index();
+                            continue 'types;
+                        }
+                        _ => return Err(ParseError::Expected(
+                            "a ',' to separate types or a ')' to terminate tuple type declaration."
+                                .into(),
+                            start.combine(cur.get_source_ref()),
+                            None,
+                        )),
+                    }
+                }
+                Ok(TypeReference::TupleOf(types, start))
+            }
+            Token::LBracket(_) => {
+                self.advance_index();
+                let inner_type = self.parse_type()?;
+                let cur = self.cur_token();
+                match cur {
+                    Token::RBracket(_) => {
+                        self.advance_index();
+                        return Ok(TypeReference::ArrayOf(Box::new(inner_type), start));
+                    }
+                    Token::Semicolon(_) => {
+                        // static array
+                        self.advance_index();
+                        let cur = self.cur_token();
+                        let size;
+                        if let Token::Integer(num, src) = cur {
+                            self.advance_index();
+                            // convert to usize
+                            let maybe_size = num.parse::<usize>();
+                            if let Ok(size_) = maybe_size {
+                                size = size_;
+                            } else {
+                                return Err(ParseError::Expected(
+                                    "an integer to specify the size of the array.".into(),
+                                    start.combine(src.clone()),
+                                    None,
+                                ));
+                            }
+                        } else {
+                            return Err(ParseError::Expected(
+                                "an integer to specify the size of the array.".into(),
+                                start.combine(cur.get_source_ref()),
+                                None,
+                            ));
+                        }
+
+                        let cur = self.cur_token();
+                        if let Token::RBracket(_) = cur {
+                            self.advance_index();
+                            return Ok(TypeReference::StaticArrayOf(
+                                Box::new(inner_type),
+                                size,
+                                start,
+                            ));
+                        } else {
+                            return Err(ParseError::Expected(
+                                "a ']' to terminate the array type declaration.".into(),
+                                start.combine(cur.get_source_ref()),
+                                None,
+                            ));
+                        }
+                    }
+                    _ => {
+                        return Err(ParseError::Expected(
+                            "a ']' to terminate the array type declaration or a ';' with a size to specify a static array."
+                                .into(),
+                            start.combine(cur.get_source_ref()),
+                            None,
+                        ))
+                    }
+                }
+            }
+            Token::I8(_) => {
+                self.advance_index();
+                Ok(TypeReference::I8(start))
+            }
+            Token::I16(_) => {
+                self.advance_index();
+                Ok(TypeReference::I16(start))
+            }
+            Token::I32(_) => {
+                self.advance_index();
+                Ok(TypeReference::I32(start))
+            }
+            Token::I64(_) => {
+                self.advance_index();
+                Ok(TypeReference::I64(start))
+            }
+            Token::ISize(_) => {
+                self.advance_index();
+                Ok(TypeReference::ISize(start))
+            }
+            Token::U8(_) => {
+                self.advance_index();
+                Ok(TypeReference::U8(start))
+            }
+            Token::U16(_) => {
+                self.advance_index();
+                Ok(TypeReference::U16(start))
+            }
+            Token::U32(_) => {
+                self.advance_index();
+                Ok(TypeReference::U32(start))
+            }
+            Token::U64(_) => {
+                self.advance_index();
+                Ok(TypeReference::U64(start))
+            }
+            Token::USize(_) => {
+                self.advance_index();
+                Ok(TypeReference::USize(start))
+            }
+            Token::Bool(_) => {
+                self.advance_index();
+                Ok(TypeReference::Bool(start))
+            }
+            Token::Char(_) => {
+                self.advance_index();
+                Ok(TypeReference::Char(start))
+            }
+            Token::Str(_) => {
+                self.advance_index();
+                Ok(TypeReference::Str(start))
+            }
+            Token::Void(_) => {
+                self.advance_index();
+                Ok(TypeReference::Void(start))
+            }
+            Token::Type(_) => {
+                self.advance_index();
+                Ok(TypeReference::Type(start))
+            }
+            _ => Err(ParseError::Expected(
+                "a type.".into(),
+                start.combine(cur.get_source_ref()),
+                None,
+            )),
         }
     }
 
@@ -515,23 +675,31 @@ impl Parser {
         }
 
         let mut const_type = None;
-        if let Some(sem_type) = self.parse_type() {
-            const_type = Some(sem_type);
+        if !matches!(cur, Token::Assign(_)) {
+            // if it is not an assign (initialization),
+            // then it must be a type
+            const_type = Some(self.parse_type()?);
             cur = self.cur_token();
         }
 
+        let mut init_value = None;
+        let mut end_ref = start.get_source_ref();
         if let Token::Assign(_) = cur {
             self.advance_index();
+            let val = self.parse_expr()?;
+            end_ref = end_ref.combine(val.source_ref());
+            init_value = Some(val);
         } else {
-            return Err(ParseError::ConstantDeclarationNeedsInitValue(
-                self.cur_token()
-                    .get_source_ref()
-                    .combine(start.get_source_ref()),
-            ));
+            // if no type is provided, throw an error
+            if const_type.is_none() {
+                return Err(ParseError::ConstantDeclarationNeedsTypeOrInitValue(
+                    self.cur_token()
+                        .get_source_ref()
+                        .combine(start.get_source_ref()),
+                ));
+            }
         }
 
-        let init_value = self.parse_expr()?;
-        let mut end_ref = start.get_source_ref().combine(init_value.source_ref());
         cur = self.cur_token();
         match cur {
             Token::Semicolon(_) => {
@@ -747,11 +915,10 @@ impl Parser {
         }
 
         let mut var_type = None;
-        // try to parse an optional type and/or an optional assignment
-        // this will be replaced with a call to parse_type(try: true)
-        // which will try to parse a type
-        if let Some(sem_type) = self.parse_type() {
-            var_type = Some(sem_type);
+        if !matches!(cur, Token::Assign(_)) {
+            // if it is not an assign (initialization)
+            // then it must be a type
+            var_type = Some(self.parse_type()?);
             cur = self.cur_token();
         }
 
@@ -1073,10 +1240,9 @@ impl Parser {
             self.advance_index();
             if with_type {
                 let id = cur;
-                if let Some(sem_type) = self.parse_type() {
-                    let span = id
-                        .get_source_ref()
-                        .combine(sem_type.get_source_ref().unwrap());
+                let sem_type = self.parse_type();
+                if let Ok(sem_type) = sem_type {
+                    let span = id.get_source_ref().combine(sem_type.get_source_ref());
                     Ok(Expr::Id(id, Some(sem_type), span))
                 } else {
                     Err(ParseError::Expected(
@@ -1148,11 +1314,12 @@ impl Parser {
         Ok(init_named_struct)
     }
 
+    // . {} where {} is a block
     fn parse_anon_struct_literal(&mut self) -> Result<Expr, ParseError> {
         // unlike struct {} and NameStruct {}, this should allow an
         // optional type on the fields
         let mut span = self.cur_token().get_source_ref();
-        self.advance_index(); // consume 'struct'
+        self.advance_index(); // consume '.'
         let fields = self.parse_key_value_bindings(true)?;
         span = span.combine(fields.source_ref());
         let init_anon_struct = Expr::AnonStructLiteral { fields, src: span };
@@ -1247,7 +1414,18 @@ impl Parser {
                     cur.get_source_ref().combine(maybe_rparen.get_source_ref()),
                 ))
             }
-            _ => Err(ParseError::CannotParseAnExpression(cur.get_source_ref())),
+            _ => {
+                // try to parse type
+                let ty = self.parse_type();
+
+                if let Ok(ty) = ty {
+                    // return a type expression
+                    let span = ty.get_source_ref();
+                    Ok(Expr::TypeExpr(ty, span))
+                } else {
+                    Err(ParseError::CannotParseAnExpression(cur.get_source_ref()))
+                }
+            }
         }
     }
 }

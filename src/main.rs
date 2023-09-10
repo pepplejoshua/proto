@@ -6,7 +6,8 @@ use compilation::pipeline::Workspace;
 mod compilation;
 mod frontend;
 mod pastel;
-mod representations;
+mod repr;
+mod walker;
 
 const USAGE: &str = "
 Usage: proto command [options]?

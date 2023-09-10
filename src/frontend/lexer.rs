@@ -193,6 +193,22 @@ impl Lexer {
             "or" => Ok(Token::Or(combined_ref)),
             "not" => Ok(Token::Not(combined_ref)),
 
+            "i8" => Ok(Token::I8(combined_ref)),
+            "i16" => Ok(Token::I16(combined_ref)),
+            "i32" => Ok(Token::I32(combined_ref)),
+            "i64" => Ok(Token::I64(combined_ref)),
+            "isize" => Ok(Token::ISize(combined_ref)),
+            "u8" => Ok(Token::U8(combined_ref)),
+            "u16" => Ok(Token::U16(combined_ref)),
+            "u32" => Ok(Token::U32(combined_ref)),
+            "u64" => Ok(Token::U64(combined_ref)),
+            "usize" => Ok(Token::USize(combined_ref)),
+            "bool" => Ok(Token::Bool(combined_ref)),
+            "char" => Ok(Token::Char(combined_ref)),
+            "str" => Ok(Token::Str(combined_ref)),
+            "void" => Ok(Token::Void(combined_ref)),
+            "type" => Ok(Token::Type(combined_ref)),
+
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }

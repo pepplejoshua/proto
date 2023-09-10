@@ -1,16 +1,111 @@
 use super::{source::SourceRef, token::Token};
+use std::{
+    collections::hash_map::DefaultHasher,
+    hash::{Hash, Hasher},
+};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[allow(dead_code)]
 pub enum TypeReference {
-    IdentifierType(String, Option<SourceRef>),
+    Infer(SourceRef),
+    I8(SourceRef),
+    I16(SourceRef),
+    I32(SourceRef),
+    I64(SourceRef),
+    ISize(SourceRef),
+    U8(SourceRef),
+    U16(SourceRef),
+    U32(SourceRef),
+    U64(SourceRef),
+    USize(SourceRef),
+    Bool(SourceRef),
+    Char(SourceRef),
+    Str(SourceRef),
+    Void(SourceRef),
+    Type(SourceRef),
+    IdentifierType(String, SourceRef),
+    ArrayOf(Box<TypeReference>, SourceRef),
+    StaticArrayOf(Box<TypeReference>, usize, SourceRef),
+    TupleOf(Vec<TypeReference>, SourceRef),
+}
+
+impl Hash for TypeReference {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        match self {
+            TypeReference::Infer(_) => "infer".hash(state),
+            TypeReference::I8(_) => "i8".hash(state),
+            TypeReference::I16(_) => "i16".hash(state),
+            TypeReference::I32(_) => "i32".hash(state),
+            TypeReference::I64(_) => "i64".hash(state),
+            TypeReference::ISize(_) => "isize".hash(state),
+            TypeReference::U8(_) => "u8".hash(state),
+            TypeReference::U16(_) => "u16".hash(state),
+            TypeReference::U32(_) => "u32".hash(state),
+            TypeReference::U64(_) => "u64".hash(state),
+            TypeReference::USize(_) => "usize".hash(state),
+            TypeReference::Bool(_) => "bool".hash(state),
+            TypeReference::Char(_) => "char".hash(state),
+            TypeReference::Str(_) => "str".hash(state),
+            TypeReference::Void(_) => "void".hash(state),
+            TypeReference::Type(_) => "type".hash(state),
+            TypeReference::IdentifierType(s, _) => s.hash(state),
+            TypeReference::ArrayOf(t, _) => {
+                "array_of_".hash(state);
+                t.hash(state);
+            }
+            TypeReference::StaticArrayOf(t, n, _) => {
+                "static_array_of_".hash(state);
+                t.hash(state);
+                n.hash(state);
+            }
+            TypeReference::TupleOf(ts, _) => {
+                "tuple_of_".hash(state);
+                for t in ts {
+                    t.hash(state);
+                }
+            }
+        }
+    }
 }
 
 #[allow(dead_code)]
 impl TypeReference {
+    pub fn get_hash(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        self.hash(&mut hasher);
+        hasher.finish()
+    }
+
     pub fn as_str(&self) -> String {
         match self {
+            TypeReference::Infer(_) => "infer".to_string(),
             TypeReference::IdentifierType(s, _) => s.clone(),
+            TypeReference::I8(_) => "i8".to_string(),
+            TypeReference::I16(_) => "i16".to_string(),
+            TypeReference::I32(_) => "i32".to_string(),
+            TypeReference::I64(_) => "i64".to_string(),
+            TypeReference::ISize(_) => "isize".to_string(),
+            TypeReference::U8(_) => "u8".to_string(),
+            TypeReference::U16(_) => "u16".to_string(),
+            TypeReference::U32(_) => "u32".to_string(),
+            TypeReference::U64(_) => "u64".to_string(),
+            TypeReference::USize(_) => "usize".to_string(),
+            TypeReference::Bool(_) => "bool".to_string(),
+            TypeReference::Char(_) => "char".to_string(),
+            TypeReference::Str(_) => "str".to_string(),
+            TypeReference::Void(_) => "void".to_string(),
+            TypeReference::Type(_) => "type".to_string(),
+            TypeReference::ArrayOf(t, _) => format!("[{}]", t.as_str()),
+            TypeReference::TupleOf(ts, _) => {
+                let mut s = "(".to_string();
+                for t in ts {
+                    s.push_str(&t.as_str());
+                    s.push_str(", ");
+                }
+                s.push_str(")");
+                s
+            }
+            TypeReference::StaticArrayOf(t, n, _) => format!("[{}; {}]", t.as_str(), n),
         }
     }
 
@@ -19,20 +114,62 @@ impl TypeReference {
             (TypeReference::IdentifierType(s1, _), TypeReference::IdentifierType(s2, _)) => {
                 s1 == s2
             }
+            (TypeReference::I8(_), TypeReference::I8(_)) => true,
+            (TypeReference::I16(_), TypeReference::I16(_)) => true,
+            (TypeReference::I32(_), TypeReference::I32(_)) => true,
+            (TypeReference::I64(_), TypeReference::I64(_)) => true,
+            (TypeReference::ISize(_), TypeReference::ISize(_)) => true,
+            (TypeReference::U8(_), TypeReference::U8(_)) => true,
+            (TypeReference::U16(_), TypeReference::U16(_)) => true,
+            (TypeReference::U32(_), TypeReference::U32(_)) => true,
+            (TypeReference::U64(_), TypeReference::U64(_)) => true,
+            (TypeReference::USize(_), TypeReference::USize(_)) => true,
+            (TypeReference::Bool(_), TypeReference::Bool(_)) => true,
+            (TypeReference::Char(_), TypeReference::Char(_)) => true,
+            (TypeReference::Str(_), TypeReference::Str(_)) => true,
+            (TypeReference::Void(_), TypeReference::Void(_)) => true,
+            (TypeReference::Type(_), TypeReference::Type(_)) => true,
+            (TypeReference::ArrayOf(t1, _), TypeReference::ArrayOf(t2, _)) => t1.eq(t2),
+            (TypeReference::TupleOf(ts1, _), TypeReference::TupleOf(ts2, _)) => {
+                if ts1.len() != ts2.len() {
+                    return false;
+                }
+                for (t1, t2) in ts1.iter().zip(ts2.iter()) {
+                    if !t1.eq(t2) {
+                        return false;
+                    }
+                }
+                true
+            }
+            (TypeReference::StaticArrayOf(t1, n1, _), TypeReference::StaticArrayOf(t2, n2, _)) => {
+                t1.eq(t2) && n1 == n2
+            }
+            _ => false,
         }
     }
 
-    pub fn type_from(tag: &str) -> Self {
-        TypeReference::IdentifierType(tag.to_string(), None)
-    }
-
-    pub fn identifier_type_with_loc(tag: &str, at: SourceRef) -> Self {
-        TypeReference::IdentifierType(tag.to_string(), Some(at))
-    }
-
-    pub fn get_source_ref(&self) -> Option<SourceRef> {
+    pub fn get_source_ref(&self) -> SourceRef {
         match self {
+            TypeReference::Infer(s) => s.clone(),
             TypeReference::IdentifierType(_, s) => s.clone(),
+            TypeReference::I8(s) => s.clone(),
+            TypeReference::I16(s) => s.clone(),
+            TypeReference::I32(s) => s.clone(),
+            TypeReference::I64(s) => s.clone(),
+            TypeReference::ISize(s) => s.clone(),
+            TypeReference::U8(s) => s.clone(),
+            TypeReference::U16(s) => s.clone(),
+            TypeReference::U32(s) => s.clone(),
+            TypeReference::U64(s) => s.clone(),
+            TypeReference::USize(s) => s.clone(),
+            TypeReference::Bool(s) => s.clone(),
+            TypeReference::Char(s) => s.clone(),
+            TypeReference::Str(s) => s.clone(),
+            TypeReference::Void(s) => s.clone(),
+            TypeReference::Type(s) => s.clone(),
+            TypeReference::ArrayOf(_, s) => s.clone(),
+            TypeReference::TupleOf(_, s) => s.clone(),
+            TypeReference::StaticArrayOf(_, _, s) => s.clone(),
         }
     }
 }
@@ -40,6 +177,7 @@ impl TypeReference {
 #[derive(Debug, Clone)]
 #[allow(dead_code)]
 pub enum Expr {
+    TypeExpr(TypeReference, SourceRef),
     Id(Token, Option<TypeReference>, SourceRef),
     Number(Token, SourceRef),
     SingleLineStringLiteral(Token, SourceRef),
@@ -87,6 +225,7 @@ pub enum Expr {
 impl Expr {
     pub fn source_ref(&self) -> SourceRef {
         match &self {
+            Expr::TypeExpr(_, s) => s.clone(),
             Expr::Id(_, _, s) => s.clone(),
             Expr::Number(_, s) => s.clone(),
             Expr::Binary(_, _, _, s) => s.clone(),
@@ -125,6 +264,7 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
+            Expr::TypeExpr(t, _) => t.as_str(),
             Expr::Id(tok, maybe_type, _) => {
                 let mut s = tok.as_str().to_string();
                 if let Some(t) = maybe_type {
@@ -242,7 +382,7 @@ pub enum Instruction {
     ConstantDecl {
         const_name: Token,
         const_type: Option<TypeReference>,
-        init_expr: Expr,
+        init_expr: Option<Expr>,
         src_ref: SourceRef,
         is_public: bool,
     },
@@ -322,18 +462,18 @@ impl Instruction {
                 init_expr,
                 src_ref: _,
                 is_public: _,
-            } => match t {
-                Some(c_type) => {
-                    format!(
-                        "let {} {} = {};",
-                        const_name.as_str(),
-                        c_type.as_str(),
-                        init_expr.as_str()
-                    )
+            } => match (t, init_expr) {
+                (None, None) => unreachable!("constant decl with no type or init expr"),
+                (None, Some(init)) => format!("let {} = {};", const_name.as_str(), init.as_str()),
+                (Some(c_type), None) => {
+                    format!("let {} {};", const_name.as_str(), c_type.as_str())
                 }
-                None => {
-                    format!("let {} = {};", const_name.as_str(), init_expr.as_str())
-                }
+                (Some(c_type), Some(init)) => format!(
+                    "let {} {} = {};",
+                    const_name.as_str(),
+                    c_type.as_str(),
+                    init.as_str()
+                ),
             },
             Instruction::VariableDecl(name, t, init, _) => match (t, init) {
                 (None, None) => format!("mut {};", name.as_str()),

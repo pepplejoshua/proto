@@ -125,7 +125,7 @@ impl SourceFile {
 }
 
 #[allow(dead_code)]
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct SourceRef {
     pub file: String,      // file path
     pub start_line: usize, // start line
@@ -270,13 +270,15 @@ impl SourceReporter {
             ParseError::Expected(msg, src, tip) => {
                 self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
             }
-            ParseError::ConstantDeclarationNeedsInitValue(src) => {
-                let msg = "Constant declaration needs an initialization value.".to_string();
-                let tip = "Constants are set on creation and cannot be modified after.".to_string();
+            ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => {
+                let msg = "Constant declaration needs an initialization type or value.".to_string();
+                let tip =
+                    "The compiler cannot yet back-propagate the type of a constant declaration."
+                        .to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::CannotParseAnExpression(src) => {
-                let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
+                let msg = "An expression was required at this point of the program but couldn't parse any.".to_string();
                 self.report_with_ref(&src, msg, None);
             }
             ParseError::TooManyFnArgs(src) => {
@@ -345,51 +347,19 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::UnusualTokenInUsePath(src) => {
-                let msg = "Unexpected token in use path.".to_string();
-                let mut tip = "Some valid use paths include:\n".to_string();
-                tip.push_str("*  use immediate_module::inner::other;\n");
-                tip.push_str("*  use immediate_module::inner as alias;\n");
-                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
-                tip.push_str("*  use immediate_module;\n");
-                tip.push_str("*  use import_everything::*;\n");
-                tip.push_str("*  use ^::module_in_parent_dir;\n");
-                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
-                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
-                tip.push_str("*  use !module_in_current_file;\n");
-                tip.push_str("*  use $module_in_project_root;\n");
-                tip.push_str("*  use @core_module::sub_module;\n");
-                tip.push_str("Please find more information on use paths  in documentation.");
-                self.report_with_ref(&src, msg, Some(tip));
-            }
-            ParseError::UnterminatedUsePath(src) => {
-                let msg = "Unterminated use path.".to_string();
-                let mut tip = "Some terminated use paths include:\n".to_string();
-                tip.push_str("*  use immediate_module::inner::other;\n");
-                tip.push_str("*  use immediate_module::inner as alias;\n");
-                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
-                tip.push_str("*  use immediate_module;\n");
-                tip.push_str("*  use import_everything::*;\n");
-                tip.push_str("*  use ^::module_in_parent_dir;\n");
-                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
-                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
-                tip.push_str("*  use !module_in_current_file;\n");
-                tip.push_str("*  use $module_in_project_root;\n");
-                tip.push_str("*  use @core_module::sub_module;\n");
-                tip.push_str("Please find more information on use paths in documentation.");
-                self.report_with_ref(&src, msg, Some(tip));
-            }
             ParseError::UnknownCompilerDirective(src) => {
                 let msg = "Unknown compiler directive.".to_string();
                 let tip = "Please find more information on compiler directives in documentation."
                     .to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::TypeExtensionNotAllowedInThisContext(src) => {
-                let msg = "Defining a type extension is not allowed in this context.".to_string();
-                let mut tip = "Type extensions are only allowed:\n".to_string();
-                tip.push_str("*  At the top level/scope of a module.\n");
-                tip.push_str("*  Within a module.\n");
+            ParseError::CannotParseType(src, some_tip) => {
+                let msg = "Cannot parse type.".to_string();
+                self.report_with_ref(&src, msg, some_tip);
+            }
+            ParseError::TooManyTypes(src) => {
+                let msg = "Too many types referenced.".to_string();
+                let tip = "The maximum number of types allowed is 256.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
         }
