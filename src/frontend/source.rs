@@ -125,7 +125,7 @@ impl SourceFile {
 }
 
 #[allow(dead_code)]
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Hash, PartialEq, Eq)]
 pub struct SourceRef {
     pub file: String,      // file path
     pub start_line: usize, // start line
@@ -170,32 +170,28 @@ impl SourceRef {
         )
     }
 
-    // combine 2 SourceRefs to create a new one that:
-    // - has the same file
-    // - has the first occuring start_line and start_col
-    // - has the last occuring end_line and end_col
-    // - has the first occuring flat_start
-    // - has the last occuring flat_end
     pub fn combine(&self, other: SourceRef) -> SourceRef {
-        let start_line = if self.start_line < other.start_line {
-            self.start_line
+        let (start_line, start_col) = if self.start_line < other.start_line {
+            (self.start_line, self.start_col)
+        } else if self.start_line == other.start_line {
+            if self.start_col < other.start_col {
+                (self.start_line, self.start_col)
+            } else {
+                (other.start_line, other.start_col)
+            }
         } else {
-            other.start_line
+            (other.start_line, other.start_col)
         };
-        let start_col = if self.start_col < other.start_col {
-            self.start_col
+        let (end_line, end_col) = if self.end_line > other.end_line {
+            (self.end_line, self.end_col)
+        } else if self.end_line == other.end_line {
+            if self.end_col > other.end_col {
+                (self.end_line, self.end_col)
+            } else {
+                (other.end_line, other.end_col)
+            }
         } else {
-            other.start_col
-        };
-        let end_line = if self.end_line > other.end_line {
-            self.end_line
-        } else {
-            other.end_line
-        };
-        let end_col = if self.end_col > other.end_col {
-            self.end_col
-        } else {
-            other.end_col
+            (other.end_line, other.end_col)
         };
         let flat_start = if self.flat_start < other.flat_start {
             self.flat_start
@@ -274,13 +270,15 @@ impl SourceReporter {
             ParseError::Expected(msg, src, tip) => {
                 self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
             }
-            ParseError::ConstantDeclarationNeedsInitValue(src) => {
-                let msg = "Constant declaration needs an initialization value.".to_string();
-                let tip = "Constants are set on creation and cannot be modified after.".to_string();
+            ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => {
+                let msg = "Constant declaration needs an initialization type or value.".to_string();
+                let tip =
+                    "The compiler cannot yet back-propagate the type of a constant declaration."
+                        .to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::CannotParseAnExpression(src) => {
-                let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
+                let msg = "An expression was required at this point of the program but couldn't parse any.".to_string();
                 self.report_with_ref(&src, msg, None);
             }
             ParseError::TooManyFnArgs(src) => {
@@ -303,9 +301,12 @@ impl SourceReporter {
                 let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::NoVariableAtTopLevel(src) => {
-                let msg = "Variable declarations are not allowed at the top level of a module."
-                    .to_string();
+            ParseError::NoVariableAtCurrentScope(src) => {
+                let mut msg = "Variable declarations are not allowed:\n".to_string();
+                msg.push_str(
+                    "*  at the top level of module (It is allowed at the top level of the file).\n",
+                );
+                msg.push_str("*  inside a type extension.\n");
                 let tip =
                     "Consider if this can be declared as a constant (use let instead of mut)."
                         .into();
@@ -315,10 +316,12 @@ impl SourceReporter {
                 let msg = "Code block was not terminated.".to_string();
                 self.report_with_ref(&src, msg, tip);
             }
-            ParseError::NoCodeBlockAtTopLevel(src) => {
-                let msg = "Code block found at top level".to_string();
-                let tip =
-                    "Code blocks are only allowed within functions and other code blocks.".into();
+            ParseError::NoCodeBlockAllowedInCurrentContext(src) => {
+                let msg = "Code block is not allowed in this context.".to_string();
+                let mut tip = "Code blocks are not allowed:".to_string();
+                tip.push_str("*  Within type extensions\n");
+                tip.push_str("*  Within modules declarations\n");
+                tip.push_str("*  At the top level of a file.\n");
                 self.report_with_ref(&src, msg, Some(tip));
             }
             ParseError::ReturnInstructionOutsideFunction(src) => {
@@ -344,44 +347,19 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::UnusualTokenInUsePath(src) => {
-                let msg = "Unexpected token in use path.".to_string();
-                let mut tip = "Some valid use paths include:\n".to_string();
-                tip.push_str("*  use immediate_module::inner::other;\n");
-                tip.push_str("*  use immediate_module::inner as alias;\n");
-                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
-                tip.push_str("*  use immediate_module;\n");
-                tip.push_str("*  use import_everything::*;\n");
-                tip.push_str("*  use ^::module_in_parent_dir;\n");
-                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
-                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
-                tip.push_str("*  use !module_in_current_file;\n");
-                tip.push_str("*  use $module_in_project_root;\n");
-                tip.push_str("*  use @core_module::sub_module;\n");
-                tip.push_str("Please find more information on use paths  in documentation.");
-                self.report_with_ref(&src, msg, Some(tip));
-            }
-            ParseError::UnterminatedUsePath(src) => {
-                let msg = "Unterminated use path.".to_string();
-                let mut tip = "Some terminated use paths include:\n".to_string();
-                tip.push_str("*  use immediate_module::inner::other;\n");
-                tip.push_str("*  use immediate_module::inner as alias;\n");
-                tip.push_str("*  use immediate::[use_path1, use_path2, ...];\n");
-                tip.push_str("*  use immediate_module;\n");
-                tip.push_str("*  use import_everything::*;\n");
-                tip.push_str("*  use ^::module_in_parent_dir;\n");
-                tip.push_str("*  use ^::module_in_parent_dir::inner;\n");
-                tip.push_str("*  use ^::^::module_in_grandparent_dir::inner;\n");
-                tip.push_str("*  use !module_in_current_file;\n");
-                tip.push_str("*  use $module_in_project_root;\n");
-                tip.push_str("*  use @core_module::sub_module;\n");
-                tip.push_str("Please find more information on use paths in documentation.");
-                self.report_with_ref(&src, msg, Some(tip));
-            }
             ParseError::UnknownCompilerDirective(src) => {
                 let msg = "Unknown compiler directive.".to_string();
                 let tip = "Please find more information on compiler directives in documentation."
                     .to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
+            ParseError::CannotParseType(src, some_tip) => {
+                let msg = "Cannot parse type.".to_string();
+                self.report_with_ref(&src, msg, some_tip);
+            }
+            ParseError::TooManyTypes(src) => {
+                let msg = "Too many types referenced.".to_string();
+                let tip = "The maximum number of types allowed is 256.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
         }
@@ -399,7 +377,6 @@ impl SourceReporter {
 
     fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
         let err_col = "d_red";
-        let target_col = "l_magenta";
         let tip_col = "l_yellow";
         let line_col = "l_green";
         let mut output = String::new();
@@ -410,7 +387,7 @@ impl SourceReporter {
         // add file name
         let f_name = &self.src.path;
         output.push_str(&format!(
-            "   *[_, l_white:d_black]File '{f_name}'[/] *[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]\n",
+            "   *[_, l_white:d_black]File '{f_name}:[/]*[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]'\n",
             src.start_line + 1,
             src.start_col + 1
         ));
@@ -432,7 +409,7 @@ impl SourceReporter {
                 ""
             };
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
+                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
                 src.start_line + 1,
             ));
         } else {
@@ -442,7 +419,7 @@ impl SourceReporter {
             let pre_slice = &f_line[..src.start_col];
             let f_target_slice = &f_line[src.start_col..];
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {target_col}:d_black]{f_target_slice}[/]\n",
+                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{f_target_slice}[/]\n",
                 src.start_line + 1,
             ));
 
@@ -450,17 +427,21 @@ impl SourceReporter {
             for line_no in src.start_line + 1..src.end_line {
                 let target_line = self.src.lines[line_no].clone();
                 output.push_str(&format!(
-                    "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{target_line}[/]\n",
+                    "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{target_line}[/]\n",
                     line_no + 1,
                 ));
             }
 
             // - add last line of target area (if it is not the same as first line)
             let l_line = &self.src.lines[src.end_line].clone();
-            let l_target_slice = &l_line[..src.end_col];
-            let post_slice = &l_line[src.end_col..];
+            let mut end_col = src.end_col;
+            if src.end_col >= l_line.len() {
+                end_col = l_line.len();
+            }
+            let l_target_slice = &l_line[..end_col];
+            let post_slice = &l_line[end_col..];
             output.push_str(&format!(
-                "       *[d_white:d_black]{}[/] | *[*, {target_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
+                "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
                 src.end_line + 1,
             ));
         }

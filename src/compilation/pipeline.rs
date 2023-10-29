@@ -1,22 +1,17 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
-use crate::{
-    analysis_a::dependency_res::DependencyResolvr,
-    frontend::{
-        lexer::Lexer,
-        parser::Parser,
-        source::{SourceFile, SourceReporter},
-        token::Token,
-    },
-    pir::ir::{PIRModule, PIRModulePass},
-    tools::pfmt::Pfmt,
+use crate::frontend::{
+    lexer::Lexer,
+    parser::Parser,
+    source::{SourceFile, SourceReporter},
+    token::Token,
 };
 
 #[allow(dead_code)]
 pub enum Stage {
     Lexer,
     Parser,
-    DependencyResolvr,
+    UIRGen,
 }
 
 #[allow(dead_code)]
@@ -51,7 +46,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -72,7 +67,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::PIR,
                         target_file: "".to_string(),
-                        max_stage: Stage::DependencyResolvr,
+                        max_stage: Stage::UIRGen,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -80,7 +75,7 @@ impl PipelineConfig {
                 }
                 let target_file = args.next().unwrap();
                 let mut backend = Backend::PIR;
-                let mut max_stage = Stage::DependencyResolvr;
+                let mut max_stage = Stage::UIRGen;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -90,7 +85,7 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "dep" => max_stage = Stage::DependencyResolvr,
+                        "uir" => max_stage = Stage::UIRGen,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -110,7 +105,7 @@ impl PipelineConfig {
             "h" | "help" => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -119,7 +114,7 @@ impl PipelineConfig {
             _ => PipelineConfig {
                 backend: Backend::PIR,
                 target_file: "".to_string(),
-                max_stage: Stage::DependencyResolvr,
+                max_stage: Stage::UIRGen,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -131,7 +126,7 @@ impl PipelineConfig {
 
 pub struct Workspace {
     entry_file: String,
-    files: HashMap<String, (SourceFile, PIRModule)>,
+    files: HashMap<String, SourceFile>,
     config: PipelineConfig,
 }
 
@@ -143,11 +138,19 @@ impl Workspace {
         let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file)).unwrap();
         let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
 
-        Workspace {
+        let w = Workspace {
             entry_file: abs_entry_file,
             files: HashMap::new(),
             config,
-        }
+        };
+
+        // TODO: add back when std is ready and we can handle directives
+        // w.process_file(
+        //     "/Users/iwarilama/Desktop/Code/rust/proto/src/std/primitives.pr".to_string(),
+        //     &mut vec![],
+        // );
+
+        return w;
     }
 
     pub fn compile_workspace(&mut self) {
@@ -164,7 +167,7 @@ impl Workspace {
 
     fn process_file(&mut self, file_path: String, path_stack: &mut Vec<String>) {
         // check if file is already processed and stored in files
-        if let Some((_, _)) = self.files.get(&file_path) {
+        if let Some(_) = self.files.get(&file_path) {
             return;
         }
 
@@ -210,6 +213,7 @@ impl Workspace {
             for le in parser.lexer_errors {
                 reporter.report_lexer_error(&le);
             }
+            return;
         }
         if self.config.dbg_info {
             reporter.show_info("lexing complete.".to_string());
@@ -219,47 +223,20 @@ impl Workspace {
             for pe in parser.parser_errors {
                 reporter.report_parser_error(pe);
             }
+            return;
         }
         if self.config.dbg_info {
+            let _module = &parser.compilation_module;
+
+            for ins in _module.instructions.iter() {
+                println!("{}", ins.as_str());
+            }
+
             reporter.show_info("parsing complete.".to_string());
         }
 
         if let Stage::Parser = self.config.max_stage {
             return;
-        }
-
-        let module = parser.compilation_module;
-        let mut ir_mod = PIRModule::new(module, file_path.clone());
-        self.files.insert(file_path.clone(), (src, ir_mod.clone()));
-
-        if self.config.use_pfmt {
-            let mut pfmt = Pfmt::new(&mut ir_mod);
-            let res = pfmt.process();
-            match res {
-                Ok(msg) if self.config.dbg_info => reporter.show_info(msg),
-                Err(e) => reporter.show_error(e),
-                _ => {}
-            }
-        }
-
-        let mut dep_resolvr = DependencyResolvr::new(&mut ir_mod);
-        let res = dep_resolvr.process();
-        match res {
-            Ok(indices) => {
-                let dependencies_bundl = dep_resolvr.resolve(indices);
-                path_stack.push(file_path.clone());
-                for (_, bundl) in dependencies_bundl {
-                    for (path, _) in bundl {
-                        let path_str = path.to_str().unwrap().to_string();
-                        self.process_file(path_str, path_stack);
-                    }
-                }
-                path_stack.pop();
-            }
-            Err(_) => todo!(),
-        }
-        if self.config.dbg_info {
-            reporter.show_info("dependency resolution complete.".to_string());
         }
     }
 }

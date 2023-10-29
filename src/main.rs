@@ -3,13 +3,10 @@ use std::env;
 use crate::compilation::pipeline::PipelineConfig;
 use compilation::pipeline::Workspace;
 
-mod analysis_a;
 mod compilation;
 mod frontend;
-mod name_resolution;
 mod pastel;
-mod pir;
-mod tools;
+mod walker;
 
 const USAGE: &str = "
 Usage: proto command [options]?

@@ -4,13 +4,14 @@ expression: res
 input_file: src/frontend/lexer_inputs/numbers.pr
 ---
 stringified_tokens:
-  - "-128 at [start_line:0 start_col:0 end_line:0 end_col:4 flat_start:0 flat_end:4]"
-  - "127 at [start_line:0 start_col:5 end_line:0 end_col:8 flat_start:5 flat_end:8]"
-  - "-32768 at [start_line:0 start_col:9 end_line:0 end_col:16 flat_start:9 flat_end:16]"
-  - "32767 at [start_line:0 start_col:17 end_line:0 end_col:23 flat_start:17 flat_end:23]"
-  - "-2147483648 at [start_line:0 start_col:24 end_line:0 end_col:38 flat_start:24 flat_end:38]"
-  - "2147483647 at [start_line:0 start_col:39 end_line:0 end_col:52 flat_start:39 flat_end:52]"
-  - "-9223372036854775808 at [start_line:0 start_col:53 end_line:0 end_col:79 flat_start:53 flat_end:79]"
-  - "9223372036854775807 at [start_line:0 start_col:80 end_line:0 end_col:105 flat_start:80 flat_end:105]"
-  - "18446744073709551615 at [start_line:0 start_col:106 end_line:0 end_col:132 flat_start:106 flat_end:132]"
+  - "128 at [start_line:0 start_col:0 end_line:0 end_col:3 flat_start:0 flat_end:3]"
+  - "127 at [start_line:0 start_col:4 end_line:0 end_col:7 flat_start:4 flat_end:7]"
+  - "32768 at [start_line:0 start_col:8 end_line:0 end_col:14 flat_start:8 flat_end:14]"
+  - "32767 at [start_line:0 start_col:15 end_line:0 end_col:21 flat_start:15 flat_end:21]"
+  - "2147483648 at [start_line:0 start_col:22 end_line:0 end_col:35 flat_start:22 flat_end:35]"
+  - "2147483647 at [start_line:1 start_col:0 end_line:1 end_col:13 flat_start:36 flat_end:49]"
+  - "- at [start_line:1 start_col:14 end_line:1 end_col:15 flat_start:50 flat_end:51]"
+  - "9223372036854775808 at [start_line:1 start_col:15 end_line:1 end_col:40 flat_start:51 flat_end:76]"
+  - "9223372036854775807 at [start_line:2 start_col:0 end_line:2 end_col:25 flat_start:77 flat_end:102]"
+  - "18446744073709551615 at [start_line:2 start_col:26 end_line:2 end_col:52 flat_start:103 flat_end:129]"
 
