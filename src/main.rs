@@ -6,7 +6,6 @@ use compilation::pipeline::Workspace;
 mod compilation;
 mod frontend;
 mod pastel;
-mod repr;
 mod walker;
 
 const USAGE: &str = "

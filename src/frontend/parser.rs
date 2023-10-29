@@ -1331,9 +1331,13 @@ impl Parser {
         let mut span = self.cur_token().get_source_ref();
         self.advance_index(); // consume 'struct'
 
+        let prev_scope = self.parse_scope;
+        self.parse_scope = ParseScope::Struct;
+
         // parse block
         let contents = self.parse_code_block()?;
         span = span.combine(contents.source_ref());
+        self.parse_scope = prev_scope;
         Ok(Expr::StructDecl {
             contents: Box::new(contents),
             src: span,

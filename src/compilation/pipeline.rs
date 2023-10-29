@@ -1,13 +1,10 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
-use crate::{
-    frontend::{
-        lexer::Lexer,
-        parser::Parser,
-        source::{SourceFile, SourceReporter},
-        token::Token,
-    },
-    repr::{uir::Bundle, uir_gen::gen_uir},
+use crate::frontend::{
+    lexer::Lexer,
+    parser::Parser,
+    source::{SourceFile, SourceReporter},
+    token::Token,
 };
 
 #[allow(dead_code)]
@@ -241,10 +238,5 @@ impl Workspace {
         if let Stage::Parser = self.config.max_stage {
             return;
         }
-
-        let mut bundle = Bundle::new();
-        gen_uir(&parser.compilation_module, &mut bundle);
-
-        bundle.show();
     }
 }
