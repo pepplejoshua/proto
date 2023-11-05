@@ -1,10 +1,10 @@
 use super::{
-    ast::{CompilationModule, Expr, Instruction, KeyValueBindings, TypeReference},
-    directives::{DIRECTIVES_EXPRS, DIRECTIVES_INS},
+    ast::{CompilationModule, Expr, Instruction, KeyValueBindings},
     errors::{LexError, ParseError},
     lexer::Lexer,
     source::SourceRef,
     token::Token,
+    types::TypeSignature,
 };
 
 #[allow(dead_code)]
@@ -54,7 +54,7 @@ impl Parser {
                     self.report_error(err.clone());
                     if matches!(
                         err,
-                        ParseError::CannotParseAnExpression(_)
+                        ParseError::CannotParseAnExpressionOrType(_)
                             | ParseError::Expected(_, _, _)
                             | ParseError::NoBreakOutsideLoop(_)
                             | ParseError::NoContinueOutsideLoop(_),
@@ -128,7 +128,7 @@ impl Parser {
             // top level code
             Token::Mut(_) => {
                 let var = self.parse_var_decl()?;
-                if matches!(self.parse_scope, ParseScope::Struct) {
+                if matches!(self.parse_scope, ParseScope::TopLevel) {
                     // declaring variables at the top level is not allowed
                     Err(ParseError::NoVariableAtCurrentScope(var.source_ref()))
                 } else {
@@ -169,7 +169,10 @@ impl Parser {
             }
             Token::LCurly(_) => {
                 let blk = self.parse_code_block()?;
-                if matches!(self.parse_scope, ParseScope::TopLevel | ParseScope::Struct) {
+                if matches!(
+                    self.parse_scope,
+                    ParseScope::TopLevel | ParseScope::Module | ParseScope::Struct
+                ) {
                     // declaring code blocks at the top level is not allowed
                     Err(ParseError::NoCodeBlockAllowedInCurrentContext(
                         blk.source_ref(),
@@ -315,27 +318,18 @@ impl Parser {
         // skip the '@' token
         self.advance_index();
         let cur = self.cur_token();
-        if let Token::Identifier(name, _) = &cur {
-            let binding = DIRECTIVES_INS.get(name);
-            match binding {
-                Some(needs_additional_ins) => {
-                    let directive = self.parse_id(false)?;
-                    let mut ins = None;
-                    let mut span = start.get_source_ref();
-                    if *needs_additional_ins {
-                        let body = self.next_instruction()?;
-                        span = span.combine(body.source_ref());
-                        ins = Some(Box::new(body));
-                    }
-                    let direc = Instruction::DirectiveInstruction {
-                        directive,
-                        src: span,
-                        block: ins,
-                    };
-                    Ok(direc)
-                }
-                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
-            }
+        if let Token::Identifier(_, _) = &cur {
+            let directive = self.parse_id(false)?;
+            let mut span = start.get_source_ref();
+            let block = self.parse_code_block()?;
+            span = span.combine(block.source_ref());
+            let ins = Box::new(block);
+            let direc = Instruction::DirectiveInstruction {
+                directive,
+                src: span,
+                block: ins,
+            };
+            Ok(direc)
         } else {
             Err(ParseError::Expected(
                 "an identifier to name the directive after '@'".to_string(),
@@ -424,45 +418,22 @@ impl Parser {
 
         // parse return type
         cur = self.cur_token();
-        let return_type;
-        if let Ok(sem_type) = self.parse_type() {
-            return_type = Some(sem_type);
-        } else {
-            // report that a type is expected
-            return Err(ParseError::Expected(
-                "a return type for this function.".into(),
-                start.get_source_ref().combine(cur.get_source_ref()),
-                Some("If it returns nothing, use the 'void' type as its return type.".into()),
-            ));
-        }
-
-        // check if the next token is a semi-colon. If it is,
-        // then this is a function prototype, not a function definition
-        // so we just return a function prototype instruction
-        // and don't parse the function body
-        cur = self.cur_token();
-        if matches!(cur, Token::Semicolon(_)) {
-            self.advance_index();
-            self.parse_scope = temp_scope;
-            let ret_type = return_type.unwrap();
-            let mut fn_ref = start.get_source_ref().combine(cur.get_source_ref());
-            if is_public {
-                fn_ref = fn_ref.combine(pub_ref.unwrap());
+        let ret_type = {
+            let ret_type = self.parse_type();
+            if ret_type.is_err() {
+                // report that a type is expected
+                return Err(ParseError::Expected(
+                    "a return type for this function.".into(),
+                    start.get_source_ref().combine(cur.get_source_ref()),
+                    Some("If it returns nothing, use the 'void' type as its return type.".into()),
+                ));
             }
-            return Ok(Instruction::FunctionPrototype {
-                name: label.unwrap(),
-                params,
-                return_type: ret_type,
-                is_public,
-                src: fn_ref,
-            });
-        }
-
+            ret_type.unwrap()
+        };
         // parse function body, which is just an instruction
         // set the scope of this instruction to be Fn (to allow parsing variables)
         let fn_body = self.next_instruction()?;
         self.parse_scope = temp_scope;
-        let ret_type = return_type.unwrap();
         let mut fn_ref = start.get_source_ref().combine(fn_body.source_ref());
         if is_public {
             fn_ref = fn_ref.combine(pub_ref.unwrap());
@@ -477,177 +448,127 @@ impl Parser {
         })
     }
 
-    fn parse_type(&mut self) -> Result<TypeReference, ParseError> {
+    fn parse_type(&mut self) -> Result<TypeSignature, ParseError> {
         let cur = self.cur_token();
-        let start = cur.get_source_ref();
-
         match cur {
-            Token::Identifier(_, _) => {
-                let id = cur.as_str();
+            Token::Struct(src) => {
+                // parse a struct
+                let prev_scope = self.parse_scope;
+                self.parse_scope = ParseScope::Struct;
+                let struct_ref = self.cur_token().get_source_ref();
                 self.advance_index();
-                Ok(TypeReference::IdentifierType(id, start))
+
+                let body = self.parse_code_block()?;
+                struct_ref.combine(body.source_ref());
+                self.parse_scope = prev_scope;
+                Ok(TypeSignature::Struct(src, Box::new(body)))
             }
-            Token::LParen(_) => {
+            Token::I8(src) => {
                 self.advance_index();
-                let mut types = vec![];
-                'types: while !self.no_more_tokens() {
-                    if types.len() > 256 {
-                        return Err(ParseError::TooManyTypes(
-                            start.combine(cur.get_source_ref()),
-                        ));
-                    }
-
-                    let cur = self.cur_token();
-                    if !matches!(cur, Token::RParen(_)) {
-                        let ty = self.parse_type()?;
-                        types.push(ty);
-                    }
-
-                    match cur {
-                        Token::RParen(_) => {
-                            self.advance_index();
-                            break 'types;
-                        }
-                        Token::Comma(_) => {
-                            self.advance_index();
-                            continue 'types;
-                        }
-                        _ => return Err(ParseError::Expected(
-                            "a ',' to separate types or a ')' to terminate tuple type declaration."
-                                .into(),
-                            start.combine(cur.get_source_ref()),
-                            None,
-                        )),
-                    }
-                }
-                Ok(TypeReference::TupleOf(types, start))
+                Ok(TypeSignature::I8(src))
             }
-            Token::LBracket(_) => {
+            Token::I16(src) => {
                 self.advance_index();
-                let inner_type = self.parse_type()?;
-                let cur = self.cur_token();
-                match cur {
-                    Token::RBracket(_) => {
-                        self.advance_index();
-                        return Ok(TypeReference::ArrayOf(Box::new(inner_type), start));
-                    }
-                    Token::Semicolon(_) => {
-                        // static array
-                        self.advance_index();
-                        let cur = self.cur_token();
-                        let size;
-                        if let Token::Integer(num, src) = cur {
-                            self.advance_index();
-                            // convert to usize
-                            let maybe_size = num.parse::<usize>();
-                            if let Ok(size_) = maybe_size {
-                                size = size_;
-                            } else {
-                                return Err(ParseError::Expected(
-                                    "an integer to specify the size of the array.".into(),
-                                    start.combine(src.clone()),
-                                    None,
-                                ));
-                            }
-                        } else {
-                            return Err(ParseError::Expected(
-                                "an integer to specify the size of the array.".into(),
-                                start.combine(cur.get_source_ref()),
-                                None,
-                            ));
-                        }
-
-                        let cur = self.cur_token();
-                        if let Token::RBracket(_) = cur {
-                            self.advance_index();
-                            return Ok(TypeReference::StaticArrayOf(
-                                Box::new(inner_type),
-                                size,
-                                start,
-                            ));
-                        } else {
-                            return Err(ParseError::Expected(
-                                "a ']' to terminate the array type declaration.".into(),
-                                start.combine(cur.get_source_ref()),
-                                None,
-                            ));
-                        }
-                    }
-                    _ => {
-                        return Err(ParseError::Expected(
-                            "a ']' to terminate the array type declaration or a ';' with a size to specify a static array."
-                                .into(),
-                            start.combine(cur.get_source_ref()),
-                            None,
+                Ok(TypeSignature::I16(src))
+            }
+            Token::I32(src) => {
+                self.advance_index();
+                Ok(TypeSignature::I32(src))
+            }
+            Token::I64(src) => {
+                self.advance_index();
+                Ok(TypeSignature::I64(src))
+            }
+            Token::Isize(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Isize(src))
+            }
+            Token::U8(src) => {
+                self.advance_index();
+                Ok(TypeSignature::U8(src))
+            }
+            Token::U16(src) => {
+                self.advance_index();
+                Ok(TypeSignature::U16(src))
+            }
+            Token::U32(src) => {
+                self.advance_index();
+                Ok(TypeSignature::U32(src))
+            }
+            Token::U64(src) => {
+                self.advance_index();
+                Ok(TypeSignature::U64(src))
+            }
+            Token::Usize(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Usize(src))
+            }
+            Token::Bool(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Bool(src))
+            }
+            Token::Char(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Char(src))
+            }
+            Token::Str(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Str(src))
+            }
+            Token::Void(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Void(src))
+            }
+            Token::Type(src) => {
+                self.advance_index();
+                Ok(TypeSignature::Type(src))
+            }
+            Token::Identifier(name, src) => {
+                self.advance_index();
+                Ok(TypeSignature::NameRef(name, src))
+            }
+            Token::LBracket(src) => {
+                self.advance_index();
+                let mut cur = self.cur_token();
+                // if the next token is a number, then this is a sized array type
+                let (is_sized, size) = if let Token::NumberLiteral(num, _) = cur {
+                    self.advance_index();
+                    cur = self.cur_token();
+                    (true, Some(num))
+                } else {
+                    (false, None)
+                };
+                if let Token::RBracket(src) = cur {
+                    self.advance_index();
+                    let inner_type = self.parse_type()?;
+                    let combined_src_ref = src.combine(inner_type.get_source_ref());
+                    if is_sized {
+                        Ok(TypeSignature::SizedArrayOf(
+                            Box::new(inner_type),
+                            size.unwrap(),
+                            combined_src_ref,
+                        ))
+                    } else {
+                        Ok(TypeSignature::ArrayOf(
+                            Box::new(inner_type),
+                            combined_src_ref,
                         ))
                     }
+                } else {
+                    Err(ParseError::Expected(
+                        "a ']' to terminate array type signature.".into(),
+                        src.combine(cur.get_source_ref()),
+                        None,
+                    ))
                 }
             }
-            Token::I8(_) => {
-                self.advance_index();
-                Ok(TypeReference::I8(start))
+            _ => {
+                return Err(ParseError::Expected(
+                    "a type signature.".into(),
+                    cur.get_source_ref(),
+                    None,
+                ))
             }
-            Token::I16(_) => {
-                self.advance_index();
-                Ok(TypeReference::I16(start))
-            }
-            Token::I32(_) => {
-                self.advance_index();
-                Ok(TypeReference::I32(start))
-            }
-            Token::I64(_) => {
-                self.advance_index();
-                Ok(TypeReference::I64(start))
-            }
-            Token::ISize(_) => {
-                self.advance_index();
-                Ok(TypeReference::ISize(start))
-            }
-            Token::U8(_) => {
-                self.advance_index();
-                Ok(TypeReference::U8(start))
-            }
-            Token::U16(_) => {
-                self.advance_index();
-                Ok(TypeReference::U16(start))
-            }
-            Token::U32(_) => {
-                self.advance_index();
-                Ok(TypeReference::U32(start))
-            }
-            Token::U64(_) => {
-                self.advance_index();
-                Ok(TypeReference::U64(start))
-            }
-            Token::USize(_) => {
-                self.advance_index();
-                Ok(TypeReference::USize(start))
-            }
-            Token::Bool(_) => {
-                self.advance_index();
-                Ok(TypeReference::Bool(start))
-            }
-            Token::Char(_) => {
-                self.advance_index();
-                Ok(TypeReference::Char(start))
-            }
-            Token::Str(_) => {
-                self.advance_index();
-                Ok(TypeReference::Str(start))
-            }
-            Token::Void(_) => {
-                self.advance_index();
-                Ok(TypeReference::Void(start))
-            }
-            Token::Type(_) => {
-                self.advance_index();
-                Ok(TypeReference::Type(start))
-            }
-            _ => Err(ParseError::Expected(
-                "a type.".into(),
-                start.combine(cur.get_source_ref()),
-                None,
-            )),
         }
     }
 
@@ -675,9 +596,8 @@ impl Parser {
         }
 
         let mut const_type = None;
-        if !matches!(cur, Token::Assign(_)) {
-            // if it is not an assign (initialization),
-            // then it must be a type
+        if !matches!(cur, Token::Assign(_) | Token::Semicolon(_)) {
+            // then we need to parse a type
             const_type = Some(self.parse_type()?);
             cur = self.cur_token();
         }
@@ -915,9 +835,8 @@ impl Parser {
         }
 
         let mut var_type = None;
-        if !matches!(cur, Token::Assign(_)) {
-            // if it is not an assign (initialization)
-            // then it must be a type
+        if !matches!(cur, Token::Assign(_) | Token::Semicolon(_)) {
+            // then we need to parse a type
             var_type = Some(self.parse_type()?);
             cur = self.cur_token();
         }
@@ -1056,8 +975,7 @@ impl Parser {
                 Token::Or(_) => {
                     self.advance_index();
                     let rhs = self.parse_and()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1073,8 +991,7 @@ impl Parser {
                 Token::And(_) => {
                     self.advance_index();
                     let rhs = self.parse_equality()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1090,8 +1007,7 @@ impl Parser {
                 Token::Equal(_) | Token::NotEqual(_) => {
                     self.advance_index();
                     let rhs = self.parse_comparison()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1110,8 +1026,7 @@ impl Parser {
                 | Token::LessEqual(_) => {
                     self.advance_index();
                     let rhs = self.parse_term()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Comparison(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1127,8 +1042,7 @@ impl Parser {
                 Token::Plus(_) | Token::Minus(_) => {
                     self.advance_index();
                     let rhs = self.parse_factor()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1144,8 +1058,7 @@ impl Parser {
                 Token::Star(_) | Token::Modulo(_) | Token::Slash(_) => {
                     self.advance_index();
                     let rhs = self.parse_unary()?;
-                    let span = lhs.source_ref().combine(rhs.source_ref());
-                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs), span);
+                    lhs = Expr::Binary(cur, Box::new(lhs), Box::new(rhs));
                 }
                 _ => return Ok(lhs),
             }
@@ -1158,8 +1071,7 @@ impl Parser {
             Token::Not(_) => {
                 self.advance_index();
                 let operand = self.parse_unary()?;
-                let span = cur.get_source_ref().combine(operand.source_ref());
-                Ok(Expr::Unary(cur, Box::new(operand), span))
+                Ok(Expr::Unary(cur, Box::new(operand)))
             }
             _ => self.parse_index_like_exprs(),
         }
@@ -1229,6 +1141,68 @@ impl Parser {
                         }
                     }
                 }
+                Token::Dot(_) => {
+                    // for now, we want to only allow:
+                    // 1. `foo.bar()` (function call)
+                    // 2. `foo.bar` (variable or constant)
+                    // 3. `foo.bar.baz` (variable or constant)
+                    // 4. `foo.bar.baz()` (function call)
+                    // we cannot allow functions be referenced like variables,
+                    // or constants.
+                    // Make sure lhs is a Identifier or a ScopeInto
+                    match lhs {
+                        Expr::UntypedId(_) => {
+                            self.advance_index();
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::UntypedId(_) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                    };
+
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '.' operator.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
+                        Expr::ScopeInto { .. } => {
+                            self.advance_index();
+                            let rhs = self.parse_primary()?;
+                            match rhs {
+                                Expr::UntypedId(_) => {
+                                    lhs = Expr::ScopeInto {
+                                        src: lhs.source_ref().combine(rhs.source_ref()),
+                                        module: Box::new(lhs),
+                                        target: Box::new(rhs),
+                                    };
+                                    continue 'main_loop;
+                                }
+                                _ => {
+                                    return Err(ParseError::Expected(
+                                        "an identifier after '.' operator.".into(),
+                                        rhs.source_ref(),
+                                        None,
+                                    ))
+                                }
+                            }
+                        }
+                        _ => {
+                            return Err(ParseError::Expected(
+                                "an identifier or scope into operation before '.' operator.".into(),
+                                lhs.source_ref(),
+                                None,
+                            ))
+                        }
+                    }
+                }
                 _ => return Ok(lhs),
             }
         }
@@ -1238,12 +1212,11 @@ impl Parser {
         let cur = self.cur_token();
         if let Token::Identifier(_, _) = cur {
             self.advance_index();
+            let id = cur;
             if with_type {
-                let id = cur;
-                let sem_type = self.parse_type();
-                if let Ok(sem_type) = sem_type {
-                    let span = id.get_source_ref().combine(sem_type.get_source_ref());
-                    Ok(Expr::Id(id, Some(sem_type), span))
+                let id_type = self.parse_type();
+                if id_type.is_ok() {
+                    Ok(Expr::TypedId(id, id_type.unwrap()))
                 } else {
                     Err(ParseError::Expected(
                         format!("a type for the preceding identifier, '{}'.", id.as_str()),
@@ -1252,8 +1225,7 @@ impl Parser {
                     ))
                 }
             } else {
-                let span = cur.get_source_ref();
-                Ok(Expr::Id(cur, None, span))
+                Ok(Expr::UntypedId(id))
             }
         } else {
             Err(ParseError::Expected(
@@ -1270,29 +1242,36 @@ impl Parser {
         let start = self.cur_token();
         self.advance_index();
         let cur = self.cur_token();
-        if let Token::Identifier(name, _) = &cur {
-            let binding = DIRECTIVES_EXPRS.get(name);
-            match binding {
-                Some(needs_additional_expr) => {
-                    let directive = self.parse_id(false)?;
-                    let mut expr = None;
-                    let mut span = self.cur_token().get_source_ref();
-                    if *needs_additional_expr {
-                        self.allow_directive_expr_use = false;
-                        let e = self.parse_expr()?;
-                        self.allow_directive_expr_use = true;
-                        span = span.combine(e.source_ref());
-                        expr = Some(Box::new(e));
-                    }
-                    let direc = Expr::DirectiveExpr {
-                        directive: Box::new(directive),
-                        src: start.get_source_ref().combine(span),
-                        expr,
-                    };
-                    Ok(direc)
+        if let Token::Identifier(_, _) = &cur {
+            let directive = self.parse_id(false)?;
+            let mut expr = None;
+            let mut span = self.cur_token().get_source_ref();
+            let cur = self.cur_token();
+            if let Token::LParen(_) = cur {
+                self.allow_directive_expr_use = false;
+                let e = self.parse_expr()?;
+                self.allow_directive_expr_use = true;
+                span = span.combine(e.source_ref());
+                expr = Some(Box::new(e));
+
+                let cur = self.cur_token();
+                if let Token::RParen(_) = cur {
+                    self.advance_index();
+                } else {
+                    return Err(ParseError::Expected(
+                        "a ')' to terminate the directive expression.".into(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
                 }
-                None => Err(ParseError::UnknownCompilerDirective(cur.get_source_ref())),
             }
+
+            let direc = Expr::DirectiveExpr {
+                directive: Box::new(directive),
+                src: start.get_source_ref().combine(span),
+                expr,
+            };
+            Ok(direc)
         } else {
             Err(ParseError::Expected(
                 "an identifier to name the directive after '@'.".into(),
@@ -1302,8 +1281,11 @@ impl Parser {
         }
     }
 
-    fn parse_named_struct_literal(&mut self, name: Expr) -> Result<Expr, ParseError> {
+    fn parse_init_anon_struct(&mut self) -> Result<Expr, ParseError> {
         let mut span = self.cur_token().get_source_ref();
+        self.advance_index(); // consume '.'
+
+        let name = self.parse_id(false)?;
         let fields = self.parse_key_value_bindings(false)?;
         span = span.combine(fields.source_ref());
         let init_named_struct = Expr::NamedStructLiteral {
@@ -1349,54 +1331,35 @@ impl Parser {
         let span = cur.get_source_ref();
 
         match cur {
-            Token::Struct(_) => self.parse_struct_decl(),
-            Token::Dot(_) => self.parse_anon_struct_literal(),
+            Token::Dot(_) => self.parse_init_anon_struct(),
             Token::At(_) => self.parse_directive_expr(),
-            Token::SingleLineStringLiteral(_, _) => {
-                let res = Ok(Expr::SingleLineStringLiteral(cur, span));
+            Token::StringLiteral(_, _) => {
+                let res = Ok(Expr::StringLiteral(cur));
                 self.advance_index();
                 res
             }
-            Token::MultiLineStringFragment(..) => {
-                let mut span = cur.get_source_ref();
-                let mut literals = vec![cur];
-                self.advance_index();
-
-                while let Token::MultiLineStringFragment(..) = self.cur_token() {
-                    let frag = self.cur_token();
-                    span = span.combine(frag.get_source_ref());
-                    literals.push(frag);
-                    self.advance_index();
-                } // consume all fragments
-
-                Ok(Expr::MultiLineStringLiteral(literals, span))
-            }
             Token::CharLiteral(_, _) => {
-                let span = cur.get_source_ref();
-                let res = Ok(Expr::CharacterLiteral(cur, span));
+                let res = Ok(Expr::CharacterLiteral(cur));
                 self.advance_index();
                 res
             }
             Token::Identifier(_, _) => {
-                let id = Expr::Id(cur, None, span);
-                self.advance_index();
-
-                if let Token::LCurly(_) = self.cur_token() {
-                    // parse named struct literal
-                    self.parse_named_struct_literal(id)
-                } else {
-                    // parse identifier
-                    Ok(id)
-                }
-            }
-            Token::Integer(num, src) => {
-                let res = Ok(Expr::Integer(num, src));
+                let res = Ok(Expr::UntypedId(cur));
                 self.advance_index();
                 res
             }
-            Token::True(_) | Token::False(_) => {
+            Token::NumberLiteral(_, _) => {
+                let res = Ok(Expr::Number(cur));
                 self.advance_index();
-                Ok(Expr::Boolean(cur, span))
+                res
+            }
+            Token::True(_) => {
+                self.advance_index();
+                Ok(Expr::Boolean(cur, true))
+            }
+            Token::False(_) => {
+                self.advance_index();
+                Ok(Expr::Boolean(cur, false))
             }
             Token::LParen(_) => {
                 // parse group
@@ -1418,18 +1381,9 @@ impl Parser {
                     cur.get_source_ref().combine(maybe_rparen.get_source_ref()),
                 ))
             }
-            _ => {
-                // try to parse type
-                let ty = self.parse_type();
-
-                if let Ok(ty) = ty {
-                    // return a type expression
-                    let span = ty.get_source_ref();
-                    Ok(Expr::TypeExpr(ty, span))
-                } else {
-                    Err(ParseError::CannotParseAnExpression(cur.get_source_ref()))
-                }
-            }
+            _ => Err(ParseError::CannotParseAnExpressionOrType(
+                cur.get_source_ref(),
+            )),
         }
     }
 }

@@ -138,6 +138,18 @@ pub struct SourceRef {
 
 #[allow(dead_code)]
 impl SourceRef {
+    pub fn dud() -> SourceRef {
+        SourceRef {
+            file: String::new(),
+            start_line: 0,
+            start_col: 0,
+            end_line: 0,
+            end_col: 0,
+            flat_start: 0,
+            flat_end: 0,
+        }
+    }
+
     pub fn new(
         file: String,
         start_line: usize,
@@ -277,12 +289,12 @@ impl SourceReporter {
                         .to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::CannotParseAnExpression(src) => {
-                let msg = "An expression was required at this point of the program but couldn't parse any.".to_string();
+            ParseError::CannotParseAnExpressionOrType(src) => {
+                let msg = "An expression or type was required at this point of the program but couldn't find any.".to_string();
                 self.report_with_ref(&src, msg, None);
             }
             ParseError::TooManyFnArgs(src) => {
-                let msg = "Function calls only allow 256 arguments.".to_string();
+                let msg = "Function calls only allow 20 arguments.".to_string();
                 let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
@@ -347,21 +359,6 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
-            ParseError::UnknownCompilerDirective(src) => {
-                let msg = "Unknown compiler directive.".to_string();
-                let tip = "Please find more information on compiler directives in documentation."
-                    .to_string();
-                self.report_with_ref(&src, msg, Some(tip));
-            }
-            ParseError::CannotParseType(src, some_tip) => {
-                let msg = "Cannot parse type.".to_string();
-                self.report_with_ref(&src, msg, some_tip);
-            }
-            ParseError::TooManyTypes(src) => {
-                let msg = "Too many types referenced.".to_string();
-                let tip = "The maximum number of types allowed is 256.".to_string();
-                self.report_with_ref(&src, msg, Some(tip));
-            }
         }
     }
 
@@ -387,10 +384,10 @@ impl SourceReporter {
         // add file name
         let f_name = &self.src.path;
         output.push_str(&format!(
-            "   *[_, l_white:d_black]File '{f_name}:[/]*[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]'\n",
-            src.start_line + 1,
-            src.start_col + 1
-        ));
+                "   *[_, l_white:d_black]File '{f_name}:[/]*[*, {line_col}]{}[/]:*[*, {tip_col}]{}[/]'\n",
+                src.start_line + 1,
+                src.start_col + 1
+            ));
 
         if src.start_line == src.end_line {
             let line = self.src.lines[src.start_line].clone();
@@ -409,9 +406,9 @@ impl SourceReporter {
                 ""
             };
             output.push_str(&format!(
-                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
-                src.start_line + 1,
-            ));
+                    "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{target_slice}[/]*[d_white:d_black]{post_slice}[/]",
+                    src.start_line + 1,
+                ));
         } else {
             // add actual target lines
             // - add first line of target area
@@ -419,9 +416,9 @@ impl SourceReporter {
             let pre_slice = &f_line[..src.start_col];
             let f_target_slice = &f_line[src.start_col..];
             output.push_str(&format!(
-                "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{f_target_slice}[/]\n",
-                src.start_line + 1,
-            ));
+                    "       *[d_white:l_black]{}[/] | *[d_white:d_black]{pre_slice}[/]*[*, {err_col}:d_black]{f_target_slice}[/]\n",
+                    src.start_line + 1,
+                ));
 
             // add any lines between
             for line_no in src.start_line + 1..src.end_line {
@@ -441,9 +438,9 @@ impl SourceReporter {
             let l_target_slice = &l_line[..end_col];
             let post_slice = &l_line[end_col..];
             output.push_str(&format!(
-                "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
-                src.end_line + 1,
-            ));
+                    "       *[d_white:l_black]{}[/] | *[*, {err_col}:d_black]{l_target_slice}[/]*[d_white:d_black]{post_slice}[/]\n",
+                    src.end_line + 1,
+                ));
         }
 
         if let Some(tip_text) = tip {

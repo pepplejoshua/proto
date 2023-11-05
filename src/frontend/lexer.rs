@@ -98,7 +98,7 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' | '^' | '$' | '@' | '|' | '?' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '@' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
@@ -185,13 +185,11 @@ impl Lexer {
             "break" => Ok(Token::Break(combined_ref)),
             "continue" => Ok(Token::Continue(combined_ref)),
             "return" => Ok(Token::Return(combined_ref)),
-            "comp" => Ok(Token::Comp(combined_ref)),
-            "struct" => Ok(Token::Struct(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
+            "mod" => Ok(Token::Mod(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
-            "not" => Ok(Token::Not(combined_ref)),
 
             "i8" => Ok(Token::I8(combined_ref)),
             "i16" => Ok(Token::I16(combined_ref)),
@@ -206,9 +204,8 @@ impl Lexer {
             "bool" => Ok(Token::Bool(combined_ref)),
             "char" => Ok(Token::Char(combined_ref)),
             "str" => Ok(Token::Str(combined_ref)),
-            "void" => Ok(Token::Void(combined_ref)),
             "type" => Ok(Token::Type(combined_ref)),
-
+            "struct" => Ok(Token::Struct(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }
@@ -217,8 +214,6 @@ impl Lexer {
     fn lex_operator(&mut self) -> Result<Token, LexError> {
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
-
-        // || (self.src.cur_char() == '/' && self.src.peek_char() == '/')
 
         match cur {
             // arithmetic operators
@@ -256,14 +251,9 @@ impl Lexer {
                 Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
             }
 
-            // special characters
             '@' => {
                 self.src.next_char();
                 Ok(Token::At(cur_ref.combine(self.src.get_ref())))
-            }
-            '?' => {
-                self.src.next_char();
-                Ok(Token::QuestionMark(cur_ref.combine(self.src.get_ref())))
             }
 
             // logical operators
@@ -277,7 +267,7 @@ impl Lexer {
                 }
                 // otherwise, return a Not operator
                 self.src.next_char();
-                Ok(Token::Exclamation(cur_ref.combine(self.src.get_ref())))
+                Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
@@ -314,6 +304,10 @@ impl Lexer {
                 // otherwise, return a Greater operator
                 self.src.next_char();
                 Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
+            }
+            ':' => {
+                self.src.next_char();
+                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
             }
             '(' => {
                 self.src.next_char();
@@ -365,7 +359,7 @@ impl Lexer {
         while !self.src.is_eof() {
             let c = self.src.next_char();
             span = span.combine(self.src.get_ref());
-            if c == '"' {
+            if c == '"' || c == '\n' {
                 break;
             } else if c == '\\' {
                 // if the next character is a ", add it to the content
@@ -386,7 +380,7 @@ impl Lexer {
         }
 
         // if the string is not terminated, return an error
-        if self.src.is_eof() {
+        if self.src.is_eof() || self.src.cur_char() == '\n' {
             Err(LexError::UnterminatedStringLiteral(span))
         } else {
             self.src.next_char();
@@ -457,7 +451,9 @@ impl Lexer {
 
         let combined_ref = cur_ref.combine(end_ref);
 
-        return Ok(Token::Integer(number, combined_ref));
+        // TODO: if the next character is a '.', try to lex a float
+
+        Ok(Token::NumberLiteral(number, combined_ref))
     }
 }
 

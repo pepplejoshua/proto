@@ -28,8 +28,6 @@ pub enum Token {
     Modulo(SourceRef),
 
     // special characters
-    Exclamation(SourceRef),
-    QuestionMark(SourceRef),
     At(SourceRef),
 
     // comparison
@@ -56,12 +54,13 @@ pub enum Token {
     LBracket(SourceRef),
     RBracket(SourceRef),
     Semicolon(SourceRef),
+    Colon(SourceRef),
     Comma(SourceRef),
     Dot(SourceRef),
 
     // literals
+    NumberLiteral(String, SourceRef),
     Identifier(String, SourceRef),
-    Integer(String, SourceRef),
     CharLiteral(SourceRef, char),
     SingleLineStringLiteral(SourceRef, String),
     MultiLineStringFragment(SourceRef, String),
@@ -81,8 +80,8 @@ pub enum Token {
     Bool(SourceRef),
     Char(SourceRef),
     Str(SourceRef),
-    Void(SourceRef),
     Type(SourceRef),
+    Struct(SourceRef),
 
     // misc
     Eof(SourceRef),
@@ -155,7 +154,17 @@ impl Token {
             Token::Bool(src) => src.clone(),
             Token::Char(src) => src.clone(),
             Token::Str(src) => src.clone(),
+            Token::NumberLiteral(_, src) => src.clone(),
+            Token::Dot(src) => src.clone(),
+            Token::Break(src) => src.clone(),
+            Token::Continue(src) => src.clone(),
+            Token::Pub(src) => src.clone(),
+            Token::Mod(src) => src.clone(),
+            Token::Return(src) => src.clone(),
+            Token::At(src) => src.clone(),
+            Token::StringLiteral(src, _) => src.clone(),
             Token::Type(src) => src.clone(),
+            Token::Struct(src) => src.clone(),
         }
     }
 
@@ -211,7 +220,7 @@ impl Token {
             Token::Assign(_) => "=".into(),
             Token::And(_) => "and".into(),
             Token::Or(_) => "or".into(),
-            Token::Not(_) => "not".into(),
+            Token::Not(_) => "!".into(),
             Token::LParen(_) => "(".into(),
             Token::RParen(_) => ")".into(),
             Token::LCurly(_) => "{".into(),
@@ -222,18 +231,7 @@ impl Token {
             Token::Comma(_) => ",".into(),
             Token::Dot(_) => ".".into(),
             Token::Identifier(name, _) => name.clone(),
-            Token::Integer(num, _) => num.to_string(),
-            Token::Eof(_) => "\0".into(),
-            Token::Pub(_) => "pub".into(),
-            Token::Return(_) => "return".into(),
-            Token::Exclamation(_) => "!".into(),
-            Token::At(_) => "@".into(),
-            Token::SingleLineComment(_, src) => src.clone(),
-            Token::SingleLineStringLiteral(_, content) => format!("\"{content}\""),
-            Token::MultiLineStringFragment(_, content) => format!("||{content}"),
-            Token::Comp(_) => "comp".into(),
-            Token::Struct(_) => "struct".into(),
-            Token::QuestionMark(_) => "?".into(),
+            Token::NumberLiteral(num, _) => num.to_string(),
             Token::I8(_) => "i8".into(),
             Token::I16(_) => "i16".into(),
             Token::I32(_) => "i32".into(),
@@ -247,7 +245,15 @@ impl Token {
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
             Token::Str(_) => "str".into(),
+            Token::Eof(_) => "\0".into(),
+            Token::Pub(_) => "pub".into(),
+            Token::Mod(_) => "mod".into(),
+            Token::Return(_) => "return".into(),
+            Token::At(_) => "@".into(),
+            Token::StringLiteral(_, src) => format!("\"{src}\""),
+            Token::SingleLineComment(_, src) => src.clone(),
             Token::Type(_) => "type".into(),
+            Token::Struct(_) => "struct".into(),
         }
     }
 }

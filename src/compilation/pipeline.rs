@@ -1,8 +1,9 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::frontend::{
+    bparser::Parser as BParser,
     lexer::Lexer,
-    parser::Parser,
+    // parser::Parser,
     source::{SourceFile, SourceReporter},
     token::Token,
 };
@@ -11,7 +12,6 @@ use crate::frontend::{
 pub enum Stage {
     Lexer,
     Parser,
-    UIRGen,
 }
 
 #[allow(dead_code)]
@@ -21,7 +21,7 @@ pub enum Command {
 
 #[allow(dead_code)]
 pub enum Backend {
-    PIR, // will go to PVM
+    BC,  // will go to BC
     CPP, // will go to C++
 }
 
@@ -44,9 +44,9 @@ impl PipelineConfig {
         if args.len() < 1 {
             return PipelineConfig {
                 cmd: None,
-                backend: Backend::PIR,
+                backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::UIRGen,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -65,27 +65,26 @@ impl PipelineConfig {
                 if args.len() < 1 {
                     return PipelineConfig {
                         cmd: None,
-                        backend: Backend::PIR,
+                        backend: Backend::BC,
                         target_file: "".to_string(),
-                        max_stage: Stage::UIRGen,
+                        max_stage: Stage::Parser,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
                     };
                 }
                 let target_file = args.next().unwrap();
-                let mut backend = Backend::PIR;
-                let mut max_stage = Stage::UIRGen;
+                let mut backend = Backend::BC;
+                let mut max_stage = Stage::Parser;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
                 for arg in args {
                     match arg.as_str() {
-                        "pir" => backend = Backend::PIR,
+                        "pir" => backend = Backend::BC,
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "uir" => max_stage = Stage::UIRGen,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -103,18 +102,18 @@ impl PipelineConfig {
                 }
             }
             "h" | "help" => PipelineConfig {
-                backend: Backend::PIR,
+                backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::UIRGen,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
                 use_pfmt: false,
             },
             _ => PipelineConfig {
-                backend: Backend::PIR,
+                backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::UIRGen,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -206,7 +205,7 @@ impl Workspace {
             return;
         }
 
-        let mut parser = Parser::new(lexer);
+        let mut parser = BParser::new(lexer);
         parser.parse();
 
         if !parser.lexer_errors.is_empty() {
@@ -233,6 +232,8 @@ impl Workspace {
             }
 
             reporter.show_info("parsing complete.".to_string());
+            let bc_text = parser.code.as_str();
+            println!("\n{bc_text}");
         }
 
         if let Stage::Parser = self.config.max_stage {

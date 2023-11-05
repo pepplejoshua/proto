@@ -6,7 +6,6 @@ use compilation::pipeline::Workspace;
 mod compilation;
 mod frontend;
 mod pastel;
-mod walker;
 
 const USAGE: &str = "
 Usage: proto command [options]?
@@ -19,8 +18,7 @@ commands:
                 - cpp: use C++ backend.
             (*) stages:
                 - lex: stop after lexing.
-                - parse: stop after parsing.
-                - dep (default): stop after resolving dependencies.
+                - parse (default): stop after parsing.
             (*) flags:
                 - fmt: format the file. Default: false.
                 - dbg: show debug info. Default: false.

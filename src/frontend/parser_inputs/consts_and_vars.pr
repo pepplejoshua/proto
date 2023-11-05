@@ -4,5 +4,5 @@ let e usize = 0;
 
 fn main() void {
     mut b = a;
-    mut d = not c;
+    mut d = !c;
 }
