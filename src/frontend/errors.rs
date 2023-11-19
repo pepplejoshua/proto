@@ -15,7 +15,7 @@ pub enum LexError {
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParseError {
     Expected(String, SourceRef, Option<String>),
-    ConstantDeclarationNeedsInitValue(SourceRef),
+    ConstantDeclarationNeedsTypeOrInitValue(SourceRef),
     CannotParseAnExpressionOrType(SourceRef),
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
@@ -35,13 +35,12 @@ impl ParseError {
     pub fn get_error_src(&self) -> SourceRef {
         match self {
             ParseError::Expected(_, src, _) => src.clone(),
-            ParseError::ConstantDeclarationNeedsInitValue(src) => src.clone(),
+            ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => src.clone(),
             ParseError::CannotParseAnExpressionOrType(src) => src.clone(),
             ParseError::TooManyFnArgs(src) => src.clone(),
             ParseError::TooManyFnParams(src) => src.clone(),
             ParseError::MalformedDeclaration(_, src) => src.clone(),
-            ParseError::NoVariableAtTopLevel(src) => src.clone(),
-            ParseError::NoCodeBlockAtTopLevel(src) => src.clone(),
+            ParseError::NoCodeBlockAllowedInCurrentContext(src) => src.clone(),
             ParseError::NoLoopAtTopLevel(src) => src.clone(),
             ParseError::NoBreakOutsideLoop(src) => src.clone(),
             ParseError::NoContinueOutsideLoop(src) => src.clone(),
@@ -49,6 +48,7 @@ impl ParseError {
             ParseError::UnterminatedCodeBlock(src, _) => src.clone(),
             ParseError::ReturnInstructionOutsideFunction(src) => src.clone(),
             ParseError::TooManyErrors(src) => src.clone(),
+            ParseError::NoVariableAtCurrentScope(src) => src.clone(),
         }
     }
 }

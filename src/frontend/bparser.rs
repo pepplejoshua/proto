@@ -26,6 +26,7 @@ pub struct Parser {
     lexed_token: Option<Token>,
     parse_scope: ParseScope,
     pub code: CodeBundle,
+    current_fn_ret_ty_index: Option<Index>,
     allow_struct_init: bool,
 }
 
@@ -40,6 +41,7 @@ impl Parser {
             parse_scope: ParseScope::TopLevel,
             code: CodeBundle::new(),
             allow_struct_init: true,
+            current_fn_ret_ty_index: None,
         };
         p.advance_index();
         p
@@ -265,6 +267,10 @@ impl Parser {
 
         self.advance_index(); // skip past `)`
         let return_ty_i = self.parse_type(false)?;
+
+        let t_ret_ty_i = self.current_fn_ret_ty_index;
+        self.current_fn_ret_ty_index = Some(return_ty_i);
+
         indices.push(return_ty_i);
         // we do not need to track the index of the next instruction
         // since we will be using the span of instructions right after the
@@ -275,6 +281,8 @@ impl Parser {
             tag: ITag::Code,
             index: self.code.ins.len() - 1,
         };
+
+        self.current_fn_ret_ty_index = t_ret_ty_i;
         indices.extend(vec![body_start_i, body_end_i]);
         let fn_ins = Code {
             tag: CTag::NewFunction,
@@ -288,6 +296,7 @@ impl Parser {
 
     fn parse_return(&mut self) -> Result<Index, ParseError> {
         let start = self.cur_token();
+        let mut src = start.get_source_ref();
         self.advance_index(); // skip past `return`
 
         // if there is a value, use a combination of
@@ -298,20 +307,60 @@ impl Parser {
         // ExpectTypeEq @cur_return_type void
         let mut cur = self.cur_token();
         let mut indices = vec![];
-        while !self.no_more_tokens() {
+
+        if !matches!(cur, Token::Semicolon(_)) {
+            // has a return value
+            let expr_i = self.parse_expr()?;
+            cur = self.cur_token();
+
+            // expect a semicolon
             if !matches!(cur, Token::Semicolon(_)) {
-                let ins_i = self.next_instruction()?;
-                indices.push(ins_i);
-                cur = self.cur_token();
+                return Err(ParseError::Expected(
+                    "a semicolon to end return statement.".into(),
+                    self.cur_token().get_source_ref(),
+                    Some(
+                        "Provide a semicolon to end the return statement. E.g: 'return 42;'".into(),
+                    ),
+                ));
             } else {
-                break;
+                src = src.combine(cur.get_source_ref());
             }
+
+            // generate instruction to do type checking
+            let cur_return_ty_i = self.current_fn_ret_ty_index.unwrap();
+            let expect_ty_ins = Code {
+                tag: CTag::ExpectTypeIs,
+                indices: vec![cur_return_ty_i, expr_i],
+                src: src.clone(),
+            };
+            let expect_ty_i = self.code.add_ins(expect_ty_ins);
+            indices.push(expect_ty_i);
+            self.advance_index();
+        } else {
+            // has no return value
+            src = src.combine(cur.get_source_ref());
+            let cur_return_ty_i = self.current_fn_ret_ty_index.unwrap();
+            let void_ty = TypeSignature {
+                tag: TSTag::Void,
+                indices: vec![],
+                src: src.clone(),
+            };
+            let void_ty_i = self.code.add_type(void_ty);
+            let expect_ty_ins = Code {
+                tag: CTag::ExpectTypesMatch,
+                indices: vec![cur_return_ty_i, void_ty_i],
+                src: src.clone(),
+            };
+            // will perform a type check to ensure that the return type
+            // of the function is void
+            self.code.add_ins(expect_ty_ins);
+            self.advance_index();
         }
 
         let return_ins = Code {
             tag: CTag::Return,
             indices,
-            src: start.get_source_ref(),
+            src,
         };
         Ok(self.code.add_ins(return_ins))
     }
@@ -380,7 +429,7 @@ impl Parser {
         if matches!(cur, Token::Assign(_)) {
             self.advance_index(); // skip past `=`
         } else {
-            return Err(ParseError::ConstantDeclarationNeedsInitValue(
+            return Err(ParseError::ConstantDeclarationNeedsTypeOrInitValue(
                 self.cur_token()
                     .get_source_ref()
                     .combine(start.get_source_ref()),
@@ -902,7 +951,7 @@ impl Parser {
                 };
                 Ok(self.code.add_ins(ins))
             }
-            Token::Isize(src) => {
+            Token::ISize(src) => {
                 let n_type = TypeSignature {
                     tag: TSTag::Isize,
                     src: src.clone(),
@@ -987,7 +1036,7 @@ impl Parser {
                 };
                 Ok(self.code.add_ins(ins))
             }
-            Token::Usize(src) => {
+            Token::USize(src) => {
                 let n_type = TypeSignature {
                     tag: TSTag::Usize,
                     src: src.clone(),

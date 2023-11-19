@@ -186,7 +186,6 @@ impl Lexer {
             "continue" => Ok(Token::Continue(combined_ref)),
             "return" => Ok(Token::Return(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
-            "mod" => Ok(Token::Mod(combined_ref)),
 
             "and" => Ok(Token::And(combined_ref)),
             "or" => Ok(Token::Or(combined_ref)),
@@ -205,6 +204,7 @@ impl Lexer {
             "char" => Ok(Token::Char(combined_ref)),
             "str" => Ok(Token::Str(combined_ref)),
             "type" => Ok(Token::Type(combined_ref)),
+            "void" => Ok(Token::Void(combined_ref)),
             "struct" => Ok(Token::Struct(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }

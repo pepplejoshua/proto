@@ -225,12 +225,6 @@ impl Workspace {
             return;
         }
         if self.config.dbg_info {
-            let _module = &parser.compilation_module;
-
-            for ins in _module.instructions.iter() {
-                println!("{}", ins.as_str());
-            }
-
             reporter.show_info("parsing complete.".to_string());
             let bc_text = parser.code.as_str();
             println!("\n{bc_text}");
