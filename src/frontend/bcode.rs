@@ -218,6 +218,16 @@ pub enum CTag {
         where 9 is the code index for the return value
     */
     Return,
+    /*
+        EnterScope
+        enters a new scope
+    */
+    EnterScope,
+    /*
+        ExitScope
+        exits the current scope
+    */
+    ExitScope,
 }
 
 #[allow(dead_code)]
@@ -529,6 +539,12 @@ impl CodeBundle {
                         let a = code.indices[0].index;
                         s.push(format!("{num} Return Code:{a}\n"));
                     }
+                }
+                CTag::EnterScope => {
+                    s.push(format!("{num} EnterScope\n"));
+                }
+                CTag::ExitScope => {
+                    s.push(format!("{num} ExitScope\n"));
                 }
             }
         }

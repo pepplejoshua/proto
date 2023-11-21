@@ -149,6 +149,7 @@ impl Parser {
             Token::Return(_) => self.parse_return(),
             Token::Let(_) => self.parse_const_var(),
             Token::Mut(_) => self.parse_mut_var(),
+            Token::LCurly(_) => self.parse_code_block(),
             Token::Pub(_) => {
                 let pub_ref = cur.get_source_ref();
                 self.advance_index();
@@ -189,6 +190,47 @@ impl Parser {
             _ => unimplemented!("next_instruction: {:?}", cur),
         }
         // todo!()
+    }
+
+    // all callers of this method should set the ParseScope before
+    // calling this method
+    fn parse_code_block(&mut self) -> Result<Index, ParseError> {
+        let start = self.cur_token();
+        self.advance_index(); // skip past `{`
+
+        let en_scope_c = Code {
+            tag: CTag::EnterScope,
+            indices: vec![],
+            src: start.get_source_ref(),
+        };
+        self.code.add_ins(en_scope_c);
+
+        let mut cur = self.cur_token();
+        while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
+            let ins = self.next_instruction();
+            if ins.is_err() {
+                self.report_error(ins.err().unwrap());
+                self.recover_from_err();
+                cur = self.cur_token();
+                continue;
+            }
+            cur = self.cur_token();
+        }
+
+        if !matches!(cur, Token::RCurly(_)) {
+            let src = start.get_source_ref().combine(cur.get_source_ref());
+            let tip = "Terminate code block with '}'. E.g: '{ // content }'.".to_string();
+            return Err(ParseError::UnterminatedCodeBlock(src, Some(tip)));
+        }
+
+        self.advance_index(); // skip past `}`
+        let ex_scope_c = Code {
+            tag: CTag::ExitScope,
+            indices: vec![],
+            src: cur.get_source_ref(),
+        };
+        let exit = self.code.add_ins(ex_scope_c);
+        Ok(exit)
     }
 
     fn parse_fn(&mut self) -> Result<Index, ParseError> {
