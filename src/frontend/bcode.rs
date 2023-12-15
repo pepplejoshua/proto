@@ -29,6 +29,10 @@ pub enum CTag {
     LIChar,
     // NameRef "list"
     NameRef,
+    // Update Code:19 Code:20
+    // where 19 is the index of the target code node
+    // and 20 is the index of the new value of the target
+    Update,
     /*
         MakePublic Code:20
         where 20 is the index of a preceding code node
@@ -545,6 +549,11 @@ impl CodeBundle {
                 }
                 CTag::ExitScope => {
                     s.push(format!("{num} ExitScope\n"));
+                }
+                CTag::Update => {
+                    let a = code.indices[0].index;
+                    let b = code.indices[1].index;
+                    s.push(format!("{num} Update Code:{a} Code:{b}\n"));
                 }
             }
         }

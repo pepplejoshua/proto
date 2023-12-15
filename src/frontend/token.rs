@@ -61,7 +61,6 @@ pub enum Token {
     NumberLiteral(String, SourceRef),
     Identifier(String, SourceRef),
     CharLiteral(SourceRef, char),
-    StringLiteral(SourceRef, String),
     SingleLineStringLiteral(SourceRef, String),
     MultiLineStringFragment(SourceRef, String),
     SingleLineComment(SourceRef, String),
@@ -153,7 +152,6 @@ impl Token {
             Token::Bool(src) => src.clone(),
             Token::Char(src) => src.clone(),
             Token::Str(src) => src.clone(),
-            Token::StringLiteral(src, _) => src.clone(),
             Token::Type(src) => src.clone(),
             Token::Colon(src) => src.clone(),
         }
@@ -240,7 +238,6 @@ impl Token {
             Token::Pub(_) => "pub".into(),
             Token::Return(_) => "return".into(),
             Token::At(_) => "@".into(),
-            Token::StringLiteral(_, src) => format!("\"{src}\""),
             Token::SingleLineComment(_, src) => src.clone(),
             Token::Type(_) => "type".into(),
             Token::Struct(_) => "struct".into(),

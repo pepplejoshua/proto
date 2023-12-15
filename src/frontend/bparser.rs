@@ -187,9 +187,52 @@ impl Parser {
                     target_i
                 }
             }
-            _ => unimplemented!("next_instruction: {:?}", cur),
+            _ => self.parse_expr_instr(),
         }
         // todo!()
+    }
+
+    fn parse_expr_instr(&mut self) -> Result<Index, ParseError> {
+        let mut src = self.cur_token().get_source_ref();
+        let target_i = self.parse_expr()?;
+
+        let mut cur = self.cur_token();
+        src = src.combine(cur.get_source_ref());
+
+        match cur {
+            Token::Assign(_) => {
+                self.advance_index();
+                let value_i = self.parse_expr()?;
+                cur = self.cur_token();
+                src = src.combine(cur.get_source_ref());
+                if let Token::Semicolon(_) = cur {
+                    self.advance_index();
+                } else {
+                    let tip = "Terminate assignment instruction.".to_string();
+                    return Err(ParseError::Expected(
+                        "a ';' to terminate the assignment instruction.".into(),
+                        src,
+                        Some(tip),
+                    ));
+                }
+                let indices = vec![target_i, value_i];
+                let ins = Code {
+                    tag: CTag::Update,
+                    indices,
+                    src,
+                };
+                Ok(self.code.add_ins(ins))
+            }
+            Token::Semicolon(_) => {
+                self.advance_index();
+                Ok(target_i)
+            }
+            _ => Err(ParseError::Expected(
+                "a semi-colon terminated expression or an assignment instruction.".into(),
+                src,
+                None,
+            )),
+        }
     }
 
     // all callers of this method should set the ParseScope before
@@ -310,7 +353,7 @@ impl Parser {
         self.advance_index(); // skip past `)`
         let return_ty_i = self.parse_type(false)?;
 
-        let t_ret_ty_i = self.current_fn_ret_ty_index;
+        let temp_ret_ty_index = self.current_fn_ret_ty_index;
         self.current_fn_ret_ty_index = Some(return_ty_i);
 
         indices.push(return_ty_i);
@@ -324,7 +367,7 @@ impl Parser {
             index: self.code.ins.len() - 1,
         };
 
-        self.current_fn_ret_ty_index = t_ret_ty_i;
+        self.current_fn_ret_ty_index = temp_ret_ty_index;
         indices.extend(vec![body_start_i, body_end_i]);
         let fn_ins = Code {
             tag: CTag::NewFunction,
@@ -814,7 +857,7 @@ impl Parser {
         let cur = self.cur_token();
 
         match cur {
-            Token::StringLiteral(src, content) => {
+            Token::SingleLineStringLiteral(src, content) => {
                 self.advance_index();
                 let str_i = self.code.add_string(content);
                 let ins = Code {
@@ -1185,7 +1228,7 @@ impl Parser {
                     "a type signature.".into(),
                     cur.get_source_ref(),
                     None,
-                ))
+                ));
             }
         }
     }
