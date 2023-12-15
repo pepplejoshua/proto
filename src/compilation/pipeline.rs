@@ -8,6 +8,8 @@ use crate::frontend::{
     token::Token,
 };
 
+use crate::forge::Forge;
+
 #[allow(dead_code)]
 pub enum Stage {
     Lexer,
@@ -233,5 +235,8 @@ impl Workspace {
         if let Stage::Parser = self.config.max_stage {
             return;
         }
+
+        let mut forge = Forge {};
+        forge.eval(&mut parser.code);
     }
 }

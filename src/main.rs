@@ -4,6 +4,7 @@ use crate::compilation::pipeline::PipelineConfig;
 use compilation::pipeline::Workspace;
 
 mod compilation;
+mod forge;
 mod frontend;
 mod pastel;
 
