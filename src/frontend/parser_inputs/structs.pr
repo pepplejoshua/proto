@@ -2,8 +2,8 @@
 
 // simple struct that uses defaults
 let SourceFile = struct {
-    path str,
-    text str,
+    mut path str;
+    mut text str;
 
     let version = 1;
     let DiagInfo = struct {
