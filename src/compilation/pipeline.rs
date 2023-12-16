@@ -236,7 +236,7 @@ impl Workspace {
             return;
         }
 
-        let mut forge = Forge {};
+        let mut forge = Forge::new(parser.code.ins.len());
         forge.eval(&mut parser.code);
     }
 }
