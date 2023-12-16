@@ -2,7 +2,7 @@ let a = "Hello";
 let b = " ";
 let c = "World";
 
-pub fn main() void {
-    let d str = a + b + c;
-    println(d);
-}
+//pub fn main() void {
+//    let d str = a + b + c;
+//    println(d);
+//}
