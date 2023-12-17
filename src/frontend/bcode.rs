@@ -243,6 +243,7 @@ pub struct Code {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct CodeBundle {
     pub ins: Vec<Code>,
     pub strings: Vec<String>,

@@ -20,7 +20,7 @@ enum ParseScope {
 
 #[allow(dead_code)]
 pub struct Parser {
-    lexer: Lexer,
+    pub lexer: Lexer,
     pub lexer_errors: Vec<LexError>,
     pub parser_errors: Vec<ParseError>,
     lexed_token: Option<Token>,
