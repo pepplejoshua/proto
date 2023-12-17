@@ -5,7 +5,7 @@ use crate::frontend::bcode::Index;
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Env {
-    pub names: Vec<Index>,
+    pub names: Vec<(Index, Index)>, // (name_i, type_i)
     pub types: Vec<Index>,
 }
 
