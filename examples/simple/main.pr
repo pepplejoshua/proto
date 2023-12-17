@@ -1,5 +1,5 @@
 let a = "Hello";
-let b = " ";
+let b str = " ";
 let c = "World";
 
 //pub fn main() void {

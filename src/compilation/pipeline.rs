@@ -14,6 +14,7 @@ use crate::forge::Forge;
 pub enum Stage {
     Lexer,
     Parser,
+    Forge,
 }
 
 #[allow(dead_code)]
@@ -48,7 +49,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::Parser,
+                max_stage: Stage::Forge,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -69,7 +70,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::BC,
                         target_file: "".to_string(),
-                        max_stage: Stage::Parser,
+                        max_stage: Stage::Forge,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -77,7 +78,7 @@ impl PipelineConfig {
                 }
                 let target_file = args.next().unwrap();
                 let mut backend = Backend::BC;
-                let mut max_stage = Stage::Parser;
+                let mut max_stage = Stage::Forge;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -87,6 +88,7 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
+                        "forge" => max_stage = Stage::Forge,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -106,7 +108,7 @@ impl PipelineConfig {
             "h" | "help" => PipelineConfig {
                 backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::Parser,
+                max_stage: Stage::Forge,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -115,7 +117,7 @@ impl PipelineConfig {
             _ => PipelineConfig {
                 backend: Backend::BC,
                 target_file: "".to_string(),
-                max_stage: Stage::Parser,
+                max_stage: Stage::Forge,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -236,7 +238,7 @@ impl Workspace {
             return;
         }
 
-        let mut forge = Forge::new(parser.code.ins.len());
-        forge.eval(&mut parser.code);
+        let mut forge = Forge::new(parser.code, parser.lexer.src);
+        forge.eval();
     }
 }
