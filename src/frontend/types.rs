@@ -29,6 +29,10 @@ pub enum TSTag {
     // NameRef "name"
     // where "name" is the name of the type.
     NameRef,
+    // Function Type 5 (Type:2, Type:2, ...)
+    // where the first type index is the return type of the function.
+    // The remaining type indices are the types of the arguments.
+    Function,
 }
 
 impl TSTag {
