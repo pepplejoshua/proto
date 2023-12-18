@@ -3,10 +3,10 @@ let b str = " ";
 let c = "World";
 
 pub fn main() void {
-//    let d str = a + b + c;
-//    println(d);
+    let d str = a + b + c;
+    println(d);
 }
 
 fn add(a u8, b u8) u8 {
-//    return a + b;
+    return a + b;
 }

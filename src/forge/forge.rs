@@ -19,6 +19,9 @@ pub enum ForgeInfo {
         init_i: Index,
         src: SourceRef,
     },
+    Dud {
+        src: SourceRef,
+    },
 }
 
 #[allow(dead_code)]
@@ -103,18 +106,39 @@ impl Forge {
         }
     }
 
-    fn typecheck(&mut self, _a_ty_i: &Index, _b_ty_i: &Index) -> bool {
+    fn typecheck(&self, _a_ty_i: &Index, _b_ty_i: &Index) -> bool {
         let a_ty = self.code.get_type(_a_ty_i);
         let b_ty = self.code.get_type(_b_ty_i);
 
         self.code.eq_types(&a_ty, &b_ty)
     }
 
-    fn namecheck(&mut self, _a_name_i: &Index, _b_name_i: &Index) -> bool {
+    fn namecheck(&self, _a_name_i: &Index, _b_name_i: &Index) -> bool {
         let a_name = self.code.get_string(_a_name_i);
         let b_name = self.code.get_string(_b_name_i);
 
         a_name == b_name
+    }
+
+    fn name_exists(&mut self, name_i: &Index) -> bool {
+        // loop through all scopes, starting with current without popping it off the stack
+        let mut len = self.env_stack.len();
+        let mut cur_scope = self.env_stack.get(len - 1).unwrap();
+        loop {
+            for (n_i, _) in cur_scope.names.iter() {
+                if self.namecheck(&n_i, &name_i) {
+                    return true;
+                }
+            }
+
+            if len > 1 {
+                len -= 1;
+                cur_scope = self.env_stack.get(len - 1).unwrap();
+            } else {
+                break;
+            }
+        }
+        false
     }
 
     fn verify_type(&self, ty: &TypeSignature) -> bool {
@@ -285,10 +309,45 @@ impl Forge {
                     // add the function to current scope with the type
                     self.register_fn(fn_name_i, fn_ty_i);
                 }
-                CTag::Param => {}
-                CTag::EnterScope => {}
-                CTag::ExitScope => {}
-                CTag::MakePublic => {}
+                CTag::Param => {
+                    // Param "name" Type:19
+                    let name_si = ins.indices[0];
+                    let name_s = self.code.get_string(&name_si);
+                    let name_i = self.intern_str(name_s);
+
+                    // get the type of the parameter
+                    let ty_i = ins.indices[1];
+
+                    // add the parameter to current scope with the type
+                    self.register_name(name_i, ty_i);
+                }
+                CTag::EnterScope => {
+                    // EnterScope
+                    // println!("entering scope");
+                    self.enter_scope();
+                }
+                CTag::ExitScope => {
+                    // ExitScope
+                    // println!("exiting scope");
+                    self.exit_scope();
+                }
+                CTag::MakePublic => {
+                    // todo
+                }
+                CTag::NameRef => {
+                    // NameRef "name"
+                    let name_si = ins.indices[0];
+                    let name_s = self.code.get_string(&name_si);
+                    let name_i = self.intern_str(name_s);
+
+                    // ensure the name exists
+                    if !self.name_exists(&name_i) {
+                        panic!("name does not exist");
+                    }
+
+                    // get the type of the name
+                    let ty_i = self.get_name_type(&name_i);
+                }
                 _ => panic!("not implemented: {:#?}", ins),
             }
         }
