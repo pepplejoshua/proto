@@ -300,10 +300,6 @@ impl Parser {
 
         // reserve function index
         let fn_i = self.code.reserve_ins();
-        let body_start_i = Index {
-            tag: ITag::Code,
-            index: self.code.ins.len(),
-        };
 
         // handle function parameters
         if !matches!(cur, Token::LParen(_)) {
@@ -317,6 +313,8 @@ impl Parser {
         let mut params_c = 0;
         let mut too_many_params = false;
         cur = self.cur_token();
+        let mut fn_tys = vec![];
+        let params_start = cur.get_source_ref();
         while !self.no_more_tokens() {
             if !too_many_params && params_c >= 20 {
                 too_many_params = true;
@@ -329,7 +327,7 @@ impl Parser {
                 // handle parameter syntax and get the parameter type index
                 // back and use it in the function instruction
                 let param_ty_i = self.parse_param()?;
-                indices.push(param_ty_i);
+                fn_tys.push(param_ty_i);
                 params_c += 1;
                 cur = self.cur_token();
 
@@ -353,10 +351,30 @@ impl Parser {
         self.advance_index(); // skip past `)`
         let return_ty_i = self.parse_type(false)?;
 
+        // get return type instruction so we can use its span
+        let return_ty_ins = self.code.get_type(&return_ty_i);
+        let return_ty_src = return_ty_ins.src;
+
         let temp_ret_ty_index = self.current_fn_ret_ty_index;
         self.current_fn_ret_ty_index = Some(return_ty_i);
 
-        indices.push(return_ty_i);
+        // put return_ty_i at the first index of fn_tys
+        fn_tys.insert(0, return_ty_i);
+
+        // construct a function type for this function
+        let fn_ty_src = params_start.combine(return_ty_src);
+        let fn_ty = TypeSignature {
+            tag: TSTag::Function,
+            src: fn_ty_src,
+            indices: fn_tys,
+        };
+
+        // add the function type to the type table
+        let fn_ty_i = self.code.add_type(fn_ty);
+
+        // add the function type index to the function instruction
+        indices.push(fn_ty_i);
+
         // we do not need to track the index of the next instruction
         // since we will be using the span of instructions right after the
         // function instruction till the end of the function body
@@ -368,7 +386,7 @@ impl Parser {
         };
 
         self.current_fn_ret_ty_index = temp_ret_ty_index;
-        indices.extend(vec![body_start_i, body_end_i]);
+        indices.push(body_end_i);
         let fn_ins = Code {
             tag: CTag::NewFunction,
             indices,
@@ -455,10 +473,12 @@ impl Parser {
         let mut cur = self.cur_token();
         let mut indices = vec![];
         let mut is_mut = false;
+        let mut span = cur.get_source_ref();
         if matches!(cur, Token::Mut(_)) {
             is_mut = true;
             self.advance_index();
             cur = self.cur_token();
+            span = span.combine(cur.get_source_ref());
         }
 
         if let Token::Identifier(name, _) = cur {
@@ -474,12 +494,14 @@ impl Parser {
         }
 
         let type_i = self.parse_type(false)?;
+        let ty = self.code.get_type(&type_i);
+        span = span.combine(ty.src);
         indices.push(type_i);
 
         let param_ins = Code {
             tag: if is_mut { CTag::VarParam } else { CTag::Param },
             indices,
-            src: self.cur_token().get_source_ref(),
+            src: span,
         };
         self.code.add_ins(param_ins);
         Ok(type_i)

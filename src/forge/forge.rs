@@ -30,6 +30,7 @@ pub struct Forge {
     types: Vec<TypeSignature>,
     code: CodeBundle,
     srcfile: SourceFile,
+    fn_end_i: usize,
 }
 
 #[allow(dead_code)]
@@ -43,6 +44,7 @@ impl Forge {
             types: Vec::new(),
             code,
             srcfile,
+            fn_end_i: 0,
         };
         f.enter_scope(); // global scope
         f
@@ -78,6 +80,10 @@ impl Forge {
         self.cur_scope().names.push((name_i, type_i));
     }
 
+    fn register_fn(&mut self, fn_name_i: Index, fn_type_i: Index) {
+        self.cur_scope().functions.push((fn_name_i, fn_type_i));
+    }
+
     fn intern_str(&mut self, n_str: String) -> Index {
         // check if string already exists
         for (i, s) in self.strings.iter().enumerate() {
@@ -95,12 +101,6 @@ impl Forge {
             tag: ITag::String,
             index: self.strings.len() - 1,
         }
-    }
-
-    fn register_name_ty(&mut self, name_i: Index, type_i: Index) {
-        panic!("register_name_ty is incomplete");
-        // self.cur_scope().names.push(name_i);
-        // self.cur_scope().types.push(type_i);
     }
 
     fn typecheck(&mut self, _a_ty_i: &Index, _b_ty_i: &Index) -> bool {
@@ -144,6 +144,15 @@ impl Forge {
                 let inner_ty = self.code.get_type(&inner_ty_i);
                 self.verify_type(&inner_ty)
             }
+            TSTag::Function => {
+                for ty in ty.indices.iter() {
+                    let inner_ty = self.code.get_type(&ty);
+                    if !self.verify_type(&inner_ty) {
+                        return false;
+                    }
+                }
+                true
+            }
             TSTag::NameRef => todo!(),
         }
     }
@@ -178,7 +187,7 @@ impl Forge {
     pub fn eval(&mut self) {
         let instructions = self.code.ins.clone();
         for (_, ins) in instructions.iter().enumerate() {
-            println!("evaluating instruction: {:#?}", ins.tag);
+            // println!("evaluating instruction: {:#?}", ins.tag);
             match ins.tag {
                 CTag::SrcComment => {
                     // SrcComment "comment" Code:0 (TODO: need to change opcode to this)
@@ -260,9 +269,29 @@ impl Forge {
                         });
                     }
                 }
+                CTag::NewFunction => {
+                    // NewFunction "name" Type:2 Code:30
+                    let fn_name_si = ins.indices[0];
+                    let fn_name_s = self.code.get_string(&fn_name_si);
+                    let fn_name_i = self.intern_str(fn_name_s);
+
+                    // get the type of the function
+                    let fn_ty_i = ins.indices[1];
+
+                    // get the end of the function (since the body is inlined)
+                    let fn_end_i = ins.indices[2].index;
+                    self.fn_end_i = fn_end_i;
+
+                    // add the function to current scope with the type
+                    self.register_fn(fn_name_i, fn_ty_i);
+                }
+                CTag::Param => {}
+                CTag::EnterScope => {}
+                CTag::ExitScope => {}
+                CTag::MakePublic => {}
                 _ => panic!("not implemented: {:#?}", ins),
             }
         }
-        println!("completed eval");
+        // println!("completed eval");
     }
 }
