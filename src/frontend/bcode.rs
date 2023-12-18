@@ -61,16 +61,11 @@ pub enum CTag {
     */
     NUVariable,
     /*
-        NewFunction "name" (Type:19, Type:20) Type:21 Code:[23:30]
-        where 19 is the type index for the first parameter type signature,
-        20 is the type index for the second parameter type signature,
-        21 is the type index for the return type signature,
-        23 is the start of the function body and
+        NewFunction "name" Type:2 Code:30
+        where Type:2 is the type index for the type signature
         30 is the end of the function body.
-        granted there will always be a name index, a return type index,
-        2 indices for the start and end of the function body,
-        to get the number of function parameters, subtract 4 from the number
-        of code indices.
+        Granted there will always be a name index and a function type index,
+        the last index is for the end of the function body.
     */
     NewFunction,
     /*
@@ -111,16 +106,12 @@ pub enum CTag {
     */
     TypeRef,
     /*
-        NewMethod "name" (Type:19, Type:20) Type:21 Code:[23:30]
-        where 19 is the type index for the first parameter type signature,
-        20 is the type index for the second parameter type signature,
-        21 is the type index for the return type signature,
-        23 is the start of the method body and
+        NewMethod "name" Type:2 Code:30
+        where Type:2 is the type index for the type signature
         30 is the end of the method body.
-        granted there will always be a name index, a return type index,
-        2 indices for the start and end of the method body,
-        to get the number of method parameters, subtract 4 from the number
-        of code indices.
+        Granted there will always be a name index and a method type index,
+        the last index  is for the end of the method body.
+
     */
     NewMethod,
     /*
@@ -322,25 +313,11 @@ impl CodeBundle {
                 }
                 CTag::NewFunction => {
                     let name = self.get_string(&code.indices[0]);
-
-                    let indices_len = code.indices.len();
-                    let mut param_c = indices_len - 4;
-                    let mut indices_index = 1;
-                    let mut param_types = Vec::new();
-                    while param_c > 0 {
-                        let param_type =
-                            format!("{}", self.type_as_str(code.indices[indices_index]));
-                        param_types.push(param_type);
-                        indices_index += 1;
-                        param_c -= 1;
-                    }
-                    let param_types = param_types.join(", ");
-
-                    let return_type = self.type_as_str(code.indices[indices_index]);
-                    let body_start = code.indices[indices_index + 1].index;
-                    let body_end = code.indices[indices_index + 2].index;
+                    let func_ty_i = code.indices[1];
+                    let func_ty_s = self.type_as_str(func_ty_i);
+                    let body_end = code.indices[2].index;
                     s.push(format!(
-                        "\n{num} NewFunction `{name}` ({param_types}) {return_type} Code:[{body_start}:{body_end}]\n"
+                        "\n{num} NewFunction `{name}` {func_ty_s} Code:{body_end}\n"
                     ));
                 }
                 CTag::Param => {
@@ -369,24 +346,11 @@ impl CodeBundle {
                 }
                 CTag::NewMethod => {
                     let name = self.get_string(&code.indices[0]);
-                    let indices_len = code.indices.len();
-                    let mut param_c = indices_len - 4;
-                    let mut indices_index = 1;
-                    let mut param_types = Vec::new();
-                    while param_c > 0 {
-                        let param_type =
-                            format!("{}", self.type_as_str(code.indices[indices_index]));
-                        param_types.push(param_type);
-                        indices_index += 1;
-                        param_c -= 1;
-                    }
-                    let param_types = param_types.join(", ");
-
-                    let return_type = self.type_as_str(code.indices[indices_index]);
-                    let body_start = code.indices[indices_index + 1].index;
-                    let body_end = code.indices[indices_index + 2].index;
+                    let meth_ty_i = code.indices[1];
+                    let meth_ty_s = self.type_as_str(meth_ty_i);
+                    let body_end = code.indices[2].index;
                     s.push(format!(
-                        "\n{num} NewMethod `{name}` ({param_types}) {return_type} Code:[{body_start}:{body_end}]\n"
+                        "\n{num} NewMethod `{name}` {meth_ty_s} Code:{body_end}\n"
                     ));
                 }
                 CTag::NewField => {
@@ -587,8 +551,9 @@ impl CodeBundle {
     pub fn update_ins(&mut self, index: Index, code: Code) {
         if let ITag::Code = index.tag {
             self.ins[index.index] = code;
+        } else {
+            panic!("Index tag is not a code but updating code...")
         }
-        panic!("Index tag is not a code but updating code...")
     }
 
     pub fn get_ins(&self, index: Index) -> Code {
@@ -727,6 +692,20 @@ impl CodeBundle {
                     let name_i = type_sig.indices[0];
                     let name_s = &self.get_string(&name_i);
                     format!("`{name_s}`")
+                }
+                TSTag::Function => {
+                    let return_ty_i = type_sig.indices[0];
+                    let return_ty_s = &self.type_as_str(return_ty_i);
+                    let mut arg_tys_s = String::new();
+                    for (i, arg_ty_i) in type_sig.indices.iter().enumerate().skip(1) {
+                        let arg_ty_s = &self.type_as_str(*arg_ty_i);
+                        if i == 1 {
+                            arg_tys_s.push_str(arg_ty_s);
+                        } else {
+                            arg_tys_s.push_str(&format!(", {}", arg_ty_s));
+                        }
+                    }
+                    format!("({arg_tys_s}) => {return_ty_s}")
                 }
             }
         } else {
