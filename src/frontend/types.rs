@@ -17,6 +17,11 @@ pub enum TSTag {
     Char,
     Void,
     Str,
+    // This will cover the type of a type.
+    // For example, the type of i32 is Type.
+    // The type of type is Type.
+    // Type Type:2?
+    // where Type:2 is the type of the inner type.
     Type,
     // SizedArray "size" Type:2
     // where Type:2 is the type of the elements in the array.
@@ -53,7 +58,6 @@ impl TSTag {
                 | TSTag::Char
                 | TSTag::Void
                 | TSTag::Str
-                | TSTag::Type
         )
     }
 }
