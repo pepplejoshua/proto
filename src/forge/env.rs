@@ -10,6 +10,10 @@ pub struct Env {
     pub types: Vec<Index>,
 }
 
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub struct EIndex(pub usize);
+
 impl Env {
     pub fn new() -> Self {
         Env {

@@ -1,4 +1,4 @@
-use super::env::Env;
+use super::env::{EIndex, Env};
 use crate::frontend::{
     bcode::{CTag, CodeBundle, ITag, Index},
     source::{SourceFile, SourceRef},
@@ -21,6 +21,13 @@ pub enum ForgeInfo {
     },
     Dud {
         src: SourceRef,
+    },
+    Function {
+        env_i: EIndex,
+        src: SourceRef,
+    },
+    TypeInfo {
+        ty_i: Index,
     },
 }
 
@@ -83,8 +90,10 @@ impl Forge {
         self.cur_scope().names.push((name_i, type_i));
     }
 
-    fn register_fn(&mut self, fn_name_i: Index, fn_type_i: Index) {
+    fn register_fn(&mut self, fn_name_i: Index, fn_type_i: Index) -> EIndex {
+        let index = EIndex(self.cur_scope().functions.len());
         self.cur_scope().functions.push((fn_name_i, fn_type_i));
+        index
     }
 
     fn intern_str(&mut self, n_str: String) -> Index {
@@ -181,6 +190,11 @@ impl Forge {
         }
     }
 
+    fn insert_dud_info(&mut self, span: SourceRef) {
+        let dud = ForgeInfo::Dud { src: span };
+        self.code_info.push(dud);
+    }
+
     // this will infer the type of a node (or at least try to) based on ForgeInfo it
     // has collected previously
     fn infer_type(&self, src_node: &Index) -> TypeSignature {
@@ -199,8 +213,15 @@ impl Forge {
                     indices: vec![], // no indices for str
                 }
             }
+            ForgeInfo::TypeInfo { ty_i } => self.code.get_type(ty_i),
             ForgeInfo::ConstVar { .. } => {
                 unreachable!("inferring type of constant variable should not be possible.")
+            }
+            ForgeInfo::Dud { .. } => {
+                unreachable!("inferring type of dud should not be possible.")
+            }
+            ForgeInfo::Function { .. } => {
+                unreachable!("inferring type of function should not be possible.")
             }
         }
     }
@@ -214,8 +235,8 @@ impl Forge {
             // println!("evaluating instruction: {:#?}", ins.tag);
             match ins.tag {
                 CTag::SrcComment => {
-                    // SrcComment "comment" Code:0 (TODO: need to change opcode to this)
                     // do nothing
+                    self.insert_dud_info(ins.src.clone());
                 }
                 CTag::LIStr => {
                     // store info about an immediate string
@@ -259,7 +280,11 @@ impl Forge {
 
                         // ensure they are the same type
                         if !self.code.eq_types(&ty, &val_ty) {
-                            panic!("type mismatch");
+                            let line = ins.src.start_line + 1;
+                            let col = ins.src.start_col + 1;
+                            let ty_s = self.code.type_as_str(ty_i);
+                            let val_ty_s = self.code.type_as_strl(&val_ty);
+                            panic!("type mismatch: {line}:{col} {ty_s} != {val_ty_s}");
                         }
 
                         // add the name to current scope
@@ -307,7 +332,17 @@ impl Forge {
                     self.fn_end_i = fn_end_i;
 
                     // add the function to current scope with the type
-                    self.register_fn(fn_name_i, fn_ty_i);
+                    let env_i = self.register_fn(fn_name_i, fn_ty_i);
+
+                    // generate typed code
+
+                    // generate code info for this node
+                    // we want to generate code info that tracks the Index to the function
+                    // in Env.functions
+                    self.code_info.push(ForgeInfo::Function {
+                        env_i,
+                        src: ins.src.clone(),
+                    });
                 }
                 CTag::Param => {
                     // Param "name" Type:19
@@ -320,19 +355,60 @@ impl Forge {
 
                     // add the parameter to current scope with the type
                     self.register_name(name_i, ty_i);
+
+                    // generate typed code
+
+                    self.insert_dud_info(ins.src.clone());
                 }
                 CTag::EnterScope => {
                     // EnterScope
                     // println!("entering scope");
                     self.enter_scope();
+                    self.insert_dud_info(ins.src.clone());
                 }
                 CTag::ExitScope => {
                     // ExitScope
                     // println!("exiting scope");
                     self.exit_scope();
+                    self.insert_dud_info(ins.src.clone());
+
+                    // instead of inserting a dud, we can generate code info
+                    // about the scope we just exited
+                    // - number of types declared
+                    // - number of functions declared
+                    // - number of variables declared
+                    // - number of constants declared
+                    // - number of parameters declared (for functions)
+                }
+                CTag::LoadTrue => {
+                    // LoadTrue
+                    // println!("loading true");
+                    let ty = TypeSignature {
+                        tag: TSTag::Bool,
+                        src: ins.src.clone(),
+                        indices: vec![],
+                    };
+                    let ty_i = self.code.add_type(ty);
+
+                    // generate typed code
+
+                    // generate code info for this node
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
                 CTag::MakePublic => {
-                    // todo
+                    let code_i = ins.indices[0].index;
+                    let code_info = self.code_info.get(code_i).unwrap();
+                    match code_info {
+                        ForgeInfo::Function { .. } => {
+                            // MakePublic Code:30
+                            // println!("making public");
+                            // TODO: when we have the notion of public vs private in
+                            // the env, we can use that to make the function public to
+                            // importing modules
+                            self.insert_dud_info(ins.src.clone());
+                        }
+                        _ => panic!("not implemented: {:#?}", ins),
+                    }
                 }
                 CTag::NameRef => {
                     // NameRef "name"
@@ -346,7 +422,23 @@ impl Forge {
                     }
 
                     // get the type of the name
-                    let ty_i = self.get_name_type(&name_i);
+                    // let ty_i = self.get_name_type(&name_i);
+                }
+                CTag::TypeRef => {
+                    // TypeRef Type:19
+                    let ty_i = ins.indices[0];
+                    let ty = self.code.get_type(&ty_i);
+
+                    // println!("type ref: {ty:#?}");
+
+                    if !self.verify_type(&ty) {
+                        panic!("invalid type referenced");
+                    }
+
+                    // generate typed code
+
+                    // generate code info for this node
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
                 _ => panic!("not implemented: {:#?}", ins),
             }
