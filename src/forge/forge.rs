@@ -1,6 +1,6 @@
-use super::env::{EIndex, Env};
+use super::env::{Env, EnvironmentIndex};
 use crate::frontend::{
-    bcode::{CTag, CodeBundle, ITag, Index},
+    bcode::{CodeBundle, CodeTag, Index, IndexTag},
     source::{SourceFile, SourceRef},
     types::{TSTag, TypeSignature},
 };
@@ -23,7 +23,7 @@ pub enum ForgeInfo {
         src: SourceRef,
     },
     Function {
-        env_i: EIndex,
+        env_i: EnvironmentIndex,
         src: SourceRef,
     },
     TypeInfo {
@@ -90,8 +90,8 @@ impl Forge {
         self.cur_scope().names.push((name_i, type_i));
     }
 
-    fn register_fn(&mut self, fn_name_i: Index, fn_type_i: Index) -> EIndex {
-        let index = EIndex(self.cur_scope().functions.len());
+    fn register_fn(&mut self, fn_name_i: Index, fn_type_i: Index) -> EnvironmentIndex {
+        let index = EnvironmentIndex(self.cur_scope().functions.len());
         self.cur_scope().functions.push((fn_name_i, fn_type_i));
         index
     }
@@ -101,7 +101,7 @@ impl Forge {
         for (i, s) in self.strings.iter().enumerate() {
             if s == &n_str {
                 return Index {
-                    tag: ITag::String,
+                    tag: IndexTag::String,
                     index: i,
                 };
             }
@@ -110,7 +110,7 @@ impl Forge {
         // if not, add it
         self.strings.push(n_str);
         Index {
-            tag: ITag::String,
+            tag: IndexTag::String,
             index: self.strings.len() - 1,
         }
     }
@@ -199,7 +199,7 @@ impl Forge {
     // has collected previously
     fn infer_type(&self, src_node: &Index) -> TypeSignature {
         assert!(
-            matches!(src_node.tag, ITag::Code),
+            matches!(src_node.tag, IndexTag::Code),
             "expected code index as input to infer_type"
         );
         let code_info = &self.code_info[src_node.index];
@@ -234,11 +234,11 @@ impl Forge {
         for (_, ins) in instructions.iter().enumerate() {
             // println!("evaluating instruction: {:#?}", ins.tag);
             match ins.tag {
-                CTag::SrcComment => {
+                CodeTag::SrcComment => {
                     // do nothing
                     self.insert_dud_info(ins.src.clone());
                 }
-                CTag::LIStr => {
+                CodeTag::LIStr => {
                     // store info about an immediate string
                     let str_i = ins.indices[0];
                     let str_a = self.code.get_string(&str_i);
@@ -251,7 +251,7 @@ impl Forge {
                         src: ins.src.clone(),
                     });
                 }
-                CTag::NewConstant => {
+                CodeTag::NewConstant => {
                     // NewConstant "name" Type:19?, Code:20
                     let name_si = ins.indices[0];
                     let (ty_i, val_i) = if ins.indices.len() > 2 {
@@ -318,7 +318,7 @@ impl Forge {
                         });
                     }
                 }
-                CTag::NewFunction => {
+                CodeTag::NewFunction => {
                     // NewFunction "name" Type:2 Code:30
                     let fn_name_si = ins.indices[0];
                     let fn_name_s = self.code.get_string(&fn_name_si);
@@ -344,7 +344,7 @@ impl Forge {
                         src: ins.src.clone(),
                     });
                 }
-                CTag::Param => {
+                CodeTag::Param => {
                     // Param "name" Type:19
                     let name_si = ins.indices[0];
                     let name_s = self.code.get_string(&name_si);
@@ -360,13 +360,13 @@ impl Forge {
 
                     self.insert_dud_info(ins.src.clone());
                 }
-                CTag::EnterScope => {
+                CodeTag::EnterScope => {
                     // EnterScope
                     // println!("entering scope");
                     self.enter_scope();
                     self.insert_dud_info(ins.src.clone());
                 }
-                CTag::ExitScope => {
+                CodeTag::ExitScope => {
                     // ExitScope
                     // println!("exiting scope");
                     self.exit_scope();
@@ -380,7 +380,7 @@ impl Forge {
                     // - number of constants declared
                     // - number of parameters declared (for functions)
                 }
-                CTag::LoadTrue => {
+                CodeTag::LoadTrue => {
                     // LoadTrue
                     // println!("loading true");
                     let ty = TypeSignature {
@@ -395,7 +395,7 @@ impl Forge {
                     // generate code info for this node
                     self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
-                CTag::MakePublic => {
+                CodeTag::MakePublic => {
                     let code_i = ins.indices[0].index;
                     let code_info = self.code_info.get(code_i).unwrap();
                     match code_info {
@@ -410,7 +410,7 @@ impl Forge {
                         _ => panic!("not implemented: {:#?}", ins),
                     }
                 }
-                CTag::NameRef => {
+                CodeTag::NameRef => {
                     // NameRef "name"
                     let name_si = ins.indices[0];
                     let name_s = self.code.get_string(&name_si);
@@ -424,7 +424,7 @@ impl Forge {
                     // get the type of the name
                     // let ty_i = self.get_name_type(&name_i);
                 }
-                CTag::TypeRef => {
+                CodeTag::TypeRef => {
                     // TypeRef Type:19
                     let ty_i = ins.indices[0];
                     let ty = self.code.get_type(&ty_i);

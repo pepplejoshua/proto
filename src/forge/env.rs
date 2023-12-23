@@ -12,7 +12,7 @@ pub struct Env {
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
-pub struct EIndex(pub usize);
+pub struct EnvironmentIndex(pub usize);
 
 impl Env {
     pub fn new() -> Self {

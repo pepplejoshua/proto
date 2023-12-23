@@ -1,7 +1,7 @@
-use crate::frontend::bcode::ITag;
+use crate::frontend::bcode::IndexTag;
 
 use super::{
-    bcode::{CTag, Code, CodeBundle, Index},
+    bcode::{Code, CodeBundle, CodeTag, Index},
     errors::{LexError, ParseError},
     lexer::Lexer,
     token::Token,
@@ -139,7 +139,7 @@ impl Parser {
                 self.advance_index();
                 let comment_i = self.code.add_string(comment);
                 let ins = Code {
-                    tag: CTag::SrcComment,
+                    tag: CodeTag::SrcComment,
                     indices: vec![comment_i],
                     src,
                 };
@@ -178,7 +178,7 @@ impl Parser {
                 if let Ok(target_i) = target_i {
                     let ins = self.code.get_ins(target_i);
                     let pub_ins = Code {
-                        tag: CTag::MakePublic,
+                        tag: CodeTag::MakePublic,
                         indices: vec![target_i],
                         src: ins.src.combine(pub_ref),
                     };
@@ -217,7 +217,7 @@ impl Parser {
                 }
                 let indices = vec![target_i, value_i];
                 let ins = Code {
-                    tag: CTag::Update,
+                    tag: CodeTag::Update,
                     indices,
                     src,
                 };
@@ -242,7 +242,7 @@ impl Parser {
         self.advance_index(); // skip past `{`
 
         let en_scope_c = Code {
-            tag: CTag::EnterScope,
+            tag: CodeTag::EnterScope,
             indices: vec![],
             src: start.get_source_ref(),
         };
@@ -268,7 +268,7 @@ impl Parser {
 
         self.advance_index(); // skip past `}`
         let ex_scope_c = Code {
-            tag: CTag::ExitScope,
+            tag: CodeTag::ExitScope,
             indices: vec![],
             src: cur.get_source_ref(),
         };
@@ -381,14 +381,14 @@ impl Parser {
         let body_i = self.next_instruction()?;
         let body_src = self.code.get_ins(body_i).src.clone();
         let body_end_i = Index {
-            tag: ITag::Code,
+            tag: IndexTag::Code,
             index: self.code.ins.len() - 1,
         };
 
         self.current_fn_ret_ty_index = temp_ret_ty_index;
         indices.push(body_end_i);
         let fn_ins = Code {
-            tag: CTag::NewFunction,
+            tag: CodeTag::NewFunction,
             indices,
             src: start.get_source_ref().combine(body_src),
         };
@@ -432,7 +432,7 @@ impl Parser {
             // generate instruction to do type checking
             let cur_return_ty_i = self.current_fn_ret_ty_index.unwrap();
             let expect_ty_ins = Code {
-                tag: CTag::ExpectTypeIs,
+                tag: CodeTag::ExpectTypeIs,
                 indices: vec![cur_return_ty_i, expr_i],
                 src: src.clone(),
             };
@@ -450,7 +450,7 @@ impl Parser {
             };
             let void_ty_i = self.code.add_type(void_ty);
             let expect_ty_ins = Code {
-                tag: CTag::ExpectTypesMatch,
+                tag: CodeTag::ExpectTypesMatch,
                 indices: vec![cur_return_ty_i, void_ty_i],
                 src: src.clone(),
             };
@@ -461,7 +461,7 @@ impl Parser {
         }
 
         let return_ins = Code {
-            tag: CTag::Return,
+            tag: CodeTag::Return,
             indices,
             src,
         };
@@ -499,7 +499,11 @@ impl Parser {
         indices.push(type_i);
 
         let param_ins = Code {
-            tag: if is_mut { CTag::VarParam } else { CTag::Param },
+            tag: if is_mut {
+                CodeTag::VarParam
+            } else {
+                CodeTag::Param
+            },
             indices,
             src: span,
         };
@@ -560,7 +564,7 @@ impl Parser {
         self.advance_index(); // skip past `;`
 
         let ins = Code {
-            tag: CTag::NewConstant,
+            tag: CodeTag::NewConstant,
             indices,
             src: span,
         };
@@ -614,13 +618,13 @@ impl Parser {
 
         let ins = if is_typed {
             Code {
-                tag: CTag::NTVariable,
+                tag: CodeTag::NTVariable,
                 indices,
                 src: span,
             }
         } else {
             Code {
-                tag: CTag::NUVariable,
+                tag: CodeTag::NUVariable,
                 indices,
                 src: span,
             }
@@ -639,7 +643,7 @@ impl Parser {
             self.advance_index();
             let right = self.parse_and()?;
             let ins = Code {
-                tag: CTag::Or,
+                tag: CodeTag::Or,
                 indices: vec![left, right],
                 src: op.get_source_ref(),
             };
@@ -655,7 +659,7 @@ impl Parser {
             self.advance_index();
             let right = self.parse_equality()?;
             let ins = Code {
-                tag: CTag::And,
+                tag: CodeTag::And,
                 indices: vec![left, right],
                 src: op.get_source_ref(),
             };
@@ -672,8 +676,8 @@ impl Parser {
             let right = self.parse_comparison()?;
             let ins = Code {
                 tag: match op {
-                    Token::Equal(_) => CTag::Eq,
-                    Token::NotEqual(_) => CTag::Neq,
+                    Token::Equal(_) => CodeTag::Eq,
+                    Token::NotEqual(_) => CodeTag::Neq,
                     _ => unreachable!(),
                 },
                 indices: vec![left, right],
@@ -695,10 +699,10 @@ impl Parser {
             let right = self.parse_term()?;
             let ins = Code {
                 tag: match op {
-                    Token::Less(_) => CTag::Lt,
-                    Token::LessEqual(_) => CTag::LtEq,
-                    Token::Greater(_) => CTag::Gt,
-                    Token::GreaterEqual(_) => CTag::GtEq,
+                    Token::Less(_) => CodeTag::Lt,
+                    Token::LessEqual(_) => CodeTag::LtEq,
+                    Token::Greater(_) => CodeTag::Gt,
+                    Token::GreaterEqual(_) => CodeTag::GtEq,
                     _ => unreachable!(),
                 },
                 indices: vec![left, right],
@@ -717,8 +721,8 @@ impl Parser {
             let right = self.parse_factor()?;
             let ins = Code {
                 tag: match op {
-                    Token::Plus(_) => CTag::Add,
-                    Token::Minus(_) => CTag::Sub,
+                    Token::Plus(_) => CodeTag::Add,
+                    Token::Minus(_) => CodeTag::Sub,
                     _ => unreachable!(),
                 },
                 indices: vec![left, right],
@@ -740,9 +744,9 @@ impl Parser {
             let right = self.parse_unary()?;
             let ins = Code {
                 tag: match op {
-                    Token::Star(_) => CTag::Mult,
-                    Token::Slash(_) => CTag::Div,
-                    Token::Modulo(_) => CTag::Modulo,
+                    Token::Star(_) => CodeTag::Mult,
+                    Token::Slash(_) => CodeTag::Div,
+                    Token::Modulo(_) => CodeTag::Modulo,
                     _ => unreachable!(),
                 },
                 indices: vec![left, right],
@@ -760,7 +764,7 @@ impl Parser {
                 self.advance_index();
                 let right = self.parse_unary()?;
                 let ins = Code {
-                    tag: CTag::Negate,
+                    tag: CodeTag::Negate,
                     indices: vec![right],
                     src: cur.get_source_ref(),
                 };
@@ -770,7 +774,7 @@ impl Parser {
                 self.advance_index();
                 let right = self.parse_unary()?;
                 let ins = Code {
-                    tag: CTag::Not,
+                    tag: CodeTag::Not,
                     indices: vec![right],
                     src: cur.get_source_ref(),
                 };
@@ -812,7 +816,7 @@ impl Parser {
                         match cur {
                             Token::RParen(src) => {
                                 let ins = Code {
-                                    tag: CTag::Call,
+                                    tag: CodeTag::Call,
                                     indices: args,
                                     src: op.get_source_ref().combine(src),
                                 };
@@ -851,7 +855,7 @@ impl Parser {
                     }
 
                     let ins = Code {
-                        tag: CTag::AccessIndex,
+                        tag: CodeTag::AccessIndex,
                         indices: vec![left, index],
                         src,
                     };
@@ -863,7 +867,7 @@ impl Parser {
                     src = src.combine(self.cur_token().get_source_ref());
 
                     let ins = Code {
-                        tag: CTag::AccessMember,
+                        tag: CodeTag::AccessMember,
                         indices: vec![left, field],
                         src,
                     };
@@ -883,7 +887,7 @@ impl Parser {
                 self.advance_index();
                 let str_i = self.code.add_string(content);
                 let ins = Code {
-                    tag: CTag::LIStr,
+                    tag: CodeTag::LIStr,
                     indices: vec![str_i],
                     src,
                 };
@@ -893,7 +897,7 @@ impl Parser {
                 self.advance_index();
                 let char_i = self.code.add_string(char.to_string());
                 let ins = Code {
-                    tag: CTag::LIChar,
+                    tag: CodeTag::LIChar,
                     indices: vec![char_i],
                     src,
                 };
@@ -903,7 +907,7 @@ impl Parser {
                 self.advance_index();
                 let id_i = self.code.add_string(id);
                 let ins = Code {
-                    tag: CTag::NameRef,
+                    tag: CodeTag::NameRef,
                     indices: vec![id_i],
                     src,
                 };
@@ -913,7 +917,7 @@ impl Parser {
                 self.advance_index();
                 let num_i = self.code.add_string(num);
                 let ins = Code {
-                    tag: CTag::LINum,
+                    tag: CodeTag::LINum,
                     indices: vec![num_i],
                     src,
                 };
@@ -922,7 +926,7 @@ impl Parser {
             Token::True(src) => {
                 self.advance_index();
                 let ins = Code {
-                    tag: CTag::LoadTrue,
+                    tag: CodeTag::LoadTrue,
                     indices: vec![],
                     src,
                 };
@@ -931,7 +935,7 @@ impl Parser {
             Token::False(src) => {
                 self.advance_index();
                 let ins = Code {
-                    tag: CTag::LoadFalse,
+                    tag: CodeTag::LoadFalse,
                     indices: vec![],
                     src,
                 };
@@ -984,7 +988,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1006,7 +1010,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1028,7 +1032,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1050,7 +1054,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1072,7 +1076,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1094,7 +1098,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1116,7 +1120,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1138,7 +1142,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1160,7 +1164,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1182,7 +1186,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1204,7 +1208,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                     src,
                 };
@@ -1226,7 +1230,7 @@ impl Parser {
                     return Ok(n_type_i);
                 }
                 let ins = Code {
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     src,
                     indices: vec![n_type_i],
                 };
@@ -1249,7 +1253,7 @@ impl Parser {
                 }
                 let ins = Code {
                     src,
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                 };
                 Ok(self.code.add_ins(ins))
@@ -1271,7 +1275,7 @@ impl Parser {
                 }
                 let ins = Code {
                     src,
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                 };
                 Ok(self.code.add_ins(ins))
@@ -1293,7 +1297,7 @@ impl Parser {
                 }
                 let ins = Code {
                     src,
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                 };
                 Ok(self.code.add_ins(ins))
@@ -1310,7 +1314,7 @@ impl Parser {
                 }
                 let ins = Code {
                     src,
-                    tag: CTag::TypeRef,
+                    tag: CodeTag::TypeRef,
                     indices: vec![n_type_i],
                 };
                 Ok(self.code.add_ins(ins))
