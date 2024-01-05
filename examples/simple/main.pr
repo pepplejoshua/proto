@@ -1,7 +1,4 @@
-//let a = "Hello";
-//let b str = "_-_";
-//let c = "World";
-//let d type = void;
-//let e str = b;
-let f = bool;
-let g f = true;
+fn main() void {
+    let f = bool;
+    let g f = true;
+}

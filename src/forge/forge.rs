@@ -134,7 +134,6 @@ impl Forge {
     fn namecheck(&self, _a_name_i: &Index, b_name: &String) -> bool {
         let a_name = self.get_str(_a_name_i);
 
-        println!("comparing {a_name} and {b_name}");
         a_name == b_name
     }
 
@@ -144,11 +143,8 @@ impl Forge {
         let mut cur_scope = self.env_stack.get(len - 1).unwrap();
         loop {
             for (n_i, ty_i) in cur_scope.names.iter() {
-                println!("checking scope level {len}");
                 if self.namecheck(&n_i, name_s) {
                     return Some(*ty_i);
-                } else {
-                    println!("failed!");
                 }
             }
 
@@ -306,7 +302,6 @@ impl Forge {
                             let ty_i = self.name_exists(&ty_name_s);
                             if let Some(ty_i) = ty_i {
                                 ty = self.code.get_type(&ty_i);
-                                println!("{name_s} has type {}", self.code.type_as_strl(&ty))
                             } else {
                                 panic!("invalid type given to constant");
                             }
