@@ -129,14 +129,14 @@ impl Forge {
         a_name == b_name
     }
 
-    fn name_exists(&mut self, name_i: &Index) -> bool {
+    fn name_exists(&self, name_i: &Index) -> Option<Index> {
         // loop through all scopes, starting with current without popping it off the stack
         let mut len = self.env_stack.len();
         let mut cur_scope = self.env_stack.get(len - 1).unwrap();
         loop {
-            for (n_i, _) in cur_scope.names.iter() {
+            for (n_i, ty_i) in cur_scope.names.iter() {
                 if self.namecheck(&n_i, &name_i) {
-                    return true;
+                    return Some(*ty_i);
                 }
             }
 
@@ -147,7 +147,7 @@ impl Forge {
                 break;
             }
         }
-        false
+        None
     }
 
     fn verify_type(&self, ty: &TypeSignature) -> bool {
@@ -186,7 +186,19 @@ impl Forge {
                 }
                 true
             }
-            TSTag::NameRef => todo!(),
+            TSTag::NameRef => {
+                let name_i = ty.indices[0];
+                let ty_i = self.name_exists(&name_i);
+                if let Some(ty_i) = ty_i {
+                    let ty = self.code.get_type(&ty_i);
+                    if matches!(ty.tag, TSTag::Type) && ty.indices.is_empty() {
+                        return self.verify_type(&ty);
+                    }
+                    false
+                } else {
+                    false
+                }
+            }
         }
     }
 
@@ -197,7 +209,7 @@ impl Forge {
 
     // this will infer the type of a node (or at least try to) based on ForgeInfo it
     // has collected previously
-    fn infer_type(&self, src_node: &Index) -> TypeSignature {
+    fn infer_type(&mut self, src_node: &Index) -> TypeSignature {
         assert!(
             matches!(src_node.tag, IndexTag::Code),
             "expected code index as input to infer_type"
@@ -207,11 +219,18 @@ impl Forge {
             ForgeInfo::ImmStr { .. } => {
                 let src_ins = self.code.get_ins(*src_node);
                 let src = src_ins.src;
-                TypeSignature {
+                let a_type = TypeSignature {
                     tag: TSTag::Str,
-                    src,
+                    src: src.clone(),
                     indices: vec![], // no indices for str
-                }
+                };
+                let a_type = self.code.add_type(a_type);
+                let temp = TypeSignature {
+                    tag: TSTag::Type,
+                    src,
+                    indices: vec![a_type],
+                };
+                temp
             }
             ForgeInfo::TypeInfo { ty_i } => self.code.get_type(ty_i),
             ForgeInfo::ConstVar { .. } => {
@@ -261,12 +280,23 @@ impl Forge {
                     };
 
                     let name_s = self.code.get_string(&name_si);
-                    let name_i = self.intern_str(name_s);
+                    let name_i = self.intern_str(name_s.clone());
 
                     // if it has some type, we want to make sure it's type is valid
                     // and then check it against the type of the init value
                     if let Some(ty_i) = ty_i {
-                        let ty = self.code.get_type(&ty_i);
+                        let mut ty = self.code.get_type(&ty_i);
+                        // unalias type if it is a name ref
+                        if matches!(ty.tag, TSTag::NameRef) {
+                            let ty_name_i = ty.indices[0];
+                            let ty_i = self.name_exists(&ty_name_i);
+                            if let Some(ty_i) = ty_i {
+                                ty = self.code.get_type(&ty_i);
+                                println!("{name_s} has type {}", self.code.type_as_strl(&ty))
+                            } else {
+                                panic!("invalid type given to constant");
+                            }
+                        }
                         let val_ty = self.infer_type(&val_i);
 
                         // verify both types exist and are valid types
@@ -288,6 +318,12 @@ impl Forge {
                         }
 
                         // add the name to current scope
+                        if matches!(ty.tag, TSTag::Type) && ty.indices.is_empty() {
+                            // so the variable has a type of type
+                            // so a struct, enum or alias to another type
+                            // we will register its name but also register
+                            // it as a type alias
+                        }
                         self.register_name(name_i, ty_i);
 
                         // generate typed code
@@ -417,12 +453,16 @@ impl Forge {
                     let name_i = self.intern_str(name_s);
 
                     // ensure the name exists
-                    if !self.name_exists(&name_i) {
+                    let maybe_ty_i = self.name_exists(&name_i);
+                    if maybe_ty_i.is_none() {
                         panic!("name does not exist");
                     }
 
-                    // get the type of the name
-                    // let ty_i = self.get_name_type(&name_i);
+                    // generate typed code
+
+                    // generate code info for this node
+                    let ty_i = maybe_ty_i.unwrap();
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
                 CodeTag::TypeRef => {
                     // TypeRef Type:19

@@ -3,7 +3,8 @@ let b str = " ";
 let c = "World";
 let d type = void;
 let e str = b;
-//let e d = true;
+let f = bool;
+let g f = true;
 
 // pub fn main() void {
 //     let d str = a + b + c;
