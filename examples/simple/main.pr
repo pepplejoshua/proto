@@ -1,3 +1,7 @@
 fn main() void {
-  let a = 2;
+  // promotable
+  let a u8 = 2;
+
+  // comp int, not equal to other numerical types
+  let a = 3;
 }

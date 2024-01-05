@@ -3,6 +3,7 @@ use super::{bcode::Index, source::SourceRef};
 #[allow(dead_code)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub enum TSTag {
+    ComptimeInt,
     I8,
     I16,
     I32,
@@ -44,7 +45,29 @@ impl TSTag {
     pub fn is_simple_type(&self) -> bool {
         matches!(
             self,
-            TSTag::I8
+            TSTag::ComptimeInt
+                | TSTag::I8
+                | TSTag::I16
+                | TSTag::I32
+                | TSTag::I64
+                | TSTag::Isize
+                | TSTag::U8
+                | TSTag::U16
+                | TSTag::U32
+                | TSTag::U64
+                | TSTag::Usize
+                | TSTag::Bool
+                | TSTag::Char
+                | TSTag::Void
+                | TSTag::Str
+        )
+    }
+
+    pub fn is_numerical_type(&self) -> bool {
+        matches!(
+            self,
+            TSTag::ComptimeInt
+                | TSTag::I8
                 | TSTag::I16
                 | TSTag::I32
                 | TSTag::I64
@@ -75,3 +98,13 @@ impl TypeSignature {
         self.src.clone()
     }
 }
+
+/*
+                   type <----------------------|
+      i8           char        bool            self
+  1, 2, 3        'a', 'b'     [true,false]
+
+
+
+
+*/

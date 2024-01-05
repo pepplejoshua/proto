@@ -682,6 +682,7 @@ impl CodeBundle {
 
     pub fn type_as_strl(&self, ty: &TypeSignature) -> String {
         match ty.tag {
+            TSTag::ComptimeInt => "int".to_string(),
             TSTag::I8 => "i8".to_string(),
             TSTag::I16 => "i16".to_string(),
             TSTag::I32 => "i32".to_string(),
@@ -741,6 +742,7 @@ impl CodeBundle {
         if let IndexTag::TypeSignature = index.tag {
             let type_sig = &self.types[index.index];
             match type_sig.tag {
+                TSTag::ComptimeInt => "int".to_string(),
                 TSTag::I8 => "i8".to_string(),
                 TSTag::I16 => "i16".to_string(),
                 TSTag::I32 => "i32".to_string(),

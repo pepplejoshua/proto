@@ -13,6 +13,11 @@ pub enum ForgeInfo {
         len: usize,
         src: SourceRef,
     },
+    ImmNum {
+        num_i: Index,
+        num: String,
+        src: SourceRef,
+    },
     ImmChar {
         char_i: Index,
         src: SourceRef,
@@ -164,7 +169,8 @@ impl Forge {
 
     fn verify_type(&mut self, ty: &TypeSignature) -> bool {
         match ty.tag {
-            TSTag::I8
+            TSTag::ComptimeInt
+            | TSTag::I8
             | TSTag::I16
             | TSTag::I32
             | TSTag::I64
@@ -220,14 +226,38 @@ impl Forge {
         self.code_info.push(dud);
     }
 
+    fn is_valid_promotion(&self, ty: &TypeSignature, receiver: &TypeSignature) -> bool {
+        match (&ty.tag, &receiver.tag) {
+            (TSTag::ComptimeInt, any) if any.is_numerical_type() => match any {
+                TSTag::ComptimeInt => todo!(),
+                TSTag::I8 => todo!(),
+                TSTag::I16 => todo!(),
+                TSTag::I32 => todo!(),
+                TSTag::I64 => todo!(),
+                TSTag::Isize => todo!(),
+                TSTag::U8 => todo!(),
+                TSTag::U16 => todo!(),
+                TSTag::U32 => todo!(),
+                TSTag::U64 => todo!(),
+                TSTag::Usize => todo!(),
+                TSTag::Function => todo!(),
+            },
+            _ => false,
+        }
+    }
+
     // this will infer the type of a node (or at least try to) based on ForgeInfo it
     // has collected previously
-    fn infer_type(&mut self, src_node: &Index) -> TypeSignature {
+    fn infer_type(&mut self, src_node: &Index, receiver: Option<&TypeSignature>) -> TypeSignature {
         assert!(
             matches!(src_node.tag, IndexTag::Code),
             "expected code index as input to infer_type"
         );
-        let code_info = &self.code_info[src_node.index];
+        let code_info = &self.code_info.get(src_node.index);
+        if code_info.is_none() {
+            panic!("{} is not an actual code info node.", src_node.index);
+        }
+        let code_info = code_info.unwrap();
         match code_info {
             ForgeInfo::ImmChar { .. } => {
                 let char_ins = self.code.get_ins(*src_node);
@@ -257,6 +287,46 @@ impl Forge {
                     tag: TSTag::Type,
                     src,
                     indices: vec![a_type],
+                }
+            }
+            ForgeInfo::ImmNum { .. } => {
+                let src_ins = self.code.get_ins(*src_node);
+                let src = src_ins.src;
+
+                if let Some(ty) = receiver {
+                    // we need to try to promote this untyped integer to the type
+                    // the receiver has
+                    let a_type = TypeSignature {
+                        tag: TSTag::ComptimeInt,
+                        src: src.clone(),
+                        indices: vec![], // no indices for str
+                    };
+                    let a_type = self.code.add_type(a_type);
+                    let num_ty = TypeSignature {
+                        tag: TSTag::Type,
+                        src,
+                        indices: vec![a_type],
+                    };
+
+                    if !self.is_valid_promotion(&num_ty, ty) {
+                        panic!(
+                            "comp_int cannot be promoted to {}",
+                            self.code.type_as_strl(ty)
+                        )
+                    }
+                    ty.clone() // return the receiver type since it is a valid promotion
+                } else {
+                    let a_type = TypeSignature {
+                        tag: TSTag::ComptimeInt,
+                        src: src.clone(),
+                        indices: vec![], // no indices for str
+                    };
+                    let a_type = self.code.add_type(a_type);
+                    TypeSignature {
+                        tag: TSTag::Type,
+                        src,
+                        indices: vec![a_type],
+                    }
                 }
             }
             ForgeInfo::TypeInfo { ty_i } => self.code.get_type(ty_i),
@@ -298,13 +368,24 @@ impl Forge {
                 }
                 CodeTag::LINum => {
                     // store info about an immediate number
+                    let num_i = ins.indices[0];
+                    let num_s = self.code.get_string(&num_i);
+                    let n_num_i = self.intern_str(num_s.clone());
+                    self.code_info.push(ForgeInfo::ImmNum {
+                        num_i: n_num_i,
+                        num: num_s,
+                        src: ins.src.clone(),
+                    })
                 }
                 CodeTag::LIChar => {
                     // store info about an immediate char
                     let char_i = ins.indices[0];
                     let char_s = self.code.get_string(&char_i);
                     let n_char_i = self.intern_str(char_s);
-                    self.code_info.push(ForgeInfo::ImmChar { char_i: n_char_i, src: ins.src.clone() })
+                    self.code_info.push(ForgeInfo::ImmChar {
+                        char_i: n_char_i,
+                        src: ins.src.clone(),
+                    })
                 }
                 CodeTag::NewConstant => {
                     // NewConstant "name" Type:19?, Code:20
@@ -333,7 +414,7 @@ impl Forge {
                                 panic!("invalid type given to constant");
                             }
                         }
-                        let val_ty = self.infer_type(&val_i);
+                        let val_ty = self.infer_type(&val_i, Some(&ty));
 
                         // verify both types exist and are valid types
                         if !self.verify_type(&ty) {
@@ -373,7 +454,7 @@ impl Forge {
                         });
                     } else {
                         // if it doesn't have a type, we want to infer it
-                        let val_ty = self.infer_type(&val_i);
+                        let val_ty = self.infer_type(&val_i, None);
                         let val_ty_i = self.code.add_type(val_ty);
 
                         // add the name to current scope
