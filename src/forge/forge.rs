@@ -13,6 +13,10 @@ pub enum ForgeInfo {
         len: usize,
         src: SourceRef,
     },
+    ImmChar {
+        char_i: Index,
+        src: SourceRef,
+    },
     ConstVar {
         name_i: Index,
         ty_i: Index,
@@ -225,6 +229,21 @@ impl Forge {
         );
         let code_info = &self.code_info[src_node.index];
         match code_info {
+            ForgeInfo::ImmChar { .. } => {
+                let char_ins = self.code.get_ins(*src_node);
+                let src = char_ins.src;
+                let a_type = TypeSignature {
+                    tag: TSTag::Char,
+                    src: src.clone(),
+                    indices: vec![],
+                };
+                let a_type = self.code.add_type(a_type);
+                TypeSignature {
+                    tag: TSTag::Type,
+                    src,
+                    indices: vec![a_type],
+                }
+            }
             ForgeInfo::ImmStr { .. } => {
                 let src_ins = self.code.get_ins(*src_node);
                 let src = src_ins.src;
@@ -271,12 +290,21 @@ impl Forge {
                     let str_a = self.code.get_string(&str_i);
                     let len = str_a.len();
                     let n_str_i = self.intern_str(str_a);
-                    // insert into the code_info vec at the same index as the instruction
                     self.code_info.push(ForgeInfo::ImmStr {
                         str_i: n_str_i,
                         len,
                         src: ins.src.clone(),
                     });
+                }
+                CodeTag::LINum => {
+                    // store info about an immediate number
+                }
+                CodeTag::LIChar => {
+                    // store info about an immediate char
+                    let char_i = ins.indices[0];
+                    let char_s = self.code.get_string(&char_i);
+                    let n_char_i = self.intern_str(char_s);
+                    self.code_info.push(ForgeInfo::ImmChar { char_i: n_char_i, src: ins.src.clone() })
                 }
                 CodeTag::NewConstant => {
                     // NewConstant "name" Type:19?, Code:20

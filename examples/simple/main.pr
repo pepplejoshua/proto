@@ -1,4 +1,3 @@
 fn main() void {
-    let f = bool;
-    let g f = true;
+  let a = 2;
 }
