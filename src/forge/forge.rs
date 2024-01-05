@@ -234,12 +234,11 @@ impl Forge {
                     indices: vec![], // no indices for str
                 };
                 let a_type = self.code.add_type(a_type);
-                let temp = TypeSignature {
+                TypeSignature {
                     tag: TSTag::Type,
                     src,
                     indices: vec![a_type],
-                };
-                temp
+                }
             }
             ForgeInfo::TypeInfo { ty_i } => self.code.get_type(ty_i),
             ForgeInfo::ConstVar { .. } => {
@@ -259,7 +258,7 @@ impl Forge {
     // code to generate a type checked version or just C++
     pub fn eval(&mut self) {
         let instructions = self.code.ins.clone();
-        for (_, ins) in instructions.iter().enumerate() {
+        instructions.iter().enumerate().for_each(|(_, ins)| {
             // println!("evaluating instruction: {:#?}", ins.tag);
             match ins.tag {
                 CodeTag::SrcComment => {
@@ -440,6 +439,21 @@ impl Forge {
                     // generate code info for this node
                     self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
+                CodeTag::LoadFalse => {
+                    // LoadFalse
+                    // println!("loading false");
+                    let ty = TypeSignature {
+                        tag: TSTag::Bool,
+                        src: ins.src.clone(),
+                        indices: vec![],
+                    };
+                    let ty_i = self.code.add_type(ty);
+
+                    // generate typed code
+
+                    // generate code info for this node
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                }
                 CodeTag::MakePublic => {
                     let code_i = ins.indices[0].index;
                     let code_info = self.code_info.get(code_i).unwrap();
@@ -490,7 +504,7 @@ impl Forge {
                 }
                 _ => panic!("not implemented: {:#?}", ins),
             }
-        }
+        });
         // println!("completed eval");
     }
 }

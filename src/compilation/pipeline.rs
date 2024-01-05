@@ -141,19 +141,11 @@ impl Workspace {
         let abs_entry_file = fs::canonicalize(PathBuf::from(abs_entry_file)).unwrap();
         let abs_entry_file = abs_entry_file.to_str().unwrap().to_string();
 
-        let w = Workspace {
+        Workspace {
             entry_file: abs_entry_file,
             files: HashMap::new(),
             config,
-        };
-
-        // TODO: add back when std is ready and we can handle directives
-        // w.process_file(
-        //     "/Users/iwarilama/Desktop/Code/rust/proto/src/std/primitives.pr".to_string(),
-        //     &mut vec![],
-        // );
-
-        return w;
+        }
     }
 
     pub fn compile_workspace(&mut self) {
@@ -170,15 +162,14 @@ impl Workspace {
 
     fn process_file(&mut self, file_path: String, path_stack: &mut Vec<String>) {
         // check if file is already processed and stored in files
-        if let Some(_) = self.files.get(&file_path) {
+        if self.files.get(&file_path).is_some() {
             return;
         }
 
         // check for circular dependency
         for path in path_stack.clone() {
             if path == file_path {
-                let msg = format!("circular dependency detected: {}", file_path);
-                println!("{}", msg);
+                println!("circular dependency detected: {}", file_path);
                 return;
             }
         }
