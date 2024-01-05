@@ -115,6 +115,15 @@ impl Forge {
         }
     }
 
+    fn get_str(&self, str_i: &Index) -> &str {
+        assert!(
+            matches!(str_i.tag, IndexTag::String),
+            "trying to get interned string with non-string index"
+        );
+        let s = self.strings.get(str_i.index).unwrap();
+        s.as_str()
+    }
+
     fn typecheck(&self, _a_ty_i: &Index, _b_ty_i: &Index) -> bool {
         let a_ty = self.code.get_type(_a_ty_i);
         let b_ty = self.code.get_type(_b_ty_i);
@@ -122,21 +131,24 @@ impl Forge {
         self.code.eq_types(&a_ty, &b_ty)
     }
 
-    fn namecheck(&self, _a_name_i: &Index, _b_name_i: &Index) -> bool {
-        let a_name = self.code.get_string(_a_name_i);
-        let b_name = self.code.get_string(_b_name_i);
+    fn namecheck(&self, _a_name_i: &Index, b_name: &String) -> bool {
+        let a_name = self.get_str(_a_name_i);
 
+        println!("comparing {a_name} and {b_name}");
         a_name == b_name
     }
 
-    fn name_exists(&self, name_i: &Index) -> Option<Index> {
+    fn name_exists(&self, name_s: &String) -> Option<Index> {
         // loop through all scopes, starting with current without popping it off the stack
         let mut len = self.env_stack.len();
         let mut cur_scope = self.env_stack.get(len - 1).unwrap();
         loop {
             for (n_i, ty_i) in cur_scope.names.iter() {
-                if self.namecheck(&n_i, &name_i) {
+                println!("checking scope level {len}");
+                if self.namecheck(&n_i, name_s) {
                     return Some(*ty_i);
+                } else {
+                    println!("failed!");
                 }
             }
 
@@ -150,7 +162,7 @@ impl Forge {
         None
     }
 
-    fn verify_type(&self, ty: &TypeSignature) -> bool {
+    fn verify_type(&mut self, ty: &TypeSignature) -> bool {
         match ty.tag {
             TSTag::I8
             | TSTag::I16
@@ -188,7 +200,8 @@ impl Forge {
             }
             TSTag::NameRef => {
                 let name_i = ty.indices[0];
-                let ty_i = self.name_exists(&name_i);
+                let name_s = self.code.get_string(&name_i);
+                let ty_i = self.name_exists(&name_s);
                 if let Some(ty_i) = ty_i {
                     let ty = self.code.get_type(&ty_i);
                     if matches!(ty.tag, TSTag::Type) && ty.indices.is_empty() {
@@ -289,7 +302,8 @@ impl Forge {
                         // unalias type if it is a name ref
                         if matches!(ty.tag, TSTag::NameRef) {
                             let ty_name_i = ty.indices[0];
-                            let ty_i = self.name_exists(&ty_name_i);
+                            let ty_name_s = self.code.get_string(&ty_name_i);
+                            let ty_i = self.name_exists(&ty_name_s);
                             if let Some(ty_i) = ty_i {
                                 ty = self.code.get_type(&ty_i);
                                 println!("{name_s} has type {}", self.code.type_as_strl(&ty))
@@ -450,10 +464,9 @@ impl Forge {
                     // NameRef "name"
                     let name_si = ins.indices[0];
                     let name_s = self.code.get_string(&name_si);
-                    let name_i = self.intern_str(name_s);
 
                     // ensure the name exists
-                    let maybe_ty_i = self.name_exists(&name_i);
+                    let maybe_ty_i = self.name_exists(&name_s);
                     if maybe_ty_i.is_none() {
                         panic!("name does not exist");
                     }

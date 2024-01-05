@@ -1,16 +1,7 @@
-let a = "Hello";
-let b str = " ";
-let c = "World";
-let d type = void;
-let e str = b;
+//let a = "Hello";
+//let b str = "_-_";
+//let c = "World";
+//let d type = void;
+//let e str = b;
 let f = bool;
 let g f = true;
-
-// pub fn main() void {
-//     let d str = a + b + c;
-//     println(d);
-// }
-
-// fn add(a u8, b u8) u8 {
-//    return a + b;
-// }
