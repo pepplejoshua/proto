@@ -1,7 +1,32 @@
-fn main() void {
-  // promotable
-  let a u8 = 2;
+// inferred a: int
+// 4: int
+let a = 4;
 
-  // comp int, not equal to other numerical types
-  let a = 3;
-}
+// specd a2: u8
+// u8: u8_Ty
+// 4: int (so we will try to coerce it to u8)
+let a2 u8 = 4;
+
+// specd b: char
+// char: char_Ty
+// 'a': char
+let b char = 'a';
+
+// specd c: str
+// str: str_Ty
+// "hello": str
+let c str = "hello";
+
+// specd d: bool
+// bool: bool_Ty
+// true: bool
+let d bool = true;
+
+// inferred ty: type
+// bool: bool_Ty
+let ty = bool;
+
+// specd ty2: type
+// type: type_Ty
+// isize: isize_Ty
+let ty2 type = isize;

@@ -184,17 +184,23 @@ impl Forge {
             | TSTag::Char
             | TSTag::Void
             | TSTag::Str
-            | TSTag::Type => true,
-            TSTag::SizedArray => {
-                let inner_ty_i = ty.indices[1];
-                let inner_ty = self.code.get_type(&inner_ty_i);
-                self.verify_type(&inner_ty)
-            }
-            TSTag::Array => {
-                let inner_ty_i = ty.indices[0];
-                let inner_ty = self.code.get_type(&inner_ty_i);
-                self.verify_type(&inner_ty)
-            }
+            | TSTag::Type
+            | TSTag::BoolTy
+            | TSTag::CharTy
+            | TSTag::VoidTy
+            | TSTag::StrTy
+            | TSTag::I8Ty
+            | TSTag::I16Ty
+            | TSTag::I32Ty
+            | TSTag::I64Ty
+            | TSTag::IsizeTy
+            | TSTag::U8Ty
+            | TSTag::U16Ty
+            | TSTag::U32Ty
+            | TSTag::U64Ty
+            | TSTag::UsizeTy
+            | TSTag::TypeTy => true,
+
             TSTag::Function => {
                 for ty in ty.indices.iter() {
                     let inner_ty = self.code.get_type(&ty);
@@ -241,9 +247,38 @@ impl Forge {
                 TSTag::U64 => todo!(),
                 TSTag::Usize => todo!(),
                 TSTag::Function => todo!(),
+                _ => false,
             },
             _ => false,
         }
+    }
+
+    // implements simple type checking
+    fn accepts(&self, receiver: &TypeSignature, val_ty: &TypeSignature) -> bool {
+        match (&receiver.tag, &val_ty.tag) {
+            (TSTag::BoolTy, TSTag::Bool)
+            | (TSTag::TypeTy, TSTag::Type)
+            | (TSTag::I8Ty, TSTag::I8)
+            | (TSTag::I16Ty, TSTag::I16)
+            | (TSTag::I32Ty, TSTag::I32)
+            | (TSTag::I64Ty, TSTag::I64)
+            | (TSTag::Isize, TSTag::Isize)
+            | (TSTag::U8Ty, TSTag::U8)
+            | (TSTag::U16Ty, TSTag::U16)
+            | (TSTag::U32Ty, TSTag::U32)
+            | (TSTag::U64Ty, TSTag::U64)
+            | (TSTag::Usize, TSTag::Usize) => true,
+            (TSTag::TypeTy, v_tag) if v_tag.is_literal_type_token() => true,
+            _ => false,
+        }
+    }
+
+    // tries to do type promotions:
+    // int -> constrained integer type (i8, u16, etc.)
+    // char -> u8
+    // u8 -> char?
+    fn try_promote(&self, rec: &TypeSignature, val_ty: &TypeSignature, code_info: &Index) -> bool {
+        false
     }
 
     // this will infer the type of a node (or at least try to) based on ForgeInfo it

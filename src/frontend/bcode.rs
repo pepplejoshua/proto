@@ -619,27 +619,6 @@ impl CodeBundle {
         };
 
         match a.tag {
-            TSTag::SizedArray => {
-                let a_size_i = a.indices[0];
-                let b_size_i = b.indices[0];
-                let a_size_s = &self.get_string(&a_size_i);
-                let b_size_s = &self.get_string(&b_size_i);
-                if a_size_s != b_size_s {
-                    return false;
-                }
-                let a_type_i = a.indices[1];
-                let b_type_i = b.indices[1];
-                let a_type = &self.types[a_type_i.index];
-                let b_type = &self.types[b_type_i.index];
-                return self.eq_types(a_type, b_type);
-            }
-            TSTag::Array => {
-                let a_type_i = a.indices[0];
-                let b_type_i = b.indices[0];
-                let a_type = &self.types[a_type_i.index];
-                let b_type = &self.types[b_type_i.index];
-                return self.eq_types(a_type, b_type);
-            }
             TSTag::NameRef => {
                 let a_name_i = a.indices[0];
                 let b_name_i = b.indices[0];
@@ -683,38 +662,26 @@ impl CodeBundle {
     pub fn type_as_strl(&self, ty: &TypeSignature) -> String {
         match ty.tag {
             TSTag::ComptimeInt => "int".to_string(),
-            TSTag::I8 => "i8".to_string(),
-            TSTag::I16 => "i16".to_string(),
-            TSTag::I32 => "i32".to_string(),
-            TSTag::I64 => "i64".to_string(),
-            TSTag::Isize => "isize".to_string(),
-            TSTag::U8 => "u8".to_string(),
-            TSTag::U16 => "u16".to_string(),
-            TSTag::U32 => "u32".to_string(),
-            TSTag::U64 => "u64".to_string(),
-            TSTag::Usize => "usize".to_string(),
-            TSTag::Bool => "bool".to_string(),
-            TSTag::Char => "char".to_string(),
-            TSTag::Void => "void".to_string(),
-            TSTag::Str => "str".to_string(),
-            TSTag::Type => {
+            TSTag::I8 | TSTag::I8Ty => "i8".to_string(),
+            TSTag::I16 | TSTag::I16Ty => "i16".to_string(),
+            TSTag::I32 | TSTag::I32Ty => "i32".to_string(),
+            TSTag::I64 | TSTag::I64Ty => "i64".to_string(),
+            TSTag::Isize | TSTag::IsizeTy => "isize".to_string(),
+            TSTag::U8 | TSTag::U8Ty => "u8".to_string(),
+            TSTag::U16 | TSTag::U16Ty => "u16".to_string(),
+            TSTag::U32 | TSTag::U32Ty => "u32".to_string(),
+            TSTag::U64 | TSTag::U64Ty => "u64".to_string(),
+            TSTag::Usize | TSTag::UsizeTy => "usize".to_string(),
+            TSTag::Bool | TSTag::BoolTy => "bool".to_string(),
+            TSTag::Char | TSTag::CharTy => "char".to_string(),
+            TSTag::Void | TSTag::VoidTy => "void".to_string(),
+            TSTag::Str | TSTag::StrTy => "str".to_string(),
+            TSTag::Type | TSTag::TypeTy => {
                 if ty.indices.len() != 1 {
                     return "type".to_string();
                 }
                 let inner_ty_i = ty.indices[0];
                 self.type_as_str(inner_ty_i)
-            }
-            TSTag::SizedArray => {
-                let size_i = ty.indices[0];
-                let size_s = &self.get_string(&size_i);
-                let type_i = ty.indices[1];
-                let type_s = &self.type_as_str(type_i);
-                format!("[{size_s}]{type_s}")
-            }
-            TSTag::Array => {
-                let type_i = ty.indices[0];
-                let type_s = &self.type_as_str(type_i);
-                format!("[]{type_s}")
             }
             TSTag::NameRef => {
                 let name_i = ty.indices[0];
@@ -743,38 +710,26 @@ impl CodeBundle {
             let type_sig = &self.types[index.index];
             match type_sig.tag {
                 TSTag::ComptimeInt => "int".to_string(),
-                TSTag::I8 => "i8".to_string(),
-                TSTag::I16 => "i16".to_string(),
-                TSTag::I32 => "i32".to_string(),
-                TSTag::I64 => "i64".to_string(),
-                TSTag::Isize => "isize".to_string(),
-                TSTag::U8 => "u8".to_string(),
-                TSTag::U16 => "u16".to_string(),
-                TSTag::U32 => "u32".to_string(),
-                TSTag::U64 => "u64".to_string(),
-                TSTag::Usize => "usize".to_string(),
-                TSTag::Bool => "bool".to_string(),
-                TSTag::Char => "char".to_string(),
-                TSTag::Void => "void".to_string(),
-                TSTag::Str => "str".to_string(),
-                TSTag::Type => {
+                TSTag::I8 | TSTag::I8Ty => "i8".to_string(),
+                TSTag::I16 | TSTag::I16Ty => "i16".to_string(),
+                TSTag::I32 | TSTag::I32Ty => "i32".to_string(),
+                TSTag::I64 | TSTag::I64Ty => "i64".to_string(),
+                TSTag::Isize | TSTag::IsizeTy => "isize".to_string(),
+                TSTag::U8 | TSTag::U8Ty => "u8".to_string(),
+                TSTag::U16 | TSTag::U16Ty => "u16".to_string(),
+                TSTag::U32 | TSTag::U32Ty => "u32".to_string(),
+                TSTag::U64 | TSTag::U64Ty => "u64".to_string(),
+                TSTag::Usize | TSTag::UsizeTy => "usize".to_string(),
+                TSTag::Bool | TSTag::BoolTy => "bool".to_string(),
+                TSTag::Char | TSTag::CharTy => "char".to_string(),
+                TSTag::Void | TSTag::VoidTy => "void".to_string(),
+                TSTag::Str | TSTag::StrTy => "str".to_string(),
+                TSTag::Type | TSTag::TypeTy => {
                     if type_sig.indices.len() != 1 {
                         return "type".to_string();
                     }
                     let inner_ty_i = type_sig.indices[0];
                     self.type_as_str(inner_ty_i)
-                }
-                TSTag::SizedArray => {
-                    let size_i = type_sig.indices[0];
-                    let size_s = &self.get_string(&size_i);
-                    let type_i = type_sig.indices[1];
-                    let type_s = &self.type_as_str(type_i);
-                    format!("[{size_s}]{type_s}")
-                }
-                TSTag::Array => {
-                    let type_i = type_sig.indices[0];
-                    let type_s = &self.type_as_str(type_i);
-                    format!("[]{type_s}")
                 }
                 TSTag::NameRef => {
                     let name_i = type_sig.indices[0];
