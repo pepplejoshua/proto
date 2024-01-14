@@ -410,8 +410,9 @@ impl CodeBundle {
                     s.push(format!("{num} LoadFalse\n"));
                 }
                 CodeTag::SrcComment => {
-                    let comment = self.get_string(&code.indices[0]);
-                    s.push(format!("{num} {comment}\n"));
+                    // let comment = self.get_string(&code.indices[0]);
+                    // s.push(format!("{num} {comment}\n"));
+                    // TODO(@pepplejoshua): uncomment this later
                 }
                 CodeTag::Add => {
                     let a = code.indices[0].index;

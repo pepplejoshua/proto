@@ -137,7 +137,7 @@ impl Forge {
         let a_ty = self.code.get_type(_a_ty_i);
         let b_ty = self.code.get_type(_b_ty_i);
 
-        self.code.eq_types(&a_ty, &b_ty)
+        self.accepts(&a_ty, &b_ty)
     }
 
     fn namecheck(&self, _a_name_i: &Index, b_name: &String) -> bool {
@@ -232,22 +232,54 @@ impl Forge {
         self.code_info.push(dud);
     }
 
-    fn is_valid_promotion(&self, ty: &TypeSignature, receiver: &TypeSignature) -> bool {
+    fn is_valid_promotion(&self, ty: &TypeSignature, receiver: &TypeSignature, value: &str) -> bool {
+        println!("trying to promote {} of type {:?} to type {:?}", value, ty.tag, receiver.tag);
         match (&ty.tag, &receiver.tag) {
-            (TSTag::ComptimeInt, any) if any.is_numerical_type() => match any {
-                TSTag::ComptimeInt => todo!(),
-                TSTag::I8 => todo!(),
-                TSTag::I16 => todo!(),
-                TSTag::I32 => todo!(),
-                TSTag::I64 => todo!(),
-                TSTag::Isize => todo!(),
-                TSTag::U8 => todo!(),
-                TSTag::U16 => todo!(),
-                TSTag::U32 => todo!(),
-                TSTag::U64 => todo!(),
-                TSTag::Usize => todo!(),
-                TSTag::Function => todo!(),
-                _ => false,
+            (TSTag::ComptimeInt, any) if any.is_literal_type_token() => match any {
+                TSTag::ComptimeInt => true,
+                TSTag::I8Ty => {
+                    let val = value.parse::<i8>();
+                    val.is_ok()
+                }
+                TSTag::I16Ty => {
+                    let val = value.parse::<i16>();
+                    val.is_ok()
+                }
+                TSTag::I32Ty => {
+                    let val = value.parse::<i32>();
+                    val.is_ok()
+                }
+                TSTag::I64Ty => {
+                    let val = value.parse::<i64>();
+                    val.is_ok()
+                }
+                TSTag::IsizeTy => {
+                    let val = value.parse::<isize>();
+                    val.is_ok()
+                }
+                TSTag::U8Ty => {
+                    let val = value.parse::<u8>();
+                    val.is_ok()
+                }
+                TSTag::U16Ty => {
+                    let val = value.parse::<u16>();
+                    val.is_ok()
+                }
+                TSTag::U32Ty => {
+                    let val = value.parse::<u32>();
+                    val.is_ok()
+                }
+                TSTag::U64Ty => {
+                    let val = value.parse::<u64>();
+                    val.is_ok()
+                }
+                TSTag::UsizeTy => {
+                    let val = value.parse::<usize>();
+                    val.is_ok()
+                }
+                TSTag::Function
+                | TSTag::NameRef
+                | _ => false,
             },
             _ => false,
         }
@@ -267,18 +299,13 @@ impl Forge {
             | (TSTag::U16Ty, TSTag::U16)
             | (TSTag::U32Ty, TSTag::U32)
             | (TSTag::U64Ty, TSTag::U64)
-            | (TSTag::Usize, TSTag::Usize) => true,
+            | (TSTag::UsizeTy, TSTag::Usize) 
+            | (TSTag::CharTy, TSTag::Char)
+            | (TSTag::VoidTy, TSTag::Void)
+            | (TSTag::StrTy, TSTag::Str) => true,
             (TSTag::TypeTy, v_tag) if v_tag.is_literal_type_token() => true,
-            _ => false,
+            _ => false
         }
-    }
-
-    // tries to do type promotions:
-    // int -> constrained integer type (i8, u16, etc.)
-    // char -> u8
-    // u8 -> char?
-    fn try_promote(&self, rec: &TypeSignature, val_ty: &TypeSignature, code_info: &Index) -> bool {
-        false
     }
 
     // this will infer the type of a node (or at least try to) based on ForgeInfo it
@@ -297,70 +324,50 @@ impl Forge {
             ForgeInfo::ImmChar { .. } => {
                 let char_ins = self.code.get_ins(*src_node);
                 let src = char_ins.src;
-                let a_type = TypeSignature {
+                TypeSignature {
                     tag: TSTag::Char,
                     src: src.clone(),
                     indices: vec![],
-                };
-                let a_type = self.code.add_type(a_type);
-                TypeSignature {
-                    tag: TSTag::Type,
-                    src,
-                    indices: vec![a_type],
                 }
             }
             ForgeInfo::ImmStr { .. } => {
                 let src_ins = self.code.get_ins(*src_node);
                 let src = src_ins.src;
-                let a_type = TypeSignature {
+                TypeSignature {
                     tag: TSTag::Str,
                     src: src.clone(),
                     indices: vec![], // no indices for str
-                };
-                let a_type = self.code.add_type(a_type);
-                TypeSignature {
-                    tag: TSTag::Type,
-                    src,
-                    indices: vec![a_type],
                 }
             }
-            ForgeInfo::ImmNum { .. } => {
+            ForgeInfo::ImmNum { num, .. } => {
                 let src_ins = self.code.get_ins(*src_node);
                 let src = src_ins.src;
 
                 if let Some(ty) = receiver {
                     // we need to try to promote this untyped integer to the type
                     // the receiver has
-                    let a_type = TypeSignature {
+                    let num_ty = TypeSignature {
                         tag: TSTag::ComptimeInt,
                         src: src.clone(),
-                        indices: vec![], // no indices for str
-                    };
-                    let a_type = self.code.add_type(a_type);
-                    let num_ty = TypeSignature {
-                        tag: TSTag::Type,
-                        src,
-                        indices: vec![a_type],
+                        indices: vec![],
                     };
 
-                    if !self.is_valid_promotion(&num_ty, ty) {
+                    if !self.is_valid_promotion(&num_ty, ty, &num) {
                         panic!(
-                            "comp_int cannot be promoted to {}",
+                            "int cannot be promoted to {}",
                             self.code.type_as_strl(ty)
                         )
                     }
-                    ty.clone() // return the receiver type since it is a valid promotion
+                    TypeSignature {
+                        tag: ty.tag.accepted_numerical_type(),
+                        src: src.clone(),
+                        indices: vec![],
+                    }
                 } else {
-                    let a_type = TypeSignature {
+                    TypeSignature {
                         tag: TSTag::ComptimeInt,
                         src: src.clone(),
                         indices: vec![], // no indices for str
-                    };
-                    let a_type = self.code.add_type(a_type);
-                    TypeSignature {
-                        tag: TSTag::Type,
-                        src,
-                        indices: vec![a_type],
                     }
                 }
             }
@@ -461,7 +468,7 @@ impl Forge {
                         }
 
                         // ensure they are the same type
-                        if !self.code.eq_types(&ty, &val_ty) {
+                        if !self.accepts(&ty, &val_ty) {
                             let line = ins.src.start_line + 1;
                             let col = ins.src.start_col + 1;
                             let ty_s = self.code.type_as_str(ty_i);
@@ -470,26 +477,23 @@ impl Forge {
                         }
 
                         // add the name to current scope
-                        if matches!(ty.tag, TSTag::Type) && ty.indices.is_empty() {
-                            // so the variable has a type of type
-                            // so a struct, enum or alias to another type
-                            // we will register its name but also register
-                            // it as a type alias
-                        }
-                        self.register_name(name_i, ty_i);
+                        let val_ty_i = self.code.add_type(val_ty);
+                        self.register_name(name_i, val_ty_i.clone());
 
                         // generate typed code
 
                         // generate code info for this node
                         self.code_info.push(ForgeInfo::ConstVar {
                             name_i,
-                            ty_i,
+                            ty_i: val_ty_i,
                             init_i: val_i,
                             src: ins.src.clone(),
                         });
                     } else {
                         // if it doesn't have a type, we want to infer it
                         let val_ty = self.infer_type(&val_i, None);
+
+                        if val_ty.tag.is_numerical_type()
                         let val_ty_i = self.code.add_type(val_ty);
 
                         // add the name to current scope
