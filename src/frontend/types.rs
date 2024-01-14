@@ -87,7 +87,46 @@ impl TSTag {
                 | TSTag::U32Ty
                 | TSTag::U64Ty
                 | TSTag::UsizeTy
+                | TSTag::TypeTy
         )
+    }
+
+    pub fn accepted_numerical_type(&self) -> TSTag {
+        match self {
+            TSTag::ComptimeInt
+            | TSTag::Bool
+            | TSTag::Char
+            | TSTag::Void 
+            | TSTag::Str
+            | TSTag::Type
+            | TSTag::I8
+            | TSTag::I16
+            | TSTag::I32
+            | TSTag::I64
+            | TSTag::Isize 
+            | TSTag::U8
+            | TSTag::U16
+            | TSTag::U32
+            | TSTag::U64
+            | TSTag::Usize
+            | TSTag::Function
+            | TSTag::BoolTy
+            | TSTag::CharTy
+            | TSTag::VoidTy
+            | TSTag::StrTy
+            | TSTag::TypeTy
+            | TSTag::NameRef => unreachable!("unexpected non-numerical type token: {:?}", self),
+            TSTag::I8Ty => TSTag::I8,
+            TSTag::I16Ty => TSTag::I16,
+            TSTag::I32Ty => TSTag::I32,
+            TSTag::I64Ty => TSTag::I64,
+            TSTag::IsizeTy => TSTag::Isize,
+            TSTag::U8Ty => TSTag::U8,
+            TSTag::U16Ty => TSTag::U16,
+            TSTag::U32Ty => TSTag::U32,
+            TSTag::U64Ty => TSTag::U64,
+            TSTag::UsizeTy => TSTag::Usize,
+        }
     }
 
     pub fn is_numerical_type(&self) -> bool {
@@ -127,27 +166,8 @@ impl TypeSignature {
 }
 
 /*
-  |---------------------> type <---------------------|
-  |             |               |                    |
-  |---> i8      |---> char      |---> bool           |---> type, keyword
-    [1, 2, 3]      ['a', 'b']     [true,false]       the type of type is also type
-
-
-    1 is of type int
-    'a' is of type char
-    char is of type type
-    type is of type type
-
-    let a char = 'a';
-
-    (receiver: ty vs val_ty: ty):
-        char vs char
-
-    let t type = bool;
-    (receiver: ty vs val_ty: ty):
-        type vs type
-
-    I have to take the receivers at face value
-    I have to infer the type of the expression
-    I have to compare them
+  |---------------------> type <------------------|
+  |             |               |                 |
+  |---> i8      |---> char      |---> bool        |---> type, keyword
+    [1, 2, 3]      ['a', 'b']     [true,false]     the type of type is also type
 */
