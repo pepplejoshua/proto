@@ -326,7 +326,15 @@ impl Parser {
             if !matches!(cur, Token::RParen(_)) {
                 // handle parameter syntax and get the parameter type index
                 // back and use it in the function instruction
-                let param_ty_i = self.parse_param()?;
+                let param_ty_i = self.parse_param();
+                if let Err(err) = param_ty_i {
+                    self.report_error(err);
+                    self.recover_from_err();
+                    cur = self.cur_token();
+                    continue;
+                }
+
+                let param_ty_i = param_ty_i?;
                 fn_tys.push(param_ty_i);
                 params_c += 1;
                 cur = self.cur_token();

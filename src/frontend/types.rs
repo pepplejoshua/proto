@@ -143,10 +143,6 @@ impl TSTag {
                 | TSTag::U32
                 | TSTag::U64
                 | TSTag::Usize
-                | TSTag::Bool
-                | TSTag::Char
-                | TSTag::Void
-                | TSTag::Str
         )
     }
 }
@@ -164,10 +160,3 @@ impl TypeSignature {
         self.src.clone()
     }
 }
-
-/*
-  |---------------------> type <------------------|
-  |             |               |                 |
-  |---> i8      |---> char      |---> bool        |---> type, keyword
-    [1, 2, 3]      ['a', 'b']     [true,false]     the type of type is also type
-*/
