@@ -693,6 +693,23 @@ impl Forge {
                     // - str + char -> str
                     // - char + char -> str
                     match (a_ty.tag, b_ty.tag) {
+                        (TSTag::Str, TSTag::Char) 
+                        | (TSTag::Char, TSTag::Char) => {
+                            let ty = TypeSignature {
+                                tag: TSTag::Str,
+                                src: ins.src.clone(),
+                                indices: vec![],
+                            };
+                            let ty_i = self.code.add_type(ty);
+
+                            // generate typed code
+
+                            // generate code info for this node
+                            self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                        }
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            todo!()
+                        }
                         _ => todo!()
                     }
                 }
