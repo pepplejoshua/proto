@@ -287,6 +287,7 @@ impl Forge {
 
     // implements simple type checking
     fn accepts(&self, receiver: &TypeSignature, val_ty: &TypeSignature) -> bool {
+        println!("accepts: {:?} <= {:?}", receiver.tag, val_ty.tag);
         match (&receiver.tag, &val_ty.tag) {
             (TSTag::BoolTy, TSTag::Bool)
             | (TSTag::TypeTy, TSTag::Type)
@@ -317,7 +318,7 @@ impl Forge {
         );
         let code_info = &self.code_info.get(src_node.index);
         if code_info.is_none() {
-            panic!("{} is not an actual code info node.", src_node.index);
+            panic!("{} is not a code info node.", src_node.index);
         }
         let code_info = code_info.unwrap();
         match code_info {
@@ -364,10 +365,26 @@ impl Forge {
                         indices: vec![],
                     }
                 } else {
-                    TypeSignature {
+                    let num_ty = TypeSignature {
                         tag: TSTag::ComptimeInt,
                         src: src.clone(),
                         indices: vec![], // no indices for str
+                    };
+                    
+                    // try to convert the comptime int to an i32
+                    let target_attempt = TypeSignature {
+                        tag: TSTag::IsizeTy,
+                        src: src.clone(),
+                        indices: vec![],
+                    };
+
+                    if !self.is_valid_promotion(&num_ty, &target_attempt, &num) {
+                        panic!("comptime_int cannot be promoted to isize");
+                    }
+                    TypeSignature {
+                        tag: target_attempt.tag.accepted_numerical_type(),
+                        src: src.clone(),
+                        indices: vec![],
                     }
                 }
             }
@@ -493,7 +510,6 @@ impl Forge {
                         // if it doesn't have a type, we want to infer it
                         let val_ty = self.infer_type(&val_i, None);
 
-                        if val_ty.tag.is_numerical_type()
                         let val_ty_i = self.code.add_type(val_ty);
 
                         // add the name to current scope
