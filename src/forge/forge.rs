@@ -677,6 +677,25 @@ impl Forge {
                         _ => panic!("not implemented: {:#?}", ins),
                     }
                 }
+                CodeTag::Add => {
+                    // Add Code:30 Code:30
+                    // println!("adding");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} + i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} + u{8,16,32,64,size}
+                    // - str + char -> str
+                    // - char + char -> str
+                    match (a_ty.tag, b_ty.tag) {
+                        _ => todo!()
+                    }
+                }
                 CodeTag::NameRef => {
                     // NameRef "name"
                     let name_si = ins.indices[0];

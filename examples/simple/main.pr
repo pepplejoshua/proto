@@ -1,10 +1,6 @@
 pub fn main() void {
-  let a = bool;
-  let a2 a = false;
-  let temp_ty = isize;
-  let t temp_ty = 1; 
-}
-
-fn add(a isize, b isize) isize {
-  return a;
+  // binary operators
+  let a = 3; 
+  let b = 4; 
+  let c = a + b; 
 }
