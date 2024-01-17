@@ -295,7 +295,7 @@ impl Forge {
             | (TSTag::I16Ty, TSTag::I16)
             | (TSTag::I32Ty, TSTag::I32)
             | (TSTag::I64Ty, TSTag::I64)
-            | (TSTag::Isize, TSTag::Isize)
+            | (TSTag::IsizeTy, TSTag::Isize)
             | (TSTag::U8Ty, TSTag::U8)
             | (TSTag::U16Ty, TSTag::U16)
             | (TSTag::U32Ty, TSTag::U32)
@@ -483,6 +483,11 @@ impl Forge {
                         if !self.verify_type(&val_ty) {
                             panic!("invalid type from constant init value");
                         }
+                        
+                        let ty_s = self.code.type_as_str(ty_i);
+                        let val_ty_s = self.code.type_as_strl(&val_ty);
+                        println!("constant type: {ty_s}");
+                        println!("constant init type: {val_ty_s}");
 
                         // ensure they are the same type
                         if !self.accepts(&ty, &val_ty) {
