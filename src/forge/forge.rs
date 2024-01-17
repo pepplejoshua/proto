@@ -566,13 +566,12 @@ impl Forge {
                     // get the type of the parameter
                     let ty_i = ins.indices[1];
                     let ty = self.code.get_type(&ty_i);
-                    if ty.tag.is_literal_type_token() {
-                        let n_ty = TypeSignature {
-                            tag: ty.tag.accepted_numerical_type(),
-                            src: ty.src.clone(),
-                            indices: vec![],
-                        };
-                    }
+                    let n_ty = TypeSignature {
+                        tag: ty.tag.get_value_type(),
+                        src: ty.src.clone(),
+                        indices: ty.indices.clone(),
+                    };
+                    let ty_i = self.code.add_type(n_ty);
 
                     // add the parameter to current scope with the type
                     self.register_name(name_i, ty_i);
@@ -613,10 +612,10 @@ impl Forge {
                     let code_i = ins.indices[1];
                     let code_ty = self.infer_type(&code_i, Some(&ty));
 
-                    let ty_s = self.code.type_as_str(ty_i);
-                    let val_ty_s = self.code.type_as_strl(&code_ty);
-                    println!("target type: {ty_s} , {:#?}", ty.tag);
-                    println!("value  type: {val_ty_s} , {:#?}", code_ty.tag);
+                    // let ty_s = self.code.type_as_str(ty_i);
+                    // let val_ty_s = self.code.type_as_strl(&code_ty);
+                    // println!("target type: {ty_s} , {:#?}", ty.tag);
+                    // println!("value  type: {val_ty_s} , {:#?}", code_ty.tag);
 
                     if !self.accepts(&ty, &code_ty) {
                         let line = ins.src.start_line + 1;
@@ -693,7 +692,6 @@ impl Forge {
 
                     // generate code info for this node
                     let ty_i = maybe_ty_i.unwrap();
-                    println!("name ref: {name_s} is typed {:?}", self.code.get_type(&ty_i).tag);
                     self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
                 CodeTag::TypeRef => {

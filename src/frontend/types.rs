@@ -129,6 +129,44 @@ impl TSTag {
         }
     }
 
+    pub fn get_value_type(&self) -> TSTag {
+        match &self {
+            TSTag::ComptimeInt
+            | TSTag::Bool
+            | TSTag::Char
+            | TSTag::Void
+            | TSTag::Str
+            | TSTag::Type
+            | TSTag::I8
+            | TSTag::I16
+            | TSTag::I32
+            | TSTag::I64
+            | TSTag::Isize
+            | TSTag::U8
+            | TSTag::U16
+            | TSTag::U32
+            | TSTag::U64
+            | TSTag::Usize
+            | TSTag::Function
+            | TSTag::NameRef => self.clone(),
+            TSTag::BoolTy => TSTag::Bool,
+            TSTag::CharTy => TSTag::Char,
+            TSTag::VoidTy => TSTag::Void,
+            TSTag::StrTy => TSTag::Str,
+            TSTag::TypeTy => TSTag::Type,
+            TSTag::I8Ty => TSTag::I8,
+            TSTag::I16Ty => TSTag::I16,
+            TSTag::I32Ty => TSTag::I32,
+            TSTag::I64Ty => TSTag::I64,
+            TSTag::IsizeTy => TSTag::Isize,
+            TSTag::U8Ty => TSTag::U8,
+            TSTag::U16Ty => TSTag::U16,
+            TSTag::U32Ty => TSTag::U32,
+            TSTag::U64Ty => TSTag::U64,
+            TSTag::UsizeTy => TSTag::Usize,
+        }
+    }
+
     pub fn is_numerical_type(&self) -> bool {
         matches!(
             self,
