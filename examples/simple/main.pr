@@ -10,4 +10,6 @@ pub fn main() void {
   let i = !h;
   let j = a == b;
   let k = a != b;
+  let l = 'a' < 'b';
+  let m = a > b;
 }
