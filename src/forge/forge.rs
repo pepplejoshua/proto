@@ -1336,6 +1336,54 @@ impl Forge {
                         }
                     }
                 }
+                CodeTag::And => {
+                    // And Code:30 Code:31
+                    // println!("and-ing");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the type of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    if a_ty.tag != TSTag::Bool || b_ty.tag != TSTag::Bool {
+                        let a_ty_s = self.code.type_as_strl(&a_ty);
+                        let b_ty_s = self.code.type_as_strl(&b_ty);
+                        panic!("type mismatch for `&&`: {a_ty_s} && {b_ty_s}");
+                    }
+
+                    let ty = TypeSignature {
+                        tag: TSTag::Bool,
+                        src: ins.src.clone(),
+                        indices: vec![],
+                    };
+                    let ty_i = self.code.add_type(ty);
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                }
+                CodeTag::Or => {
+                    // Or Code:30 Code:31
+                    // println!("or-ing");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the type of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    if a_ty.tag != TSTag::Bool || b_ty.tag != TSTag::Bool {
+                        let a_ty_s = self.code.type_as_strl(&a_ty);
+                        let b_ty_s = self.code.type_as_strl(&b_ty);
+                        panic!("type mismatch for `||`: {a_ty_s} || {b_ty_s}");
+                    }
+
+                    let ty = TypeSignature {
+                        tag: TSTag::Bool,
+                        src: ins.src.clone(),
+                        indices: vec![],
+                    };
+                    let ty_i = self.code.add_type(ty);
+                    self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                }
                 _ => panic!("not implemented: {:#?}", ins),
             }
         });

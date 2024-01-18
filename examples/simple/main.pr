@@ -3,15 +3,17 @@ pub fn main() void {
   let b u8 = 255;
   let c u8 = a + b; 
   let d u8 = a - b;
-  let e = a * b;
-  let f = a / b;
-  let g = a % b;
-  let h = true;
-  let i = !h;
-  let j = a == b;
-  let k = a != b;
-  let l = 'a' < 'b';
-  let m = a > b;
-  let n = a <= b;
-  let o = a >= b;
+  let e u8 = a * b;
+  let f u8 = a / b;
+  let g u8 = a % b;
+  let h bool = true;
+  let i bool = !h;
+  let j bool = a == b;
+  let k bool = a != b;
+  let l bool = 'a' < 'b';
+  let m bool = a > b;
+  let n bool = a <= b;
+  let o bool = a >= b;
+  let p bool = i and h;
+  let q bool = i or h;
 }
