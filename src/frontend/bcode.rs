@@ -106,54 +106,6 @@ pub enum CodeTag {
     */
     TypeRef,
     /*
-        NewMethod "name" Type:2 Code:30
-        where Type:2 is the type index for the type signature
-        30 is the end of the method body.
-        Granted there will always be a name index and a method type index,
-        the last index  is for the end of the method body.
-
-    */
-    NewMethod,
-    /*
-        NewField "name" Type:19 <Code:20?>
-        where 19 is the type index for the type signature
-        <and 20 is the code index for the init value, if any>
-    */
-    NewField,
-    /*
-        NewStructConstant "name" Type:19? Code:20,
-        where 19 is the type index for the type signature, if any,
-        and 20 is the code index for the init value
-        if the number of code indices is 2, there is no type signature.
-        just a name and an init value
-        This is an immutable struct constant
-    */
-    NStructConstant,
-    /*
-        NewTypeStructVariable "name" Type:19 Code:20?,
-        where 19 is the type index for the type signature
-        and 20 is the code index for the init value, if any
-        if the number of code indices is 2, there is no init value.
-        just a name and a type signature
-        This is a mutable struct variable with an explicit type
-    */
-    NTStructVariable,
-    /*
-        NewUntypedStructVariable "name" Type:19? Code:20,
-        where 19 is the type index for the type signature, if any
-        and 20 is the code index for the init value
-        if the number of code indices is 2, there is no type signature.
-        just a name and an init value
-        This is a mutable struct variable with an inferred type
-    */
-    NUStructVariable,
-    /*
-        NewStructType Code:[20:30]
-        where 20 is the code index for the start of the struct body
-        and 30 is the code index for the end of the struct body
-    */
-    NewStructType,
-    /*
         LoadTrue
         loads the boolean value true
     */
@@ -343,65 +295,6 @@ impl CodeBundle {
                 CodeTag::TypeRef => {
                     let type_s = self.type_as_str(code.indices[0]);
                     s.push(format!("{num} TypeRef {type_s}\n"));
-                }
-                CodeTag::NewMethod => {
-                    let name = self.get_string(&code.indices[0]);
-                    let meth_ty_i = code.indices[1];
-                    let meth_ty_s = self.type_as_str(meth_ty_i);
-                    let body_end = code.indices[2].index;
-                    s.push(format!(
-                        "\n{num} NewMethod `{name}` {meth_ty_s} Code:{body_end}\n"
-                    ));
-                }
-                CodeTag::NewField => {
-                    let name = self.get_string(&code.indices[0]);
-                    let type_s = self.type_as_str(code.indices[1]);
-                    s.push(format!("{num} NewField `{name}` {type_s}\n"));
-                }
-                CodeTag::NStructConstant => {
-                    let name = self.get_string(&code.indices[0]);
-                    if code.indices.len() == 2 {
-                        let value = code.indices[1].index;
-                        s.push(format!(
-                            "{num} NewStructConstant `{name}` Code:{value}\n",
-                            name = name,
-                            value = value
-                        ));
-                    } else {
-                        let type_s = self.type_as_str(code.indices[1]);
-                        let value = code.indices[2].index;
-                        s.push(format!(
-                            "{num} NewStructConstant `{name}` {type_s} Code:{value}\n"
-                        ));
-                    }
-                }
-                CodeTag::NTStructVariable => {
-                    let name = self.get_string(&code.indices[0]);
-                    let type_s = self.type_as_str(code.indices[1]);
-                    if code.indices.len() == 3 {
-                        let value = code.indices[2].index;
-                        s.push(format!(
-                            "{num} NewTypedStructVariable `{name}` {type_s} Code:{value}\n",
-                        ));
-                    } else {
-                        s.push(format!("{num} NewTypedStructVariable `{name}` {type_s}\n",));
-                    }
-                }
-                CodeTag::NUStructVariable => {
-                    let name = self.get_string(&code.indices[0]);
-                    let value = code.indices[1].index;
-                    s.push(format!(
-                        "{num} NewUntypedStructVariable `{name}` Code:{value}\n"
-                    ));
-                }
-                CodeTag::NewStructType => {
-                    let struct_start = code.indices[0].index;
-                    let struct_end = code.indices[1].index;
-                    s.push(format!(
-                        "\n{num} NewStructType Code:[{struct_start}:{struct_end}]\n",
-                        struct_start = struct_start,
-                        struct_end = struct_end
-                    ));
                 }
                 CodeTag::LoadTrue => {
                     s.push(format!("{num} LoadTrue\n"));
