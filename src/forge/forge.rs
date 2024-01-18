@@ -988,6 +988,130 @@ impl Forge {
                     // generate code info for this node
                     self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                 }
+                CodeTag::Neq => {
+                    // Neq Code:30 Code:31
+                    // println!("comparing for inequality");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} != i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} != u{8,16,32,64,size}
+                    // - bool != bool
+                    // - char != char
+                    // - str != str
+                    // - type != type
+
+                    match (a_ty.tag, b_ty.tag) {
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: TSTag::Bool,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `!=`: {a_ty_s} != {b_ty_s}");
+                            }
+                        }
+                        (TSTag::Bool, TSTag::Bool)
+                        | (TSTag::Char, TSTag::Char)
+                        | (TSTag::Str, TSTag::Str)
+                        | (TSTag::Type, TSTag::Type) => {
+                            let ty = TypeSignature {
+                                tag: TSTag::Bool,
+                                src: ins.src.clone(),
+                                indices: vec![],
+                            };
+                            let ty_i = self.code.add_type(ty);
+
+                            // generate typed code
+
+                            // generate code info for this node
+                            self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                        }
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `!=`: {a_ty_s} != {b_ty_s}");
+                        }
+                    }
+                }
+                CodeTag::Eq => {
+                    // Eq Code:30 Code:31
+                    // println!("comparing for equality");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} == i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} == u{8,16,32,64,size}
+                    // - bool == bool
+                    // - char == char
+                    // - str == str
+                    // - type == type
+
+                    match (a_ty.tag, b_ty.tag) {
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: TSTag::Bool,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `==`: {a_ty_s} == {b_ty_s}");
+                            }
+                        }
+                        (TSTag::Bool, TSTag::Bool)
+                        | (TSTag::Char, TSTag::Char)
+                        | (TSTag::Str, TSTag::Str)
+                        | (TSTag::Type, TSTag::Type) => {
+                            let ty = TypeSignature {
+                                tag: TSTag::Bool,
+                                src: ins.src.clone(),
+                                indices: vec![],
+                            };
+                            let ty_i = self.code.add_type(ty);
+
+                            // generate typed code
+
+                            // generate code info for this node
+                            self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                        }
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `==`: {a_ty_s} == {b_ty_s}");
+                        }
+                    }
+                }
                 _ => panic!("not implemented: {:#?}", ins),
             }
         });

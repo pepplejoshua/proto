@@ -8,4 +8,6 @@ pub fn main() void {
   let g = a % b;
   let h = true;
   let i = !h;
+  let j = a == b;
+  let k = a != b;
 }
