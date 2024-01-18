@@ -1,7 +1,7 @@
 use super::{bcode::Index, source::SourceRef};
 
 #[allow(dead_code)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TSTag {
     // inferred types
     ComptimeInt,

@@ -708,9 +708,30 @@ impl Forge {
                             self.code_info.push(ForgeInfo::TypeInfo { ty_i });
                         }
                         (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
-                            todo!()
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: a,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `+`: {a_ty_s} + {b_ty_s}");
+                            }
                         }
-                        _ => todo!()
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `+`: {a_ty_s} + {b_ty_s}");
+                        }
                     }
                 }
                 CodeTag::NameRef => {

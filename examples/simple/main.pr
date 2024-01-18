@@ -1,6 +1,6 @@
 pub fn main() void {
   // binary operators
-  let a = "HELL"; 
-  let b = 'O'; 
-  let c str = a + b; 
+  let a u8 = 255; 
+  let b u8 = 255;
+  let c u8 = a + b; 
 }
