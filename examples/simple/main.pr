@@ -3,4 +3,9 @@ pub fn main() void {
   let b u8 = 255;
   let c u8 = a + b; 
   let d u8 = a - b;
+  let e = a * b;
+  let f = a / b;
+  let g = a % b;
+  let h = true;
+  let i = !h;
 }

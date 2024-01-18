@@ -677,6 +677,36 @@ impl Forge {
                         _ => panic!("not implemented: {:#?}", ins),
                     }
                 }
+                CodeTag::Negate => {
+                    // Negate Code:30
+                    // println!("negating");
+                    let code_i = ins.indices[0];
+
+                    // get the type of the operand
+                    let ty = self.infer_type(&code_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size}
+
+                    match ty.tag {
+                        TSTag::I8
+                        | TSTag::I16
+                        | TSTag::I32
+                        | TSTag::I64
+                        | TSTag::Isize => {
+                            let ty_i = self.code.add_type(ty);
+
+                            // generate typed code
+
+                            // generate code info for this node
+                            self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                        }
+                        _ => {
+                            let ty_s = self.code.type_as_strl(&ty);
+                            panic!("type mismatch for `-`: {ty_s}");
+                        }
+                    }
+                }
                 CodeTag::Sub => {
                     // Sub Code:30 Code:31
                     // println!("subtracting");
@@ -715,6 +745,130 @@ impl Forge {
                             let a_ty_s = self.code.type_as_strl(&a_ty);
                             let b_ty_s = self.code.type_as_strl(&b_ty);
                             panic!("type mismatch for `-`: {a_ty_s} - {b_ty_s}");
+                        }
+                    }
+                }
+                CodeTag::Mult => {
+                    // Mult Code:30 Code:31
+                    // println!("multiplying");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} * i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} * u{8,16,32,64,size}
+                    match (a_ty.tag, b_ty.tag) {
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: a,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `*`: {a_ty_s} * {b_ty_s}");
+                            }
+                        }
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `*`: {a_ty_s} * {b_ty_s}");
+                        }
+                    }
+                }
+                CodeTag::Modulo => {
+                    // Modulo Code:30 Code:31
+                    // println!("modding");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} % i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} % u{8,16,32,64,size}
+
+                    match (a_ty.tag, b_ty.tag) {
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: a,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `%`: {a_ty_s} % {b_ty_s}");
+                            }
+                        }
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `%`: {a_ty_s} % {b_ty_s}");
+                        }
+                    }
+                }
+                CodeTag::Div => {
+                    // Div Code:30 Code:31
+                    // println!("dividing");
+                    let a_i = ins.indices[0];
+                    let b_i = ins.indices[1];
+
+                    // get the types of the operands
+                    let a_ty = self.infer_type(&a_i, None);
+                    let b_ty = self.infer_type(&b_i, None);
+
+                    // allowed combinations
+                    // - i{8,16,32,64,size} / i{8,16,32,64,size}
+                    // - u{8,16,32,64,size} / u{8,16,32,64,size}
+                    match (a_ty.tag, b_ty.tag) {
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() => {
+                            // check if the numerical types are the same
+                            if a == b {
+                                let ty = TypeSignature {
+                                    tag: a,
+                                    src: ins.src.clone(),
+                                    indices: vec![],
+                                };
+                                let ty_i = self.code.add_type(ty);
+
+                                // generate typed code
+
+                                // generate code info for this node
+                                self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                            } else {
+                                let a_ty_s = self.code.type_as_strl(&a_ty);
+                                let b_ty_s = self.code.type_as_strl(&b_ty);
+                                panic!("type mismatch for `/`: {a_ty_s} / {b_ty_s}");
+                            }
+                        }
+                        _ => {
+                            let a_ty_s = self.code.type_as_strl(&a_ty);
+                            let b_ty_s = self.code.type_as_strl(&b_ty);
+                            panic!("type mismatch for `/`: {a_ty_s} / {b_ty_s}");
                         }
                     }
                 }
@@ -772,6 +926,32 @@ impl Forge {
                             let a_ty_s = self.code.type_as_strl(&a_ty);
                             let b_ty_s = self.code.type_as_strl(&b_ty);
                             panic!("type mismatch for `+`: {a_ty_s} + {b_ty_s}");
+                        }
+                    }
+                }
+                CodeTag::Not => {
+                    // Not Code:30
+                    // println!("notting");
+                    let code_i = ins.indices[0];
+                    
+                    // get the type of the operand
+                    let ty = self.infer_type(&code_i, None);
+
+                    // allowed combinations
+                    // - bool
+
+                    match ty.tag {
+                        TSTag::Bool => {
+                            let ty_i = self.code.add_type(ty);
+
+                            // generate typed code
+
+                            // generate code info for this node
+                            self.code_info.push(ForgeInfo::TypeInfo { ty_i });
+                        }
+                        _ => {
+                            let ty_s = self.code.type_as_strl(&ty);
+                            panic!("type mismatch for `!`: {ty_s}");
                         }
                     }
                 }
