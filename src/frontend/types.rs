@@ -1,195 +1,88 @@
 use super::{bcode::Index, source::SourceRef};
 
+// this is parsed from user source code and is used to inform the 
+// generation of the above and the type checking as well
 #[allow(dead_code)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub enum TSTag {
-    // inferred types
-    ComptimeInt,
-    Bool,
-    Char,
-    Void,
-    Str,
-    Type,
-    I8,
-    I16,
-    I32,
-    I64,
-    Isize,
-    U8,
-    U16,
-    U32,
-    U64,
-    Usize,
-    ArrayOf,
-    // Function Type 5 (Type:2, Type:2, ...)
-    // where the first type index is the return type of the function.
-    // The remaining type indices are the types of the arguments.
-    Function,
-    // NameRef "name"
+pub enum TypeSignatureTag {
+    // TypeAlias "name"
     // where "name" is the name of the type.
-    NameRef,
-    // types of type tokens written in the source file
-    BoolTy,
-    CharTy,
-    VoidTy,
-    StrTy,
-    TypeTy,
-    I8Ty,
-    I16Ty,
-    I32Ty,
-    I64Ty,
-    IsizeTy,
-    U8Ty,
-    U16Ty,
-    U32Ty,
-    U64Ty,
-    UsizeTy,
-    ArrayTyOf,
+    TypeNameRefTS,
+    BoolTS,
+    CharTS,
+    VoidTS,
+    StrTS,
+    TypeTS,
+    I8TS,
+    I16TS,
+    I32TS,
+    I64TS,
+    IsizeTS,
+    U8TS,
+    U16TS,
+    U32TS,
+    U64TS,
+    UsizeTS,
+    FunctionTS,
 }
 
+
+
 #[allow(dead_code)]
-impl TSTag {
-    pub fn is_simple_type(&self) -> bool {
-        matches!(
-            self,
-            TSTag::ComptimeInt
-                | TSTag::I8
-                | TSTag::I16
-                | TSTag::I32
-                | TSTag::I64
-                | TSTag::Isize
-                | TSTag::U8
-                | TSTag::U16
-                | TSTag::U32
-                | TSTag::U64
-                | TSTag::Usize
-                | TSTag::Bool
-                | TSTag::Char
-                | TSTag::Void
-                | TSTag::Str
-        )
-    }
-
-    pub fn is_literal_type_token(&self) -> bool {
-        matches!(
-            self,
-            TSTag::BoolTy
-                | TSTag::CharTy
-                | TSTag::VoidTy
-                | TSTag::StrTy
-                | TSTag::I8Ty
-                | TSTag::I16Ty
-                | TSTag::I32Ty
-                | TSTag::I64Ty
-                | TSTag::IsizeTy
-                | TSTag::U8Ty
-                | TSTag::U16Ty
-                | TSTag::U32Ty
-                | TSTag::U64Ty
-                | TSTag::UsizeTy
-                | TSTag::TypeTy
-        )
-    }
-
-    pub fn accepted_numerical_type(&self) -> TSTag {
+impl TypeSignatureTag {
+    pub fn to_value_type_tag(&self) -> ValueTypeTag {
         match self {
-            TSTag::ComptimeInt
-            | TSTag::Bool
-            | TSTag::Char
-            | TSTag::Void 
-            | TSTag::Str
-            | TSTag::Type
-            | TSTag::I8
-            | TSTag::I16
-            | TSTag::I32
-            | TSTag::I64
-            | TSTag::Isize 
-            | TSTag::U8
-            | TSTag::U16
-            | TSTag::U32
-            | TSTag::U64
-            | TSTag::Usize
-            | TSTag::Function
-            | TSTag::BoolTy
-            | TSTag::CharTy
-            | TSTag::VoidTy
-            | TSTag::StrTy
-            | TSTag::TypeTy
-            | TSTag::ArrayTy
-            | TSTag::NameRef => unreachable!("unexpected non-numerical type token: {:?}", self),
-            TSTag::I8Ty => TSTag::I8,
-            TSTag::I16Ty => TSTag::I16,
-            TSTag::I32Ty => TSTag::I32,
-            TSTag::I64Ty => TSTag::I64,
-            TSTag::IsizeTy => TSTag::Isize,
-            TSTag::U8Ty => TSTag::U8,
-            TSTag::U16Ty => TSTag::U16,
-            TSTag::U32Ty => TSTag::U32,
-            TSTag::U64Ty => TSTag::U64,
-            TSTag::UsizeTy => TSTag::Usize,
+            TypeSignatureTag::TypeNameRefTS =>                  ValueTypeTag::TypeNameRef,
+            TypeSignatureTag::BoolTS => ValueTypeTag::Bool,
+            TypeSignatureTag::CharTS => ValueTypeTag::Char,
+            TypeSignatureTag::VoidTS => ValueTypeTag::Void,
+            TypeSignatureTag::StrTS => ValueTypeTag::Str,
+            TypeSignatureTag::TypeTS => ValueTypeTag::Type,
+            TypeSignatureTag::I8TS => ValueTypeTag::I8,
+            TypeSignatureTag::I16TS => ValueTypeTag::I16,
+            TypeSignatureTag::I32TS => ValueTypeTag::I32,
+            TypeSignatureTag::I64TS => ValueTypeTag::I64,
+            TypeSignatureTag::IsizeTS => ValueTypeTag::Isize,
+            TypeSignatureTag::U8TS => ValueTypeTag::U8,
+            TypeSignatureTag::U16TS => ValueTypeTag::U16,
+            TypeSignatureTag::U32TS => ValueTypeTag::U32,
+            TypeSignatureTag::U64TS => ValueTypeTag::U64,
+            TypeSignatureTag::UsizeTS => ValueTypeTag::Usize,
+            TypeSignatureTag::FunctionTS => ValueTypeTag::Type,
         }
     }
 
-    pub fn get_value_type(&self) -> TSTag {
-        match &self {
-            TSTag::ComptimeInt
-            | TSTag::Bool
-            | TSTag::Char
-            | TSTag::Void
-            | TSTag::Str
-            | TSTag::Type
-            | TSTag::I8
-            | TSTag::I16
-            | TSTag::I32
-            | TSTag::I64
-            | TSTag::Isize
-            | TSTag::U8
-            | TSTag::U16
-            | TSTag::U32
-            | TSTag::U64
-            | TSTag::Usize
-            | TSTag::Function
-            | TSTag::ArrayTy
-            | TSTag::NameRef => self.clone(),
-            TSTag::BoolTy => TSTag::Bool,
-            TSTag::CharTy => TSTag::Char,
-            TSTag::VoidTy => TSTag::Void,
-            TSTag::StrTy => TSTag::Str,
-            TSTag::TypeTy => TSTag::Type,
-            TSTag::I8Ty => TSTag::I8,
-            TSTag::I16Ty => TSTag::I16,
-            TSTag::I32Ty => TSTag::I32,
-            TSTag::I64Ty => TSTag::I64,
-            TSTag::IsizeTy => TSTag::Isize,
-            TSTag::U8Ty => TSTag::U8,
-            TSTag::U16Ty => TSTag::U16,
-            TSTag::U32Ty => TSTag::U32,
-            TSTag::U64Ty => TSTag::U64,
-            TSTag::UsizeTy => TSTag::Usize,
-        }
-    }
-
-    pub fn is_numerical_type(&self) -> bool {
+    pub fn is_numerical_type_sig(&self) -> bool {
         matches!(
             self,
-            TSTag::ComptimeInt
-                | TSTag::I8
-                | TSTag::I16
-                | TSTag::I32
-                | TSTag::I64
-                | TSTag::Isize
-                | TSTag::U8
-                | TSTag::U16
-                | TSTag::U32
-                | TSTag::U64
-                | TSTag::Usize
+            TypeSignatureTag::I8TS
+                | TypeSignatureTag::I16TS
+                | TypeSignatureTag::I32TS
+                | TypeSignatureTag::I64TS
+                | TypeSignatureTag::IsizeTS
+                | TypeSignatureTag::U8TS
+                | TypeSignatureTag::U16TS
+                | TypeSignatureTag::U32TS
+                | TypeSignatureTag::U64TS
+                | TypeSignatureTag::UsizeTS
         )
+    }
+
+    pub fn is_simple_type_sig(&self) -> bool {
+        matches!(
+            self,
+            TypeSignatureTag::BoolTS
+                | TypeSignatureTag::CharTS
+                | TypeSignatureTag::VoidTS
+                | TypeSignatureTag::StrTS
+                | TypeSignatureTag::TypeTS
+        ) || self.is_numerical_type_sig()
     }
 }
 
 #[derive(Debug, Clone)]
 pub struct TypeSignature {
-    pub tag: TSTag,
+    pub tag: TypeSignatureTag,
     pub src: SourceRef,
     pub indices: Vec<Index>,
 }
@@ -224,30 +117,54 @@ pub enum ValueTypeTag {
     Usize,
 }
 
-
-
-// this is parsed from user source code and is used to inform the 
-// generation of the above and the type checking as well
 #[allow(dead_code)]
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
-pub enum TypeSignatureTag {
-    // TypeAlias "name"
-    // where "name" is the name of the type.
-    TypeNameRefTS,
-    BoolTS,
-    CharTS,
-    VoidTS,
-    StrTS,
-    TypeTS,
-    I8TS,
-    I16TS,
-    I32TS,
-    I64TS,
-    IsizeTS,
-    U8TS,
-    U16TS,
-    U32TS,
-    U64TS,
-    UsizeTS,
-    FunctionTS,
+impl ValueTypeTag {
+    pub fn to_type_signature_tag(&self) -> TypeSignatureTag {
+        match self {
+            ValueTypeTag::ComptimeInt => TypeSignatureTag::TypeNameRefTS,
+            ValueTypeTag::TypeNameRef => TypeSignatureTag::TypeNameRefTS,
+            ValueTypeTag::Bool => TypeSignatureTag::BoolTS,
+            ValueTypeTag::Char => TypeSignatureTag::CharTS,
+            ValueTypeTag::Void => TypeSignatureTag::VoidTS,
+            ValueTypeTag::Str => TypeSignatureTag::StrTS,
+            ValueTypeTag::Type => TypeSignatureTag::TypeTS,
+            ValueTypeTag::I8 => TypeSignatureTag::I8TS,
+            ValueTypeTag::I16 => TypeSignatureTag::I16TS,
+            ValueTypeTag::I32 => TypeSignatureTag::I32TS,
+            ValueTypeTag::I64 => TypeSignatureTag::I64TS,
+            ValueTypeTag::Isize => TypeSignatureTag::IsizeTS,
+            ValueTypeTag::U8 => TypeSignatureTag::U8TS,
+            ValueTypeTag::U16 => TypeSignatureTag::U16TS,
+            ValueTypeTag::U32 => TypeSignatureTag::U32TS,
+            ValueTypeTag::U64 => TypeSignatureTag::U64TS,
+            ValueTypeTag::Usize => TypeSignatureTag::UsizeTS,
+        }
+    }
+
+    pub fn is_numerical_value_type(&self) -> bool {
+        matches!(
+            self,
+            ValueTypeTag::I8
+                | ValueTypeTag::I16
+                | ValueTypeTag::I32
+                | ValueTypeTag::I64
+                | ValueTypeTag::Isize
+                | ValueTypeTag::U8
+                | ValueTypeTag::U16
+                | ValueTypeTag::U32
+                | ValueTypeTag::U64
+                | ValueTypeTag::Usize
+        )
+    }
+
+    pub fn is_simple_value_type(&self) -> bool {
+        matches!(
+            self,
+            ValueTypeTag::Bool
+                | ValueTypeTag::Char
+                | ValueTypeTag::Void
+                | ValueTypeTag::Str
+                | ValueTypeTag::Type
+        ) || self.is_numerical_value_type()
+    }
 }

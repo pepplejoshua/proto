@@ -5,7 +5,7 @@ use super::{
     errors::{LexError, ParseError},
     lexer::Lexer,
     token::Token,
-    types::{TSTag, TypeSignature},
+    types::{TypeSignatureTag, TypeSignature},
 };
 
 #[allow(dead_code)]
@@ -372,7 +372,7 @@ impl Parser {
         // construct a function type for this function
         let fn_ty_src = params_start.combine(return_ty_src);
         let fn_ty = TypeSignature {
-            tag: TSTag::Function,
+            tag: TypeSignatureTag::FunctionTS,
             src: fn_ty_src,
             indices: fn_tys,
         };
@@ -452,7 +452,7 @@ impl Parser {
             src = src.combine(cur.get_source_ref());
             let cur_return_ty_i = self.current_fn_ret_ty_index.unwrap();
             let void_ty = TypeSignature {
-                tag: TSTag::Void,
+                tag: TypeSignatureTag::VoidTS,
                 indices: vec![],
                 src: src.clone(),
             };
@@ -987,7 +987,7 @@ impl Parser {
             Token::Identifier(name, src) => {
                 let name_i = self.code.add_string(name);
                 let n_type = TypeSignature {
-                    tag: TSTag::NameRef,
+                    tag: TypeSignatureTag::TypeNameRefTS,
                     src: src.clone(),
                     indices: vec![name_i],
                 };
@@ -1004,7 +1004,7 @@ impl Parser {
             }
             Token::I8(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::I8Ty,
+                    tag: TypeSignatureTag::I8TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1021,7 +1021,7 @@ impl Parser {
             }
             Token::I16(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::I16Ty,
+                    tag: TypeSignatureTag::I16TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1038,7 +1038,7 @@ impl Parser {
             }
             Token::I32(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::I32Ty,
+                    tag: TypeSignatureTag::I32TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1055,7 +1055,7 @@ impl Parser {
             }
             Token::I64(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::I64Ty,
+                    tag: TypeSignatureTag::I64TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1072,7 +1072,7 @@ impl Parser {
             }
             Token::ISize(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::IsizeTy,
+                    tag: TypeSignatureTag::IsizeTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1089,7 +1089,7 @@ impl Parser {
             }
             Token::U8(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::U8Ty,
+                    tag: TypeSignatureTag::U8TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1106,7 +1106,7 @@ impl Parser {
             }
             Token::U16(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::U16Ty,
+                    tag: TypeSignatureTag::U16TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1123,7 +1123,7 @@ impl Parser {
             }
             Token::U32(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::U32Ty,
+                    tag: TypeSignatureTag::U32TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1140,7 +1140,7 @@ impl Parser {
             }
             Token::U64(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::U64Ty,
+                    tag: TypeSignatureTag::U64TS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1157,7 +1157,7 @@ impl Parser {
             }
             Token::USize(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::UsizeTy,
+                    tag: TypeSignatureTag::UsizeTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1174,7 +1174,7 @@ impl Parser {
             }
             Token::Bool(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::BoolTy,
+                    tag: TypeSignatureTag::BoolTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1191,7 +1191,7 @@ impl Parser {
             }
             Token::Char(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::CharTy,
+                    tag: TypeSignatureTag::CharTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1208,7 +1208,7 @@ impl Parser {
             }
             Token::Str(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::StrTy,
+                    tag: TypeSignatureTag::StrTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1225,7 +1225,7 @@ impl Parser {
             }
             Token::Void(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::VoidTy,
+                    tag: TypeSignatureTag::VoidTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1242,7 +1242,7 @@ impl Parser {
             }
             Token::Type(src) => {
                 let n_type = TypeSignature {
-                    tag: TSTag::TypeTy,
+                    tag: TypeSignatureTag::TypeTS,
                     src: src.clone(),
                     indices: vec![],
                 };
