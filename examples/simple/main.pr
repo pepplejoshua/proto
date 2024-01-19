@@ -1,19 +1,5 @@
 pub fn main() void {
-  let a u8 = 255; 
-  let b u8 = 255;
-  let c u8 = a + b; 
-  let d u8 = a - b;
-  let e u8 = a * b;
-  let f u8 = a / b;
-  let g u8 = a % b;
-  let h bool = true;
-  let i bool = !h;
-  let j bool = a == b;
-  let k bool = a != b;
-  let l bool = 'a' < 'b';
-  let m bool = a > b;
-  let n bool = a <= b;
-  let o bool = a >= b;
-  let p bool = i and h;
-  let q bool = i or h;
+  let a_ty = u8[3];
+  let arr u8[3] = [1, 2, 3];
+  let arr_arr a_ty[3] = [arr, arr, arr];
 }
