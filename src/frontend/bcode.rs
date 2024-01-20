@@ -43,7 +43,7 @@ pub enum CodeTag {
         NewConstant "name" Type:19?, Code:20,
         where 19 is the type index for the type signature, if any,
         and 20 is the code index for the init value
-        if the number of code indices is 2, there is no type signature.
+        if the number of code data is 2, there is no type signature.
         just a name and an init value
     */
     NewConstant,
@@ -51,7 +51,7 @@ pub enum CodeTag {
         NewTypedVariable "name" Type:19, Code:20?,
         where 19 is the code index for the type signature
         and 20 is the code index for the init value, if any
-        if the number of code indices is 2, there is no init value.
+        if the number of code data is 2, there is no init value.
         just a name and a type signature
     */
     NTVariable,
@@ -181,7 +181,7 @@ pub enum CodeTag {
 #[derive(Debug, Clone)]
 pub struct Code {
     pub tag: CodeTag,
-    pub indices: Vec<Index>,
+    pub data: Vec<Index>,
     pub src: SourceRef,
 }
 
@@ -210,47 +210,47 @@ impl CodeBundle {
             let num = format!("{:0>width$}", index, width = left_pad);
             match code.tag {
                 CodeTag::LINum => {
-                    let imm = self.get_string(&code.indices[0]);
+                    let imm = self.get_string(&code.data[0]);
                     s.push(format!("{num} LoadImmediateNum `{imm}`\n"));
                 }
                 CodeTag::LIStr => {
-                    let imm = self.get_string(&code.indices[0]);
+                    let imm = self.get_string(&code.data[0]);
                     s.push(format!("{num} LoadImmediateStr \"{imm}\"\n"));
                 }
                 CodeTag::LIChar => {
-                    let imm = self.get_string(&code.indices[0]);
+                    let imm = self.get_string(&code.data[0]);
                     s.push(format!("{num} LoadImmediateChar '{imm}'\n"));
                 }
                 CodeTag::NameRef => {
-                    let name = self.get_string(&code.indices[0]);
+                    let name = self.get_string(&code.data[0]);
                     s.push(format!("{num} NameRef `{name}`\n"));
                 }
                 CodeTag::MakePublic => {
-                    let target = code.indices[0].index;
+                    let target = code.data[0].index;
                     s.push(format!("{num} MakePublic Code:{target}\n"));
                 }
                 CodeTag::NewConstant => {
-                    let name = self.get_string(&code.indices[0]);
-                    if code.indices.len() == 2 {
-                        let value = code.indices[1].index;
+                    let name = self.get_string(&code.data[0]);
+                    if code.data.len() == 2 {
+                        let value = code.data[1].index;
                         s.push(format!(
                             "{num} NewConstant `{name}` Code:{value}\n",
                             name = name,
                             value = value
                         ));
                     } else {
-                        let type_s = self.type_as_str(code.indices[1]);
-                        let value = code.indices[2].index;
+                        let type_s = self.type_as_str(code.data[1]);
+                        let value = code.data[2].index;
                         s.push(format!(
                             "{num} NewConstant `{name}` {type_s} Code:{value}\n",
                         ));
                     }
                 }
                 CodeTag::NTVariable => {
-                    let name = self.get_string(&code.indices[0]);
-                    let type_s = self.type_as_str(code.indices[1]);
-                    if code.indices.len() == 3 {
-                        let value = code.indices[2].index;
+                    let name = self.get_string(&code.data[0]);
+                    let type_s = self.type_as_str(code.data[1]);
+                    if code.data.len() == 3 {
+                        let value = code.data[2].index;
                         s.push(format!(
                             "{num} NewTypedVariable `{name}` {type_s} Code:{value}\n",
                         ));
@@ -259,41 +259,41 @@ impl CodeBundle {
                     }
                 }
                 CodeTag::NUVariable => {
-                    let name = self.get_string(&code.indices[0]);
-                    let value = code.indices[1].index;
+                    let name = self.get_string(&code.data[0]);
+                    let value = code.data[1].index;
                     s.push(format!("{num} NewUntypedVariable `{name}` Code:{value}\n"));
                 }
                 CodeTag::NewFunction => {
-                    let name = self.get_string(&code.indices[0]);
-                    let func_ty_i = code.indices[1];
+                    let name = self.get_string(&code.data[0]);
+                    let func_ty_i = code.data[1];
                     let func_ty_s = self.type_as_str(func_ty_i);
-                    let body_end = code.indices[2].index;
+                    let body_end = code.data[2].index;
                     s.push(format!(
                         "\n{num} NewFunction `{name}` {func_ty_s} Code:{body_end}\n"
                     ));
                 }
                 CodeTag::Param => {
-                    let name = self.get_string(&code.indices[0]);
-                    let type_s = self.type_as_str(code.indices[1]);
+                    let name = self.get_string(&code.data[0]);
+                    let type_s = self.type_as_str(code.data[1]);
                     s.push(format!("{num} Param `{name}` {type_s}\n"));
                 }
                 CodeTag::VarParam => {
-                    let name = self.get_string(&code.indices[0]);
-                    let type_s = self.type_as_str(code.indices[1]);
+                    let name = self.get_string(&code.data[0]);
+                    let type_s = self.type_as_str(code.data[1]);
                     s.push(format!("{num} VarParam `{name}` {type_s}\n"));
                 }
                 CodeTag::ExpectTypeIs => {
-                    let a_type_s = self.type_as_str(code.indices[0]);
-                    let val_s = code.indices[1].index;
+                    let a_type_s = self.type_as_str(code.data[0]);
+                    let val_s = code.data[1].index;
                     s.push(format!("{num} ExpectTypeIs {a_type_s} Code:{val_s}\n"));
                 }
                 CodeTag::ExpectTypesMatch => {
-                    let a_type_s = self.type_as_str(code.indices[0]);
-                    let b_type_s = self.type_as_str(code.indices[1]);
+                    let a_type_s = self.type_as_str(code.data[0]);
+                    let b_type_s = self.type_as_str(code.data[1]);
                     s.push(format!("{num} ExpectTypesMatch {a_type_s} {b_type_s}\n",));
                 }
                 CodeTag::TypeRef => {
-                    let type_s = self.type_as_str(code.indices[0]);
+                    let type_s = self.type_as_str(code.data[0]);
                     s.push(format!("{num} TypeRef {type_s}\n"));
                 }
                 CodeTag::LoadTrue => {
@@ -303,103 +303,103 @@ impl CodeBundle {
                     s.push(format!("{num} LoadFalse\n"));
                 }
                 CodeTag::SrcComment => {
-                    // let comment = self.get_string(&code.indices[0]);
+                    // let comment = self.get_string(&code.data[0]);
                     // s.push(format!("{num} {comment}\n"));
                     // TODO(@pepplejoshua): uncomment this later
                 }
                 CodeTag::Add => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Add Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Sub => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Sub Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Negate => {
-                    let a = code.indices[0].index;
+                    let a = code.data[0].index;
                     s.push(format!("{num} Negate Code:{a}\n"));
                 }
                 CodeTag::Mult => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Mult Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Div => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Div Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Modulo => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Modulo Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Not => {
-                    let a = code.indices[0].index;
+                    let a = code.data[0].index;
                     s.push(format!("{num} Not Code:{a}\n"));
                 }
                 CodeTag::Eq => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Eq Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Neq => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Neq Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Lt => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Lt Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Gt => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Gt Code:{a} Code:{b}\n"));
                 }
                 CodeTag::LtEq => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} LtEq Code:{a} Code:{b}\n"));
                 }
                 CodeTag::GtEq => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} GtEq Code:{a} Code:{b}\n"));
                 }
                 CodeTag::And => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} And Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Or => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Or Code:{a} Code:{b}\n"));
                 }
                 CodeTag::AccessMember => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} AcessMember Code:{a} Code:{b}\n"));
                 }
                 CodeTag::AccessIndex => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} AccessIndex Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Call => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Call Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Return => {
-                    if code.indices.len() == 0 {
+                    if code.data.len() == 0 {
                         s.push(format!("{num} Return\n"));
                     } else {
-                        let a = code.indices[0].index;
+                        let a = code.data[0].index;
                         s.push(format!("{num} Return Code:{a}\n"));
                     }
                 }
@@ -410,8 +410,8 @@ impl CodeBundle {
                     s.push(format!("{num} ExitScope\n"));
                 }
                 CodeTag::Update => {
-                    let a = code.indices[0].index;
-                    let b = code.indices[1].index;
+                    let a = code.data[0].index;
+                    let b = code.data[1].index;
                     s.push(format!("{num} Update Code:{a} Code:{b}\n"));
                 }
             }
@@ -424,7 +424,7 @@ impl CodeBundle {
         // temporary placeholder
         self.ins.push(Code {
             tag: CodeTag::LINum,
-            indices: vec![],
+            data: vec![],
             src: SourceRef::dud(),
         });
         Index {

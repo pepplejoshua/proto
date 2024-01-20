@@ -8,7 +8,7 @@ use crate::frontend::{
     token::Token,
 };
 
-use crate::forge::Forge;
+use crate::forge::Engine;
 
 #[allow(dead_code)]
 pub enum Stage {
@@ -229,7 +229,7 @@ impl Workspace {
             return;
         }
 
-        let mut forge = Forge::new(parser.code, parser.lexer.src);
-        forge.eval();
+        let mut engine = Engine::new(parser.code);
+        engine.run();
     }
 }

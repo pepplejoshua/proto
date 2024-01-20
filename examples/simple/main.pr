@@ -1,5 +1,1 @@
-pub fn main() void {
-  let a_ty = u8[3];
-  let arr u8[3] = [1, 2, 3];
-  let arr_arr a_ty[3] = [arr, arr, arr];
-}
+let a = 1;
