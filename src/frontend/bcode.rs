@@ -485,64 +485,7 @@ impl CodeBundle {
     }
 
     pub fn type_exists(&self, sig: &TypeSignature) -> Option<Index> {
-        for (i, t) in self.types.iter().enumerate() {
-            if self.eq_types(sig, t) {
-                return Some(Index {
-                    index: i,
-                    tag: IndexTag::TypeSignature,
-                });
-            }
-        }
-        None
-    }
-
-    pub fn eq_types(&self, a: &TypeSignature, b: &TypeSignature) -> bool {
-        // if A and B don't have the same type tag, they are not equal
-        if a.tag != b.tag {
-            if a.tag == TSTag::Type && a.indices.len() != 0 {
-                let a_ty = &self.types[a.indices[0].index];
-                return self.eq_types(a_ty, b);
-            }
-            return false;
-        }
-
-        // since A and B are the same tag, if they are simple types,
-        // they are equal
-        if a.tag.is_simple_type() {
-            return true;
-        };
-
-        match a.tag {
-            TSTag::NameRef => {
-                let a_name_i = a.indices[0];
-                let b_name_i = b.indices[0];
-                let a_name = &self.get_string(&a_name_i);
-                let b_name = &self.get_string(&b_name_i);
-                return a_name == b_name;
-            }
-            TSTag::Type => {
-                if a.indices.len() == 0 && b.indices.len() == 0 {
-                    return true;
-                } else if a.indices.len() == b.indices.len() {
-                    let a_ty = &self.types[a.indices[0].index];
-                    let b_ty = &self.types[b.indices[0].index];
-                    return self.eq_types(a_ty, b_ty);
-                } else {
-                    // could be type vs type instance. e.g:
-                    // type vs bool
-                    // make sure this is the only order of comparison
-                    // So bool vs type is not allowed
-                    if b.indices.len() == 1 {
-                        return true;
-                    } else {
-                        return false;
-                    }
-                }
-            }
-            _ => {
-                unreachable!("Type signature tag is not a simple type but not handled in eq_types")
-            }
-        }
+        todo!()
     }
 
     pub fn get_type(&self, index: &Index) -> TypeSignature {
@@ -554,99 +497,10 @@ impl CodeBundle {
     }
 
     pub fn type_as_strl(&self, ty: &TypeSignature) -> String {
-        match ty.tag {
-            TSTag::ComptimeInt => "int".to_string(),
-            TSTag::I8 | TSTag::I8Ty => "i8".to_string(),
-            TSTag::I16 | TSTag::I16Ty => "i16".to_string(),
-            TSTag::I32 | TSTag::I32Ty => "i32".to_string(),
-            TSTag::I64 | TSTag::I64Ty => "i64".to_string(),
-            TSTag::Isize | TSTag::IsizeTy => "isize".to_string(),
-            TSTag::U8 | TSTag::U8Ty => "u8".to_string(),
-            TSTag::U16 | TSTag::U16Ty => "u16".to_string(),
-            TSTag::U32 | TSTag::U32Ty => "u32".to_string(),
-            TSTag::U64 | TSTag::U64Ty => "u64".to_string(),
-            TSTag::Usize | TSTag::UsizeTy => "usize".to_string(),
-            TSTag::Bool | TSTag::BoolTy => "bool".to_string(),
-            TSTag::Char | TSTag::CharTy => "char".to_string(),
-            TSTag::Void | TSTag::VoidTy => "void".to_string(),
-            TSTag::Str | TSTag::StrTy => "str".to_string(),
-            TSTag::Type | TSTag::TypeTy => {
-                if ty.indices.len() != 1 {
-                    return "type".to_string();
-                }
-                let inner_ty_i = ty.indices[0];
-                self.type_as_str(inner_ty_i)
-            }
-            TSTag::NameRef => {
-                let name_i = ty.indices[0];
-                let name_s = &self.get_string(&name_i);
-                format!("`{name_s}`")
-            }
-            TSTag::Function => {
-                let return_ty_i = ty.indices[0];
-                let return_ty_s = &self.type_as_str(return_ty_i);
-                let mut arg_tys_s = String::new();
-                for (i, arg_ty_i) in ty.indices.iter().enumerate().skip(1) {
-                    let arg_ty_s = &self.type_as_str(*arg_ty_i);
-                    if i == 1 {
-                        arg_tys_s.push_str(arg_ty_s);
-                    } else {
-                        arg_tys_s.push_str(&format!(", {}", arg_ty_s));
-                    }
-                }
-                format!("({arg_tys_s}) => {return_ty_s}")
-            }
-        }
+        todo!()
     }
 
     pub fn type_as_str(&self, index: Index) -> String {
-        if let IndexTag::TypeSignature = index.tag {
-            let type_sig = &self.types[index.index];
-            match type_sig.tag {
-                TSTag::ComptimeInt => "int".to_string(),
-                TSTag::I8 | TSTag::I8Ty => "i8".to_string(),
-                TSTag::I16 | TSTag::I16Ty => "i16".to_string(),
-                TSTag::I32 | TSTag::I32Ty => "i32".to_string(),
-                TSTag::I64 | TSTag::I64Ty => "i64".to_string(),
-                TSTag::Isize | TSTag::IsizeTy => "isize".to_string(),
-                TSTag::U8 | TSTag::U8Ty => "u8".to_string(),
-                TSTag::U16 | TSTag::U16Ty => "u16".to_string(),
-                TSTag::U32 | TSTag::U32Ty => "u32".to_string(),
-                TSTag::U64 | TSTag::U64Ty => "u64".to_string(),
-                TSTag::Usize | TSTag::UsizeTy => "usize".to_string(),
-                TSTag::Bool | TSTag::BoolTy => "bool".to_string(),
-                TSTag::Char | TSTag::CharTy => "char".to_string(),
-                TSTag::Void | TSTag::VoidTy => "void".to_string(),
-                TSTag::Str | TSTag::StrTy => "str".to_string(),
-                TSTag::Type | TSTag::TypeTy => {
-                    if type_sig.indices.len() != 1 {
-                        return "type".to_string();
-                    }
-                    let inner_ty_i = type_sig.indices[0];
-                    self.type_as_str(inner_ty_i)
-                }
-                TSTag::NameRef => {
-                    let name_i = type_sig.indices[0];
-                    let name_s = &self.get_string(&name_i);
-                    format!("`{name_s}`")
-                }
-                TSTag::Function => {
-                    let return_ty_i = type_sig.indices[0];
-                    let return_ty_s = &self.type_as_str(return_ty_i);
-                    let mut arg_tys_s = String::new();
-                    for (i, arg_ty_i) in type_sig.indices.iter().enumerate().skip(1) {
-                        let arg_ty_s = &self.type_as_str(*arg_ty_i);
-                        if i == 1 {
-                            arg_tys_s.push_str(arg_ty_s);
-                        } else {
-                            arg_tys_s.push_str(&format!(", {}", arg_ty_s));
-                        }
-                    }
-                    format!("({arg_tys_s}) => {return_ty_s}")
-                }
-            }
-        } else {
-            unreachable!("Index tag is not a type signature but getting type signature...")
-        }
+        todo!()
     }
 }
