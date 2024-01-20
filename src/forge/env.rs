@@ -35,7 +35,7 @@ impl Env {
     pub fn return_parent_env(self) -> Option<Env> {
         self.parent.map(|x| *x)
     }
-
+    
     pub fn check_name(&self, name: &str) -> bool {
         self.names.contains_key(name)
     }

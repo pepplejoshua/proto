@@ -1,6 +1,6 @@
 use core::panic;
 
-use crate::frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{ValueType, ValueTypeTag, TypeSignatureTag}};
+use crate::frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{ValueType, ValueTypeTag, TypeSignatureTag, TypeSignature}};
 
 use super::env::Env;
 
@@ -12,7 +12,10 @@ pub enum EInfo {
         str_i: Index,
         from: usize,
     },
-    TypeNameRef,
+    ReferenceToType {
+        type_i: Index,
+        from: usize,
+    },
     Bool {
         value: Option<bool>, // this will be None if the value is not known
         from: usize,
@@ -100,16 +103,34 @@ impl Engine {
 
     fn exit_scope(&mut self) {
         // display information about the current scope and then pop it
-        // let env = self.envs.last().unwrap();
-        // for (name, (val_ty, info)) in env.names.iter() {
-        //     println!("{}: {:?} {:?}", name, val_ty, info);
-        // }
+        let env = self.envs.last().unwrap();
+        for (name, (val_ty, info)) in env.names.iter() {
+            println!("{}\n  type: {:#?}, info: {:?}", name, val_ty.tag, info);
+        }
 
         self.envs.pop();
     }
 
     fn cur_scope(&mut self) -> &mut Env {
         self.envs.last_mut().unwrap()
+    }
+
+    fn check_name(&self, name: &str) -> bool {
+        for env in self.envs.iter().rev() {
+            if env.check_name(name) {
+                return true;
+            }
+        }
+        false
+    }
+
+    fn get_info_for_name(&self, name: &str) -> Option<EInfo> {
+        for env in self.envs.iter().rev() {
+            if env.check_name(name) {
+                return env.get_info_for_name(name);
+            }
+        }
+        None
     }
 
     fn read_str(&self, loc: &Index) -> String {
@@ -121,27 +142,45 @@ impl Engine {
         self.information.push(EInfo::NoInfo);
     }
 
-    fn verify_type_sig(&self, type_i: &Index) -> bool {
+    fn verify_type_sig(&mut self, type_i: &Index) -> bool {
         let type_sig = &self.code.types[type_i.index];
         if type_sig.tag.is_simple_type_sig() {
             true
         } else {
-            false
+            match type_sig.tag {
+                TypeSignatureTag::TypeNameRefTS => {
+                    let name = self.read_str(&type_sig.indices[0]);
+                    if self.check_name(&name) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            }
         }
     }
 
-    fn verify_value_type(&self, val_ty: &ValueType) -> bool {
+    fn verify_value_type(&mut self, val_ty: &ValueType) -> bool {
         if val_ty.tag.is_simple_value_type() {
             true
         } else {
-            false
+            match val_ty.tag {
+                ValueTypeTag::TypeNameRef => {
+                    let name = self.read_str(&val_ty.data[0]);
+                    if self.check_name(&name) {
+                        true
+                    } else {
+                        false
+                    }
+                }
+                _ => false,
+            }
         }
     }
 
-    fn type_sig_accepts(&self, type_i: &Index, val_ty: &ValueType) -> bool {
-        let type_sig = &self.code.types[type_i.index];
+    fn type_sig_accepts(&self, type_sig: &TypeSignature, val_ty: &ValueType) -> bool {
         let _val_tag = val_ty.tag;
-        println!("type sig: {:?} val_ty: {:?}", type_sig.tag.to_value_type_tag(), _val_tag);
         type_sig.tag.to_value_type_tag() == _val_tag
     }
 
@@ -462,6 +501,15 @@ impl Engine {
                 };
                 (val_ty, info.clone())
             }
+            EInfo::ReferenceToType { type_i, .. } => {
+                let src = self.code.ins.get(type_i.index).unwrap().src.clone();
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::Type,
+                    src,
+                    data: vec![],
+                };
+                (val_ty, info.clone())
+            }
             _ => unimplemented!("unimplemented information type: {:#?}", info),
         }
     }
@@ -505,10 +553,27 @@ impl Engine {
                         if !self.verify_value_type(&val_ty) {
                             panic!("invalid type for constant initializer: {:?}", val_ty.tag);
                         }
+                        
+                        // if the type is a TypeNameRefTS (essentially not a built-in type)
+                        // so it is an identifier, then we need to resolve the actual type it
+                        // refers to
+                        let mut type_sig = &self.code.types[type_i.index];
+                        if type_sig.tag == TypeSignatureTag::TypeNameRefTS {
+                            let name = self.read_str(&type_sig.indices[0]);
+                            if !self.check_name(&name) {
+                                panic!("name {} was not found.", name);
+                            }
+                            let info = self.get_info_for_name(&name).unwrap();
+                            type_sig = match info {
+                                EInfo::ReferenceToType { type_i, .. } => {
+                                    &self.code.types[type_i.index]
+                                }
+                                _ => panic!("expected reference to type, found: {:#?}", info),
+                            };
+                        }
 
                         // make sure the type sig of type_i accepts val_ty
-                        if !self.type_sig_accepts(&type_i, &val_ty) {
-                            let type_sig = &self.code.types[type_i.index];
+                        if !self.type_sig_accepts(type_sig, &val_ty) {
                             panic!("type {:?} does not accept value type {:?}", type_sig.tag, val_ty.tag);
                         }
 
@@ -532,13 +597,29 @@ impl Engine {
                     // NameRef "name"
                     let name_i = ins.data[0];
                     let name = self.read_str(&name_i);
-                    if !self.cur_scope().check_name(&name) {
-                        panic!("name {} not found in current scope", name);
+                    if !self.check_name(&name) {
+                        panic!("name {} was not found", name);
                     }
-                    let info = self.cur_scope().get_info_for_name(&name).unwrap();
+                    let info = self.get_info_for_name(&name).unwrap();
                     self.information.push(info);
                 }
-                
+                CodeTag::SrcComment => {
+                    // SrcComment "comment"
+                    self.push_no_info();
+                }
+                CodeTag::TypeRef => {
+                    // TypeRef TypeSignature:19
+                    let type_i = ins.data[0];
+                    if !self.verify_type_sig(&type_i) {
+                        let type_sig = &self.code.types[type_i.index];
+                        panic!("reference to invalid type: {:?}", type_sig.tag);
+                    }
+                    let info = EInfo::ReferenceToType {
+                        type_i,
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }
         }

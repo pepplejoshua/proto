@@ -1,1 +1,7 @@
-let a = 1;
+// U8TS -> U8 <- U8
+let a u8 = 1;
+// TypeTS -> Type <- BoolTS
+let b type = u8;
+
+let c b = a;
+
