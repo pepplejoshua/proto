@@ -410,6 +410,24 @@ impl Engine {
                     (val_ty, info)
                 }
             }
+            EInfo::Char { from, ..} => {
+                let src = self.code.ins.get(*from).unwrap().src.clone();
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::Char, 
+                    src, 
+                    data: vec![],
+                };
+                (val_ty, info.clone())
+            }
+            EInfo::Str { from, ..} => {
+                let src = self.code.ins.get(*from).unwrap().src.clone();
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::Str, 
+                    src, 
+                    data: vec![],
+                };
+                (val_ty, info.clone())
+            }
             EInfo::NoInfo => panic!("no information available. this should not occur."),
             EInfo::I8 { from, ..} => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
@@ -532,6 +550,24 @@ impl Engine {
         let code = self.code.clone();
         for (loc, ins) in code.ins.iter().enumerate() {
             match ins.tag {
+                CodeTag::LIStr => {
+                    // LIStr "string"
+                    let str_i = ins.data[0];
+                    let info = EInfo::Str {
+                        value: Some(self.read_str(&str_i)),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::LIChar => {
+                    // LIChar 'c'
+                    let char_i = ins.data[0];
+                    let info = EInfo::Char {
+                        value: Some(self.read_str(&char_i).chars().next().unwrap()),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
                 CodeTag::LINum => {
                     // LINum "12233"
                     let num_i = ins.data[0];
@@ -660,6 +696,12 @@ impl Engine {
                         _ => panic!("not used on a non-boolean value: {:#?}", info),
                     };
                     self.information.push(info);
+                }
+                CodeTag::Add => {
+                    // Add Code:19 Code:20
+                    // allowed configurations
+                    // str + char => str
+                    // str + str => str
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }

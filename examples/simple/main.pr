@@ -1,7 +1,4 @@
-// U8TS -> U8 <- U8
-let a u8 = 1;
-// TypeTS -> Type <- BoolTS
-let b type = u8;
-
-let c b = a;
-
+let x = "Hello,";
+let y = "World!";
+let z = ' ';
+// let a = x + z + y;
