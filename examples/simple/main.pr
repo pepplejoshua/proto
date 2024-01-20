@@ -1,4 +1,4 @@
 let x = "Hello,";
 let y = "World!";
 let z = ' ';
-// let a = x + z + y;
+let a = x + z + y;

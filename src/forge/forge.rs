@@ -702,6 +702,33 @@ impl Engine {
                     // allowed configurations
                     // str + char => str
                     // str + str => str
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let a_info = self.information.get(a_i.index).unwrap();
+                    let b_info = self.information.get(b_i.index).unwrap();
+
+                    match (a_info, b_info) {
+                        // TODO(@pepplejoshua): since we can kind of tell whether we have constant values within info
+                        // and can already execute some of these operations, use the alternative (None for value) to
+                        // generate the code for the operation in the target language or backend
+                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
+                            let info = EInfo::Str {
+                                value: Some(format!("{}{}", a, b)),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Str { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                            let info = EInfo::Str {
+                                value: Some(format!("{}{}", a, b)),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for add: {:#?} and {:#?}", a_info, b_info),
+                    }
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }
