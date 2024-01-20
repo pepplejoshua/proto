@@ -23,16 +23,15 @@ pub enum TypeSignatureTag {
     U32TS,
     U64TS,
     UsizeTS,
+    // FunctionTS return_ty (arg_ty1, arg_ty2, ...)
     FunctionTS,
 }
-
-
 
 #[allow(dead_code)]
 impl TypeSignatureTag {
     pub fn to_value_type_tag(&self) -> ValueTypeTag {
         match self {
-            TypeSignatureTag::TypeNameRefTS =>                  ValueTypeTag::TypeNameRef,
+            TypeSignatureTag::TypeNameRefTS => ValueTypeTag::TypeNameRef,
             TypeSignatureTag::BoolTS => ValueTypeTag::Bool,
             TypeSignatureTag::CharTS => ValueTypeTag::Char,
             TypeSignatureTag::VoidTS => ValueTypeTag::Void,
@@ -98,7 +97,6 @@ impl TypeSignature {
 #[allow(dead_code)]
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum ValueTypeTag {
-    ComptimeInt,
     TypeNameRef,
     Bool,
     Char,
@@ -121,7 +119,6 @@ pub enum ValueTypeTag {
 impl ValueTypeTag {
     pub fn to_type_signature_tag(&self) -> TypeSignatureTag {
         match self {
-            ValueTypeTag::ComptimeInt => TypeSignatureTag::TypeNameRefTS,
             ValueTypeTag::TypeNameRef => TypeSignatureTag::TypeNameRefTS,
             ValueTypeTag::Bool => TypeSignatureTag::BoolTS,
             ValueTypeTag::Char => TypeSignatureTag::CharTS,
@@ -166,5 +163,19 @@ impl ValueTypeTag {
                 | ValueTypeTag::Str
                 | ValueTypeTag::Type
         ) || self.is_numerical_value_type()
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct ValueType {
+    pub tag: ValueTypeTag,
+    pub src: SourceRef,
+    pub data: Vec<Index>,
+}
+
+#[allow(dead_code)]
+impl ValueType {
+    pub fn get_source_ref(&self) -> SourceRef {
+        self.src.clone()
     }
 }

@@ -239,7 +239,7 @@ impl CodeBundle {
                             value = value
                         ));
                     } else {
-                        let type_s = self.type_as_str(code.data[1]);
+                        let type_s = self.type_as_str(&code.data[1]);
                         let value = code.data[2].index;
                         s.push(format!(
                             "{num} NewConstant `{name}` {type_s} Code:{value}\n",
@@ -248,7 +248,7 @@ impl CodeBundle {
                 }
                 CodeTag::NTVariable => {
                     let name = self.get_string(&code.data[0]);
-                    let type_s = self.type_as_str(code.data[1]);
+                    let type_s = self.type_as_str(&code.data[1]);
                     if code.data.len() == 3 {
                         let value = code.data[2].index;
                         s.push(format!(
@@ -266,7 +266,7 @@ impl CodeBundle {
                 CodeTag::NewFunction => {
                     let name = self.get_string(&code.data[0]);
                     let func_ty_i = code.data[1];
-                    let func_ty_s = self.type_as_str(func_ty_i);
+                    let func_ty_s = self.type_as_str(&func_ty_i);
                     let body_end = code.data[2].index;
                     s.push(format!(
                         "\n{num} NewFunction `{name}` {func_ty_s} Code:{body_end}\n"
@@ -274,26 +274,26 @@ impl CodeBundle {
                 }
                 CodeTag::Param => {
                     let name = self.get_string(&code.data[0]);
-                    let type_s = self.type_as_str(code.data[1]);
+                    let type_s = self.type_as_str(&code.data[1]);
                     s.push(format!("{num} Param `{name}` {type_s}\n"));
                 }
                 CodeTag::VarParam => {
                     let name = self.get_string(&code.data[0]);
-                    let type_s = self.type_as_str(code.data[1]);
+                    let type_s = self.type_as_str(&code.data[1]);
                     s.push(format!("{num} VarParam `{name}` {type_s}\n"));
                 }
                 CodeTag::ExpectTypeIs => {
-                    let a_type_s = self.type_as_str(code.data[0]);
+                    let a_type_s = self.type_as_str(&code.data[0]);
                     let val_s = code.data[1].index;
                     s.push(format!("{num} ExpectTypeIs {a_type_s} Code:{val_s}\n"));
                 }
                 CodeTag::ExpectTypesMatch => {
-                    let a_type_s = self.type_as_str(code.data[0]);
-                    let b_type_s = self.type_as_str(code.data[1]);
+                    let a_type_s = self.type_as_str(&code.data[0]);
+                    let b_type_s = self.type_as_str(&code.data[1]);
                     s.push(format!("{num} ExpectTypesMatch {a_type_s} {b_type_s}\n",));
                 }
                 CodeTag::TypeRef => {
-                    let type_s = self.type_as_str(code.data[0]);
+                    let type_s = self.type_as_str(&code.data[0]);
                     s.push(format!("{num} TypeRef {type_s}\n"));
                 }
                 CodeTag::LoadTrue => {
@@ -484,10 +484,6 @@ impl CodeBundle {
         }
     }
 
-    pub fn type_exists(&self, sig: &TypeSignature) -> Option<Index> {
-        todo!()
-    }
-
     pub fn get_type(&self, index: &Index) -> TypeSignature {
         if let IndexTag::TypeSignature = index.tag {
             self.types[index.index].clone()
@@ -496,11 +492,43 @@ impl CodeBundle {
         }
     }
 
-    pub fn type_as_strl(&self, ty: &TypeSignature) -> String {
-        todo!()
-    }
+    pub fn type_as_str(&self, index: &Index) -> String {
+        let sig = self.types.get(index.index).unwrap();
+        match sig.tag {
+            TypeSignatureTag::TypeNameRefTS => {
+                let name_s_i = sig.indices.get(0).unwrap();
+                self.get_string(name_s_i)
+            }
+            TypeSignatureTag::BoolTS => "bool".to_string(),
+            TypeSignatureTag::CharTS => "char".to_string(),
+            TypeSignatureTag::VoidTS => "void".to_string(),
+            TypeSignatureTag::StrTS => "str".to_string(),
+            TypeSignatureTag::TypeTS => "type".to_string(),
+            TypeSignatureTag::I8TS => "i8".to_string(),
+            TypeSignatureTag::I16TS => "i16".to_string(),
+            TypeSignatureTag::I32TS => "i32".to_string(),
+            TypeSignatureTag::I64TS => "i64".to_string(),
+            TypeSignatureTag::IsizeTS => "isize".to_string(),
+            TypeSignatureTag::U8TS => "u8".to_string(),
+            TypeSignatureTag::U16TS => "u16".to_string(),
+            TypeSignatureTag::U32TS => "u32".to_string(),
+            TypeSignatureTag::U64TS => "u64".to_string(),
+            TypeSignatureTag::UsizeTS => "usize".to_string(),
+            TypeSignatureTag::FunctionTS => {
+                let ret_ty_i = sig.indices.get(0).unwrap();
+                let ret_ty_s = self.type_as_str(ret_ty_i);
+                let mut param_tys_s = Vec::new();
 
-    pub fn type_as_str(&self, index: Index) -> String {
-        todo!()
+                for (i, param_ty_i) in sig.indices.iter().enumerate() {
+                    if i == 0 {
+                        continue;
+                    }
+                    let param_ty_s = self.type_as_str(param_ty_i);
+                    param_tys_s.push(param_ty_s);
+                }
+
+                format!("({}) => {}", param_tys_s.join(", "), ret_ty_s)
+            }
+        }
     }
 }

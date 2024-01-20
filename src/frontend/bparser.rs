@@ -360,8 +360,7 @@ impl Parser {
         let return_ty_i = self.parse_type(false)?;
 
         // get return type instruction so we can use its span
-        let return_ty_ins = self.code.get_type(&return_ty_i);
-        let return_ty_src = return_ty_ins.src;
+        let return_ty_src = self.code.types.get(return_ty_i.index).unwrap().src.clone();
 
         let temp_ret_ty_index = self.current_fn_ret_ty_index;
         self.current_fn_ret_ty_index = Some(return_ty_i);
@@ -502,8 +501,8 @@ impl Parser {
         }
 
         let type_i = self.parse_type(false)?;
-        let ty = self.code.get_type(&type_i);
-        span = span.combine(ty.src);
+        let ty_src = self.code.types.get(type_i.index).unwrap().src.clone();
+        span = span.combine(ty_src);
         indices.push(type_i);
 
         let param_ins = Code {
@@ -1258,23 +1257,23 @@ impl Parser {
             }
         };
         let inner_type = inner_type?;
-        // now we need to check if it is an array type
-        let mut cur = self.cur_token();
-        while let Token::LBracket(..) = cur {
-            let start = cur.get_source_ref();
-            self.advance_index(); // skip past [
-            let size = self.parse_expr()?;
-            if !matches!(self.cur_token(), Token::RBracket(..)) {
-                return Err(ParseError::Expected(
-                    "a ']' to terminate array type.".into(),
-                    self.cur_token().get_source_ref(),
-                    None,
-                ));
-            }
-            let span = start.combine(self.cur_token().get_source_ref());
-            self.advance_index(); // skip past ]
-            cur = self.cur_token();
-        }
+        // // now we need to check if it is an array type
+        // let mut cur = self.cur_token();
+        // while let Token::LBracket(..) = cur {
+        //     let start = cur.get_source_ref();
+        //     self.advance_index(); // skip past [
+        //     let size = self.parse_expr()?;
+        //     if !matches!(self.cur_token(), Token::RBracket(..)) {
+        //         return Err(ParseError::Expected(
+        //             "a ']' to terminate array type.".into(),
+        //             self.cur_token().get_source_ref(),
+        //             None,
+        //         ));
+        //     }
+        //     let span = start.combine(self.cur_token().get_source_ref());
+        //     self.advance_index(); // skip past ]
+        //     cur = self.cur_token();
+        // }
         return Ok(inner_type);
     }
 }
