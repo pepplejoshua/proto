@@ -510,6 +510,15 @@ impl Engine {
                 };
                 (val_ty, info.clone())
             }
+            EInfo::Bool { from, .. } => {
+                let src = self.code.ins.get(*from).unwrap().src.clone();
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::Bool,
+                    src,
+                    data: vec![],
+                };
+                (val_ty, info.clone())
+            }
             _ => unimplemented!("unimplemented information type: {:#?}", info),
         }
     }
@@ -617,6 +626,38 @@ impl Engine {
                     let info = EInfo::ReferenceToType {
                         type_i,
                         from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::LoadTrue => {
+                    // LoadTrue
+                    let info = EInfo::Bool {
+                        value: Some(true),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::LoadFalse => {
+                    // LoadFalse
+                    let info = EInfo::Bool {
+                        value: Some(false),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::Not => {
+                    // Not Code:19
+                    let code_i = ins.data[0];
+                    let info = self.information.get(code_i.index).unwrap();
+                    let info = match info {
+                        EInfo::Bool { value, ..} => {
+                            let value = value.map(|x| !x);
+                            EInfo::Bool {
+                                value,
+                                from: loc,
+                            }
+                        }
+                        _ => panic!("not used on a non-boolean value: {:#?}", info),
                     };
                     self.information.push(info);
                 }
