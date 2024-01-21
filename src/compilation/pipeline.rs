@@ -177,7 +177,7 @@ impl Workspace {
         // if not, process the file
         let src = SourceFile::new(file_path.clone());
         let reporter = SourceReporter::new(src.clone());
-        let msg = format!("PROCESSING {}", self.truncate_path(file_path.clone()));
+        let msg = format!("processing {}", self.truncate_path(file_path.clone()));
         reporter.show_info(msg);
         let mut lexer = Lexer::new(src.clone());
 

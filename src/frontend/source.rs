@@ -363,7 +363,7 @@ impl SourceReporter {
     }
 
     pub fn show_info(&self, msg: String) {
-        let output = format!("*[_, *, l_green:d_black]Info:[/] *[*, l_white:d_black]{msg}[/]");
+        let output = format!("*[_, *, l_green:d_black]info:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
     }
 
