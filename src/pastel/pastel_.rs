@@ -1,5 +1,3 @@
-use phf::phf_map;
-
 #[allow(dead_code)]
 #[derive(Debug, Clone, Default)]
 pub struct Color {
@@ -78,17 +76,16 @@ const _RESET: &str = "\x1b[0m";
 const _BOLD: &str = "\x1b[1m";
 const _UNDERLINE: &str = "\x1b[4m";
 
-// color hash map with key being color name and value being a tuple of foreground and background
-pub const _COLORS: phf::Map<&str, Color> = phf_map!(
-    "black" => _BLACK,
-    "red" => _RED,
-    "green" => _GREEN,
-    "yellow" => _YELLOW,
-    "blue" => _BLUE,
-    "magenta" => _MAGENTA,
-    "cyan" => _CYAN,
-    "white" => _WHITE,
-);
+pub const _COLORS: [(&str, Color); 8] = [
+    ("cyan", _CYAN),
+    ("blue", _BLUE),
+    ("green", _GREEN),
+    ("yellow", _YELLOW),
+    ("black", _BLACK),
+    ("red", _RED),
+    ("magenta", _MAGENTA),
+    ("white", _WHITE),
+];
 
 #[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Default)]
@@ -154,7 +151,7 @@ impl PastelOption {
         // color_name = "black", "red", "green", "yellow", "blue", "magenta", "cyan", or "white"
         if let Some(fore_color) = &self.fore_color {
             let split_res = fore_color.split('_').collect::<Vec<&str>>();
-            let fore_color = _COLORS.get(split_res[1]).unwrap();
+            let fore_color = &_COLORS.iter().find(|c| c.0 == split_res[1]).unwrap().1;
             if split_res[0] == "l" {
                 result.push_str(fore_color.light_foreground);
             } else {
@@ -165,7 +162,7 @@ impl PastelOption {
 
         if let Some(back_color) = &self.back_color {
             let back_color = back_color.split('_').collect::<Vec<&str>>();
-            let back_color = _COLORS.get(back_color[1]).unwrap();
+            let back_color = &_COLORS.iter().find(|c| c.0 == back_color[1]).unwrap().1;
             if back_color.name == "l" {
                 result.push_str(back_color.light_background);
             } else {
