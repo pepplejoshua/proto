@@ -980,6 +980,123 @@ impl Engine {
                         _ => panic!("invalid types for mult: {:?} and {:?}", a_info, b_info),
                     }
                 }
+                CodeTag::Div => {
+                    // Div Code:19 Code:20
+                    // allowed configurations
+                    // i{8,16,32,64,size} / i{8,16,32,64,size} => i{8,16,32,64,size}
+                    // u{8,16,32,64,size} / u{8,16,32,64,size} => u{8,16,32,64,size}
+                    // TODO(@pepplejoshua): look into checking for overflow or underflow manually
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::I8 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::I16 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::I32 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::I64 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::Isize {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::U8 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::U16 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::U32 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::U64 {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                            if b == &0 {
+                                panic!("division by zero is not allowed");
+                            }
+                            let info = EInfo::Usize {
+                                value: Some(a / b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for div: {:?} and {:?}", a_info, b_info),
+                    }
+                }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }
         }
