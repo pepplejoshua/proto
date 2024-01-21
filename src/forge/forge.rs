@@ -706,10 +706,10 @@ impl Engine {
                     let a_i = ins.data[0];
                     let b_i = ins.data[1];
 
-                    let a_info = self.information.get(a_i.index).unwrap();
-                    let b_info = self.information.get(b_i.index).unwrap();
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
 
-                    match (a_info, b_info) {
+                    match (&a_info, &b_info) {
                         // TODO(@pepplejoshua): since we can kind of tell whether we have constant values within info
                         // and can already execute some of these operations, use the alternative (None for value) to
                         // generate the code for the operation in the target language or backend
@@ -727,7 +727,87 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for add: {:#?} and {:#?}", a_info, b_info),
+                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
+                            // TODO(@pepplejoshua): look into checking for overflow manually
+                            let info = EInfo::I8 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::I16 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::I32 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::I64 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::Isize {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::U8 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::U16 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::U32 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::U64 {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                            // @pepplejoshua: look into checking for overflow manually
+                            let info = EInfo::Usize {
+                                value: Some(a + b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for add: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
