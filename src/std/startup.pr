@@ -1,5 +1,0 @@
-fn len_str(arr: [str]) -> i64 { // will be added to startup.pr library
-    mut size = 0;
-    cpp { size = arr.size(); }
-    return size;
-}
