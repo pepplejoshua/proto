@@ -693,7 +693,7 @@ impl Engine {
                                 from: loc,
                             }
                         }
-                        _ => panic!("not used on a non-boolean value: {:#?}", info),
+                        _ => panic!("! operator used on a non-boolean value: {:#?}", info),
                     };
                     self.information.push(info);
                 }
@@ -800,7 +800,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for add: {:?} and {:?}", a_info, b_info),
+                        _ => panic!("invalid types for +: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 CodeTag::Sub => {
@@ -890,7 +890,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for sub: {:?} and {:?}", a_info, b_info),
+                        _ => panic!("invalid types for -: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 CodeTag::Mult => {
@@ -977,7 +977,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for mult: {:?} and {:?}", a_info, b_info),
+                        _ => panic!("invalid types for *: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 CodeTag::Div => {
@@ -1094,7 +1094,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for div: {:?} and {:?}", a_info, b_info),
+                        _ => panic!("invalid types for /: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 CodeTag::Modulo => {
@@ -1210,7 +1210,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid types for modulo: {:?} and {:?}", a_info, b_info),
+                        _ => panic!("invalid types for %: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 CodeTag::Negate => {
@@ -1258,7 +1258,321 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        _ => panic!("invalid type for negate: {:?}", a_info),
+                        _ => panic!("invalid type for unary -: {:?}", a_info),
+                    }
+                }
+                CodeTag::Eq => {
+                    // Eq Code:19 Code:20
+                    // allowed configurations
+                    // i{8,16,32,64,size} == i{8,16,32,64,size} => bool
+                    // u{8,16,32,64,size} == u{8,16,32,64,size} => bool
+                    // str == str => bool
+                    // char == char => bool
+                    // bool == bool => bool
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a == b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for ==: {:?} and {:?}", a_info, b_info),
+                    }
+                }
+                CodeTag::Neq => {
+                    // Neq Code:19 Code:20
+                    // allowed configurations
+                    // i{8,16,32,64,size} != i{8,16,32,64,size} => bool
+                    // u{8,16,32,64,size} != u{8,16,32,64,size} => bool
+                    // str != str => bool
+                    // char != char => bool
+                    // bool != bool => bool
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a != b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for !=: {:?} and {:?}", a_info, b_info),
+                    }
+                }
+                CodeTag::Lt => {
+                    // Lt Code:19 Code:20
+                    // allowed configurations
+                    // i{8,16,32,64,size} < i{8,16,32,64,size} => bool
+                    // u{8,16,32,64,size} < u{8,16,32,64,size} => bool
+                    // char < char => bool
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);  
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(a < b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for <: {:?} and {:?}", a_info, b_info),
                     }
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),

@@ -1,6 +1,6 @@
 use super::{
     source::SourceRef,
-    types::{TypeSignatureTag, TypeSignature},
+    types::{TypeSignature, TypeSignatureTag},
 };
 
 #[allow(dead_code)]
