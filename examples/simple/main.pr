@@ -2,3 +2,5 @@ let a = 2;
 let b = 3;
 let c = a <= b;
 let d = b >= a;
+let e = !c or d;
+let f = c and !d;

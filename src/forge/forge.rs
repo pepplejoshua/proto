@@ -1857,6 +1857,50 @@ impl Engine {
                         _ => panic!("invalid types for >=: {:?} and {:?}", a_info, b_info),
                     }
                 }
+                CodeTag::And => {
+                    // And Code:19 Code:20
+                    // allowed configurations
+                    // bool && bool => bool
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(*a && *b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for &&: {:?} and {:?}", a_info, b_info),
+                    }
+                }
+                CodeTag::Or => {
+                    // Or Code:19 Code:20
+                    // allowed configurations
+                    // bool || bool => bool
+
+                    let a_i = ins.data[0];
+                    let b_i = ins.data[1];
+
+                    let (_, a_info) = self.infer_type(&a_i, None);
+                    let (_, b_info) = self.infer_type(&b_i, None);
+
+                    match (&a_info, &b_info) {
+                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                            let info = EInfo::Bool {
+                                value: Some(*a || *b),
+                                from: loc,
+                            };
+                            self.information.push(info);
+                        }
+                        _ => panic!("invalid types for ||: {:?} and {:?}", a_info, b_info),
+                    }
+                }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }
         }
