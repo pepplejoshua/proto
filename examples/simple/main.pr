@@ -1,3 +1,3 @@
 let size = 3;
 let arr_type = [size]u8;
-let nums = [size]u8{1, 2, 3};
+//let nums = [size]u8{1, 2, 3};

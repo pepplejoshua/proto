@@ -974,7 +974,7 @@ impl Parser {
     pub fn parse_type(&mut self, generate_value: bool) -> Result<Index, ParseError> {
         let cur = self.cur_token();
         self.advance_index();
-        let inner_type = match cur {
+        match cur {
             Token::Identifier(name, src) => {
                 let name_i = self.code.add_string(name);
                 let n_type = TypeSignature {
@@ -1291,26 +1291,7 @@ impl Parser {
                     None,
                 ));
             }
-        };
-        let inner_type = inner_type?;
-        // // now we need to check if it is an array type
-        // let mut cur = self.cur_token();
-        // while let Token::LBracket(..) = cur {
-        //     let start = cur.get_source_ref();
-        //     self.advance_index(); // skip past [
-        //     let size = self.parse_expr()?;
-        //     if !matches!(self.cur_token(), Token::RBracket(..)) {
-        //         return Err(ParseError::Expected(
-        //             "a ']' to terminate array type.".into(),
-        //             self.cur_token().get_source_ref(),
-        //             None,
-        //         ));
-        //     }
-        //     let span = start.combine(self.cur_token().get_source_ref());
-        //     self.advance_index(); // skip past ]
-        //     cur = self.cur_token();
-        // }
-        return Ok(inner_type);
+        }
     }
 }
 
