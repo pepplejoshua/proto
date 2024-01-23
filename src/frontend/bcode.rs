@@ -529,6 +529,12 @@ impl CodeBundle {
 
                 format!("({}) => {}", param_tys_s.join(", "), ret_ty_s)
             }
+            TypeSignatureTag::StaticArrayTS => {
+                let elem_ty_i = sig.indices.get(0).unwrap();
+                let elem_ty_s = self.type_as_str(elem_ty_i);
+                let len = sig.indices.get(1).unwrap().index;
+                format!("{}[{}]", elem_ty_s, len)
+            }
         }
     }
 }

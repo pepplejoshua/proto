@@ -142,7 +142,7 @@ impl Engine {
         self.information.push(EInfo::NoInfo);
     }
 
-    fn verify_type_sig(&mut self, type_i: &Index) -> bool {
+    fn verify_type_sig(&self, type_i: &Index) -> bool {
         let type_sig = &self.code.types[type_i.index];
         if type_sig.tag.is_simple_type_sig() {
             true
@@ -155,6 +155,10 @@ impl Engine {
                     } else {
                         false
                     }
+                }
+                TypeSignatureTag::StaticArrayTS => {
+                    let type_i = &type_sig.indices[1];
+                    self.verify_type_sig(type_i)
                 }
                 _ => false,
             }

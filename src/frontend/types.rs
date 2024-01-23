@@ -25,6 +25,7 @@ pub enum TypeSignatureTag {
     UsizeTS,
     // FunctionTS return_ty (arg_ty1, arg_ty2, ...)
     FunctionTS,
+    StaticArrayTS,
 }
 
 #[allow(dead_code)]
@@ -48,6 +49,7 @@ impl TypeSignatureTag {
             TypeSignatureTag::U64TS => ValueTypeTag::U64,
             TypeSignatureTag::UsizeTS => ValueTypeTag::Usize,
             TypeSignatureTag::FunctionTS => ValueTypeTag::Type,
+            TypeSignatureTag::StaticArrayTS => ValueTypeTag::StaticArray,
         }
     }
 
@@ -113,6 +115,8 @@ pub enum ValueTypeTag {
     U32,
     U64,
     Usize,
+    Function,
+    StaticArray,
 }
 
 #[allow(dead_code)]
@@ -135,6 +139,8 @@ impl ValueTypeTag {
             ValueTypeTag::U32 => TypeSignatureTag::U32TS,
             ValueTypeTag::U64 => TypeSignatureTag::U64TS,
             ValueTypeTag::Usize => TypeSignatureTag::UsizeTS,
+            ValueTypeTag::Function => TypeSignatureTag::FunctionTS,
+            ValueTypeTag::StaticArray => TypeSignatureTag::StaticArrayTS,
         }
     }
 

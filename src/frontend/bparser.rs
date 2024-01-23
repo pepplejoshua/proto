@@ -993,6 +993,42 @@ impl Parser {
                 };
                 Ok(self.code.add_ins(ins))
             }
+            Token::LBracket(src) => {
+                // parse array type, iteratively
+                // [SizeN]SomeType
+                let size_i = self.parse_expr()?;
+                let cur = self.cur_token();
+                let mut span = src.combine(cur.get_source_ref());
+                if !matches!(cur, Token::RBracket(_)) {
+                    return Err(ParseError::Expected(
+                        "a ']' to terminate array type.".into(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    span = span.combine(cur.get_source_ref());
+                    self.advance_index();
+                }
+                let inner_type_i = self.parse_type(false)?;
+                let inner_type = self.code.types.get(inner_type_i.index).unwrap();
+                span = span.combine(inner_type.src.clone());
+
+                let n_type = TypeSignature {
+                    tag: TypeSignatureTag::StaticArrayTS,
+                    src: span.clone(),
+                    indices: vec![size_i, inner_type_i],
+                };
+                let n_type_i = self.code.add_type(n_type);
+                if !generate_value {
+                    return Ok(n_type_i);
+                }
+                let ins = Code {
+                    tag: CodeTag::TypeRef,
+                    data: vec![n_type_i],
+                    src: span,
+                };
+                Ok(self.code.add_ins(ins))
+            }
             Token::I8(src) => {
                 let n_type = TypeSignature {
                     tag: TypeSignatureTag::I8TS,
