@@ -960,7 +960,81 @@ impl Parser {
                 // cannot be ambiguous with any other syntax.
                 let maybe_type_i = self.parse_type(true);
                 if let Ok(type_i) = maybe_type_i {
-                    Ok(type_i)
+                    let ty = self.code.get_ins(type_i);
+                    if !matches!(ty.tag, CodeTag::TypeRef) {
+                        return Err(ParseError::Expected(
+                            "a type.".into(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    }
+                    let actual_type_i = ty.data[0];
+                    let actual_ty = self.code.types.get(actual_type_i.index).unwrap();
+                    match actual_ty.tag {
+                        TypeSignatureTag::StaticArrayTS => {
+                            // since we have parsed a static array type in an R value position
+                            // i.e. as an expression, we need to check if it is immediately followed
+                            // by a '{' to indicate that we are initializing an array literal with that
+                            // type
+                            let cur = self.cur_token();
+                            if matches!(cur, Token::LCurly(_)) {
+                                let mut src = actual_ty.src.clone();
+                                src = src.combine(cur.get_source_ref());
+                                self.advance_index();
+                                let mut elements = vec![type_i];
+                                let mut too_many_elements = false;
+                                while !self.no_more_tokens() {
+                                    let mut cur = self.cur_token();
+                                    if !too_many_elements && elements.len() >= 20 {
+                                        too_many_elements = true;
+                                        self.report_error(ParseError::TooManyArrayElements(
+                                            src.combine(cur.get_source_ref()),
+                                        ));
+                                    }
+
+                                    if !matches!(cur, Token::RCurly(_)) {
+                                        let element = self.parse_expr()?;
+                                        if !too_many_elements {
+                                            elements.push(element);
+                                        }
+                                        cur = self.cur_token();
+                                    }
+
+                                    match &cur {
+                                        Token::RCurly(src) => {
+                                            let ins = Code {
+                                                tag: CodeTag::MakeStaticArray,
+                                                data: elements,
+                                                src: src.combine(cur.get_source_ref()),
+                                            };
+                                            self.advance_index();
+                                            return Ok(self.code.add_ins(ins));
+                                        }
+                                        Token::Comma(_) => {
+                                            self.advance_index();
+                                        }
+                                        _ => {
+                                            return Err(ParseError::Expected(
+                                                "a ',' to separate array elements or a '}' to terminate array literal."
+                                                    .into(),
+                                                cur.get_source_ref(),
+                                                None,
+                                            ))
+                                        }
+                                    }
+                                }
+
+                                return Err(ParseError::Expected(
+                                    "a '}' to terminate array literal.".into(),
+                                    self.cur_token().get_source_ref(),
+                                    None,
+                                ));
+                            } else {
+                                Ok(type_i)
+                            }
+                        }
+                        _ => Ok(type_i)
+                    }
                 } else {
                     let err = maybe_type_i.unwrap_err();
                     Err(ParseError::CannotParseAnExpressionOrType(

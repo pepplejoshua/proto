@@ -34,6 +34,15 @@ pub enum CodeTag {
     // and 20 is the index of the new value of the target
     Update,
     /*
+        MakeStaticArray Code:10 Code:11 Code:12 Code:13 ...
+        where 10 is the type index for the type signature
+        and 11 is the code index for the first element
+        and 12 is the code index for the second element
+        and 13 is the code index for the third element
+        and so on...
+    */
+    MakeStaticArray,
+    /*
         MakePublic Code:20
         where 20 is the index of a preceding code node
         to modify
@@ -220,6 +229,21 @@ impl CodeBundle {
                 CodeTag::LIChar => {
                     let imm = self.get_string(&code.data[0]);
                     s.push(format!("{num} LoadImmediateChar '{imm}'\n"));
+                }
+                CodeTag::MakeStaticArray => {
+                    let type_s = code.data[0].index;
+                    let mut elems = Vec::new();
+                    for (i, elem_i) in code.data.iter().enumerate() {
+                        if i == 0 {
+                            continue;
+                        }
+                        let elem_s = elem_i.index;
+                        elems.push(format!("Code:{elem_s}", elem_s = elem_s));
+                    }
+                    s.push(format!(
+                        "{num} MakeStaticArray Code:{type_s} [{elems}]\n",
+                        elems = elems.join(", ")
+                    ));
                 }
                 CodeTag::NameRef => {
                     let name = self.get_string(&code.data[0]);
@@ -530,10 +554,10 @@ impl CodeBundle {
                 format!("({}) => {}", param_tys_s.join(", "), ret_ty_s)
             }
             TypeSignatureTag::StaticArrayTS => {
-                let elem_ty_i = sig.indices.get(0).unwrap();
+                let elem_ty_i = sig.indices.get(1).unwrap();
                 let elem_ty_s = self.type_as_str(elem_ty_i);
-                let len = sig.indices.get(1).unwrap().index;
-                format!("{}[{}]", elem_ty_s, len)
+                let len = sig.indices.get(0).unwrap().index;
+                format!("{}[Code:{}]", elem_ty_s, len)
             }
         }
     }
