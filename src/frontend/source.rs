@@ -359,6 +359,11 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
+            ParseError::TooManyArrayElements(src) => {
+                let msg = "Array declarations only allow 20 elements.".to_string();
+                let tip = "Consider splitting this array into multiple arrays that separate the work.".to_string();
+                self.report_with_ref(&src, msg, Some(tip));
+            }
         }
     }
 

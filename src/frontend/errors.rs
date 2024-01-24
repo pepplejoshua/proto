@@ -19,6 +19,7 @@ pub enum ParseError {
     CannotParseAnExpressionOrType(SourceRef),
     TooManyFnArgs(SourceRef),
     TooManyFnParams(SourceRef),
+    TooManyArrayElements(SourceRef),
     MalformedDeclaration(String, SourceRef),
     NoVariableAtCurrentScope(SourceRef),
     NoCodeBlockAllowedInCurrentContext(SourceRef),
@@ -49,6 +50,7 @@ impl ParseError {
             ParseError::ReturnInstructionOutsideFunction(src) => src.clone(),
             ParseError::TooManyErrors(src) => src.clone(),
             ParseError::NoVariableAtCurrentScope(src) => src.clone(),
+            ParseError::TooManyArrayElements(src) => src.clone(),
         }
     }
 }
