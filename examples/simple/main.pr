@@ -1,4 +1,4 @@
 let size usize = 3;
 let arr_type = [size]u8;
 let nums = [size]u8{1, 2, 3};
-let nums2 [size]u8 = nums;
+let first = nums[2];

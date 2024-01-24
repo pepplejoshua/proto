@@ -508,6 +508,10 @@ impl CodeBundle {
         }
     }
 
+    pub fn pop_last_type(&mut self) -> TypeSignature {
+        self.types.pop().unwrap()
+    }
+
     pub fn get_type(&self, index: &Index) -> TypeSignature {
         if let IndexTag::TypeSignature = index.tag {
             self.types[index.index].clone()

@@ -1,5 +1,3 @@
-use core::panic;
-
 use crate::frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{ValueType, ValueTypeTag, TypeSignatureTag, TypeSignature}};
 
 use super::env::Env;
@@ -120,6 +118,19 @@ impl Engine {
         self.envs.last_mut().unwrap()
     }
 
+        fn read_str(&self, loc: &Index) -> String {
+        assert!(matches!(loc.tag, IndexTag::String), "expected string index");
+        self.code.strings[loc.index].clone()
+    }
+
+    fn push_no_info(&mut self) {
+        self.information.push(EInfo::NoInfo);
+    }
+}
+
+// semi complex stuff
+#[allow(dead_code)]
+impl Engine {
     fn check_name(&self, name: &str) -> bool {
         for env in self.envs.iter().rev() {
             if env.check_name(name) {
@@ -136,15 +147,6 @@ impl Engine {
             }
         }
         None
-    }
-
-    fn read_str(&self, loc: &Index) -> String {
-        assert!(matches!(loc.tag, IndexTag::String), "expected string index");
-        self.code.strings[loc.index].clone()
-    }
-
-    fn push_no_info(&mut self) {
-        self.information.push(EInfo::NoInfo);
     }
 
     fn verify_type_sig(&self, type_i: &Index) -> bool {
@@ -1984,6 +1986,40 @@ impl Engine {
                         }
                     } else {
                         panic!("expected type as first index to MakeStaticArray: {:?}", array_ty);
+                    }
+                }
+                CodeTag::AccessIndex => {
+                    // AccessMember Code:19 Code:20
+                    let arr_i = ins.data[0];
+                    let index_i = ins.data[1];
+
+                    let (_, arr_info) = self.infer_type(&arr_i, None);
+                    let src = self.code.get_ins(index_i).src;
+                    let usize_ty = TypeSignature {
+                        tag: TypeSignatureTag::UsizeTS,
+                        indices: Vec::new(),
+                        src,
+                    };
+                    let usize_ty_i = self.code.add_type(usize_ty);
+                    let (_, index_info) = self.infer_type(&index_i, Some(&usize_ty_i));
+                    self.code.pop_last_type();
+
+                    match (&arr_info, &index_info) {
+                        (EInfo::StaticArray { item_type_i, items, .. }, EInfo::Usize { value: Some(index), .. }) => {
+                            if *index >= items.len() {
+                                panic!("index out of bounds: {} >= {}", index, items.len());
+                            }
+                            let item_i = items[*index];
+                            let (_, item_info) = self.infer_type(&item_i, Some(&item_type_i));
+                            self.information.push(item_info);
+                        }
+                        (EInfo::StaticArray { .. }, EInfo::Usize { value: None, .. }) => {
+                            panic!("expected constant usize known at compile time for array index");
+                        }
+                        (EInfo::StaticArray { .. }, _) => {
+                            panic!("expected usize for array index, found {:?}", index_info);
+                        }
+                        _ => panic!("expected static array type, found {:?}", arr_info),
                     }
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
