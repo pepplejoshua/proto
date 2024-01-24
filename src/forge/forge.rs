@@ -16,6 +16,11 @@ pub enum EInfo {
         type_i: Index,
         from: usize,
     },
+    StaticArray {
+        item_type_i: Index,
+        from: usize,
+        items: Vec<Index>,  
+    },
     Bool {
         value: Option<bool>, // this will be None if the value is not known
         from: usize,
@@ -177,6 +182,10 @@ impl Engine {
                     } else {
                         false
                     }
+                }
+                ValueTypeTag::StaticArray => {
+                    let type_i = &val_ty.data[0];
+                    self.verify_type_sig(type_i)
                 }
                 _ => false,
             }
@@ -528,7 +537,7 @@ impl Engine {
                 let val_ty = ValueType {
                     tag: ValueTypeTag::Type,
                     src,
-                    data: vec![],
+                    data: vec![type_i.clone()]
                 };
                 (val_ty, info.clone())
             }
@@ -538,6 +547,15 @@ impl Engine {
                     tag: ValueTypeTag::Bool,
                     src,
                     data: vec![],
+                };
+                (val_ty, info.clone())
+            }
+            EInfo::StaticArray { item_type_i, .. } => {
+                let src = self.code.ins.get(item_type_i.index).unwrap().src.clone();
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::StaticArray,
+                    src,
+                    data: vec![item_type_i.clone()],
                 };
                 (val_ty, info.clone())
             }
@@ -553,6 +571,7 @@ impl Engine {
         self.enter_scope();
         let code = self.code.clone();
         for (loc, ins) in code.ins.iter().enumerate() {
+            // println!("executing: {:#?}", ins.tag);
             match ins.tag {
                 CodeTag::LIStr => {
                     // LIStr "string"
@@ -1903,6 +1922,68 @@ impl Engine {
                             self.information.push(info);
                         }
                         _ => panic!("invalid types for ||: {:?} and {:?}", a_info, b_info),
+                    }
+                }
+                CodeTag::MakeStaticArray => {
+                    // MakeStaticArray Code:19 [Code:20, Code:21, ...]
+
+                    // get the array type used to initialize this array
+                    let array_ty_i = ins.data[0];
+                    let array_ty = self.infer_type(&array_ty_i, None).1;
+
+                    // we need a reference to a type to make a static array
+                    if let EInfo::ReferenceToType { type_i, .. } = array_ty {
+                        let arr_ty = self.code.get_type(&type_i);
+                        // the reference has to be to a static array type
+                        if matches!(arr_ty.tag, TypeSignatureTag::StaticArrayTS) {
+                            // from this static array type, we grab the size and the type of the items
+                            // in the array
+                            let arr_size_i = arr_ty.indices[0];
+                            let arr_item_ty_i = arr_ty.indices[1];
+
+                            let arr_size = self.infer_type(&arr_size_i, None).1;
+                            let (arr_item_ty, _) = self.infer_type(&arr_item_ty_i, None);
+                            let arr_ty_i = arr_item_ty.data[0];
+                            let arr_ty = self.code.get_type(&arr_ty_i);
+                            let item_ty_i = arr_ty.indices[1];
+                            let item_ty = self.code.get_type(&item_ty_i);
+
+                            // we expect a known usize for the size of the array
+                            match arr_size {
+                                EInfo::Usize { value: Some(size), .. } => {
+                                    // since we know the index for the type of the array (item_ty_i), we can use it
+                                    // to infer and check the types of the items in the array
+                                    let mut items = Vec::new();
+                                    for i in 1..ins.data.len() {
+                                        let item_i = ins.data[i];
+                                        let (cur_item_ty, _) = self.infer_type(&item_i, Some(&item_ty_i));
+                                        if self.type_sig_accepts(&item_ty, &cur_item_ty) {
+                                            items.push(item_i);
+                                        } else {
+                                            panic!("expected type {:?} for array item, found {:?}", item_ty.tag, cur_item_ty.tag);
+                                        }
+                                    }
+                                    // if the number of items in the array is the same as the size of the array,
+                                    // we can infer the type of the array
+                                    if items.len() == size {
+                                        let info = EInfo::StaticArray { item_type_i: item_ty_i, from: loc, items };
+                                        self.information.push(info);
+                                    } else {
+                                        panic!("expected {} items to initialize array, but found {}", size, items.len());
+                                    }
+                                }
+                                EInfo::Usize { value: None, .. } => {
+                                    panic!("expected constant usize known at compile time for array size");
+                                }
+                                _ => {
+                                    panic!("expected usize for array size, found {:?}", arr_size);
+                                }
+                            }
+                        } else {
+                            panic!("expected static array type, found {:?}", arr_ty);
+                        }
+                    } else {
+                        panic!("expected type as first index to MakeStaticArray: {:?}", array_ty);
                     }
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
