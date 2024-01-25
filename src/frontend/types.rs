@@ -25,6 +25,7 @@ pub enum TypeSignatureTag {
     UsizeTS,
     // FunctionTS return_ty (arg_ty1, arg_ty2, ...)
     FunctionTS,
+    // StaticArrayTS size inner_type 
     StaticArrayTS,
 }
 
@@ -115,7 +116,9 @@ pub enum ValueTypeTag {
     U32,
     U64,
     Usize,
+    // Function return_ty (arg_ty1, arg_ty2, ...)
     Function,
+    // StaticArray inner_type
     StaticArray,
 }
 

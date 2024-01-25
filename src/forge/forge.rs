@@ -74,6 +74,13 @@ pub enum EInfo {
         from: usize,
     },
     NoInfo,
+    Function {
+        name: Index,
+        fn_type_i: Index,
+        fn_start_index: Index,
+        fn_end_index: Index,
+        from: usize,
+    },
     Error {
         msg: String,
         from: usize,
@@ -86,6 +93,8 @@ pub struct Engine {
     envs: Vec<Env>,
     information: Vec<EInfo>,
     code: CodeBundle,
+    cur_fn_end_index: Option<Index>,
+    cur_fn_return_ty_index: Option<Index>,
 }
 
 // simple helper functions
@@ -96,6 +105,8 @@ impl Engine {
             envs: vec![],
             information: Vec::new(),
             code,
+            cur_fn_end_index: None,
+            cur_fn_return_ty_index: None,
         }
     }
 
@@ -107,9 +118,7 @@ impl Engine {
     fn exit_scope(&mut self) {
         // display information about the current scope and then pop it
         let env = self.envs.last().unwrap();
-        for (name, (val_ty, info)) in env.names.iter() {
-            println!("{}\n  type: {:#?}, info: {:?}", name, val_ty.tag, info);
-        }
+        env.show_env_info();
 
         self.envs.pop();
     }
@@ -118,7 +127,7 @@ impl Engine {
         self.envs.last_mut().unwrap()
     }
 
-        fn read_str(&self, loc: &Index) -> String {
+    fn read_str(&self, loc: &Index) -> String {
         assert!(matches!(loc.tag, IndexTag::String), "expected string index");
         self.code.strings[loc.index].clone()
     }
@@ -166,6 +175,14 @@ impl Engine {
                 TypeSignatureTag::StaticArrayTS => {
                     let type_i = &type_sig.indices[1];
                     self.verify_type_sig(type_i)
+                }
+                TypeSignatureTag::FunctionTS => {
+                    for type_i in type_sig.indices.iter() {
+                        if !self.verify_type_sig(type_i) {
+                            return false;
+                        }
+                    }
+                    true
                 }
                 _ => false,
             }
@@ -558,6 +575,16 @@ impl Engine {
                     tag: ValueTypeTag::StaticArray,
                     src,
                     data: vec![item_type_i.clone()],
+                };
+                (val_ty, info.clone())
+            }
+            EInfo::Function { fn_type_i, from, .. } => {
+                let src = self.code.ins.get(*from).unwrap().src.clone();
+                let fn_type = &self.code.types[fn_type_i.index];
+                let val_ty = ValueType {
+                    tag: ValueTypeTag::Function,
+                    src,
+                    data: fn_type.indices.clone(),
                 };
                 (val_ty, info.clone())
             }
@@ -2021,6 +2048,45 @@ impl Engine {
                         }
                         _ => panic!("expected static array type, found {:?}", arr_info),
                     }
+                }
+                CodeTag::NewFunction => {
+                    // NewFunction "name" Type:2 Code:3
+                    let name = ins.data[0];
+                    let fn_type_i = ins.data[1];
+                    let fn_body_end = ins.data[2];
+
+                    if !self.verify_type_sig(&fn_type_i) {
+                        panic!("invalid type signature used in function");
+                    }
+
+                    let fn_info = EInfo::Function { 
+                        name,
+                        fn_type_i,
+                        fn_start_index: Index { tag: IndexTag::Code, index: loc },
+                        fn_end_index: fn_body_end,
+                        from: loc,
+                    };
+                    
+                    self.information.push(fn_info);
+                    self.cur_fn_end_index = Some(fn_body_end);
+                    self.cur_fn_return_ty_index = Some(self.code.get_type(&fn_type_i).indices[0]);
+                }
+                CodeTag::EnterScope => {
+                    // EnterScope
+                    self.enter_scope();
+                    let fn_end_i = self.cur_fn_end_index;
+                    let fn_return_ty_i = self.cur_fn_return_ty_index;
+                    let cur_scope = self.cur_scope();
+                    cur_scope.cur_fn_end_index = fn_end_i;
+                    cur_scope.cur_fn_return_ty_index = fn_return_ty_i;
+                    self.cur_fn_end_index = None;
+                    self.cur_fn_return_ty_index = None;
+                    self.push_no_info();
+                }
+                CodeTag::ExitScope => {
+                    // ExitScope
+                    self.exit_scope();
+                    self.push_no_info();
                 }
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }

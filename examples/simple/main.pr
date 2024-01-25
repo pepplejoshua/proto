@@ -1,4 +1,9 @@
-let size usize = 3;
-let arr_type = [size]u8;
-let nums = [size]u8{1, 2, 3};
-let first = nums[2];
+fn main() void {
+  let a = 1;
+  let b = a + 2;
+  let c = b + a + 4;
+}
+
+fn add(a u8, b u8) u8 {
+  return a + b;
+}

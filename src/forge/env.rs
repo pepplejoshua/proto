@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::frontend::types::ValueType;
+use crate::frontend::{bcode::Index, types::ValueType};
 
 use super::forge::EInfo;
 
@@ -11,6 +11,8 @@ pub struct Env {
     // an index to the type and a value (constant value)
     pub names: HashMap<String, (ValueType, Option<EInfo>)>,
     pub parent: Option<Box<Env>>,
+    pub cur_fn_end_index: Option<Index>,
+    pub cur_fn_return_ty_index: Option<Index>,
 }
 
 #[allow(dead_code)]
@@ -22,6 +24,8 @@ impl Env {
         Env {
             names: HashMap::new(),
             parent: None,
+            cur_fn_end_index: None,
+            cur_fn_return_ty_index: None,
         }
     }
 
@@ -29,6 +33,8 @@ impl Env {
         Env {
             names: HashMap::new(),
             parent: Some(Box::new(parent)),
+            cur_fn_end_index: None,
+            cur_fn_return_ty_index: None,
         }
     }
 
@@ -50,5 +56,20 @@ impl Env {
 
     pub fn declare_constant(&mut self, name: String, val_ty: ValueType, info: EInfo) {
         self.names.insert(name, (val_ty, Some(info)));
+    }
+
+    pub fn show_env_info(&self) {
+        if self.names.is_empty() {
+            return;
+        }
+        println!("Env info:");
+        for (name, (ty, info)) in self.names.iter() {
+            print!("{}: {:?}", name, ty.tag);
+            if let Some(info) = info {
+                println!(" {:?}", info);
+            } else {
+                println!();
+            }
+        }
     }
 }
