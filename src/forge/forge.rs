@@ -2094,3 +2094,24 @@ impl Engine {
         self.exit_scope();
     }
 }
+
+/*
+first pass:
+this pass will go through the bcode and populates the module GLOBAL symbol table with partial information
+about the types of the symbols. the module GLOBAL table's parent will be the program GLOBAL symbol table.
+- for each function, we will add a symbol to the symbol table with the name of the function and the type of the function
+- for each global variable, we will add a symbol to the symbol table with the name of the variable and the type of the variable
+- for each global constant, we will add a symbol to the symbol table with the name of the constant and the type of the constant
+- for each type, we will add a symbol to the symbol table with the name of the type and the type of the type
+  - struct
+  - alias of other types
+
+when we see an @import, we will go through Lex -> Parse -> Forge_Pass_1 for the path. it can be done in a different thread
+it will result in a module GLOBAL symbol table that we will merge into the program GLOBAL symbol table.
+*/
+
+/*
+second pass:
+this pass will go through the bcode and populates the module GLOBAL symbol table with complete information, while also
+populating the module GLOBAL type table with complete information.
+*/

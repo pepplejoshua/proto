@@ -415,9 +415,18 @@ impl CodeBundle {
                     s.push(format!("{num} AccessIndex Code:{a} Code:{b}\n"));
                 }
                 CodeTag::Call => {
-                    let a = code.data[0].index;
-                    let b = code.data[1].index;
-                    s.push(format!("{num} Call Code:{a} Code:{b}\n"));
+                    let fn_i = code.data[0].index;
+
+                    let mut args_i = Vec::new();
+                    for (i, arg_i) in code.data.iter().enumerate() {
+                        if i == 0 {
+                            continue;
+                        }
+                        args_i.push(arg_i.index);
+                    }
+                    
+                    let args_s = args_i.iter().map(|i| format!("Code:{}", i)).collect::<Vec<_>>().join(" ");
+                    s.push(format!("{num} Call Code:{fn_i} ({args_s})\n"));
                 }
                 CodeTag::Return => {
                     if code.data.len() == 0 {
