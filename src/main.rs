@@ -7,6 +7,8 @@ mod compilation;
 mod forge;
 mod frontend;
 mod pastel;
+mod symbol_info;
+mod pir;
 
 const USAGE: &str = "
 Usage: proto command [options]?

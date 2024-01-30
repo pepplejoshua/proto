@@ -1,29 +1,71 @@
-// there is one ProgramSymbolInfo per program
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-#[derive(Debug)]
-pub struct ProgramSymbolInfo {
-  // module map: name -> matching ModuleInfo
-  module_map: HashMap<String, ModuleInfo>,
-  // global symbols. this is passed around during the 2
-  // pass analysis of files in the program
-  // it will get updated with globals across files
-  global_symbols: Vec<CodeSymbolInfo>,
+use std::collections::HashMap;
+
+use crate::frontend::types::TypeSignature;
+
+pub enum TableType {
+  Preserved, // will be used for file globals, etc.
+  Locals, // for function parameters and local variables, block variables, etc.
+  SelfContained, // a mix of Preserved and Locals (for structs, enums, etc.)
 }
 
-impl ProgramSymbolInfo {
+pub struct SymbolTable {
+  parent: Option<Box<SymbolTable>>,
+  pub table_type: TableType,
+  // symbols will store symbols and their types. variables, constants
+  // functions, etc.
+  pub symbols: HashMap<String, TypeSignature>,
+  // scoped_symbols will hold structs, enums, etc. since their scopes are 
+  // self-contained and if their parent scope is Preserved or SelfContained,
+  // then their internals will survive scopes. If the enclosing scope is Locals,
+  // then the scoped_symbols will be dropped when the scope ends.
+  pub scoped_symbols: HashMap<String, Box<SymbolTable>>,
 }
 
-pub struct ModuleInfo {
-  mod_name: String,
-  mod_code: Vec<CodeSymbolInfo>,
-  mod_symbols: Vec<CodeSymbolInfo>,
+impl SymbolTable {
+  pub fn new(table_type: TableType) -> Self {
+    SymbolTable {
+      parent: None,
+      table_type,
+      symbols: HashMap::new(),
+      scoped_symbols: HashMap::new(),
+    }
+  }
+
+  pub fn make_child_env(parent: SymbolTable, table_type: TableType) -> Self {
+    SymbolTable {
+      parent: Some(Box::new(parent)),
+      table_type,
+      symbols: HashMap::new(),
+      scoped_symbols: HashMap::new(),
+    }
+  }
+
+  pub fn return_parent_env(self) -> Option<SymbolTable> {
+    self.parent.map(|x| *x)
+  }
+
+  pub fn insert(&mut self, name: String, ty: TypeSignature) {
+    self.symbols.insert(name, ty);
+  }
+
+  pub fn get(&self, name: &str) -> Option<&TypeSignature> {
+    self.symbols.get(name)
+  }
+
+  pub fn get_mut(&mut self, name: &str) -> Option<&mut TypeSignature> {
+    self.symbols.get_mut(name)
+  }
+
+  pub fn contains(&self, name: &str) -> bool {
+    self.symbols.contains_key(name)
+  }
+
+  pub fn insert_scoped(&mut self, name: String, scope: SymbolTable) {
+    self.scoped_symbols.insert(name, Box::new(scope));
+  }
 }
 
-impl ModuleInfo {
-}
-
-// global symbols can be:
-// - pub constants
-// - pub functions
+pub type SymIndex = usize;
