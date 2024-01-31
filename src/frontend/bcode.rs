@@ -78,6 +78,11 @@ pub enum CodeTag {
     */
     NewFunction,
     /*
+        EndFunction
+        marks the end of a function body
+    */
+    EndFunction,
+    /*
         Param "name" Type:19 <Code:20 (Future upgrade when I allow function call parameter labels)>
         where name is the name of the parameter
         19 is the type index for the type signature
@@ -295,6 +300,9 @@ impl CodeBundle {
                     s.push(format!(
                         "\n{num} NewFunction `{name}` {func_ty_s} Code:{body_end}\n"
                     ));
+                }
+                CodeTag::EndFunction => {
+                    s.push(format!("{num} EndFunction\n"));
                 }
                 CodeTag::Param => {
                     let name = self.get_string(&code.data[0]);

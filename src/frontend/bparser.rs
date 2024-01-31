@@ -112,7 +112,7 @@ impl Parser {
 
     pub fn parse(&mut self) {
         while !self.no_more_tokens() {
-            let index_m = self.next_instruction();
+            let index_m = self.next_instruction(true);
 
             match index_m {
                 Ok(_) => { /* do nothing, since we have already added the code */ }
@@ -132,7 +132,7 @@ impl Parser {
         }
     }
 
-    fn next_instruction(&mut self) -> Result<Index, ParseError> {
+    fn next_instruction(&mut self, enter_scope_for_new_blocks: bool) -> Result<Index, ParseError> {
         let mut cur = self.cur_token();
         match cur {
             Token::SingleLineComment(src, comment) => {
@@ -149,7 +149,7 @@ impl Parser {
             Token::Return(_) => self.parse_return(),
             Token::Let(_) => self.parse_const_var(),
             Token::Mut(_) => self.parse_mut_var(),
-            Token::LCurly(_) => self.parse_code_block(),
+            Token::LCurly(_) => self.parse_code_block(enter_scope_for_new_blocks),
             Token::Pub(_) => {
                 let pub_ref = cur.get_source_ref();
                 self.advance_index();
@@ -160,7 +160,7 @@ impl Parser {
                     Token::Mut(_) => self.parse_mut_var(),
                     Token::Fn(_) => self.parse_fn(),
                     _ => {
-                        let ins_i = self.next_instruction()?;
+                        let ins_i = self.next_instruction(enter_scope_for_new_blocks)?;
                         let ins = self.code.get_ins(ins_i);
                         Err(ParseError::MisuseOfPubKeyword(
                             ins.src.combine(pub_ref.clone()),
@@ -237,20 +237,22 @@ impl Parser {
 
     // all callers of this method should set the ParseScope before
     // calling this method
-    fn parse_code_block(&mut self) -> Result<Index, ParseError> {
+    fn parse_code_block(&mut self, enter_scope: bool) -> Result<Index, ParseError> {
         let start = self.cur_token();
         self.advance_index(); // skip past `{`
 
-        let en_scope_c = Code {
-            tag: CodeTag::EnterScope,
-            data: vec![],
-            src: start.get_source_ref(),
-        };
-        self.code.add_ins(en_scope_c);
+        if enter_scope {
+            let en_scope_c = Code {
+                tag: CodeTag::EnterScope,
+                data: vec![],
+                src: start.get_source_ref(),
+            };
+            self.code.add_ins(en_scope_c);
+        }
 
         let mut cur = self.cur_token();
         while !self.no_more_tokens() && !matches!(cur, Token::RCurly(_)) {
-            let ins = self.next_instruction();
+            let ins = self.next_instruction(true);
             if ins.is_err() {
                 self.report_error(ins.err().unwrap());
                 self.recover_from_err();
@@ -267,13 +269,21 @@ impl Parser {
         }
 
         self.advance_index(); // skip past `}`
-        let ex_scope_c = Code {
-            tag: CodeTag::ExitScope,
-            data: vec![],
-            src: cur.get_source_ref(),
-        };
-        let exit = self.code.add_ins(ex_scope_c);
-        Ok(exit)
+
+        if enter_scope {
+            let ex_scope_c = Code {
+                tag: CodeTag::ExitScope,
+                data: vec![],
+                src: cur.get_source_ref(),
+            };
+            let exit = self.code.add_ins(ex_scope_c);
+            Ok(exit)
+        } else {
+            Ok(Index {
+                tag: IndexTag::Code,
+                index: 0,
+            })
+        }
     }
 
     fn parse_fn(&mut self) -> Result<Index, ParseError> {
@@ -385,7 +395,7 @@ impl Parser {
         // we do not need to track the index of the next instruction
         // since we will be using the span of instructions right after the
         // function instruction till the end of the function body
-        let body_i = self.next_instruction()?;
+        let body_i = self.next_instruction(false)?;
         let body_src = self.code.get_ins(body_i).src.clone();
         let body_end_i = Index {
             tag: IndexTag::Code,
@@ -397,10 +407,17 @@ impl Parser {
         let fn_ins = Code {
             tag: CodeTag::NewFunction,
             data: indices,
-            src: start.get_source_ref().combine(body_src),
+            src: start.get_source_ref().combine(body_src.clone()),
         };
         self.code.update_ins(fn_i, fn_ins);
         self.parse_scope = temp_scope;
+        // add end of function instruction
+        let end_fn_ins = Code {
+            tag: CodeTag::EndFunction,
+            data: vec![],
+            src: start.get_source_ref().combine(body_src),
+        };
+        self.code.add_ins(end_fn_ins);
         Ok(fn_i)
     }
 

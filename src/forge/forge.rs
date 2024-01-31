@@ -546,6 +546,58 @@ impl Engine {
                     };
                     self.information.push(info);
                 }
+                CodeTag::NewConstant => {
+                }
+                CodeTag::NameRef => {
+                }
+                CodeTag::SrcComment => {
+                }
+                CodeTag::TypeRef => {
+                }
+                CodeTag::LoadTrue => {
+                }
+                CodeTag::LoadFalse => {
+                }
+                CodeTag::Not => {
+                }
+                CodeTag::Add => {
+                }
+                CodeTag::Sub => {
+                }
+                CodeTag::Mult => {
+                }
+                CodeTag::Div => {
+                }
+                CodeTag::Modulo => {
+                }
+                CodeTag::Negate => {
+                }
+                CodeTag::Eq => {
+                }
+                CodeTag::Neq => {
+                }
+                CodeTag::Lt => {
+                }
+                CodeTag::Gt => {
+                }
+                CodeTag::LtEq => {
+                }
+                CodeTag::GtEq => {
+                }
+                CodeTag::And => {
+                }
+                CodeTag::Or => {
+                }
+                CodeTag::MakeStaticArray => {
+                }
+                CodeTag::AccessIndex => {
+                }
+                CodeTag::NewFunction => {
+                }
+                CodeTag::EnterScope => {
+                }
+                CodeTag::ExitScope => {
+                }
                 _ => unimplemented!("pass_1: {:#?}", ins.tag),
             }
         }
@@ -2024,8 +2076,15 @@ impl Engine {
                     };
                     
                     self.information.push(fn_info);
-                    self.cur_fn_end_index = Some(fn_body_end);
-                    self.cur_fn_return_ty_index = Some(self.code.get_type(&fn_type_i).indices[0]);
+                    let ret_type_i = Some(self.code.get_type(&fn_type_i).indices[0]);
+                    let cur_env = self.cur_scope();
+                    cur_env.cur_fn_end_index = Some(fn_body_end);
+                    cur_env.cur_fn_return_ty_index = ret_type_i;
+                    self.enter_scope();
+                }
+                CodeTag::EndFunction => {
+                    // EndFunction
+                    self.exit_scope();
                 }
                 CodeTag::EnterScope => {
                     // EnterScope
