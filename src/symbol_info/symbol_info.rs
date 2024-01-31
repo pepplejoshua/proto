@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::frontend::types::TypeSignature;
+use crate::frontend::types::{TypeSignature, ValueType};
 
 pub enum TableType {
   Preserved, // will be used for file globals, etc.
@@ -17,7 +17,7 @@ pub struct SymbolTable {
   pub table_type: TableType,
   // symbols will store symbols and their types. variables, constants
   // functions, etc.
-  pub symbols: HashMap<String, TypeSignature>,
+  pub symbols: HashMap<String, ValueType>,
   // scoped_symbols will hold structs, enums, etc. since their scopes are 
   // self-contained and if their parent scope is Preserved or SelfContained,
   // then their internals will survive scopes. If the enclosing scope is Locals,
@@ -48,15 +48,15 @@ impl SymbolTable {
     self.parent.map(|x| *x)
   }
 
-  pub fn insert(&mut self, name: String, ty: TypeSignature) {
-    self.symbols.insert(name, ty);
+  pub fn insert(&mut self, name: String, val_ty: ValueType) {
+    self.symbols.insert(name, val_ty);
   }
 
-  pub fn get(&self, name: &str) -> Option<&TypeSignature> {
+  pub fn get(&self, name: &str) -> Option<&ValueType> {
     self.symbols.get(name)
   }
 
-  pub fn get_mut(&mut self, name: &str) -> Option<&mut TypeSignature> {
+  pub fn get_mut(&mut self, name: &str) -> Option<&mut ValueType> {
     self.symbols.get_mut(name)
   }
 
