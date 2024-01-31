@@ -11,6 +11,7 @@ pub enum TableType {
   SelfContained, // a mix of Preserved and Locals (for structs, enums, etc.)
 }
 
+// these will store the symbols and their types
 pub struct SymbolTable {
   parent: Option<Box<SymbolTable>>,
   pub table_type: TableType,
@@ -59,7 +60,7 @@ impl SymbolTable {
     self.symbols.get_mut(name)
   }
 
-  pub fn contains(&self, name: &str) -> bool {
+  pub fn check_name(&self, name: &str) -> bool {
     self.symbols.contains_key(name)
   }
 
@@ -68,4 +69,4 @@ impl SymbolTable {
   }
 }
 
-pub type SymIndex = usize;
+pub type SymIndex = usize;  

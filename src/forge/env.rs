@@ -1,8 +1,6 @@
 use std::collections::HashMap;
 
-use crate::frontend::{bcode::Index, types::ValueType};
-
-use super::forge::EInfo;
+use crate::frontend::{bcode::Index, types::{EInfo, ValueType}};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]

@@ -1,91 +1,6 @@
-use crate::frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{ValueType, ValueTypeTag, TypeSignatureTag, TypeSignature}};
+use crate::{frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{EInfo, TypeSignature, TypeSignatureTag, ValueType, ValueTypeTag}}, symbol_info::symbol_info::{SymbolTable, TableType}};
 
 use super::env::Env;
-
-#[allow(dead_code)]
-#[derive(Debug, Clone)]
-pub enum EInfo {
-    // store the string and the index it originated from
-    ImmediateNum {
-        str_i: Index,
-        from: usize,
-    },
-    ReferenceToType {
-        type_i: Index,
-        from: usize,
-    },
-    StaticArray {
-        item_type_i: Index,
-        from: usize,
-        items: Vec<Index>,  
-    },
-    Bool {
-        value: Option<bool>, // this will be None if the value is not known
-        from: usize,
-    },
-    Char {
-        value: Option<char>, // this will be None if the value is not known
-        from: usize,
-    },
-    Void { from: usize },
-    Str {
-        value: Option<String>, // this will be None if the value is not known
-        from: usize,
-    },
-    Type,
-    I8 {
-        value: Option<i8>, // this will be None if the value is not known
-        from: usize,
-    },
-    I16 {
-        value: Option<i16>, // this will be None if the value is not known
-        from: usize,
-    },
-    I32 {
-        value: Option<i32>, // this will be None if the value is not known
-        from: usize,
-    },
-    I64 {
-        value: Option<i64>, // this will be None if the value is not known
-        from: usize,
-    },
-    Isize {
-        value: Option<isize>, // this will be None if the value is not known
-        from: usize,
-    },
-    U8 {
-        value: Option<u8>, // this will be None if the value is not known
-        from: usize,
-    },
-    U16 {
-        value: Option<u16>, // this will be None if the value is not known
-        from: usize,
-    },
-    U32 {
-        value: Option<u32>, // this will be None if the value is not known
-        from: usize,
-    },
-    U64 {
-        value: Option<u64>, // this will be None if the value is not known
-        from: usize,
-    },
-    Usize {
-        value: Option<usize>, // this will be None if the value is not known
-        from: usize,
-    },
-    NoInfo,
-    Function {
-        name: Index,
-        fn_type_i: Index,
-        fn_start_index: Index,
-        fn_end_index: Index,
-        from: usize,
-    },
-    Error {
-        msg: String,
-        from: usize,
-    },
-}
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
@@ -596,6 +511,47 @@ impl Engine {
 // more complex functions
 #[allow(dead_code)]
 impl Engine {
+    pub fn pass_1(&mut self) -> SymbolTable {
+        // this pass is used to learn about the types and constants in the code
+        // for example, global constants and types are declared here
+        let sym_table = SymbolTable::new(TableType::Preserved);
+        let code = self.code.clone();
+        for (loc, ins) in code.ins.iter().enumerate() {
+            // println!("pass_1: {:#?}", ins.tag);
+            match ins.tag {
+                CodeTag::LIStr => {
+                    // LIStr "string"
+                    let str_i = ins.data[0];
+                    let info = EInfo::Str {
+                        value: Some(self.read_str(&str_i)),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::LIChar => {
+                    // LIChar 'c'
+                    let char_i = ins.data[0];
+                    let info = EInfo::Char {
+                        value: Some(self.read_str(&char_i).chars().next().unwrap()),
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                CodeTag::LINum => {
+                    // LINum "12233"
+                    let num_i = ins.data[0];
+                    let info = EInfo::ImmediateNum {
+                        str_i: num_i,
+                        from: loc,
+                    };
+                    self.information.push(info);
+                }
+                _ => unimplemented!("pass_1: {:#?}", ins.tag),
+            }
+        }
+        sym_table
+    }
+
     pub fn run(&mut self) {
         self.enter_scope();
         let code = self.code.clone();

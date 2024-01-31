@@ -188,3 +188,88 @@ impl ValueType {
         self.src.clone()
     }
 }
+
+#[allow(dead_code)]
+#[derive(Debug, Clone)]
+pub enum EInfo {
+    // store the string and the index it originated from
+    ImmediateNum {
+        str_i: Index,
+        from: usize,
+    },
+    ReferenceToType {
+        type_i: Index,
+        from: usize,
+    },
+    StaticArray {
+        item_type_i: Index,
+        from: usize,
+        items: Vec<Index>,  
+    },
+    Bool {
+        value: Option<bool>, // this will be None if the value is not known
+        from: usize,
+    },
+    Char {
+        value: Option<char>, // this will be None if the value is not known
+        from: usize,
+    },
+    Void { from: usize },
+    Str {
+        value: Option<String>, // this will be None if the value is not known
+        from: usize,
+    },
+    Type,
+    I8 {
+        value: Option<i8>, // this will be None if the value is not known
+        from: usize,
+    },
+    I16 {
+        value: Option<i16>, // this will be None if the value is not known
+        from: usize,
+    },
+    I32 {
+        value: Option<i32>, // this will be None if the value is not known
+        from: usize,
+    },
+    I64 {
+        value: Option<i64>, // this will be None if the value is not known
+        from: usize,
+    },
+    Isize {
+        value: Option<isize>, // this will be None if the value is not known
+        from: usize,
+    },
+    U8 {
+        value: Option<u8>, // this will be None if the value is not known
+        from: usize,
+    },
+    U16 {
+        value: Option<u16>, // this will be None if the value is not known
+        from: usize,
+    },
+    U32 {
+        value: Option<u32>, // this will be None if the value is not known
+        from: usize,
+    },
+    U64 {
+        value: Option<u64>, // this will be None if the value is not known
+        from: usize,
+    },
+    Usize {
+        value: Option<usize>, // this will be None if the value is not known
+        from: usize,
+    },
+    NoInfo,
+    Function {
+        name: Index,
+        fn_type_i: Index,
+        fn_start_index: Index,
+        fn_end_index: Index,
+        from: usize,
+    },
+    Error {
+        msg: String,
+        from: usize,
+    },
+}
