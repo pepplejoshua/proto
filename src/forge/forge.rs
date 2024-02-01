@@ -21,95 +21,6 @@ pub struct Engine {
     cur_fn_return_ty_index: Option<Index>,
 }
 
-#[derive(Debug, Clone)]
-pub enum EngineInfo {
-    // store the string and the index it originated from
-    ImmediateNum {
-        str_i: Index,
-        from: usize,
-    },
-    ReferenceToType {
-        type_i: Index,
-        from: usize,
-    },
-    StaticArray {
-        item_type_i: Index,
-        from: usize,
-        length: usize,
-    },
-    Bool {
-        value: Option<bool>, // this will be None if the value is not known
-        from: usize,
-    },
-    Char {
-        value: Option<char>, // this will be None if the value is not known
-        from: usize,
-    },
-    Void {
-        from: usize,
-    },
-    Str {
-        value: Option<String>, // this will be None if the value is not known
-        from: usize,
-    },
-    Type,
-    I8 {
-        value: Option<i8>, // this will be None if the value is not known
-        from: usize,
-    },
-    I16 {
-        value: Option<i16>, // this will be None if the value is not known
-        from: usize,
-    },
-    I32 {
-        value: Option<i32>, // this will be None if the value is not known
-        from: usize,
-    },
-    I64 {
-        value: Option<i64>, // this will be None if the value is not known
-        from: usize,
-    },
-    Isize {
-        value: Option<isize>, // this will be None if the value is not known
-        from: usize,
-    },
-    U8 {
-        value: Option<u8>, // this will be None if the value is not known
-        from: usize,
-    },
-    U16 {
-        value: Option<u16>, // this will be None if the value is not known
-        from: usize,
-    },
-    U32 {
-        value: Option<u32>, // this will be None if the value is not known
-        from: usize,
-    },
-    U64 {
-        value: Option<u64>, // this will be None if the value is not known
-        from: usize,
-    },
-    Usize {
-        value: Option<usize>, // this will be None if the value is not known
-        from: usize,
-    },
-    NoInfo,
-    Function {
-        name: Index,
-        fn_type_i: Index,
-        fn_start_index: Index,
-        fn_end_index: Index,
-        from: usize,
-    },
-    Error {
-        msg: String,
-        from: usize,
-    },
-    NeedFurtherInfo {
-        from: usize,
-    },
-}
-
 // simple helper functions
 #[allow(dead_code)]
 impl Engine {
@@ -662,7 +573,7 @@ impl Engine {
                         }
 
                         // get the type of the init_i value
-                        let (val_ty, _) = self.infer_type(&init_i, Some(&type_i));
+                        let (val_ty, add_info) = self.infer_type(&init_i, Some(&type_i));
                         if !self.verify_value_type(&val_ty) {
                             panic!("invalid type for constant initializer: {:?}", val_ty.tag);
                         }
@@ -696,9 +607,11 @@ impl Engine {
                         // add the information to the environment
                         let name = self.read_str(&name_i);
                         sym_table.insert(name.clone(), val_ty.clone());
+                        self.cur_scope()
+                            .declare_constant(name, val_ty.clone(), add_info); 
                     } else {
                         // get the type of the init_i value
-                        let (val_ty, _) = self.infer_type(&init_i, None);
+                        let (val_ty, add_info) = self.infer_type(&init_i, None);
                         if !self.verify_value_type(&val_ty) {
                             panic!("invalid type for constant initializer: {:?}", val_ty.tag);
                         }
@@ -706,6 +619,8 @@ impl Engine {
                         // add the information to the environment
                         let name = self.read_str(&name_i);
                         sym_table.insert(name.clone(), val_ty.clone());
+                        self.cur_scope()
+                            .declare_constant(name, val_ty.clone(), add_info);
                     }
                     self.push_no_info()
                 }
