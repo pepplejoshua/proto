@@ -1,4 +1,13 @@
-use crate::{frontend::{bcode::{CodeBundle, CodeTag, Index, IndexTag}, types::{EInfo, TypeSignature, TypeSignatureTag, ValueType, ValueTypeTag}}, symbol_info::symbol_info::{SymbolTable, TableType}};
+#![allow(dead_code)]
+#![allow(unused_variables)]
+
+use crate::{
+    frontend::{
+        bcode::{CodeBundle, CodeTag, Index, IndexTag},
+        types::{EInfo, TypeSignature, TypeSignatureTag, ValueType, ValueTypeTag},
+    },
+    symbol_info::symbol_info::{SymbolTable, TableType},
+};
 
 use super::env::Env;
 
@@ -10,6 +19,95 @@ pub struct Engine {
     code: CodeBundle,
     cur_fn_end_index: Option<Index>,
     cur_fn_return_ty_index: Option<Index>,
+}
+
+#[derive(Debug, Clone)]
+pub enum EngineInfo {
+    // store the string and the index it originated from
+    ImmediateNum {
+        str_i: Index,
+        from: usize,
+    },
+    ReferenceToType {
+        type_i: Index,
+        from: usize,
+    },
+    StaticArray {
+        item_type_i: Index,
+        from: usize,
+        length: usize,
+    },
+    Bool {
+        value: Option<bool>, // this will be None if the value is not known
+        from: usize,
+    },
+    Char {
+        value: Option<char>, // this will be None if the value is not known
+        from: usize,
+    },
+    Void {
+        from: usize,
+    },
+    Str {
+        value: Option<String>, // this will be None if the value is not known
+        from: usize,
+    },
+    Type,
+    I8 {
+        value: Option<i8>, // this will be None if the value is not known
+        from: usize,
+    },
+    I16 {
+        value: Option<i16>, // this will be None if the value is not known
+        from: usize,
+    },
+    I32 {
+        value: Option<i32>, // this will be None if the value is not known
+        from: usize,
+    },
+    I64 {
+        value: Option<i64>, // this will be None if the value is not known
+        from: usize,
+    },
+    Isize {
+        value: Option<isize>, // this will be None if the value is not known
+        from: usize,
+    },
+    U8 {
+        value: Option<u8>, // this will be None if the value is not known
+        from: usize,
+    },
+    U16 {
+        value: Option<u16>, // this will be None if the value is not known
+        from: usize,
+    },
+    U32 {
+        value: Option<u32>, // this will be None if the value is not known
+        from: usize,
+    },
+    U64 {
+        value: Option<u64>, // this will be None if the value is not known
+        from: usize,
+    },
+    Usize {
+        value: Option<usize>, // this will be None if the value is not known
+        from: usize,
+    },
+    NoInfo,
+    Function {
+        name: Index,
+        fn_type_i: Index,
+        fn_start_index: Index,
+        fn_end_index: Index,
+        from: usize,
+    },
+    Error {
+        msg: String,
+        from: usize,
+    },
+    NeedFurtherInfo {
+        from: usize,
+    },
 }
 
 // simple helper functions
@@ -156,8 +254,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::I8, 
-                                src, 
+                                tag: ValueTypeTag::I8,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -175,8 +273,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::I16, 
-                                src, 
+                                tag: ValueTypeTag::I16,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -194,8 +292,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::I32, 
-                                src, 
+                                tag: ValueTypeTag::I32,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -213,8 +311,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::I64, 
-                                src, 
+                                tag: ValueTypeTag::I64,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -232,8 +330,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::Isize, 
-                                src, 
+                                tag: ValueTypeTag::Isize,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -251,8 +349,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::U8, 
-                                src, 
+                                tag: ValueTypeTag::U8,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -270,8 +368,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::U16, 
-                                src, 
+                                tag: ValueTypeTag::U16,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -289,8 +387,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::U32, 
-                                src, 
+                                tag: ValueTypeTag::U32,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -308,8 +406,8 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::U64, 
-                                src, 
+                                tag: ValueTypeTag::U64,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
@@ -327,14 +425,14 @@ impl Engine {
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::Usize, 
-                                src, 
+                                tag: ValueTypeTag::Usize,
+                                src,
                                 data: vec![],
                             };
                             (val_ty, info)
                         }
 
-                        _ => unreachable!("unreachable code for number promotion")
+                        _ => unreachable!("unreachable code for number promotion"),
                     }
                 } else {
                     let num_s = self.read_str(str_i);
@@ -350,118 +448,118 @@ impl Engine {
                     };
                     let src = self.code.ins.get(*from).unwrap().src.clone();
                     let val_ty = ValueType {
-                        tag: ValueTypeTag::I32, 
+                        tag: ValueTypeTag::I32,
                         src,
                         data: vec![],
                     };
                     (val_ty, info)
                 }
             }
-            EInfo::Char { from, ..} => {
+            EInfo::Char { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Char, 
-                    src, 
+                    tag: ValueTypeTag::Char,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Str { from, ..} => {
+            EInfo::Str { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Str, 
-                    src, 
+                    tag: ValueTypeTag::Str,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
             EInfo::NoInfo => panic!("no information available. this should not occur."),
-            EInfo::I8 { from, ..} => {
+            EInfo::I8 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::I8, 
-                    src, 
+                    tag: ValueTypeTag::I8,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::I16 { from, ..} => {
+            EInfo::I16 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::I16, 
-                    src, 
+                    tag: ValueTypeTag::I16,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::I32 { from, ..} => {
+            EInfo::I32 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::I32, 
-                    src, 
+                    tag: ValueTypeTag::I32,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::I64 { from, ..} => {
+            EInfo::I64 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::I64, 
-                    src, 
+                    tag: ValueTypeTag::I64,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Isize { from, ..} => {
+            EInfo::Isize { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Isize, 
-                    src, 
+                    tag: ValueTypeTag::Isize,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::U8 { from, ..} => {
+            EInfo::U8 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::U8, 
-                    src, 
+                    tag: ValueTypeTag::U8,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::U16 { from, ..} => {
+            EInfo::U16 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::U16, 
-                    src, 
+                    tag: ValueTypeTag::U16,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::U32 { from, ..} => {
+            EInfo::U32 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::U32, 
-                    src, 
+                    tag: ValueTypeTag::U32,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::U64 { from, ..} => {
+            EInfo::U64 { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::U64, 
-                    src, 
+                    tag: ValueTypeTag::U64,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Usize { from, ..} => {
+            EInfo::Usize { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Usize, 
-                    src, 
+                    tag: ValueTypeTag::Usize,
+                    src,
                     data: vec![],
                 };
                 (val_ty, info.clone())
@@ -471,7 +569,7 @@ impl Engine {
                 let val_ty = ValueType {
                     tag: ValueTypeTag::Type,
                     src,
-                    data: vec![type_i.clone()]
+                    data: vec![type_i.clone()],
                 };
                 (val_ty, info.clone())
             }
@@ -493,7 +591,9 @@ impl Engine {
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Function { fn_type_i, from, .. } => {
+            EInfo::Function {
+                fn_type_i, from, ..
+            } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let fn_type = &self.code.types[fn_type_i.index];
                 let val_ty = ValueType {
@@ -566,7 +666,7 @@ impl Engine {
                         if !self.verify_value_type(&val_ty) {
                             panic!("invalid type for constant initializer: {:?}", val_ty.tag);
                         }
-                        
+
                         // if the type is a TypeNameRefTS (essentially not a built-in type)
                         // so it is an identifier, then we need to resolve the actual type it
                         // refers to
@@ -587,11 +687,14 @@ impl Engine {
 
                         // make sure the type sig of type_i accepts val_ty
                         if !self.type_sig_accepts(type_sig, &val_ty) {
-                            panic!("type {:?} does not accept value type {:?}", type_sig.tag, val_ty.tag);
+                            panic!(
+                                "type {:?} does not accept value type {:?}",
+                                type_sig.tag, val_ty.tag
+                            );
                         }
 
                         // add the information to the environment
-                        let name = self.read_str(&name_i); 
+                        let name = self.read_str(&name_i);
                         sym_table.insert(name.clone(), val_ty.clone());
                     } else {
                         // get the type of the init_i value
@@ -627,10 +730,7 @@ impl Engine {
                         let type_sig = &self.code.types[type_i.index];
                         panic!("reference to invalid type: {:?}", type_sig.tag);
                     }
-                    let info = EInfo::ReferenceToType {
-                        type_i,
-                        from: loc,
-                    };
+                    let info = EInfo::ReferenceToType { type_i, from: loc };
                     self.information.push(info);
                 }
                 CodeTag::LoadTrue => {
@@ -654,12 +754,9 @@ impl Engine {
                     let code_i = ins.data[0];
                     let info = self.information.get(code_i.index).unwrap();
                     let info = match info {
-                        EInfo::Bool { value, ..} => {
+                        EInfo::Bool { value, .. } => {
                             let value = value.map(|x| !x);
-                            EInfo::Bool {
-                                value,
-                                from: loc,
-                            }
+                            EInfo::Bool { value, from: loc }
                         }
                         _ => panic!("! operator used on a non-boolean value: {:#?}", info),
                     };
@@ -726,7 +823,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a + b),
                                 from: loc,
@@ -761,7 +861,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a + b),
                                 from: loc,
@@ -816,7 +919,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a - b),
                                 from: loc,
@@ -851,7 +957,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a - b),
                                 from: loc,
@@ -903,7 +1012,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a * b),
                                 from: loc,
@@ -938,7 +1050,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a * b),
                                 from: loc,
@@ -1002,7 +1117,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -1052,7 +1170,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -1118,7 +1239,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -1168,7 +1292,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -1273,7 +1400,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -1308,7 +1438,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -1322,14 +1455,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -1383,7 +1522,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -1418,7 +1560,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -1432,14 +1577,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -1459,7 +1610,7 @@ impl Engine {
                     let a_i = ins.data[0];
                     let b_i = ins.data[1];
 
-                    let (_, a_info) = self.infer_type(&a_i, None);  
+                    let (_, a_info) = self.infer_type(&a_i, None);
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
@@ -1491,7 +1642,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
@@ -1526,14 +1680,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
@@ -1585,7 +1745,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
@@ -1620,14 +1783,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
@@ -1679,7 +1848,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
@@ -1714,14 +1886,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
@@ -1773,7 +1951,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
@@ -1808,14 +1989,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
@@ -1837,7 +2024,10 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(*a && *b),
                                 from: loc,
@@ -1859,7 +2049,10 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(*a || *b),
                                 from: loc,
@@ -1895,26 +2088,40 @@ impl Engine {
 
                             // we expect a known usize for the size of the array
                             match arr_size {
-                                EInfo::Usize { value: Some(size), .. } => {
+                                EInfo::Usize {
+                                    value: Some(size), ..
+                                } => {
                                     // since we know the index for the type of the array (item_ty_i), we can use it
                                     // to infer and check the types of the items in the array
                                     let mut items = Vec::new();
                                     for i in 1..ins.data.len() {
                                         let item_i = ins.data[i];
-                                        let (cur_item_ty, _) = self.infer_type(&item_i, Some(&item_ty_i));
+                                        let (cur_item_ty, _) =
+                                            self.infer_type(&item_i, Some(&item_ty_i));
                                         if self.type_sig_accepts(&item_ty, &cur_item_ty) {
                                             items.push(item_i);
                                         } else {
-                                            panic!("expected type {:?} for array item, found {:?}", item_ty.tag, cur_item_ty.tag);
+                                            panic!(
+                                                "expected type {:?} for array item, found {:?}",
+                                                item_ty.tag, cur_item_ty.tag
+                                            );
                                         }
                                     }
                                     // if the number of items in the array is the same as the size of the array,
                                     // we can infer the type of the array
                                     if items.len() == size {
-                                        let info = EInfo::StaticArray { item_type_i: item_ty_i, from: loc, items };
+                                        let info = EInfo::StaticArray {
+                                            item_type_i: item_ty_i,
+                                            from: loc,
+                                            items,
+                                        };
                                         self.information.push(info);
                                     } else {
-                                        panic!("expected {} items to initialize array, but found {}", size, items.len());
+                                        panic!(
+                                            "expected {} items to initialize array, but found {}",
+                                            size,
+                                            items.len()
+                                        );
                                     }
                                 }
                                 EInfo::Usize { value: None, .. } => {
@@ -1928,7 +2135,10 @@ impl Engine {
                             panic!("expected static array type, found {:?}", arr_ty);
                         }
                     } else {
-                        panic!("expected type as first index to MakeStaticArray: {:?}", array_ty);
+                        panic!(
+                            "expected type as first index to MakeStaticArray: {:?}",
+                            array_ty
+                        );
                     }
                 }
                 CodeTag::AccessIndex => {
@@ -1948,7 +2158,14 @@ impl Engine {
                     self.code.pop_last_type();
 
                     match (&arr_info, &index_info) {
-                        (EInfo::StaticArray { item_type_i, items, .. }, EInfo::Usize { value: Some(index), .. }) => {
+                        (
+                            EInfo::StaticArray {
+                                item_type_i, items, ..
+                            },
+                            EInfo::Usize {
+                                value: Some(index), ..
+                            },
+                        ) => {
                             if *index >= items.len() {
                                 panic!("index out of bounds: {} >= {}", index, items.len());
                             }
@@ -1975,14 +2192,17 @@ impl Engine {
                         panic!("invalid type signature used in function");
                     }
 
-                    let fn_info = EInfo::Function { 
+                    let fn_info = EInfo::Function {
                         name,
                         fn_type_i,
-                        fn_start_index: Index { tag: IndexTag::Code, index: loc },
+                        fn_start_index: Index {
+                            tag: IndexTag::Code,
+                            index: loc,
+                        },
                         fn_end_index: fn_body_end,
                         from: loc,
                     };
-                    
+
                     self.information.push(fn_info);
                     let ret_type_i = Some(self.code.get_type(&fn_type_i).indices[0]);
                     let cur_env = self.cur_scope();
@@ -2017,7 +2237,7 @@ impl Engine {
         self.exit_scope();
         sym_table
     }
-    
+
     pub fn run(&mut self) {
         self.enter_scope();
         let code = self.code.clone();
@@ -2072,7 +2292,7 @@ impl Engine {
                         if !self.verify_value_type(&val_ty) {
                             panic!("invalid type for constant initializer: {:?}", val_ty.tag);
                         }
-                        
+
                         // if the type is a TypeNameRefTS (essentially not a built-in type)
                         // so it is an identifier, then we need to resolve the actual type it
                         // refers to
@@ -2093,11 +2313,14 @@ impl Engine {
 
                         // make sure the type sig of type_i accepts val_ty
                         if !self.type_sig_accepts(type_sig, &val_ty) {
-                            panic!("type {:?} does not accept value type {:?}", type_sig.tag, val_ty.tag);
+                            panic!(
+                                "type {:?} does not accept value type {:?}",
+                                type_sig.tag, val_ty.tag
+                            );
                         }
 
                         // add the information to the environment
-                        let name = self.read_str(&name_i); 
+                        let name = self.read_str(&name_i);
                         self.cur_scope().declare_constant(name, val_ty, add_info);
                     } else {
                         // get the type of the init_i value
@@ -2133,10 +2356,7 @@ impl Engine {
                         let type_sig = &self.code.types[type_i.index];
                         panic!("reference to invalid type: {:?}", type_sig.tag);
                     }
-                    let info = EInfo::ReferenceToType {
-                        type_i,
-                        from: loc,
-                    };
+                    let info = EInfo::ReferenceToType { type_i, from: loc };
                     self.information.push(info);
                 }
                 CodeTag::LoadTrue => {
@@ -2160,12 +2380,9 @@ impl Engine {
                     let code_i = ins.data[0];
                     let info = self.information.get(code_i.index).unwrap();
                     let info = match info {
-                        EInfo::Bool { value, ..} => {
+                        EInfo::Bool { value, .. } => {
                             let value = value.map(|x| !x);
-                            EInfo::Bool {
-                                value,
-                                from: loc,
-                            }
+                            EInfo::Bool { value, from: loc }
                         }
                         _ => panic!("! operator used on a non-boolean value: {:#?}", info),
                     };
@@ -2232,7 +2449,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a + b),
                                 from: loc,
@@ -2267,7 +2487,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a + b),
                                 from: loc,
@@ -2322,7 +2545,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a - b),
                                 from: loc,
@@ -2357,7 +2583,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a - b),
                                 from: loc,
@@ -2409,7 +2638,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Isize {
                                 value: Some(a * b),
                                 from: loc,
@@ -2444,7 +2676,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Usize {
                                 value: Some(a * b),
                                 from: loc,
@@ -2508,7 +2743,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -2558,7 +2796,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -2624,7 +2865,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -2674,7 +2918,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
@@ -2779,7 +3026,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -2814,7 +3064,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -2828,14 +3081,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -2889,7 +3148,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -2924,7 +3186,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -2938,14 +3203,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -2965,7 +3236,7 @@ impl Engine {
                     let a_i = ins.data[0];
                     let b_i = ins.data[1];
 
-                    let (_, a_info) = self.infer_type(&a_i, None);  
+                    let (_, a_info) = self.infer_type(&a_i, None);
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
@@ -2997,7 +3268,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
@@ -3032,14 +3306,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
@@ -3091,7 +3371,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
@@ -3126,14 +3409,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
@@ -3185,7 +3474,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
@@ -3220,14 +3512,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
@@ -3279,7 +3577,10 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Isize { value: Some(a), .. }, EInfo::Isize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Isize { value: Some(a), .. },
+                            EInfo::Isize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
@@ -3314,14 +3615,20 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Usize { value: Some(a), .. }, EInfo::Usize { value: Some(b), .. }) => {
+                        (
+                            EInfo::Usize { value: Some(a), .. },
+                            EInfo::Usize { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
                             };
                             self.information.push(info);
                         }
-                        (EInfo::Char { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
+                        (
+                            EInfo::Char { value: Some(a), .. },
+                            EInfo::Char { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
@@ -3343,7 +3650,10 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(*a && *b),
                                 from: loc,
@@ -3365,7 +3675,10 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::Bool { value: Some(a), .. }, EInfo::Bool { value: Some(b), .. }) => {
+                        (
+                            EInfo::Bool { value: Some(a), .. },
+                            EInfo::Bool { value: Some(b), .. },
+                        ) => {
                             let info = EInfo::Bool {
                                 value: Some(*a || *b),
                                 from: loc,
@@ -3401,26 +3714,40 @@ impl Engine {
 
                             // we expect a known usize for the size of the array
                             match arr_size {
-                                EInfo::Usize { value: Some(size), .. } => {
+                                EInfo::Usize {
+                                    value: Some(size), ..
+                                } => {
                                     // since we know the index for the type of the array (item_ty_i), we can use it
                                     // to infer and check the types of the items in the array
                                     let mut items = Vec::new();
                                     for i in 1..ins.data.len() {
                                         let item_i = ins.data[i];
-                                        let (cur_item_ty, _) = self.infer_type(&item_i, Some(&item_ty_i));
+                                        let (cur_item_ty, _) =
+                                            self.infer_type(&item_i, Some(&item_ty_i));
                                         if self.type_sig_accepts(&item_ty, &cur_item_ty) {
                                             items.push(item_i);
                                         } else {
-                                            panic!("expected type {:?} for array item, found {:?}", item_ty.tag, cur_item_ty.tag);
+                                            panic!(
+                                                "expected type {:?} for array item, found {:?}",
+                                                item_ty.tag, cur_item_ty.tag
+                                            );
                                         }
                                     }
                                     // if the number of items in the array is the same as the size of the array,
                                     // we can infer the type of the array
                                     if items.len() == size {
-                                        let info = EInfo::StaticArray { item_type_i: item_ty_i, from: loc, items };
+                                        let info = EInfo::StaticArray {
+                                            item_type_i: item_ty_i,
+                                            from: loc,
+                                            items,
+                                        };
                                         self.information.push(info);
                                     } else {
-                                        panic!("expected {} items to initialize array, but found {}", size, items.len());
+                                        panic!(
+                                            "expected {} items to initialize array, but found {}",
+                                            size,
+                                            items.len()
+                                        );
                                     }
                                 }
                                 EInfo::Usize { value: None, .. } => {
@@ -3434,7 +3761,10 @@ impl Engine {
                             panic!("expected static array type, found {:?}", arr_ty);
                         }
                     } else {
-                        panic!("expected type as first index to MakeStaticArray: {:?}", array_ty);
+                        panic!(
+                            "expected type as first index to MakeStaticArray: {:?}",
+                            array_ty
+                        );
                     }
                 }
                 CodeTag::AccessIndex => {
@@ -3454,7 +3784,14 @@ impl Engine {
                     self.code.pop_last_type();
 
                     match (&arr_info, &index_info) {
-                        (EInfo::StaticArray { item_type_i, items, .. }, EInfo::Usize { value: Some(index), .. }) => {
+                        (
+                            EInfo::StaticArray {
+                                item_type_i, items, ..
+                            },
+                            EInfo::Usize {
+                                value: Some(index), ..
+                            },
+                        ) => {
                             if *index >= items.len() {
                                 panic!("index out of bounds: {} >= {}", index, items.len());
                             }
@@ -3481,14 +3818,17 @@ impl Engine {
                         panic!("invalid type signature used in function");
                     }
 
-                    let fn_info = EInfo::Function { 
+                    let fn_info = EInfo::Function {
                         name,
                         fn_type_i,
-                        fn_start_index: Index { tag: IndexTag::Code, index: loc },
+                        fn_start_index: Index {
+                            tag: IndexTag::Code,
+                            index: loc,
+                        },
                         fn_end_index: fn_body_end,
                         from: loc,
                     };
-                    
+
                     self.information.push(fn_info);
                     let ret_type_i = Some(self.code.get_type(&fn_type_i).indices[0]);
                     let cur_env = self.cur_scope();

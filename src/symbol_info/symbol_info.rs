@@ -3,7 +3,7 @@
 
 use std::collections::HashMap;
 
-use crate::frontend::types::{TypeSignature, ValueType};
+use crate::frontend::types::ValueType;
 
 pub enum TableType {
   Preserved, // will be used for file globals, etc.
@@ -69,4 +69,4 @@ impl SymbolTable {
   }
 }
 
-pub type SymIndex = usize;  
+pub type SymIndex = usize;

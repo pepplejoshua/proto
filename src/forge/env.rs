@@ -1,11 +1,14 @@
 use std::collections::HashMap;
 
-use crate::frontend::{bcode::Index, types::{EInfo, ValueType}};
+use crate::frontend::{
+    bcode::Index,
+    types::{EInfo, ValueType},
+};
 
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct Env {
-    // name is the key and the value is a tuple of 
+    // name is the key and the value is a tuple of
     // an index to the type and a value (constant value)
     pub names: HashMap<String, (ValueType, Option<EInfo>)>,
     pub parent: Option<Box<Env>>,
@@ -39,7 +42,7 @@ impl Env {
     pub fn return_parent_env(self) -> Option<Env> {
         self.parent.map(|x| *x)
     }
-    
+
     pub fn check_name(&self, name: &str) -> bool {
         self.names.contains_key(name)
     }

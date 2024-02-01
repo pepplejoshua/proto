@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 use super::{bcode::Index, source::SourceRef};
 
-// this is parsed from user source code and is used to inform the 
+// this is parsed from user source code and is used to inform the
 // generation of the above and the type checking as well
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Copy)]
 pub enum TypeSignatureTag {
@@ -25,7 +25,7 @@ pub enum TypeSignatureTag {
     UsizeTS,
     // FunctionTS return_ty (arg_ty1, arg_ty2, ...)
     FunctionTS,
-    // StaticArrayTS size inner_type 
+    // StaticArrayTS size inner_type
     StaticArrayTS,
 }
 
@@ -198,7 +198,7 @@ pub enum EInfo {
     StaticArray {
         item_type_i: Index,
         from: usize,
-        items: Vec<Index>,  
+        items: Vec<Index>,
     },
     Bool {
         value: Option<bool>, // this will be None if the value is not known
@@ -208,7 +208,9 @@ pub enum EInfo {
         value: Option<char>, // this will be None if the value is not known
         from: usize,
     },
-    Void { from: usize },
+    Void {
+        from: usize,
+    },
     Str {
         value: Option<String>, // this will be None if the value is not known
         from: usize,

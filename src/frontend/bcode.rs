@@ -432,8 +432,12 @@ impl CodeBundle {
                         }
                         args_i.push(arg_i.index);
                     }
-                    
-                    let args_s = args_i.iter().map(|i| format!("Code:{}", i)).collect::<Vec<_>>().join(" ");
+
+                    let args_s = args_i
+                        .iter()
+                        .map(|i| format!("Code:{}", i))
+                        .collect::<Vec<_>>()
+                        .join(" ");
                     s.push(format!("{num} Call Code:{fn_i} ({args_s})\n"));
                 }
                 CodeTag::Return => {
