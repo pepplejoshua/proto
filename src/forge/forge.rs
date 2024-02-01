@@ -46,7 +46,7 @@ impl Engine {
             panic!("cannot exit scope. no scope to exit from");
         }
         let fmr_env = fmr_env.unwrap();
-        fmr_env.show_env_info();
+        // fmr_env.show_env_info();
         fmr_env.to_symbol_table()
     }
 
@@ -3149,16 +3149,32 @@ impl Engine {
                         from: loc,
                     };
 
-                    self.information.push(fn_info);
+                    let fn_val_ty = ValueType {
+                        tag: ValueTypeTag::Function,
+                        data: vec![fn_type_i],
+                        src: self
+                            .code
+                            .get_ins(Index {
+                                tag: IndexTag::Code,
+                                index: loc,
+                            })
+                            .src,
+                    };
+
+                    self.information.push(fn_info.clone());
                     let ret_type_i = Some(self.code.get_type(&fn_type_i).indices[0]);
                     let cur_env = self.cur_scope();
                     cur_env.cur_fn_end_index = Some(fn_body_end);
                     cur_env.cur_fn_return_ty_index = ret_type_i;
+                    let name_s = self.read_str(&name);
+                    self.cur_scope()
+                        .declare_constant(name_s, fn_val_ty, fn_info);
                     self.enter_scope();
                 }
                 CodeTag::EndFunction => {
                     // EndFunction
                     self.exit_scope();
+                    self.push_no_info();
                 }
                 CodeTag::EnterScope => {
                     // EnterScope
@@ -3181,6 +3197,10 @@ impl Engine {
             }
         }
         self.exit_scope()
+    }
+
+    pub fn pass_2(&mut self, table: SymbolTable) -> SymbolTable {
+        todo!()
     }
 
     pub fn run(&mut self) {

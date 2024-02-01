@@ -7,7 +7,7 @@ use crate::frontend::types::ValueType;
 
 // these will store the symbols and their types
 pub struct SymbolTable {
-    parent: Option<Box<SymbolTable>>,
+    pub parent: Option<Box<SymbolTable>>,
     // symbols will store symbols and their types. variables, constants
     // functions, etc.
     pub symbols: HashMap<String, ValueType>,
