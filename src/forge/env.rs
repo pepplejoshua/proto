@@ -1,8 +1,11 @@
 use std::collections::HashMap;
 
-use crate::frontend::{
-    bcode::Index,
-    types::{EInfo, ValueType},
+use crate::{
+    frontend::{
+        bcode::Index,
+        types::{EInfo, ValueType},
+    },
+    symbol_info::symbol_info::SymbolTable,
 };
 
 #[allow(dead_code)]
@@ -28,6 +31,14 @@ impl Env {
             cur_fn_end_index: None,
             cur_fn_return_ty_index: None,
         }
+    }
+
+    pub fn to_symbol_table(self) -> SymbolTable {
+        let mut st = SymbolTable::new();
+        for (name, (ty, _)) in self.names.iter() {
+            st.insert(name.clone(), ty.clone());
+        }
+        st
     }
 
     pub fn make_child_env(parent: Env) -> Self {

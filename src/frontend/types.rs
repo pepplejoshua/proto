@@ -268,4 +268,7 @@ pub enum EInfo {
         msg: String,
         from: usize,
     },
+    Pass2Check {
+        from: usize,
+    },
 }

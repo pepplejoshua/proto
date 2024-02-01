@@ -6,7 +6,7 @@ use crate::{
         bcode::{CodeBundle, CodeTag, Index, IndexTag},
         types::{EInfo, TypeSignature, TypeSignatureTag, ValueType, ValueTypeTag},
     },
-    symbol_info::symbol_info::{SymbolTable, TableType},
+    symbol_info::symbol_info::SymbolTable,
 };
 
 use super::env::Env;
@@ -39,12 +39,15 @@ impl Engine {
         self.envs.push(env);
     }
 
-    fn exit_scope(&mut self) {
+    fn exit_scope(&mut self) -> SymbolTable {
         // display information about the current scope and then pop it
-        let env = self.envs.last().unwrap();
-        env.show_env_info();
-
-        self.envs.pop();
+        let fmr_env = self.envs.pop();
+        if fmr_env.is_none() {
+            panic!("cannot exit scope. no scope to exit from");
+        }
+        let fmr_env = fmr_env.unwrap();
+        fmr_env.show_env_info();
+        fmr_env.to_symbol_table()
     }
 
     fn cur_scope(&mut self) -> &mut Env {
@@ -58,6 +61,10 @@ impl Engine {
 
     fn push_no_info(&mut self) {
         self.information.push(EInfo::NoInfo);
+    }
+
+    fn push_pass_2_check(&mut self, loc: usize) {
+        self.information.push(EInfo::Pass2Check { from: loc });
     }
 }
 
@@ -522,10 +529,9 @@ impl Engine {
 // more complex functions
 #[allow(dead_code)]
 impl Engine {
-    pub fn pass_1(&mut self, global_sym_table: SymbolTable) -> SymbolTable {
+    pub fn pass_1(&mut self) -> SymbolTable {
         self.enter_scope();
         let code = self.code.clone();
-        let mut sym_table = SymbolTable::make_child_env(global_sym_table, TableType::Preserved);
         for (loc, ins) in code.ins.iter().enumerate() {
             // println!("executing: {:#?}", ins.tag);
             match ins.tag {
@@ -568,14 +574,15 @@ impl Engine {
                     if let Some(type_i) = type_i {
                         // verify that type_i is a valid type
                         if !self.verify_type_sig(&type_i) {
-                            let type_sig = &self.code.types[type_i.index];
-                            panic!("reference to invalid type: {:?}", type_sig.tag);
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
                         }
 
                         // get the type of the init_i value
                         let (val_ty, add_info) = self.infer_type(&init_i, Some(&type_i));
                         if !self.verify_value_type(&val_ty) {
-                            panic!("invalid type for constant initializer: {:?}", val_ty.tag);
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
                         }
 
                         // if the type is a TypeNameRefTS (essentially not a built-in type)
@@ -585,7 +592,8 @@ impl Engine {
                         if type_sig.tag == TypeSignatureTag::TypeNameRefTS {
                             let name = self.read_str(&type_sig.indices[0]);
                             if !self.check_name(&name) {
-                                panic!("name {} was not found.", name);
+                                // defer the error to pass 2
+                                self.push_pass_2_check(loc);
                             }
                             let info = self.get_info_for_name(&name).unwrap();
                             type_sig = match info {
@@ -598,27 +606,28 @@ impl Engine {
 
                         // make sure the type sig of type_i accepts val_ty
                         if !self.type_sig_accepts(type_sig, &val_ty) {
-                            panic!(
-                                "type {:?} does not accept value type {:?}",
-                                type_sig.tag, val_ty.tag
-                            );
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!(
+                            //     "type {:?} does not accept value type {:?}",
+                            //     type_sig.tag, val_ty.tag
+                            // );
                         }
 
                         // add the information to the environment
                         let name = self.read_str(&name_i);
-                        sym_table.insert(name.clone(), val_ty.clone());
                         self.cur_scope()
-                            .declare_constant(name, val_ty.clone(), add_info); 
+                            .declare_constant(name, val_ty.clone(), add_info);
                     } else {
                         // get the type of the init_i value
                         let (val_ty, add_info) = self.infer_type(&init_i, None);
                         if !self.verify_value_type(&val_ty) {
-                            panic!("invalid type for constant initializer: {:?}", val_ty.tag);
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
                         }
 
                         // add the information to the environment
                         let name = self.read_str(&name_i);
-                        sym_table.insert(name.clone(), val_ty.clone());
                         self.cur_scope()
                             .declare_constant(name, val_ty.clone(), add_info);
                     }
@@ -628,8 +637,10 @@ impl Engine {
                     // NameRef "name"
                     let name_i = ins.data[0];
                     let name = self.read_str(&name_i);
-                    if !sym_table.check_name(&name) {
-                        panic!("name {} was not found", name);
+                    if !self.check_name(&name) {
+                        // defer error to pass_2
+                        self.push_pass_2_check(loc);
+                        continue;
                     }
                     let info = self.get_info_for_name(&name).unwrap();
                     self.information.push(info);
@@ -642,8 +653,9 @@ impl Engine {
                     // TypeRef TypeSignature:19
                     let type_i = ins.data[0];
                     if !self.verify_type_sig(&type_i) {
-                        let type_sig = &self.code.types[type_i.index];
-                        panic!("reference to invalid type: {:?}", type_sig.tag);
+                        // defer the error to pass 2
+                        self.push_pass_2_check(loc);
+                        continue;
                     }
                     let info = EInfo::ReferenceToType { type_i, from: loc };
                     self.information.push(info);
@@ -673,6 +685,10 @@ impl Engine {
                             let value = value.map(|x| !x);
                             EInfo::Bool { value, from: loc }
                         }
+                        EInfo::Pass2Check { .. } => {
+                            // defer the error to pass 2
+                            EInfo::Pass2Check { from: loc }
+                        }
                         _ => panic!("! operator used on a non-boolean value: {:#?}", info),
                     };
                     self.information.push(info);
@@ -696,97 +712,216 @@ impl Engine {
                         // TODO(@pepplejoshua): since we can kind of tell whether we have constant values within info
                         // and can already execute some of these operations, use the alternative (None for value) to
                         // generate the code for the operation in the target language or backend
-                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
-                            let info = EInfo::Str {
-                                value: Some(format!("{}{}", a, b)),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::Str { value: Some(a), .. }, EInfo::Char { value: Some(b), .. }) => {
-                            let info = EInfo::Str {
-                                value: Some(format!("{}{}", a, b)),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::I8 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::I16 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::I32 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::I64 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Str { value: value_a, .. }, EInfo::Str { value: value_b, .. }) => {
+                            if let (Some(value_a), Some(value_b)) = (value_a, value_b) {
+                                let info = EInfo::Str {
+                                    value: Some(format!("{}{}", value_a, value_b)),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Str {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
                         (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
+                            EInfo::Str {
+                                value: string_v, ..
+                            },
+                            EInfo::Char { value: char_v, .. },
                         ) => {
-                            let info = EInfo::Isize {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::U8 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::U16 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::U32 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
-                        }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::U64 {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                            if let (Some(string_v), Some(char_v)) = (string_v, char_v) {
+                                let info = EInfo::Str {
+                                    value: Some(format!("{}{}", string_v, char_v)),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Str {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::Char { value: char_v, .. },
+                            EInfo::Str {
+                                value: string_v, ..
+                            },
                         ) => {
-                            let info = EInfo::Usize {
-                                value: Some(a + b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                            if let (Some(char_v), Some(string_v)) = (char_v, string_v) {
+                                let info = EInfo::Str {
+                                    value: Some(format!("{}{}", char_v, string_v)),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Str {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for +: {:?} and {:?}", a_info, b_info),
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::I8 {
+                                    value: Some(num_a + num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::I16 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::I32 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::I64 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Isize {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::U8 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::U16 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::U32 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::U64 {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Usize {
+                                    value: Some(val_a + val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Usize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
+                        }
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Sub => {
@@ -806,83 +941,161 @@ impl Engine {
                         // TODO(@pepplejoshua): since we can kind of tell whether we have constant values within info
                         // and can already execute some of these operations, use the alternative (None for value) to
                         // generate the code for the operation in the target language or backend
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::I8 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if num_a.is_some() && num_b.is_some() {
+                                let info = EInfo::I8 {
+                                    value: Some(num_a.unwrap() - num_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::I16 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I16 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::I32 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I32 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::I64 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I64 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Isize {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::Isize {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::U8 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U8 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::U16 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U16 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::U32 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U32 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::U64 {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U64 {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Usize {
-                                value: Some(a - b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::Usize {
+                                    value: Some(val_a.unwrap() - val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Usize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for -: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Mult => {
@@ -899,83 +1112,161 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::I8 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if num_a.is_some() && num_b.is_some() {
+                                let info = EInfo::I8 {
+                                    value: Some(num_a.unwrap() * num_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::I16 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I16 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::I32 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I32 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::I64 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::I64 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Isize {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::Isize {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::U8 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U8 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::U16 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U16 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::U32 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U32 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::U64 {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::U64 {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Usize {
-                                value: Some(a * b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                let info = EInfo::Usize {
+                                    value: Some(val_a.unwrap() * val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Usize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for *: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Div => {
@@ -992,113 +1283,191 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if num_a.is_some() && num_b.is_some() {
+                                if num_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I8 {
+                                    value: Some(num_a.unwrap() / num_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I8 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I16 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I16 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I32 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I32 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I64 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I64 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::Isize {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::Isize {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U8 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U8 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U16 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U16 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U32 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U32 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U64 {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U64 {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if val_a.is_some() && val_b.is_some() {
+                                if val_b.unwrap() == 0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::Usize {
+                                    value: Some(val_a.unwrap() / val_b.unwrap()),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Usize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::Usize {
-                                value: Some(a / b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        _ => panic!("invalid types for /: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Modulo => {
@@ -1114,113 +1483,191 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                if num_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I8 {
+                                    value: Some(num_a % num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I8 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I16 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I16 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I32 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I32 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::I64 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::I64 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::Isize {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::Isize {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U8 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U8 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U16 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U16 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U32 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U32 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::U64 {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::U64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::U64 {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            if b == &0 {
-                                panic!("division by zero is not allowed");
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                if val_b == &0 {
+                                    panic!("division by zero is not allowed");
+                                }
+                                let info = EInfo::Usize {
+                                    value: Some(val_a % val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Usize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
                             }
-                            let info = EInfo::Usize {
-                                value: Some(a % b),
-                                from: loc,
-                            };
-                            self.information.push(info);
                         }
-                        _ => panic!("invalid types for %: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Negate => {
@@ -1233,42 +1680,86 @@ impl Engine {
                     let (_, a_info) = self.infer_type(&a_i, None);
 
                     match &a_info {
-                        EInfo::I8 { value: Some(a), .. } => {
-                            let info = EInfo::I8 {
-                                value: Some(-a),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        EInfo::I8 { value: val, .. } => {
+                            if let Some(val) = val {
+                                let info = EInfo::I8 {
+                                    value: Some(-val),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I8 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        EInfo::I16 { value: Some(a), .. } => {
-                            let info = EInfo::I16 {
-                                value: Some(-a),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        EInfo::I16 { value: val, .. } => {
+                            if let Some(val) = val {
+                                let info = EInfo::I16 {
+                                    value: Some(-val),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I16 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        EInfo::I32 { value: Some(a), .. } => {
-                            let info = EInfo::I32 {
-                                value: Some(-a),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        EInfo::I32 { value: val, .. } => {
+                            if let Some(val) = val {
+                                let info = EInfo::I32 {
+                                    value: Some(-val),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I32 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        EInfo::I64 { value: Some(a), .. } => {
-                            let info = EInfo::I64 {
-                                value: Some(-a),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        EInfo::I64 { value: val, .. } => {
+                            if let Some(val) = val {
+                                let info = EInfo::I64 {
+                                    value: Some(-val),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::I64 {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        EInfo::Isize { value: Some(a), .. } => {
-                            let info = EInfo::Isize {
-                                value: Some(-a),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        EInfo::Isize { value: val, .. } => {
+                            if let Some(val) = val {
+                                let info = EInfo::Isize {
+                                    value: Some(-val),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Isize {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid type for unary -: {:?}", a_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Eq => {
@@ -1287,110 +1778,206 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(num_a == num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Str { value: val_a, .. }, EInfo::Str { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: val_a, .. }, EInfo::Char { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Bool { value: Some(a), .. },
-                            EInfo::Bool { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a == b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Bool { value: val_a, .. }, EInfo::Bool { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a == val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for ==: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Neq => {
@@ -1409,110 +1996,206 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: val_a, .. }, EInfo::I8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::Str { value: Some(a), .. }, EInfo::Str { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Str { value: val_a, .. }, EInfo::Str { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: val_a, .. }, EInfo::Char { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Bool { value: Some(a), .. },
-                            EInfo::Bool { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a != b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Bool { value: val_a, .. }, EInfo::Bool { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a != val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for !=: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Lt => {
@@ -1529,93 +2212,176 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(num_a < num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a < val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a < b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: char_a, .. }, EInfo::Char { value: char_b, .. }) => {
+                            if let (Some(char_a), Some(char_b)) = (char_a, char_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(char_a < char_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for <: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::Gt => {
@@ -1632,93 +2398,176 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(num_a > num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a > val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a > b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: char_a, .. }, EInfo::Char { value: char_b, .. }) => {
+                            if let (Some(char_a), Some(char_b)) = (char_a, char_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(char_a > char_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for >: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::LtEq => {
@@ -1735,93 +2584,176 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(num_a <= num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a <= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a <= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: char_a, .. }, EInfo::Char { value: char_b, .. }) => {
+                            if let (Some(char_a), Some(char_b)) = (char_a, char_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(char_a <= char_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for <=: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::GtEq => {
@@ -1838,93 +2770,176 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (EInfo::I8 { value: Some(a), .. }, EInfo::I8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I8 { value: num_a, .. }, EInfo::I8 { value: num_b, .. }) => {
+                            if let (Some(num_a), Some(num_b)) = (num_a, num_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(num_a >= num_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I16 { value: Some(a), .. }, EInfo::I16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I16 { value: val_a, .. }, EInfo::I16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I32 { value: Some(a), .. }, EInfo::I32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I32 { value: val_a, .. }, EInfo::I32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::I64 { value: Some(a), .. }, EInfo::I64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::I64 { value: val_a, .. }, EInfo::I64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U8 { value: Some(a), .. }, EInfo::U8 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U8 { value: val_a, .. }, EInfo::U8 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U16 { value: Some(a), .. }, EInfo::U16 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U16 { value: val_a, .. }, EInfo::U16 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U32 { value: Some(a), .. }, EInfo::U32 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U32 { value: val_a, .. }, EInfo::U32 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (EInfo::U64 { value: Some(a), .. }, EInfo::U64 { value: Some(b), .. }) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::U64 { value: val_a, .. }, EInfo::U64 { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                            if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(val_a >= val_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        (
-                            EInfo::Char { value: Some(a), .. },
-                            EInfo::Char { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(a >= b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Char { value: char_a, .. }, EInfo::Char { value: char_b, .. }) => {
+                            if let (Some(char_a), Some(char_b)) = (char_a, char_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(char_a >= char_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for >=: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                            // panic!("invalid types for +: {:?} and {:?}", a_info, b_info)
+                        }
                     }
                 }
                 CodeTag::And => {
@@ -1939,17 +2954,25 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (
-                            EInfo::Bool { value: Some(a), .. },
-                            EInfo::Bool { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(*a && *b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Bool { value: bool_a, .. }, EInfo::Bool { value: bool_b, .. }) => {
+                            if let (Some(bool_a), Some(bool_b)) = (bool_a, bool_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(*bool_a && *bool_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for &&: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                        }
                     }
                 }
                 CodeTag::Or => {
@@ -1964,17 +2987,25 @@ impl Engine {
                     let (_, b_info) = self.infer_type(&b_i, None);
 
                     match (&a_info, &b_info) {
-                        (
-                            EInfo::Bool { value: Some(a), .. },
-                            EInfo::Bool { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Bool {
-                                value: Some(*a || *b),
-                                from: loc,
-                            };
-                            self.information.push(info);
+                        (EInfo::Bool { value: bool_a, .. }, EInfo::Bool { value: bool_b, .. }) => {
+                            if let (Some(bool_a), Some(bool_b)) = (bool_a, bool_b) {
+                                let info = EInfo::Bool {
+                                    value: Some(*bool_a || *bool_b),
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            } else {
+                                let info = EInfo::Bool {
+                                    value: None,
+                                    from: loc,
+                                };
+                                self.information.push(info);
+                            }
                         }
-                        _ => panic!("invalid types for ||: {:?} and {:?}", a_info, b_info),
+                        _ => {
+                            // defer the error to pass 2
+                            self.push_pass_2_check(loc);
+                        }
                     }
                 }
                 CodeTag::MakeStaticArray => {
@@ -2149,8 +3180,7 @@ impl Engine {
                 _ => panic!("unimplemented: {:?}", ins.tag),
             }
         }
-        self.exit_scope();
-        sym_table
+        self.exit_scope()
     }
 
     pub fn run(&mut self) {
