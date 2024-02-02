@@ -11,11 +11,11 @@ pub struct SymbolTable {
     // symbols will store symbols and their types. variables, constants
     // functions, etc.
     pub symbols: HashMap<String, ValueType>,
-    // scoped_symbols will hold structs, enums, etc. since their scopes are
+    // sub_tables will hold structs, enums, etc. since their scopes are
     // self-contained and if their parent scope is Preserved or SelfContained,
     // then their internals will survive scopes. If the enclosing scope is Locals,
-    // then the scoped_symbols will be dropped when the scope ends.
-    pub scoped_symbols: HashMap<String, Box<SymbolTable>>,
+    // then the sub_tables will be dropped when the scope ends.
+    pub sub_tables: HashMap<String, Box<SymbolTable>>,
 }
 
 impl SymbolTable {
@@ -23,7 +23,7 @@ impl SymbolTable {
         SymbolTable {
             parent: None,
             symbols: HashMap::new(),
-            scoped_symbols: HashMap::new(),
+            sub_tables: HashMap::new(),
         }
     }
 
@@ -31,7 +31,7 @@ impl SymbolTable {
         SymbolTable {
             parent: Some(Box::new(parent)),
             symbols: HashMap::new(),
-            scoped_symbols: HashMap::new(),
+            sub_tables: HashMap::new(),
         }
     }
 
@@ -56,7 +56,7 @@ impl SymbolTable {
     }
 
     pub fn insert_scoped(&mut self, name: String, scope: SymbolTable) {
-        self.scoped_symbols.insert(name, Box::new(scope));
+        self.sub_tables.insert(name, Box::new(scope));
     }
 }
 
