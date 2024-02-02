@@ -234,9 +234,11 @@ impl Workspace {
 
         let mut engine = Engine::new(parser.code);
         // let mut global_sym_table = SymbolTable::new();
+        engine.pass_1();
+        engine.show_info();
         // let mut sym_tab = engine.pass_1();
         // sym_tab.parent = Some(Box::new(global_sym_table));
         // let up_sym_table = engine.pass_2(sym_tab);
-        engine.run();
+        // engine.run();
     }
 }

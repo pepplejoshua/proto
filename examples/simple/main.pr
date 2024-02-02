@@ -4,6 +4,4 @@ fn main() void {
   let c = b + a + 4;
 }
 
-fn add(a u8, b u8) u8 {
-  return a + b;
-}
+fn b() i8 {}

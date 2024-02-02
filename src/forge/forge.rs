@@ -15,7 +15,7 @@ use super::env::Env;
 #[derive(Debug, Clone)]
 pub struct Engine {
     envs: Vec<Env>,
-    information: Vec<EInfo>,
+    pub information: Vec<EInfo>,
     code: CodeBundle,
     cur_fn_end_index: Option<Index>,
     cur_fn_return_ty_index: Option<Index>,
@@ -48,6 +48,162 @@ impl Engine {
         let fmr_env = fmr_env.unwrap();
         // fmr_env.show_env_info();
         fmr_env.to_symbol_table()
+    }
+
+    pub fn show_info(&self) {
+        for (i, info) in self.information.iter().enumerate() {
+            match info {
+                EInfo::ImmediateNum { str_i, from } => {
+                    println!(
+                        "info[{}]: ImmediateNum: {} from: {}",
+                        i,
+                        self.read_str(str_i),
+                        from
+                    );
+                }
+                EInfo::ReferenceToType { type_i, from } => {
+                    println!(
+                        "info[{}]: ReferenceToType: {} from: {}",
+                        i,
+                        self.code.type_as_str(type_i),
+                        from
+                    );
+                }
+                EInfo::StaticArray {
+                    item_type_i,
+                    from,
+                    items,
+                } => {
+                    let items_str = items.iter().map(|item| format!("{}", item.index));
+                    let items_str = items_str.collect::<Vec<String>>().join(", ");
+                    println!(
+                        "info[{}]: StaticArray: {} from: {} items: [{}]",
+                        i,
+                        self.code.type_as_str(item_type_i),
+                        from,
+                        items_str
+                    );
+                }
+                EInfo::Bool { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: Bool: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: Bool: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::Char { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: Char: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: Char: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::Void { from } => {
+                    println!("info[{}]: Void from: {}", i, from);
+                }
+                EInfo::Str { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: Str: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: Str: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::I8 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: I8: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: I8: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::I16 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: I16: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: I16: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::I32 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: I32: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: I32: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::I64 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: I64: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: I64: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::Isize { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: Isize: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: Isize: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::U8 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: U8: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: U8: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::U16 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: U16: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: U16: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::U32 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: U32: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: U32: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::U64 { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: U64: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: U64: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::Usize { value, from } => {
+                    if let Some(value) = value {
+                        println!("info[{}]: Usize: {} from: {}", i, value, from);
+                    } else {
+                        println!("info[{}]: Usize: Dyn from: {}", i, from);
+                    }
+                }
+                EInfo::NoInfo => {
+                    println!("info[{}]: NoInfo", i);
+                }
+                EInfo::Pass2Check { from } => {
+                    println!("info[{}]: Pass2Check from: {}", i, from);
+                }
+                EInfo::Function {
+                    name,
+                    fn_type_i,
+                    fn_start_index,
+                    fn_end_index,
+                    from,
+                } => {
+                    println!(
+                        "info[{}]: Function: {} {} from: {}",
+                        i,
+                        self.code.get_string(name),
+                        self.code.type_as_str(fn_type_i),
+                        from
+                    );
+                }
+                EInfo::Error { msg, from } => {
+                    println!("info[{}]: Error: {} from: {}", i, msg, from);
+                }
+            }
+        }
     }
 
     fn cur_scope(&mut self) -> &mut Env {
@@ -576,6 +732,7 @@ impl Engine {
                         if !self.verify_type_sig(&type_i) {
                             // defer the error to pass 2
                             self.push_pass_2_check(loc);
+                            continue;
                         }
 
                         // get the type of the init_i value
@@ -583,6 +740,7 @@ impl Engine {
                         if !self.verify_value_type(&val_ty) {
                             // defer the error to pass 2
                             self.push_pass_2_check(loc);
+                            continue;
                         }
 
                         // if the type is a TypeNameRefTS (essentially not a built-in type)
@@ -594,6 +752,7 @@ impl Engine {
                             if !self.check_name(&name) {
                                 // defer the error to pass 2
                                 self.push_pass_2_check(loc);
+                                continue;
                             }
                             let info = self.get_info_for_name(&name).unwrap();
                             type_sig = match info {
@@ -608,6 +767,7 @@ impl Engine {
                         if !self.type_sig_accepts(type_sig, &val_ty) {
                             // defer the error to pass 2
                             self.push_pass_2_check(loc);
+                            continue;
                             // panic!(
                             //     "type {:?} does not accept value type {:?}",
                             //     type_sig.tag, val_ty.tag
@@ -624,6 +784,7 @@ impl Engine {
                         if !self.verify_value_type(&val_ty) {
                             // defer the error to pass 2
                             self.push_pass_2_check(loc);
+                            continue;
                         }
 
                         // add the information to the environment

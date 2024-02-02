@@ -215,7 +215,6 @@ pub enum EInfo {
         value: Option<String>, // this will be None if the value is not known
         from: usize,
     },
-    Type,
     I8 {
         value: Option<i8>, // this will be None if the value is not known
         from: usize,
