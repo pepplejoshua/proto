@@ -3,19 +3,19 @@
 
 use crate::{
     frontend::{
-        bcode::{CodeBundle, CodeTag},
-        types::EInfo,
+        bcode::{CodeBundle, CodeTag, Index, IndexTag},
+        types::{EInfo, ValueType, ValueTypeTag},
     },
     symbol_info::symbol_info::SymbolTable,
 };
 
-pub struct Pass1Engine {
+pub struct PassEngine {
     pub info: Vec<EInfo>,
 }
 
-impl Pass1Engine {
+impl PassEngine {
     pub fn new() -> Self {
-        Pass1Engine { info: Vec::new() }
+        PassEngine { info: Vec::new() }
     }
 
     pub fn add_info(&mut self, info: EInfo) {
@@ -23,7 +23,7 @@ impl Pass1Engine {
     }
 }
 
-impl Pass1Engine {
+impl PassEngine {
     pub fn run(&mut self, code: CodeBundle) {
         if !self.info.is_empty() {
             self.info.clear();
@@ -57,7 +57,20 @@ impl Pass1Engine {
                     let from = loc;
                     self.add_info(EInfo::ImmediateNum { str_i: num_i, from });
                 }
-                CodeTag::NameRef => {}
+                CodeTag::NewConstant => {
+                    // NewConstant "name" TypeSignature:19? Info:20
+                    let name_i = ins.data[0];
+                    let (type_i, init_i) = if ins.data.len() == 2 {
+                        (None, ins.data[1])
+                    } else {
+                        (Some(ins.data[1]), ins.data[2])
+                    };
+
+                    if let Some(const_ty_i) = type_i {
+                    } else {
+                        // get the type of the init_i value
+                    }
+                }
                 CodeTag::EnterScope => {
                     sym_table = SymbolTable::make_child_env(sym_table);
                 }
@@ -67,6 +80,80 @@ impl Pass1Engine {
                 _ => {
                     unimplemented!("Pass1Engine::run: {:?}", ins.tag)
                 }
+            }
+        }
+    }
+
+    pub fn to_value_type(
+        &self,
+        code: &CodeBundle,
+        info: &EInfo,
+        inference_ctx: Option<usize>,
+    ) -> ValueType {
+        match info {
+            EInfo::ImmediateNum { str_i, from } => {
+                if let Some(ctx) = inference_ctx {
+                    let ctx_ty = code.get_type_unsafe(ctx);
+                    if ctx_ty.tag.is_numerical_type_sig() {
+                        todo!()
+                    } else {
+                        let ty_s = code.type_as_str_unsafe(ctx);
+                        panic!("Pass1Engine::to_value_type: {ty_s} is not a numerical type")
+                    }
+                } else {
+                    // try to convert the number to i32
+                    let num_str = code.get_string(str_i);
+                    let num = num_str.parse::<i32>();
+                    if let Ok(num) = num {
+                        let code = code.get_ins(Index {
+                            tag: IndexTag::Code,
+                            index: *from,
+                        });
+                        ValueType {
+                            tag: ValueTypeTag::I32,
+                            src: code.src.clone(),
+                            data: vec![],
+                        }
+                    } else {
+                        panic!("Pass1Engine::to_value_type: could not convert {num_str} to i32")
+                    }
+                }
+            }
+            EInfo::ReferenceToType { type_i, from } => todo!(),
+            EInfo::StaticArray {
+                item_type_i,
+                from,
+                items,
+            } => todo!(),
+            EInfo::Bool { value, from } => todo!(),
+            EInfo::Char { value, from } => todo!(),
+            EInfo::Void { from } => todo!(),
+            EInfo::Str { value, from } => todo!(),
+            EInfo::I8 { value, from } => todo!(),
+            EInfo::I16 { value, from } => todo!(),
+            EInfo::I32 { value, from } => todo!(),
+            EInfo::I64 { value, from } => todo!(),
+            EInfo::Isize { value, from } => todo!(),
+            EInfo::U8 { value, from } => todo!(),
+            EInfo::U16 { value, from } => todo!(),
+            EInfo::U32 { value, from } => todo!(),
+            EInfo::U64 { value, from } => todo!(),
+            EInfo::Usize { value, from } => todo!(),
+            EInfo::NoInfo => {
+                panic!("Pass1Engine::to_value_type: NoInfo")
+            }
+            EInfo::Function {
+                name,
+                fn_type_i,
+                fn_start_index,
+                fn_end_index,
+                from,
+            } => todo!(),
+            EInfo::Error { msg, from } => {
+                panic!("Pass1Engine::to_value_type: {msg}")
+            }
+            EInfo::Pass2Check { from } => {
+                panic!("Pass1Engine::to_value_type: Pass2Check")
             }
         }
     }

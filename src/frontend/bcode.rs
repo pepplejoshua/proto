@@ -541,6 +541,18 @@ impl CodeBundle {
         }
     }
 
+    pub fn get_type_unsafe(&self, index: usize) -> TypeSignature {
+        self.types[index].clone()
+    }
+
+    pub fn type_as_str_unsafe(&self, index: usize) -> String {
+        let index = Index {
+            index,
+            tag: IndexTag::TypeSignature,
+        };
+        self.type_as_str(&index)
+    }
+
     pub fn type_as_str(&self, index: &Index) -> String {
         let sig = self.types.get(index.index).unwrap();
         match sig.tag {
