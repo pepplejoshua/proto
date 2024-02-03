@@ -7,8 +7,8 @@ b :: a + 2;
 
 // variables
 c := b + a + 4;
-
-d :: (c + a);
+d : int = (c + a);
+e := @todo();
 
 // functions
 main :: fn () -> void {

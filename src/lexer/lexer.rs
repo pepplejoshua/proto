@@ -205,6 +205,7 @@ impl Lexer {
             "type" => Ok(Token::Type(combined_ref)),
             "void" => Ok(Token::Void(combined_ref)),
             "struct" => Ok(Token::Struct(combined_ref)),
+            "mod" => Ok(Token::Mod(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }

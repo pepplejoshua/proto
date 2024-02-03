@@ -3,10 +3,18 @@
 
 use crate::{source::source::SourceRef, types::signature::Type};
 
+#[derive(Debug, Clone)]
+pub struct FnArg {
+    pub name: ExprLoc,
+    pub ty: Type,
+    pub loc: SourceRef,
+}
+
 // ExprLoc will track the location of an expression in the list of expressions
 // for the file
 pub type ExprLoc = usize;
 
+#[derive(Debug, Clone)]
 pub enum Expr {
     // literals
     Number {
@@ -130,10 +138,12 @@ pub enum Expr {
     NewFunction {
         // function name
         name: String,
-        // function type
-        ty: Type,
+        // function arguments
+        args: Vec<FnArg>,
+        // function return type
+        ret_ty: Type,
         // function body
-        code: Vec<InsLoc>,
+        code: InsLoc,
         loc: SourceRef,
     },
     NewStruct {
@@ -166,6 +176,13 @@ pub enum Expr {
         arr: ExprLoc,
         // index
         idx: ExprLoc,
+        loc: SourceRef,
+    },
+    Directive {
+        // directive name
+        name: String,
+        // directive arguments
+        args: Vec<ExprLoc>,
         loc: SourceRef,
     },
     ErrorNode {
@@ -208,6 +225,7 @@ impl Expr {
             Expr::ErrorNode { loc, .. } => loc.clone(),
             Expr::CallFn { loc, .. } => loc.clone(),
             Expr::IndexArray { loc, .. } => loc.clone(),
+            Expr::Directive { loc, .. } => loc.clone(),
         }
     }
 }
@@ -217,6 +235,7 @@ impl Expr {
 // the second usize is the index of the instruction in the list
 pub type InsLoc = (usize, usize);
 
+#[derive(Debug, Clone)]
 pub enum Ins {
     NewConstant {
         // constant name
@@ -241,8 +260,24 @@ pub enum Ins {
         code: Vec<InsLoc>,
         loc: SourceRef,
     },
+    ExprIns {
+        expr: ExprLoc,
+        loc: SourceRef,
+    },
     ErrorNode {
         expectation: String,
+        loc: SourceRef,
+    },
+    AssignTo {
+        lhs: ExprLoc,
+        rhs: ExprLoc,
+        loc: SourceRef,
+    },
+    Directive {
+        // directive name
+        name: String,
+        // directive arguments
+        ins: InsLoc,
         loc: SourceRef,
     },
 }
@@ -254,6 +289,9 @@ impl Ins {
             Ins::NewVariable { loc, .. } => loc.clone(),
             Ins::NewBlock { loc, .. } => loc.clone(),
             Ins::ErrorNode { loc, .. } => loc.clone(),
+            Ins::ExprIns { loc, .. } => loc.clone(),
+            Ins::AssignTo { loc, .. } => loc.clone(),
+            Ins::Directive { loc, .. } => loc.clone(),
         }
     }
 }
@@ -316,5 +354,21 @@ impl PCode {
 
     pub fn get_expr(&self, loc: ExprLoc) -> &Expr {
         &self.exprs[loc]
+    }
+
+    pub fn get_expr_c(&self, loc: ExprLoc) -> Expr {
+        self.exprs[loc].clone()
+    }
+
+    pub fn get_mut_ins(&mut self, loc: InsLoc) -> &mut Ins {
+        match loc.0 {
+            0 => &mut self.top_level[loc.1],
+            1 => &mut self.sub_ins[loc.1],
+            _ => panic!("Invalid InsLoc"),
+        }
+    }
+
+    pub fn get_mut_expr(&mut self, loc: ExprLoc) -> &mut Expr {
+        &mut self.exprs[loc]
     }
 }

@@ -1,6 +1,8 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use crate::source::source::SourceRef;
+
 // this is parsed from user source code and is used to inform the
 // generation of the above and the type checking as well
 #[derive(Debug, Clone, PartialEq, Eq, Copy)]
@@ -22,12 +24,16 @@ pub enum Sig {
     UInt,
     Function,
     Infer,
+    ErrorType,
 }
 
+#[derive(Debug, Clone)]
 pub struct Type {
     pub tag: Sig,
     pub name: Option<String>,
     pub sub_types: Vec<Type>,
+    pub aux_type: Option<Box<Type>>,
+    pub loc: SourceRef,
 }
 
 impl Type {
@@ -67,6 +73,7 @@ impl Type {
                 s.push_str(&self.sub_types.last().unwrap().as_str());
                 s
             }
+            Sig::ErrorType => "<error>".to_string(),
         }
     }
 }

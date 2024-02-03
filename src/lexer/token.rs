@@ -17,6 +17,7 @@ pub enum Token {
     False(SourceRef),
     Pub(SourceRef),
     Return(SourceRef),
+    Mod(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -133,6 +134,7 @@ impl Token {
             Token::Pub(src) => src.clone(),
             Token::Return(src) => src.clone(),
             Token::At(src) => src.clone(),
+            Token::Mod(src) => src.clone(),
             Token::SingleLineStringLiteral(src, _) => src.clone(),
             Token::MultiLineStringFragment(src, _) => src.clone(),
             Token::NumberLiteral(_, src) => src.clone(),
@@ -192,6 +194,7 @@ impl Token {
             Token::Void(_) => "void".into(),
             Token::True(_) => "true".into(),
             Token::False(_) => "false".into(),
+            Token::Mod(_) => "mod".into(),
             Token::CharLiteral(_, c) => format!("'{c}'"),
             Token::Plus(_) => "+".into(),
             Token::Minus(_) => "-".into(),
