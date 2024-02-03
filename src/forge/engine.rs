@@ -213,7 +213,7 @@ impl PassEngine {
                 }
                 EInfo::Function {
                     name,
-                    fn_type_i,
+                    fn_ret_type_i,
                     fn_start_index,
                     fn_end_index,
                     from,
@@ -222,7 +222,7 @@ impl PassEngine {
                         "info[{}]: Function: {} {} from: {}",
                         i,
                         code.get_string(name),
-                        code.type_as_str(fn_type_i),
+                        code.type_as_str(fn_ret_type_i),
                         from
                     );
                 }
@@ -348,20 +348,9 @@ impl PassEngine {
                     let val_ty_op = sym_table.get(&name);
                     match val_ty_op {
                         Some(val_ty) => {
-                            self.add_info(EInfo::ReferenceToType {
-                                type_i: val_ty.data[0],
-                                from: loc,
-                            });
+                            // now we need to convert the ValueType to an EInfo
                         }
-                        None => {
-                            self.add_info(EInfo::Error {
-                                msg: format!(
-                                    "NameRef: {name} not found in symbol table",
-                                    name = name
-                                ),
-                                from: loc,
-                            });
-                        }
+                        None => self.add_next_pass_info(loc),
                     }
                 }
                 _ => {
@@ -380,6 +369,14 @@ impl PassEngine {
     ) -> Result<ValueType, ()> {
         let info = &self.info[info_i.index];
         match info {
+            EInfo::Type { from } => {
+                let code_ = code.get_ins_unsafe(*from);
+                Ok(ValueType {
+                    tag: ValueTypeTag::Type,
+                    src: code_.src.clone(),
+                    data: vec![],
+                })
+            }
             EInfo::ImmediateNum { str_i, from } => {
                 if let Some(ctx) = inference_ctx {
                     // infer the type of the number based on the type provided
@@ -720,20 +717,91 @@ impl PassEngine {
                 panic!("Pass1Engine::to_value_type: NoInfo")
             }
             EInfo::Function {
-                fn_type_i, from, ..
+                fn_ret_type_i,
+                from,
+                ..
             } => {
                 let code_ = code.get_ins_unsafe(*from);
-                let fn_type = code.get_type(fn_type_i);
+                let fn_type = code.get_type(fn_ret_type_i);
                 Ok(ValueType {
                     tag: ValueTypeTag::Function,
                     src: code_.src.clone(),
-                    data: vec![*fn_type_i],
+                    data: vec![*fn_ret_type_i],
                 })
             }
             EInfo::Error { msg, from } => {
                 panic!("Pass1Engine::to_value_type: {msg}")
             }
             EInfo::NextPassCheck { from } => Err(()),
+        }
+    }
+
+    fn generate_einfo(&self, val: &ValueType, loc: usize) -> EInfo {
+        match val.tag {
+            ValueTypeTag::TypeNameRef => todo!(),
+            ValueTypeTag::Bool => EInfo::Bool {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::Char => EInfo::Char {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::Void => EInfo::Void { from: loc },
+            ValueTypeTag::Str => EInfo::Str {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::Type => EInfo::Type { from: loc },
+            ValueTypeTag::I8 => EInfo::I8 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::I16 => EInfo::I16 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::I32 => EInfo::I32 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::I64 => EInfo::I64 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::Int => EInfo::Int {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::U8 => EInfo::U8 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::U16 => EInfo::U16 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::U32 => EInfo::U32 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::U64 => EInfo::U64 {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::UInt => EInfo::UInt {
+                value: None,
+                from: loc,
+            },
+            ValueTypeTag::StaticArray => EInfo::StaticArray {
+                item_type_i: val.data[0],
+                from: loc,
+                items: vec![],
+            },
+            ValueTypeTag::Function => EInfo::Function {
+                fn_ret_type_i: val.data[0],
+                from: loc,
+            },
         }
     }
 }

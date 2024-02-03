@@ -69,6 +69,9 @@ impl Engine {
                         from
                     );
                 }
+                EInfo::Type { from } => {
+                    println!("info[{}]: Type from: {}", i, from);
+                }
                 EInfo::StaticArray {
                     item_type_i,
                     from,
@@ -185,17 +188,14 @@ impl Engine {
                     println!("info[{}]: NextPassCheck from: {}", i, from);
                 }
                 EInfo::Function {
-                    name,
-                    fn_type_i,
-                    fn_start_index,
-                    fn_end_index,
+                    fn_ret_type_i,
                     from,
                 } => {
+                    // let name = name.unwrap_or("unnamed".to_string());
                     println!(
-                        "info[{}]: Function: {} {} from: {}",
+                        "info[{}]: Function: returns {} from: {}",
                         i,
-                        self.code.get_string(name),
-                        self.code.type_as_str(fn_type_i),
+                        self.code.type_as_str(fn_ret_type_i),
                         from
                     );
                 }
@@ -665,10 +665,12 @@ impl Engine {
                 (val_ty, info.clone())
             }
             EInfo::Function {
-                fn_type_i, from, ..
+                fn_ret_type_i,
+                from,
+                ..
             } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
-                let fn_type = &self.code.types[fn_type_i.index];
+                let fn_type = &self.code.types[fn_ret_type_i.index];
                 let val_ty = ValueType {
                     tag: ValueTypeTag::Function,
                     src,
@@ -2225,6 +2227,8 @@ impl Engine {
                     // NewFunction "name" Type:2 Code:3
                     let name = ins.data[0];
                     let fn_type_i = ins.data[1];
+                    let fn_ty = self.code.get_type(&fn_type_i);
+                    let fn_ret_type_i = fn_ty.indices[0];
                     let fn_body_end = ins.data[2];
 
                     if !self.verify_type_sig(&fn_type_i) {
@@ -2232,18 +2236,12 @@ impl Engine {
                     }
 
                     let fn_info = EInfo::Function {
-                        name,
-                        fn_type_i,
-                        fn_start_index: Index {
-                            tag: IndexTag::Code,
-                            index: loc,
-                        },
-                        fn_end_index: fn_body_end,
+                        fn_ret_type_i,
                         from: loc,
                     };
 
                     self.information.push(fn_info);
-                    let ret_type_i = Some(self.code.get_type(&fn_type_i).indices[0]);
+                    let ret_type_i = Some(self.code.get_type(&fn_ret_type_i).indices[0]);
                     let cur_env = self.cur_scope();
                     cur_env.cur_fn_end_index = Some(fn_body_end);
                     cur_env.cur_fn_return_ty_index = ret_type_i;

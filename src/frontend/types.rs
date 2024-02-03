@@ -211,6 +211,9 @@ pub enum EInfo {
     Void {
         from: usize,
     },
+    Type {
+        from: usize,
+    },
     Str {
         value: Option<String>, // this will be None if the value is not known
         from: usize,
@@ -257,10 +260,7 @@ pub enum EInfo {
     },
     NoInfo,
     Function {
-        name: Index,
-        fn_type_i: Index,
-        fn_start_index: Index,
-        fn_end_index: Index,
+        fn_ret_type_i: Index,
         from: usize,
     },
     Error {
