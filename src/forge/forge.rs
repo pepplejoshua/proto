@@ -136,11 +136,11 @@ impl Engine {
                         println!("info[{}]: I64: Dyn from: {}", i, from);
                     }
                 }
-                EInfo::Isize { value, from } => {
+                EInfo::Int { value, from } => {
                     if let Some(value) = value {
-                        println!("info[{}]: Isize: {} from: {}", i, value, from);
+                        println!("info[{}]: Int: {} from: {}", i, value, from);
                     } else {
-                        println!("info[{}]: Isize: Dyn from: {}", i, from);
+                        println!("info[{}]: Int: Dyn from: {}", i, from);
                     }
                 }
                 EInfo::U8 { value, from } => {
@@ -171,18 +171,18 @@ impl Engine {
                         println!("info[{}]: U64: Dyn from: {}", i, from);
                     }
                 }
-                EInfo::Usize { value, from } => {
+                EInfo::UInt { value, from } => {
                     if let Some(value) = value {
-                        println!("info[{}]: Usize: {} from: {}", i, value, from);
+                        println!("info[{}]: UInt: {} from: {}", i, value, from);
                     } else {
-                        println!("info[{}]: Usize: Dyn from: {}", i, from);
+                        println!("info[{}]: UInt: Dyn from: {}", i, from);
                     }
                 }
                 EInfo::NoInfo => {
                     println!("info[{}]: NoInfo", i);
                 }
-                EInfo::Pass2Check { from } => {
-                    println!("info[{}]: Pass2Check from: {}", i, from);
+                EInfo::NextPassCheck { from } => {
+                    println!("info[{}]: NextPassCheck from: {}", i, from);
                 }
                 EInfo::Function {
                     name,
@@ -220,7 +220,7 @@ impl Engine {
     }
 
     fn push_pass_2_check(&mut self, loc: usize) {
-        self.information.push(EInfo::Pass2Check { from: loc });
+        self.information.push(EInfo::NextPassCheck { from: loc });
     }
 }
 
@@ -391,20 +391,20 @@ impl Engine {
                             };
                             (val_ty, info)
                         }
-                        TypeSignatureTag::IsizeTS => {
+                        TypeSignatureTag::IntTS => {
                             let num = num_s.parse::<isize>();
                             if num.is_err() {
                                 panic!("invalid number of isize type: {}", num_s);
                             }
 
                             let num = num.unwrap();
-                            let info = EInfo::Isize {
+                            let info = EInfo::Int {
                                 value: Some(num),
                                 from: *from,
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::Isize,
+                                tag: ValueTypeTag::Int,
                                 src,
                                 data: vec![],
                             };
@@ -486,20 +486,20 @@ impl Engine {
                             };
                             (val_ty, info)
                         }
-                        TypeSignatureTag::UsizeTS => {
+                        TypeSignatureTag::UIntTS => {
                             let num = num_s.parse::<usize>();
                             if num.is_err() {
                                 panic!("invalid number of usize type: {}", num_s);
                             }
 
                             let num = num.unwrap();
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(num),
                                 from: *from,
                             };
                             let src = self.code.ins.get(*from).unwrap().src.clone();
                             let val_ty = ValueType {
-                                tag: ValueTypeTag::Usize,
+                                tag: ValueTypeTag::UInt,
                                 src,
                                 data: vec![],
                             };
@@ -510,19 +510,19 @@ impl Engine {
                     }
                 } else {
                     let num_s = self.read_str(str_i);
-                    let num = num_s.parse::<i32>();
+                    let num = num_s.parse::<isize>();
                     if num.is_err() {
                         panic!("invalid number of i32 type: {}", num_s);
                     }
 
                     let num = num.unwrap();
-                    let info = EInfo::I32 {
+                    let info = EInfo::Int {
                         value: Some(num),
                         from: *from,
                     };
                     let src = self.code.ins.get(*from).unwrap().src.clone();
                     let val_ty = ValueType {
-                        tag: ValueTypeTag::I32,
+                        tag: ValueTypeTag::Int,
                         src,
                         data: vec![],
                     };
@@ -584,10 +584,10 @@ impl Engine {
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Isize { from, .. } => {
+            EInfo::Int { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Isize,
+                    tag: ValueTypeTag::Int,
                     src,
                     data: vec![],
                 };
@@ -629,10 +629,10 @@ impl Engine {
                 };
                 (val_ty, info.clone())
             }
-            EInfo::Usize { from, .. } => {
+            EInfo::UInt { from, .. } => {
                 let src = self.code.ins.get(*from).unwrap().src.clone();
                 let val_ty = ValueType {
-                    tag: ValueTypeTag::Usize,
+                    tag: ValueTypeTag::UInt,
                     src,
                     data: vec![],
                 };
@@ -846,9 +846,9 @@ impl Engine {
                             let value = value.map(|x| !x);
                             EInfo::Bool { value, from: loc }
                         }
-                        EInfo::Pass2Check { .. } => {
+                        EInfo::NextPassCheck { .. } => {
                             // defer the error to pass 2
-                            EInfo::Pass2Check { from: loc }
+                            EInfo::NextPassCheck { from: loc }
                         }
                         _ => panic!("! operator used on a non-boolean value: {:#?}", info),
                     };
@@ -988,15 +988,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(val_a + val_b),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1063,15 +1063,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: Some(val_a + val_b),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: None,
                                     from: loc,
                                 };
@@ -1162,15 +1162,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(val_a.unwrap() - val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1237,15 +1237,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: Some(val_a.unwrap() - val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: None,
                                     from: loc,
                                 };
@@ -1333,15 +1333,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(val_a.unwrap() * val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1408,15 +1408,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: Some(val_a.unwrap() * val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: None,
                                     from: loc,
                                 };
@@ -1516,18 +1516,18 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
                                 if val_b.unwrap() == 0 {
                                     panic!("division by zero is not allowed");
                                 }
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(val_a.unwrap() / val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1606,18 +1606,18 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if val_a.is_some() && val_b.is_some() {
                                 if val_b.unwrap() == 0 {
                                     panic!("division by zero is not allowed");
                                 }
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: Some(val_a.unwrap() / val_b.unwrap()),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: None,
                                     from: loc,
                                 };
@@ -1716,18 +1716,18 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 if val_b == &0 {
                                     panic!("division by zero is not allowed");
                                 }
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(val_a % val_b),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1806,18 +1806,18 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 if val_b == &0 {
                                     panic!("division by zero is not allowed");
                                 }
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: Some(val_a % val_b),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Usize {
+                                let info = EInfo::UInt {
                                     value: None,
                                     from: loc,
                                 };
@@ -1901,15 +1901,15 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        EInfo::Isize { value: val, .. } => {
+                        EInfo::Int { value: val, .. } => {
                             if let Some(val) = val {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: Some(-val),
                                     from: loc,
                                 };
                                 self.information.push(info);
                             } else {
-                                let info = EInfo::Isize {
+                                let info = EInfo::Int {
                                     value: None,
                                     from: loc,
                                 };
@@ -1999,7 +1999,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a == val_b),
@@ -2074,7 +2074,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a == val_b),
@@ -2217,7 +2217,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a != val_b),
@@ -2292,7 +2292,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a != val_b),
@@ -2433,7 +2433,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a < val_b),
@@ -2508,7 +2508,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a < val_b),
@@ -2619,7 +2619,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a > val_b),
@@ -2694,7 +2694,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a > val_b),
@@ -2805,7 +2805,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a <= val_b),
@@ -2880,7 +2880,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a <= val_b),
@@ -2991,7 +2991,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Isize { value: val_a, .. }, EInfo::Isize { value: val_b, .. }) => {
+                        (EInfo::Int { value: val_a, .. }, EInfo::Int { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a >= val_b),
@@ -3066,7 +3066,7 @@ impl Engine {
                                 self.information.push(info);
                             }
                         }
-                        (EInfo::Usize { value: val_a, .. }, EInfo::Usize { value: val_b, .. }) => {
+                        (EInfo::UInt { value: val_a, .. }, EInfo::UInt { value: val_b, .. }) => {
                             if let (Some(val_a), Some(val_b)) = (val_a, val_b) {
                                 let info = EInfo::Bool {
                                     value: Some(val_a >= val_b),
@@ -3195,7 +3195,7 @@ impl Engine {
 
                             // we expect a known usize for the size of the array
                             match arr_size {
-                                EInfo::Usize {
+                                EInfo::UInt {
                                     value: Some(size), ..
                                 } => {
                                     // since we know the index for the type of the array (item_ty_i), we can use it
@@ -3231,7 +3231,7 @@ impl Engine {
                                         );
                                     }
                                 }
-                                EInfo::Usize { value: None, .. } => {
+                                EInfo::UInt { value: None, .. } => {
                                     panic!("expected constant usize known at compile time for array size");
                                 }
                                 _ => {
@@ -3256,7 +3256,7 @@ impl Engine {
                     let (_, arr_info) = self.infer_type(&arr_i, None);
                     let src = self.code.get_ins(index_i).src;
                     let usize_ty = TypeSignature {
-                        tag: TypeSignatureTag::UsizeTS,
+                        tag: TypeSignatureTag::UIntTS,
                         indices: Vec::new(),
                         src,
                     };
@@ -3269,7 +3269,7 @@ impl Engine {
                             EInfo::StaticArray {
                                 item_type_i, items, ..
                             },
-                            EInfo::Usize {
+                            EInfo::UInt {
                                 value: Some(index), ..
                             },
                         ) => {
@@ -3280,7 +3280,7 @@ impl Engine {
                             let (_, item_info) = self.infer_type(&item_i, Some(&item_type_i));
                             self.information.push(item_info);
                         }
-                        (EInfo::StaticArray { .. }, EInfo::Usize { value: None, .. }) => {
+                        (EInfo::StaticArray { .. }, EInfo::UInt { value: None, .. }) => {
                             panic!("expected constant usize known at compile time for array index");
                         }
                         (EInfo::StaticArray { .. }, _) => {
@@ -3575,11 +3575,8 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Isize {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
+                            let info = EInfo::Int {
                                 value: Some(a + b),
                                 from: loc,
                             };
@@ -3614,10 +3611,10 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(a + b),
                                 from: loc,
                             };
@@ -3671,11 +3668,8 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Isize {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
+                            let info = EInfo::Int {
                                 value: Some(a - b),
                                 from: loc,
                             };
@@ -3710,10 +3704,10 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(a - b),
                                 from: loc,
                             };
@@ -3764,11 +3758,8 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
-                            let info = EInfo::Isize {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
+                            let info = EInfo::Int {
                                 value: Some(a * b),
                                 from: loc,
                             };
@@ -3803,10 +3794,10 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(a * b),
                                 from: loc,
                             };
@@ -3869,14 +3860,11 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
-                            let info = EInfo::Isize {
+                            let info = EInfo::Int {
                                 value: Some(a / b),
                                 from: loc,
                             };
@@ -3923,13 +3911,13 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(a / b),
                                 from: loc,
                             };
@@ -3991,14 +3979,11 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
-                            let info = EInfo::Isize {
+                            let info = EInfo::Int {
                                 value: Some(a % b),
                                 from: loc,
                             };
@@ -4045,13 +4030,13 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             if b == &0 {
                                 panic!("division by zero is not allowed");
                             }
-                            let info = EInfo::Usize {
+                            let info = EInfo::UInt {
                                 value: Some(a % b),
                                 from: loc,
                             };
@@ -4098,8 +4083,8 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        EInfo::Isize { value: Some(a), .. } => {
-                            let info = EInfo::Isize {
+                        EInfo::Int { value: Some(a), .. } => {
+                            let info = EInfo::Int {
                                 value: Some(-a),
                                 from: loc,
                             };
@@ -4152,10 +4137,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
                                 from: loc,
@@ -4191,8 +4173,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a == b),
@@ -4274,10 +4256,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
                                 from: loc,
@@ -4313,8 +4292,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a != b),
@@ -4394,10 +4373,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
                                 from: loc,
@@ -4433,8 +4409,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a < b),
@@ -4497,10 +4473,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
                                 from: loc,
@@ -4536,8 +4509,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a > b),
@@ -4600,10 +4573,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
                                 from: loc,
@@ -4639,8 +4609,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a <= b),
@@ -4703,10 +4673,7 @@ impl Engine {
                             };
                             self.information.push(info);
                         }
-                        (
-                            EInfo::Isize { value: Some(a), .. },
-                            EInfo::Isize { value: Some(b), .. },
-                        ) => {
+                        (EInfo::Int { value: Some(a), .. }, EInfo::Int { value: Some(b), .. }) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
                                 from: loc,
@@ -4742,8 +4709,8 @@ impl Engine {
                             self.information.push(info);
                         }
                         (
-                            EInfo::Usize { value: Some(a), .. },
-                            EInfo::Usize { value: Some(b), .. },
+                            EInfo::UInt { value: Some(a), .. },
+                            EInfo::UInt { value: Some(b), .. },
                         ) => {
                             let info = EInfo::Bool {
                                 value: Some(a >= b),
@@ -4840,7 +4807,7 @@ impl Engine {
 
                             // we expect a known usize for the size of the array
                             match arr_size {
-                                EInfo::Usize {
+                                EInfo::UInt {
                                     value: Some(size), ..
                                 } => {
                                     // since we know the index for the type of the array (item_ty_i), we can use it
@@ -4876,7 +4843,7 @@ impl Engine {
                                         );
                                     }
                                 }
-                                EInfo::Usize { value: None, .. } => {
+                                EInfo::UInt { value: None, .. } => {
                                     panic!("expected constant usize known at compile time for array size");
                                 }
                                 _ => {
@@ -4901,7 +4868,7 @@ impl Engine {
                     let (_, arr_info) = self.infer_type(&arr_i, None);
                     let src = self.code.get_ins(index_i).src;
                     let usize_ty = TypeSignature {
-                        tag: TypeSignatureTag::UsizeTS,
+                        tag: TypeSignatureTag::UIntTS,
                         indices: Vec::new(),
                         src,
                     };
@@ -4914,7 +4881,7 @@ impl Engine {
                             EInfo::StaticArray {
                                 item_type_i, items, ..
                             },
-                            EInfo::Usize {
+                            EInfo::UInt {
                                 value: Some(index), ..
                             },
                         ) => {
@@ -4925,7 +4892,7 @@ impl Engine {
                             let (_, item_info) = self.infer_type(&item_i, Some(&item_type_i));
                             self.information.push(item_info);
                         }
-                        (EInfo::StaticArray { .. }, EInfo::Usize { value: None, .. }) => {
+                        (EInfo::StaticArray { .. }, EInfo::UInt { value: None, .. }) => {
                             panic!("expected constant usize known at compile time for array index");
                         }
                         (EInfo::StaticArray { .. }, _) => {

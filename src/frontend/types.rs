@@ -17,12 +17,12 @@ pub enum TypeSignatureTag {
     I16TS,
     I32TS,
     I64TS,
-    IsizeTS,
+    IntTS,
     U8TS,
     U16TS,
     U32TS,
     U64TS,
-    UsizeTS,
+    UIntTS,
     // FunctionTS return_ty (arg_ty1, arg_ty2, ...)
     FunctionTS,
     // StaticArrayTS size inner_type
@@ -42,12 +42,12 @@ impl TypeSignatureTag {
             TypeSignatureTag::I16TS => ValueTypeTag::I16,
             TypeSignatureTag::I32TS => ValueTypeTag::I32,
             TypeSignatureTag::I64TS => ValueTypeTag::I64,
-            TypeSignatureTag::IsizeTS => ValueTypeTag::Isize,
+            TypeSignatureTag::IntTS => ValueTypeTag::Int,
             TypeSignatureTag::U8TS => ValueTypeTag::U8,
             TypeSignatureTag::U16TS => ValueTypeTag::U16,
             TypeSignatureTag::U32TS => ValueTypeTag::U32,
             TypeSignatureTag::U64TS => ValueTypeTag::U64,
-            TypeSignatureTag::UsizeTS => ValueTypeTag::Usize,
+            TypeSignatureTag::UIntTS => ValueTypeTag::UInt,
             TypeSignatureTag::FunctionTS => ValueTypeTag::Type,
             TypeSignatureTag::StaticArrayTS => ValueTypeTag::StaticArray,
         }
@@ -60,12 +60,12 @@ impl TypeSignatureTag {
                 | TypeSignatureTag::I16TS
                 | TypeSignatureTag::I32TS
                 | TypeSignatureTag::I64TS
-                | TypeSignatureTag::IsizeTS
+                | TypeSignatureTag::IntTS
                 | TypeSignatureTag::U8TS
                 | TypeSignatureTag::U16TS
                 | TypeSignatureTag::U32TS
                 | TypeSignatureTag::U64TS
-                | TypeSignatureTag::UsizeTS
+                | TypeSignatureTag::UIntTS
         )
     }
 
@@ -107,12 +107,12 @@ pub enum ValueTypeTag {
     I16,
     I32,
     I64,
-    Isize,
+    Int,
     U8,
     U16,
     U32,
     U64,
-    Usize,
+    UInt,
     // Function return_ty (arg_ty1, arg_ty2, ...)
     Function,
     // StaticArray inner_type
@@ -132,12 +132,12 @@ impl ValueTypeTag {
             ValueTypeTag::I16 => TypeSignatureTag::I16TS,
             ValueTypeTag::I32 => TypeSignatureTag::I32TS,
             ValueTypeTag::I64 => TypeSignatureTag::I64TS,
-            ValueTypeTag::Isize => TypeSignatureTag::IsizeTS,
+            ValueTypeTag::Int => TypeSignatureTag::IntTS,
             ValueTypeTag::U8 => TypeSignatureTag::U8TS,
             ValueTypeTag::U16 => TypeSignatureTag::U16TS,
             ValueTypeTag::U32 => TypeSignatureTag::U32TS,
             ValueTypeTag::U64 => TypeSignatureTag::U64TS,
-            ValueTypeTag::Usize => TypeSignatureTag::UsizeTS,
+            ValueTypeTag::UInt => TypeSignatureTag::UIntTS,
             ValueTypeTag::Function => TypeSignatureTag::FunctionTS,
             ValueTypeTag::StaticArray => TypeSignatureTag::StaticArrayTS,
         }
@@ -150,12 +150,12 @@ impl ValueTypeTag {
                 | ValueTypeTag::I16
                 | ValueTypeTag::I32
                 | ValueTypeTag::I64
-                | ValueTypeTag::Isize
+                | ValueTypeTag::Int
                 | ValueTypeTag::U8
                 | ValueTypeTag::U16
                 | ValueTypeTag::U32
                 | ValueTypeTag::U64
-                | ValueTypeTag::Usize
+                | ValueTypeTag::UInt
         )
     }
 
@@ -231,7 +231,7 @@ pub enum EInfo {
         value: Option<i64>, // this will be None if the value is not known
         from: usize,
     },
-    Isize {
+    Int {
         value: Option<isize>, // this will be None if the value is not known
         from: usize,
     },
@@ -251,7 +251,7 @@ pub enum EInfo {
         value: Option<u64>, // this will be None if the value is not known
         from: usize,
     },
-    Usize {
+    UInt {
         value: Option<usize>, // this will be None if the value is not known
         from: usize,
     },
@@ -267,7 +267,7 @@ pub enum EInfo {
         msg: String,
         from: usize,
     },
-    Pass2Check {
+    NextPassCheck {
         from: usize,
     },
 }

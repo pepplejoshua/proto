@@ -5,7 +5,7 @@ use super::{
     errors::{LexError, ParseError},
     lexer::Lexer,
     token::Token,
-    types::{TypeSignatureTag, TypeSignature},
+    types::{TypeSignature, TypeSignatureTag},
 };
 
 #[allow(dead_code)]
@@ -641,7 +641,11 @@ impl Parser {
         self.advance_index(); // skip past `;`
 
         let ins = Code {
-            tag: if is_typed { CodeTag::NTVariable } else { CodeTag::NUVariable },
+            tag: if is_typed {
+                CodeTag::NTVariable
+            } else {
+                CodeTag::NUVariable
+            },
             data: indices,
             src: span,
         };
@@ -1050,7 +1054,7 @@ impl Parser {
                                 Ok(type_i)
                             }
                         }
-                        _ => Ok(type_i)
+                        _ => Ok(type_i),
                     }
                 } else {
                     let err = maybe_type_i.unwrap_err();
@@ -1188,9 +1192,9 @@ impl Parser {
                 };
                 Ok(self.code.add_ins(ins))
             }
-            Token::ISize(src) => {
+            Token::Int(src) => {
                 let n_type = TypeSignature {
-                    tag: TypeSignatureTag::IsizeTS,
+                    tag: TypeSignatureTag::IntTS,
                     src: src.clone(),
                     indices: vec![],
                 };
@@ -1273,9 +1277,9 @@ impl Parser {
                 };
                 Ok(self.code.add_ins(ins))
             }
-            Token::USize(src) => {
+            Token::UInt(src) => {
                 let n_type = TypeSignature {
-                    tag: TypeSignatureTag::UsizeTS,
+                    tag: TypeSignatureTag::UIntTS,
                     src: src.clone(),
                     indices: vec![],
                 };

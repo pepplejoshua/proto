@@ -4,7 +4,7 @@
 use crate::{
     frontend::{
         bcode::{CodeBundle, CodeTag, Index, IndexTag},
-        types::{EInfo, ValueType, ValueTypeTag},
+        types::{EInfo, TypeSignatureTag, ValueType, ValueTypeTag},
     },
     symbol_info::symbol_info::SymbolTable,
 };
@@ -18,8 +18,12 @@ impl PassEngine {
         PassEngine { info: Vec::new() }
     }
 
-    pub fn add_info(&mut self, info: EInfo) {
+    fn add_info(&mut self, info: EInfo) {
         self.info.push(info);
+    }
+
+    fn add_next_pass_info(&mut self, from: usize) {
+        self.add_info(EInfo::NextPassCheck { from });
     }
 }
 
@@ -84,7 +88,7 @@ impl PassEngine {
         }
     }
 
-    pub fn to_value_type(
+    fn to_value_type(
         &self,
         code: &CodeBundle,
         info: &EInfo,
@@ -93,9 +97,29 @@ impl PassEngine {
         match info {
             EInfo::ImmediateNum { str_i, from } => {
                 if let Some(ctx) = inference_ctx {
+                    // infer the type of the number based on the type provided
                     let ctx_ty = code.get_type_unsafe(ctx);
                     if ctx_ty.tag.is_numerical_type_sig() {
-                        todo!()
+                        match ctx_ty.tag {
+                            TypeSignatureTag::I8TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<i8>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::I8,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to i8")
+                                }
+                            }
+                            _ => todo!(),
+                        }
                     } else {
                         let ty_s = code.type_as_str_unsafe(ctx);
                         panic!("Pass1Engine::to_value_type: {ty_s} is not a numerical type")
@@ -133,12 +157,12 @@ impl PassEngine {
             EInfo::I16 { value, from } => todo!(),
             EInfo::I32 { value, from } => todo!(),
             EInfo::I64 { value, from } => todo!(),
-            EInfo::Isize { value, from } => todo!(),
+            EInfo::Int { value, from } => todo!(),
             EInfo::U8 { value, from } => todo!(),
             EInfo::U16 { value, from } => todo!(),
             EInfo::U32 { value, from } => todo!(),
             EInfo::U64 { value, from } => todo!(),
-            EInfo::Usize { value, from } => todo!(),
+            EInfo::UInt { value, from } => todo!(),
             EInfo::NoInfo => {
                 panic!("Pass1Engine::to_value_type: NoInfo")
             }
@@ -152,8 +176,8 @@ impl PassEngine {
             EInfo::Error { msg, from } => {
                 panic!("Pass1Engine::to_value_type: {msg}")
             }
-            EInfo::Pass2Check { from } => {
-                panic!("Pass1Engine::to_value_type: Pass2Check")
+            EInfo::NextPassCheck { from } => {
+                panic!("Pass1Engine::to_value_type: NextPassCheck")
             }
         }
     }

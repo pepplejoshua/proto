@@ -1,14 +1,11 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
-use crate::{
-    frontend::{
-        bparser::Parser as BParser,
-        lexer::Lexer,
-        // parser::Parser,
-        source::{SourceFile, SourceReporter},
-        token::Token,
-    },
-    symbol_info::symbol_info::SymbolTable,
+use crate::frontend::{
+    bparser::Parser as BParser,
+    lexer::Lexer,
+    // parser::Parser,
+    source::{SourceFile, SourceReporter},
+    token::Token,
 };
 
 use crate::forge::Engine;
@@ -234,7 +231,7 @@ impl Workspace {
 
         let mut engine = Engine::new(parser.code);
         // let mut global_sym_table = SymbolTable::new();
-        engine.pass_1();
+        engine.run();
         engine.show_info();
         // let mut sym_tab = engine.pass_1();
         // sym_tab.parent = Some(Box::new(global_sym_table));
