@@ -271,3 +271,9 @@ pub enum EInfo {
         from: usize,
     },
 }
+
+impl EInfo {
+    pub fn is_next_pass_check(&self) -> bool {
+        matches!(self, EInfo::NextPassCheck { .. })
+    }
+}

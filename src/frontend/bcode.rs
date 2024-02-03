@@ -573,12 +573,12 @@ impl CodeBundle {
             TypeSignatureTag::I16TS => "i16".to_string(),
             TypeSignatureTag::I32TS => "i32".to_string(),
             TypeSignatureTag::I64TS => "i64".to_string(),
-            TypeSignatureTag::IntTS => "isize".to_string(),
+            TypeSignatureTag::IntTS => "int".to_string(),
             TypeSignatureTag::U8TS => "u8".to_string(),
             TypeSignatureTag::U16TS => "u16".to_string(),
             TypeSignatureTag::U32TS => "u32".to_string(),
             TypeSignatureTag::U64TS => "u64".to_string(),
-            TypeSignatureTag::UIntTS => "usize".to_string(),
+            TypeSignatureTag::UIntTS => "uint".to_string(),
             TypeSignatureTag::FunctionTS => {
                 let ret_ty_i = sig.indices.get(0).unwrap();
                 let ret_ty_s = self.type_as_str(ret_ty_i);

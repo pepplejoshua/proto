@@ -36,7 +36,7 @@ impl Env {
     pub fn to_symbol_table(self) -> SymbolTable {
         let mut st = SymbolTable::new();
         for (name, (ty, _)) in self.names.iter() {
-            st.insert(name.clone(), ty.clone());
+            st.register(name.clone(), ty.clone());
         }
         st
     }

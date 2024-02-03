@@ -1,8 +1,6 @@
 // @use("std");
 // @use("next");
 
-fn main() void {
   let a int = 1;
   let b = a + 2;
   let c = b + a + 4;
-}

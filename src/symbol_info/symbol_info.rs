@@ -39,7 +39,7 @@ impl SymbolTable {
         self.parent.map(|x| *x)
     }
 
-    pub fn insert(&mut self, name: String, val_ty: ValueType) {
+    pub fn register(&mut self, name: String, val_ty: ValueType) {
         self.symbols.insert(name, val_ty);
     }
 
@@ -57,6 +57,19 @@ impl SymbolTable {
 
     pub fn insert_scoped(&mut self, name: String, scope: SymbolTable) {
         self.sub_tables.insert(name, Box::new(scope));
+    }
+
+    pub fn show_info(&self) {
+        println!("\nSymbols:");
+        for (name, val_ty) in &self.symbols {
+            println!("{}: {:?}", name, val_ty);
+        }
+
+        println!("Subtables:");
+        for (name, sub_table) in &self.sub_tables {
+            println!("{name}");
+            sub_table.show_info();
+        }
     }
 }
 
