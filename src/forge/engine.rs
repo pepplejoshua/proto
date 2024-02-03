@@ -118,7 +118,163 @@ impl PassEngine {
                                     panic!("Pass1Engine::to_value_type: could not convert {num_s} to i8")
                                 }
                             }
-                            _ => todo!(),
+                            TypeSignatureTag::I16TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<i16>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::I16,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to i16")
+                                }
+                            }
+                            TypeSignatureTag::I32TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<i32>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::I32,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to i32")
+                                }
+                            }
+                            TypeSignatureTag::I64TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<i64>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::I64,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to i64")
+                                }
+                            }
+                            TypeSignatureTag::IntTS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<isize>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::Int,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to i64")
+                                }
+                            }
+                            TypeSignatureTag::U8TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<u8>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::U8,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to u8")
+                                }
+                            }
+                            TypeSignatureTag::U16TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<u16>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::U16,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to u16")
+                                }
+                            }
+                            TypeSignatureTag::U32TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<u32>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::U32,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to u32")
+                                }
+                            }
+                            TypeSignatureTag::U64TS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<u64>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::U64,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to u64")
+                                }
+                            }
+                            TypeSignatureTag::UIntTS => {
+                                let num_s = code.get_string(str_i);
+                                let num = num_s.parse::<usize>();
+                                if let Ok(num) = num {
+                                    let code = code.get_ins(Index {
+                                        tag: IndexTag::Code,
+                                        index: *from,
+                                    });
+                                    ValueType {
+                                        tag: ValueTypeTag::UInt,
+                                        src: code.src.clone(),
+                                        data: vec![],
+                                    }
+                                } else {
+                                    panic!("Pass1Engine::to_value_type: could not convert {num_s} to usize")
+                                }
+                            }
+                            _ => unreachable!(
+                                "Pass1Engine::to_value_type: {ctx_ty} is not a numerical type",
+                                ctx_ty = code.type_as_str_unsafe(ctx)
+                            ),
                         }
                     } else {
                         let ty_s = code.type_as_str_unsafe(ctx);
@@ -127,14 +283,14 @@ impl PassEngine {
                 } else {
                     // try to convert the number to i32
                     let num_str = code.get_string(str_i);
-                    let num = num_str.parse::<i32>();
+                    let num = num_str.parse::<isize>();
                     if let Ok(num) = num {
                         let code = code.get_ins(Index {
                             tag: IndexTag::Code,
                             index: *from,
                         });
                         ValueType {
-                            tag: ValueTypeTag::I32,
+                            tag: ValueTypeTag::Int,
                             src: code.src.clone(),
                             data: vec![],
                         }
@@ -143,36 +299,152 @@ impl PassEngine {
                     }
                 }
             }
-            EInfo::ReferenceToType { type_i, from } => todo!(),
+            EInfo::ReferenceToType { type_i, from } => {
+                let ty = code.get_type(type_i);
+                ValueType {
+                    tag: ValueTypeTag::Type,
+                    src: ty.src,
+                    data: vec![*type_i],
+                }
+            }
             EInfo::StaticArray {
                 item_type_i,
                 from,
                 items,
-            } => todo!(),
-            EInfo::Bool { value, from } => todo!(),
-            EInfo::Char { value, from } => todo!(),
-            EInfo::Void { from } => todo!(),
-            EInfo::Str { value, from } => todo!(),
-            EInfo::I8 { value, from } => todo!(),
-            EInfo::I16 { value, from } => todo!(),
-            EInfo::I32 { value, from } => todo!(),
-            EInfo::I64 { value, from } => todo!(),
-            EInfo::Int { value, from } => todo!(),
-            EInfo::U8 { value, from } => todo!(),
-            EInfo::U16 { value, from } => todo!(),
-            EInfo::U32 { value, from } => todo!(),
-            EInfo::U64 { value, from } => todo!(),
-            EInfo::UInt { value, from } => todo!(),
+            } => {
+                let code_ = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::StaticArray,
+                    src: code_.src.clone(),
+                    data: vec![*item_type_i],
+                }
+            }
+            EInfo::Bool { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::Bool,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::Char { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::Char,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::Void { from } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::Void,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::Str { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::Str,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::I8 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::I8,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::I16 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::I16,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::I32 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::I32,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::I64 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::I64,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::Int { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::Int,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::U8 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::U8,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::U16 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::U16,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::U32 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::U32,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::U64 { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::U64,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
+            EInfo::UInt { from, .. } => {
+                let code = code.get_ins_unsafe(*from);
+                ValueType {
+                    tag: ValueTypeTag::UInt,
+                    src: code.src.clone(),
+                    data: vec![],
+                }
+            }
             EInfo::NoInfo => {
                 panic!("Pass1Engine::to_value_type: NoInfo")
             }
             EInfo::Function {
-                name,
-                fn_type_i,
-                fn_start_index,
-                fn_end_index,
-                from,
-            } => todo!(),
+                fn_type_i, from, ..
+            } => {
+                let code_ = code.get_ins_unsafe(*from);
+                let fn_type = code.get_type(fn_type_i);
+                ValueType {
+                    tag: ValueTypeTag::Function,
+                    src: code_.src.clone(),
+                    data: fn_type.indices.clone(),
+                }
+            }
             EInfo::Error { msg, from } => {
                 panic!("Pass1Engine::to_value_type: {msg}")
             }

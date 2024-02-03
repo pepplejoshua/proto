@@ -505,7 +505,6 @@ impl Engine {
                             };
                             (val_ty, info)
                         }
-
                         _ => unreachable!("unreachable code for number promotion"),
                     }
                 } else {
@@ -3358,10 +3357,6 @@ impl Engine {
             }
         }
         self.exit_scope()
-    }
-
-    pub fn pass_2(&mut self, table: SymbolTable) -> SymbolTable {
-        todo!()
     }
 
     pub fn run(&mut self) {

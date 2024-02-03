@@ -503,6 +503,10 @@ impl CodeBundle {
         }
     }
 
+    pub fn get_ins_unsafe(&self, index: usize) -> Code {
+        self.ins[index].clone()
+    }
+
     pub fn add_string(&mut self, string: String) -> Index {
         let index = self.strings.len();
         self.strings.push(string);
