@@ -20,7 +20,8 @@ pub enum Sig {
     U32,
     U64,
     UInt,
-    Lambda,
+    Function,
+    Infer,
 }
 
 pub struct Type {
@@ -39,6 +40,7 @@ impl Type {
                     panic!("Identifier type has no name");
                 }
             }
+            Sig::Infer => "<infer>".to_string(),
             Sig::Bool => "bool".to_string(),
             Sig::Char => "char".to_string(),
             Sig::Void => "void".to_string(),
@@ -53,7 +55,7 @@ impl Type {
             Sig::U32 => "u32".to_string(),
             Sig::U64 => "u64".to_string(),
             Sig::UInt => "uint".to_string(),
-            Sig::Lambda => {
+            Sig::Function => {
                 let mut s = "(".to_string();
                 for (i, sub_type) in self.sub_types.iter().enumerate() {
                     s.push_str(&sub_type.as_str());

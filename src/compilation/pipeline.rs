@@ -1,8 +1,8 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::{
-    forge::PassEngine,
     lexer::{lexer::Lexer, token::Token},
+    parser::pparser::Parser,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -196,11 +196,10 @@ impl Workspace {
             return;
         }
 
-        let mut parser = BParser::new(lexer);
-        parser.parse();
+        let mut parser = Parser::new(lexer);
 
-        if !parser.lexer_errors.is_empty() {
-            for le in parser.lexer_errors {
+        if !parser.lex_errors.is_empty() {
+            for le in parser.lex_errors {
                 reporter.report_lexer_error(&le);
             }
             return;
@@ -209,30 +208,21 @@ impl Workspace {
             reporter.show_info("lexing complete.".to_string());
         }
 
-        if !parser.parser_errors.is_empty() {
-            for pe in parser.parser_errors {
+        if !parser.parse_errors.is_empty() {
+            for pe in parser.parse_errors {
                 reporter.report_parser_error(pe);
             }
             return;
         }
-        if self.config.dbg_info {
-            reporter.show_info("parsing complete.".to_string());
-            let bc_text = parser.code.as_str();
-            println!("\n{bc_text}");
+
+        if !parser.parse_warnings.is_empty() {
+            for pw in parser.parse_warnings {
+                reporter.report_parser_warning(pw);
+            }
         }
 
         if let Stage::Parser = self.config.max_stage {
             return;
         }
-
-        // let mut engine = Engine::new(parser.code);
-        // let mut global_sym_table = SymbolTable::new();
-        // engine.run();
-        // engine.show_info();
-
-        let mut pass_1 = PassEngine::new();
-        let file_sym_table = pass_1.run(parser.code.clone());
-        pass_1.show_info(&parser.code);
-        file_sym_table.show_info();
     }
 }

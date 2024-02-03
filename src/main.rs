@@ -4,13 +4,10 @@ use crate::compilation::pipeline::PipelineConfig;
 use compilation::pipeline::Workspace;
 
 mod compilation;
-mod forge;
 mod lexer;
 mod parser;
 mod pastel;
-mod pir;
 mod source;
-mod symbol_info;
 mod types;
 
 const USAGE: &str = "

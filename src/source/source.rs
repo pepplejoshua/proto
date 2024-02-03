@@ -232,7 +232,7 @@ pub struct SourceReporter {
 
 use crate::pastel::pastel;
 
-use super::errors::{LexError, ParseError};
+use super::errors::{LexError, ParseError, ParseWarning};
 
 #[allow(dead_code)]
 impl SourceReporter {
@@ -244,27 +244,27 @@ impl SourceReporter {
         match le {
             LexError::InvalidCharacter(src) => {
                 let msg = "Character is invalid.".to_string();
-                self.report_with_ref(src, msg, None);
+                self.report_with_ref(src, msg, None, false);
             }
             LexError::CannotMakeSignedNumber(src) => {
                 let msg = "Number too large to fit any signed integer type.".to_string();
-                self.report_with_ref(src, msg, None);
+                self.report_with_ref(src, msg, None, false);
             }
             LexError::CannotMakeUnsignedNumber(src) => {
                 let msg = "Number too large to fit any unsigned integer type.".to_string();
-                self.report_with_ref(src, msg, None);
+                self.report_with_ref(src, msg, None, false);
             }
             LexError::EmptyCharacterLiteral(src) => {
                 let msg = "Empty character literal.".to_string();
                 let mut tip = "Character literals must contain a single character.\n".to_string();
                 tip.push_str("E.g: 'a' is a character, while '' is not.");
-                self.report_with_ref(src, msg, Some(tip));
+                self.report_with_ref(src, msg, Some(tip), false);
             }
             LexError::UnterminatedCharacterLiteral(src) => {
                 let msg = "Unterminated character literal.".to_string();
                 let mut tip = "Character literals must be terminated with a '.\n".to_string();
                 tip.push_str("E.g: 'a' is a character, while 'a is not.");
-                self.report_with_ref(src, msg, Some(tip));
+                self.report_with_ref(src, msg, Some(tip), false);
             }
             LexError::UnterminatedStringLiteral(src) => {
                 let msg = "Unterminated string literal.".to_string();
@@ -272,46 +272,45 @@ impl SourceReporter {
                 tip.push_str(
                     "E.g: '\"hello world\"' is a string literal, while '\"hello world' is not.",
                 );
-                self.report_with_ref(src, msg, Some(tip));
+                self.report_with_ref(src, msg, Some(tip), false);
             }
         }
+    }
+
+    pub fn report_parser_warning(&self, pw: ParseWarning) {
+        self.report_with_ref(&pw.src, pw.msg, None, true);
     }
 
     pub fn report_parser_error(&self, pe: ParseError) {
         match pe {
             ParseError::Expected(msg, src, tip) => {
-                self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip)
+                self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip, false);
             }
             ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => {
                 let msg = "Constant declaration needs an initialization type or value.".to_string();
                 let tip =
                     "The compiler cannot yet back-propagate the type of a constant declaration."
                         .to_string();
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
-            ParseError::CannotParseAnExpressionOrType(src) => {
-                let msg = "An expression or type was required at this point of the program but couldn't find any.".to_string();
-                self.report_with_ref(&src, msg, None);
+            ParseError::CannotParseAnExpression(src) => {
+                let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
+                self.report_with_ref(&src, msg, None, false);
             }
-            ParseError::TooManyFnArgs(src) => {
-                let msg = "Function calls only allow 20 arguments.".to_string();
-                let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
-                self.report_with_ref(&src, msg, Some(tip));
+            ParseError::CannotParseAType(src) => {
+                let msg = "A type was required at this point of the program but couldn't find any."
+                    .to_string();
+                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::MalformedDeclaration(tip, src) => {
                 let msg = "Malformed declaration.".to_string();
-                self.report_with_ref(&src, msg, Some(tip))
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::MisuseOfPubKeyword(src) => {
                 let msg = "Misuse of 'pub' keyword.".to_string();
                 let tip = "'pub' keyword can only be used with function, constant and module declarations."
                     .to_string();
-                self.report_with_ref(&src, msg, Some(tip))
-            }
-            ParseError::TooManyFnParams(src) => {
-                let msg = "Function definitions only allow 256 parameters.".to_string();
-                let tip = "Consider splitting this function into multiple functions that separate the work.".to_string();
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::NoVariableAtCurrentScope(src) => {
                 let mut msg = "Variable declarations are not allowed:\n".to_string();
@@ -322,11 +321,11 @@ impl SourceReporter {
                 let tip =
                     "Consider if this can be declared as a constant (use let instead of mut)."
                         .into();
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::UnterminatedCodeBlock(src, tip) => {
                 let msg = "Code block was not terminated.".to_string();
-                self.report_with_ref(&src, msg, tip);
+                self.report_with_ref(&src, msg, tip, false);
             }
             ParseError::NoCodeBlockAllowedInCurrentContext(src) => {
                 let msg = "Code block is not allowed in this context.".to_string();
@@ -334,37 +333,30 @@ impl SourceReporter {
                 tip.push_str("*  Within type extensions\n");
                 tip.push_str("*  Within modules declarations\n");
                 tip.push_str("*  At the top level of a file.\n");
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::ReturnInstructionOutsideFunction(src) => {
                 let msg = "A return instruction can only be used in a function.".to_string();
-                self.report_with_ref(&src, msg, None);
+                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::NoLoopAtTopLevel(src) => {
                 let msg = "Loop found at top level".to_string();
                 let tip = "Loops are only allowed within functions.".to_string();
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::NoBreakOutsideLoop(src) => {
                 let msg = "A break instruction can only be used inside a loop.".to_string();
-                self.report_with_ref(&src, msg, None);
+                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::NoContinueOutsideLoop(src) => {
                 let msg = "A continue instruction can only be used inside a loop.".to_string();
-                self.report_with_ref(&src, msg, None);
+                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::TooManyErrors(src) => {
                 let msg = "Too many errors during parsing. Stopping.".to_string();
                 let tip =
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
-                self.report_with_ref(&src, msg, Some(tip));
-            }
-            ParseError::TooManyArrayElements(src) => {
-                let msg = "Array declarations only allow 20 elements.".to_string();
-                let tip =
-                    "Consider splitting this array into multiple arrays that separate the work."
-                        .to_string();
-                self.report_with_ref(&src, msg, Some(tip));
+                self.report_with_ref(&src, msg, Some(tip), false);
             }
         }
     }
@@ -379,10 +371,10 @@ impl SourceReporter {
         println!("{}", pastel(&output));
     }
 
-    fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>) {
+    fn report_with_ref(&self, src: &SourceRef, msg: String, tip: Option<String>, is_warning: bool) {
         let err_col = "d_red";
         let tip_col = "l_yellow";
-        let line_col = "l_green";
+        let line_col = if is_warning { tip_col } else { "l_green" };
         let mut output = String::new();
 
         // add provided msg

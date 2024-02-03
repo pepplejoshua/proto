@@ -8,13 +8,17 @@ b :: a + 2;
 // variables
 c := b + a + 4;
 
+d :: (c + a);
+
 // functions
-main :: () -> void {
-  calc : (int) -> int : next.forward;
+main :: fn () -> void {
+  age :: next.forward(23);
+  name :: "joshua";
+  josh := user.(name, age);
 }
 
 // struct type
-user :: {
+user :: struct {
   name : str;
   age : int;
 }

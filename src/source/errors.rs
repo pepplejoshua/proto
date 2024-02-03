@@ -1,6 +1,7 @@
+#![allow(dead_code)]
+
 use super::source::SourceRef;
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum LexError {
     InvalidCharacter(SourceRef),
@@ -11,15 +12,12 @@ pub enum LexError {
     UnterminatedStringLiteral(SourceRef),
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
 pub enum ParseError {
     Expected(String, SourceRef, Option<String>),
     ConstantDeclarationNeedsTypeOrInitValue(SourceRef),
-    CannotParseAnExpressionOrType(SourceRef),
-    TooManyFnArgs(SourceRef),
-    TooManyFnParams(SourceRef),
-    TooManyArrayElements(SourceRef),
+    CannotParseAnExpression(SourceRef),
+    CannotParseAType(SourceRef),
     MalformedDeclaration(String, SourceRef),
     NoVariableAtCurrentScope(SourceRef),
     NoCodeBlockAllowedInCurrentContext(SourceRef),
@@ -37,9 +35,8 @@ impl ParseError {
         match self {
             ParseError::Expected(_, src, _) => src.clone(),
             ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => src.clone(),
-            ParseError::CannotParseAnExpressionOrType(src) => src.clone(),
-            ParseError::TooManyFnArgs(src) => src.clone(),
-            ParseError::TooManyFnParams(src) => src.clone(),
+            ParseError::CannotParseAnExpression(src) => src.clone(),
+            ParseError::CannotParseAType(src) => src.clone(),
             ParseError::MalformedDeclaration(_, src) => src.clone(),
             ParseError::NoCodeBlockAllowedInCurrentContext(src) => src.clone(),
             ParseError::NoLoopAtTopLevel(src) => src.clone(),
@@ -50,14 +47,18 @@ impl ParseError {
             ParseError::ReturnInstructionOutsideFunction(src) => src.clone(),
             ParseError::TooManyErrors(src) => src.clone(),
             ParseError::NoVariableAtCurrentScope(src) => src.clone(),
-            ParseError::TooManyArrayElements(src) => src.clone(),
         }
     }
 }
 
-#[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
-pub enum NameResolutionError {
-    SymbolAlreadyExists(SourceRef),
-    UndefinedSymbol(SourceRef),
+pub struct ParseWarning {
+    pub msg: String,
+    pub src: SourceRef,
+}
+
+impl ParseWarning {
+    pub fn get_warning_src(&self) -> SourceRef {
+        self.src.clone()
+    }
 }
