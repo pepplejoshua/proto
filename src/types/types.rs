@@ -1,5 +1,4 @@
 #![allow(dead_code)]
-use super::{bcode::Index, source::SourceRef};
 
 // this is parsed from user source code and is used to inform the
 // generation of the above and the type checking as well

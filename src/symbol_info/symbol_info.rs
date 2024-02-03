@@ -3,14 +3,15 @@
 
 use std::collections::HashMap;
 
-use crate::frontend::types::ValueType;
+use crate::types::signature::Type;
 
 // these will store the symbols and their types
 pub struct SymbolTable {
     pub parent: Option<Box<SymbolTable>>,
     // symbols will store symbols and their types. variables, constants
     // functions, etc.
-    pub symbols: HashMap<String, ValueType>,
+    pub symbols: HashMap<String, Type>,
+
     // sub_tables will hold structs, enums, etc. since their scopes are
     // self-contained and if their parent scope is Preserved or SelfContained,
     // then their internals will survive scopes. If the enclosing scope is Locals,
@@ -39,16 +40,12 @@ impl SymbolTable {
         self.parent.map(|x| *x)
     }
 
-    pub fn register(&mut self, name: String, val_ty: ValueType) {
+    pub fn register(&mut self, name: String, val_ty: Type) {
         self.symbols.insert(name, val_ty);
     }
 
-    pub fn get(&self, name: &str) -> Option<&ValueType> {
+    pub fn get(&self, name: &str) -> Option<&Type> {
         self.symbols.get(name)
-    }
-
-    pub fn get_mut(&mut self, name: &str) -> Option<&mut ValueType> {
-        self.symbols.get_mut(name)
     }
 
     pub fn check_name(&self, name: &str) -> bool {

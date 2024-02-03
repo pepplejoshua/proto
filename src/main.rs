@@ -5,10 +5,13 @@ use compilation::pipeline::Workspace;
 
 mod compilation;
 mod forge;
-mod frontend;
+mod lexer;
+mod parser;
 mod pastel;
-mod symbol_info;
 mod pir;
+mod source;
+mod symbol_info;
+mod types;
 
 const USAGE: &str = "
 Usage: proto command [options]?

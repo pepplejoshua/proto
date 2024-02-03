@@ -1,8 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::{fs::File, io::Read};
 
-use super::errors::{LexError, ParseError};
-
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
 pub struct SourceFile {
@@ -234,6 +232,8 @@ pub struct SourceReporter {
 
 use crate::pastel::pastel;
 
+use super::errors::{LexError, ParseError};
+
 #[allow(dead_code)]
 impl SourceReporter {
     pub fn new(src: SourceFile) -> SourceReporter {
@@ -361,7 +361,9 @@ impl SourceReporter {
             }
             ParseError::TooManyArrayElements(src) => {
                 let msg = "Array declarations only allow 20 elements.".to_string();
-                let tip = "Consider splitting this array into multiple arrays that separate the work.".to_string();
+                let tip =
+                    "Consider splitting this array into multiple arrays that separate the work."
+                        .to_string();
                 self.report_with_ref(&src, msg, Some(tip));
             }
         }

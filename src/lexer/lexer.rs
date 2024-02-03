@@ -1,6 +1,5 @@
-use super::errors::LexError;
-use super::source::SourceFile;
 use super::token::Token;
+use crate::source::{errors::LexError, source::SourceFile};
 
 #[allow(dead_code)]
 pub struct Lexer {
