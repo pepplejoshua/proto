@@ -3,6 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::pparser::Parser,
+    pchecker::checker::Checker,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -10,7 +11,7 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
-    Forge,
+    Checker,
 }
 
 #[allow(dead_code)]
@@ -43,9 +44,9 @@ impl PipelineConfig {
         if args.len() < 1 {
             return PipelineConfig {
                 cmd: None,
-                backend: Backend::BC,
+                backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Forge,
+                max_stage: Stage::Checker,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -64,17 +65,17 @@ impl PipelineConfig {
                 if args.len() < 1 {
                     return PipelineConfig {
                         cmd: None,
-                        backend: Backend::BC,
+                        backend: Backend::CPP,
                         target_file: "".to_string(),
-                        max_stage: Stage::Forge,
+                        max_stage: Stage::Checker,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
                     };
                 }
                 let target_file = args.next().unwrap();
-                let mut backend = Backend::BC;
-                let mut max_stage = Stage::Forge;
+                let mut backend = Backend::CPP;
+                let mut max_stage = Stage::Checker;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -84,7 +85,7 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "forge" => max_stage = Stage::Forge,
+                        "check" => max_stage = Stage::Checker,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -102,18 +103,18 @@ impl PipelineConfig {
                 }
             }
             "h" | "help" => PipelineConfig {
-                backend: Backend::BC,
+                backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Forge,
+                max_stage: Stage::Checker,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
                 use_pfmt: false,
             },
             _ => PipelineConfig {
-                backend: Backend::BC,
+                backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Forge,
+                max_stage: Stage::Checker,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -224,7 +225,7 @@ impl Workspace {
 
         if self.config.dbg_info {
             reporter.show_info("parsing complete.".to_string());
-            let pcode = parser.pcode;
+            let pcode = parser.pcode.clone();
             let pcode_s = pcode.as_str();
             println!("{}", pcode_s);
         }
@@ -232,5 +233,8 @@ impl Workspace {
         if let Stage::Parser = self.config.max_stage {
             return;
         }
+
+        let checker = Checker::new(parser.pcode);
+        checker.check();
     }
 }

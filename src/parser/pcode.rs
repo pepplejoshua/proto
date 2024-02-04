@@ -308,6 +308,7 @@ impl Ins {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct PCode {
     // top level instructions which will be seen and processed first
     pub top_level: Vec<Ins>,

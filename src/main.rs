@@ -7,7 +7,9 @@ mod compilation;
 mod lexer;
 mod parser;
 mod pastel;
+mod pchecker;
 mod source;
+mod symbol_info;
 mod types;
 
 const USAGE: &str = "

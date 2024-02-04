@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use crate::types::signature::Type;
 
 // these will store the symbols and their types
+#[derive(Clone)]
 pub struct SymbolTable {
     pub parent: Option<Box<SymbolTable>>,
     // symbols will store symbols and their types. variables, constants
