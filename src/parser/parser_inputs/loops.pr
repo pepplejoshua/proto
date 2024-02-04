@@ -1,22 +1,22 @@
-fn main() void {
-}
+// fn main() void {
+//}
 
-fn inf_loop() void {
-    mut sum = 0;
-    mut counter = 0;
-    loop {
-        sum = sum + counter;
-        counter = counter + 1;
-    }
-}
+//fn inf_loop() void {
+    //mut sum = 0;
+    //mut counter = 0;
+    //loop {
+        //sum = sum + counter;
+        //counter = counter + 1;
+    //}
+//}
 
-fn while_loop() void {
-    mut sum = 0;
-    mut counter = 0;
-    while counter < 10 {
-        sum = sum + counter;
-    }
-}
+//fn while_loop() void {
+    //mut sum = 0;
+    //mut counter = 0;
+    //while counter < 10 {
+        //sum = sum + counter;
+    //}
+//}
 
 //fn iter_loop() void {
 //    mut sum = 0;

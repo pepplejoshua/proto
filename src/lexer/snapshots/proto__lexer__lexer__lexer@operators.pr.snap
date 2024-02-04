@@ -1,0 +1,32 @@
+---
+source: src/lexer/lexer.rs
+expression: res
+input_file: src/lexer/lexer_inputs/operators.pr
+---
+stringified_tokens:
+  - "+ at [start_line:0 start_col:0 end_line:0 end_col:1 flat_start:0 flat_end:1]"
+  - "- at [start_line:0 start_col:2 end_line:0 end_col:3 flat_start:2 flat_end:3]"
+  - "* at [start_line:0 start_col:4 end_line:0 end_col:5 flat_start:4 flat_end:5]"
+  - "/ at [start_line:0 start_col:6 end_line:0 end_col:7 flat_start:6 flat_end:7]"
+  - "% at [start_line:0 start_col:8 end_line:0 end_col:9 flat_start:8 flat_end:9]"
+  - "== at [start_line:1 start_col:0 end_line:1 end_col:2 flat_start:10 flat_end:12]"
+  - "!= at [start_line:1 start_col:3 end_line:1 end_col:5 flat_start:13 flat_end:15]"
+  - "< at [start_line:1 start_col:6 end_line:1 end_col:7 flat_start:16 flat_end:17]"
+  - "> at [start_line:1 start_col:8 end_line:1 end_col:9 flat_start:18 flat_end:19]"
+  - "<= at [start_line:1 start_col:10 end_line:1 end_col:12 flat_start:20 flat_end:22]"
+  - ">= at [start_line:1 start_col:13 end_line:1 end_col:15 flat_start:23 flat_end:25]"
+  - "= at [start_line:2 start_col:0 end_line:2 end_col:1 flat_start:26 flat_end:27]"
+  - "&& at [start_line:2 start_col:2 end_line:2 end_col:4 flat_start:28 flat_end:30]"
+  - "|| at [start_line:2 start_col:5 end_line:2 end_col:7 flat_start:31 flat_end:33]"
+  - "! at [start_line:2 start_col:8 end_line:2 end_col:9 flat_start:34 flat_end:35]"
+  - "( at [start_line:3 start_col:0 end_line:3 end_col:1 flat_start:36 flat_end:37]"
+  - ") at [start_line:3 start_col:2 end_line:3 end_col:3 flat_start:38 flat_end:39]"
+  - "{ at [start_line:3 start_col:4 end_line:3 end_col:5 flat_start:40 flat_end:41]"
+  - "} at [start_line:3 start_col:6 end_line:3 end_col:7 flat_start:42 flat_end:43]"
+  - "[ at [start_line:3 start_col:8 end_line:3 end_col:9 flat_start:44 flat_end:45]"
+  - "] at [start_line:3 start_col:10 end_line:3 end_col:11 flat_start:46 flat_end:47]"
+  - "; at [start_line:3 start_col:12 end_line:3 end_col:13 flat_start:48 flat_end:49]"
+  - ": at [start_line:3 start_col:14 end_line:3 end_col:15 flat_start:50 flat_end:51]"
+  - ", at [start_line:3 start_col:16 end_line:3 end_col:17 flat_start:52 flat_end:53]"
+  - ". at [start_line:3 start_col:18 end_line:3 end_col:19 flat_start:54 flat_end:55]"
+

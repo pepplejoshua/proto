@@ -62,14 +62,14 @@ impl Type {
             Sig::U64 => "u64".to_string(),
             Sig::UInt => "uint".to_string(),
             Sig::Function => {
-                let mut s = "(".to_string();
+                let mut s = "fn (".to_string();
                 for (i, sub_type) in self.sub_types.iter().enumerate() {
                     s.push_str(&sub_type.as_str());
                     if i < self.sub_types.len() - 1 {
                         s.push_str(", ");
                     }
                 }
-                s.push_str(") -> ");
+                s.push_str(") ");
                 s.push_str(&self.sub_types.last().unwrap().as_str());
                 s
             }

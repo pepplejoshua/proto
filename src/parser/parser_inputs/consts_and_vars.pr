@@ -1,8 +1,8 @@
-let a i8 = 32;
-let c = false;
-let e usize = 0;
+a : i8 : 32;
+c := false;
+e : uint = 0;
 
-fn main() void {
-    mut b = a;
-    mut d = !c;
+main :: fn () void {
+    b := a;
+    d :: !c;
 }

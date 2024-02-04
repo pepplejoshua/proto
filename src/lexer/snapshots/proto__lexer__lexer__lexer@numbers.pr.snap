@@ -1,0 +1,16 @@
+---
+source: src/lexer/lexer.rs
+expression: res
+input_file: src/lexer/lexer_inputs/numbers.pr
+---
+stringified_tokens:
+  - "128 at [start_line:0 start_col:0 end_line:0 end_col:3 flat_start:0 flat_end:3]"
+  - "127 at [start_line:0 start_col:4 end_line:0 end_col:7 flat_start:4 flat_end:7]"
+  - "32768 at [start_line:0 start_col:8 end_line:0 end_col:14 flat_start:8 flat_end:14]"
+  - "32767 at [start_line:0 start_col:15 end_line:0 end_col:21 flat_start:15 flat_end:21]"
+  - "2147483648 at [start_line:0 start_col:22 end_line:0 end_col:35 flat_start:22 flat_end:35]"
+  - "2147483647 at [start_line:0 start_col:36 end_line:0 end_col:49 flat_start:36 flat_end:49]"
+  - "9223372036854775808 at [start_line:0 start_col:50 end_line:0 end_col:75 flat_start:50 flat_end:75]"
+  - "9223372036854775807 at [start_line:0 start_col:76 end_line:0 end_col:101 flat_start:76 flat_end:101]"
+  - "18446744073709551615 at [start_line:0 start_col:102 end_line:0 end_col:128 flat_start:102 flat_end:128]"
+

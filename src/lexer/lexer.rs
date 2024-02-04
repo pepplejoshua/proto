@@ -97,7 +97,7 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' | '@' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '@' | '|' | '&' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
@@ -124,13 +124,16 @@ impl Lexer {
     }
 
     // a multi line string fragment is a string fragment that is
-    // preceded by "||". It goes till the end of the line
+    // preceded by "---". It goes till the end of the line
     fn lex_multi_line_string_fragment(&mut self) -> Result<Token, LexError> {
         let mut content = String::new();
         let mut span = self.src.get_ref();
-        // skip both '|' characters
+        // skip the remaining 2 '-' characters out of the 3
+        // the first one was already consumed by lex_operator()
         self.src.next_char();
         self.src.next_char();
+        self.src.next_char();
+
         span = span.combine(self.src.get_ref());
 
         while !self.src.is_eof() {
@@ -186,9 +189,6 @@ impl Lexer {
             "return" => Ok(Token::Return(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
 
-            "&&" => Ok(Token::And(combined_ref)),
-            "||" => Ok(Token::Or(combined_ref)),
-
             "i8" => Ok(Token::I8(combined_ref)),
             "i16" => Ok(Token::I16(combined_ref)),
             "i32" => Ok(Token::I32(combined_ref)),
@@ -222,6 +222,18 @@ impl Lexer {
                 Ok(Token::Plus(cur_ref.combine(self.src.get_ref())))
             }
             '-' => {
+                // if the next character is a '-',
+                // if self.src.peek_char() == '-' {
+                //     self.src.next_char();
+                //     // look for the next '-' character
+                //     if self.src.peek_char() == '-' {
+                //         return self.lex_multi_line_string_fragment();
+                //     } else {
+                //         return Err(LexError::InvalidCharacter(
+                //             cur_ref.combine(self.src.get_ref()),
+                //         ));
+                //     }
+                // }
                 self.src.next_char();
                 Ok(Token::Minus(cur_ref.combine(self.src.get_ref())))
             }
@@ -236,15 +248,6 @@ impl Lexer {
                 }
                 self.src.next_char();
                 Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
-            }
-            '|' => {
-                // if the next character is a '|', lex a multi line string fragment
-                if self.src.peek_char() == '|' {
-                    return self.lex_multi_line_string_fragment();
-                }
-                Err(LexError::InvalidCharacter(
-                    cur_ref.combine(self.src.get_ref()),
-                ))
             }
             '%' => {
                 self.src.next_char();
@@ -268,6 +271,32 @@ impl Lexer {
                 // otherwise, return a Not operator
                 self.src.next_char();
                 Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
+            }
+            '&' => {
+                // if the next character is a '&', return a And operator
+                let c = self.src.peek_char();
+                if c == '&' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::And(cur_ref.combine(self.src.get_ref())));
+                }
+                // otherwise, return an error
+                Err(LexError::InvalidCharacter(
+                    cur_ref.combine(self.src.get_ref()),
+                ))
+            }
+            '|' => {
+                // if the next character is a '|', return a Or operator
+                let c = self.src.peek_char();
+                if c == '|' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::Or(cur_ref.combine(self.src.get_ref())));
+                }
+                // otherwise, return an error
+                Err(LexError::InvalidCharacter(
+                    cur_ref.combine(self.src.get_ref()),
+                ))
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator

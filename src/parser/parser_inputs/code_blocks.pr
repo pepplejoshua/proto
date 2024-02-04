@@ -1,7 +1,7 @@
-fn main() void {
-    let a = 4;
+main :: fn () void {
+    a :: 4;
     {
-        mut b = a;
+        b := a;
         {
         }
     }

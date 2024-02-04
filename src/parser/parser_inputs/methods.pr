@@ -1,17 +1,17 @@
-let Person = struct {
-    mut name str;
-    mut age i8;
+Person :: struct {
+    name : str;
+    age : i8;
 
-    pub fn get_name(self Person) str {
-        return name;
+    get_name : fn() str {
+        return self.name;
     }
 
-    pub fn get_age(self Person) i8 {
-        return age;
+    get_age : fn () i8 {
+        return self.age;
     }
 };
 
-let p = Person {
-    name = "John",
-    age = 32,
-};
+p :: Person.(
+    name: "John",
+    age: 32,
+);

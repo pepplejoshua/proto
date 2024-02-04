@@ -1,0 +1,12 @@
+---
+source: src/lexer/lexer.rs
+expression: res
+input_file: src/lexer/lexer_inputs/identifiers.pr
+---
+stringified_tokens:
+  - "_some_id at [start_line:0 start_col:0 end_line:0 end_col:8 flat_start:0 flat_end:8]"
+  - "proto at [start_line:0 start_col:9 end_line:0 end_col:14 flat_start:9 flat_end:14]"
+  - "pastel at [start_line:0 start_col:15 end_line:0 end_col:21 flat_start:15 flat_end:21]"
+  - "yahoo1234567890_ at [start_line:0 start_col:22 end_line:0 end_col:38 flat_start:22 flat_end:38]"
+  - "ident2sameIdent at [start_line:0 start_col:39 end_line:0 end_col:54 flat_start:39 flat_end:54]"
+

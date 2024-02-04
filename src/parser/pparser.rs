@@ -239,6 +239,31 @@ impl Parser {
             // - module:
             // name :: mod { variable init | constant init | function header | function definition | struct }
             Expr::Ident { name, loc } => {
+                if matches!(self.cur_token(), Token::Assign(_)) {
+                    // variable assignment
+                    let mut span = loc.clone().combine(self.cur_token().get_source_ref());
+                    self.advance();
+
+                    let value = self.parse_expr();
+                    let value_span = self.pcode.get_source_ref_expr(value);
+                    span = span.combine(value_span);
+                    // we need to skip past the semi colon
+                    if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a semicolon to terminate the assignment.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    } else {
+                        span = span.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    }
+                    return self.add_ins(Ins::AssignTo {
+                        lhs: left_i,
+                        rhs: value,
+                        loc: span,
+                    });
+                }
                 let loc = loc.clone();
                 let mut cur = self.cur_token();
                 let mut span = loc.combine(cur.get_source_ref());
@@ -345,7 +370,18 @@ impl Parser {
                         let right = self.pcode.get_expr(right_i);
                         let left_span = self.pcode.get_source_ref_expr(left_i);
                         let right_span = self.pcode.get_source_ref_expr(right_i);
-                        let span = left_span.combine(right_span);
+                        let mut span = left_span.combine(right_span);
+                        // we need to skip past the semi colon
+                        if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the assignment.".to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance();
+                        }
                         self.add_ins(Ins::AssignTo {
                             lhs: left_i,
                             rhs: right_i,
@@ -495,36 +531,6 @@ impl Parser {
             ));
         }
 
-        let cur_t = self.cur_token();
-        if !matches!(cur_t, Token::Minus(_)) {
-            self.report_error(ParseError::Expected(
-                "an arrow to separate the argument types from the return type.".to_string(),
-                cur_t.get_source_ref(),
-                None,
-            ));
-            return self.pcode.add_expr(Expr::ErrorNode {
-                expectation: "an arrow to separate the argument types from the return type."
-                    .to_string(),
-                loc: span,
-            });
-        }
-
-        self.advance();
-        let cur_t = self.cur_token();
-        if !matches!(cur_t, Token::Greater(_)) {
-            self.report_error(ParseError::Expected(
-                "an arrow to separate the argument types from the return type.".to_string(),
-                cur_t.get_source_ref(),
-                None,
-            ));
-            return self.pcode.add_expr(Expr::ErrorNode {
-                expectation: "an arrow to separate the argument types from the return type."
-                    .to_string(),
-                loc: span,
-            });
-        }
-
-        self.advance();
         let ret_type = self.parse_type();
         let ret_span = ret_type.loc.clone();
         span = span.combine(ret_span);
@@ -756,11 +762,13 @@ impl Parser {
                 self.advance();
                 let mut args = vec![];
                 while !self.at_eof() {
-                    let cur = self.cur_token();
+                    let mut cur = self.cur_token();
                     if !matches!(cur, Token::RParen(_)) {
                         let arg = self.parse_type();
                         args.push(arg);
                     }
+
+                    cur = self.cur_token();
 
                     if matches!(cur, Token::RParen(_)) {
                         break;
@@ -789,40 +797,6 @@ impl Parser {
                     ));
                 }
 
-                let cur_t = self.cur_token();
-                if !matches!(cur_t, Token::Minus(_)) {
-                    self.report_error(ParseError::Expected(
-                        "an arrow to separate the argument types from the return type.".to_string(),
-                        cur_t.get_source_ref(),
-                        None,
-                    ));
-                    return Type {
-                        tag: Sig::ErrorType,
-                        name: None,
-                        sub_types: vec![],
-                        aux_type: None,
-                        loc: span,
-                    };
-                }
-
-                self.advance();
-                let cur_t = self.cur_token();
-                if !matches!(cur_t, Token::Greater(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a right parenthesis to terminate the list of argument types.".to_string(),
-                        cur_t.get_source_ref(),
-                        None,
-                    ));
-                    return Type {
-                        tag: Sig::ErrorType,
-                        name: None,
-                        sub_types: vec![],
-                        aux_type: None,
-                        loc: span,
-                    };
-                }
-
-                self.advance();
                 let ret_type = self.parse_type();
                 let ret_span = ret_type.loc.clone();
                 span = span.combine(ret_span);

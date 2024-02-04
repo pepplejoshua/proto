@@ -1,0 +1,32 @@
+---
+source: src/lexer/lexer.rs
+expression: res
+input_file: src/lexer/lexer_inputs/keywords.pr
+---
+stringified_tokens:
+  - "fn at [start_line:0 start_col:0 end_line:0 end_col:2 flat_start:0 flat_end:2]"
+  - "mut at [start_line:0 start_col:3 end_line:0 end_col:6 flat_start:3 flat_end:6]"
+  - "if at [start_line:0 start_col:7 end_line:0 end_col:9 flat_start:7 flat_end:9]"
+  - "else at [start_line:0 start_col:10 end_line:0 end_col:14 flat_start:10 flat_end:14]"
+  - "for at [start_line:0 start_col:15 end_line:0 end_col:18 flat_start:15 flat_end:18]"
+  - "loop at [start_line:1 start_col:0 end_line:1 end_col:4 flat_start:19 flat_end:23]"
+  - "while at [start_line:1 start_col:5 end_line:1 end_col:10 flat_start:24 flat_end:29]"
+  - "void at [start_line:1 start_col:11 end_line:1 end_col:15 flat_start:30 flat_end:34]"
+  - "true at [start_line:1 start_col:16 end_line:1 end_col:20 flat_start:35 flat_end:39]"
+  - "false at [start_line:1 start_col:21 end_line:1 end_col:26 flat_start:40 flat_end:45]"
+  - "i8 at [start_line:2 start_col:0 end_line:2 end_col:2 flat_start:46 flat_end:48]"
+  - "i16 at [start_line:2 start_col:3 end_line:2 end_col:6 flat_start:49 flat_end:52]"
+  - "i32 at [start_line:2 start_col:7 end_line:2 end_col:10 flat_start:53 flat_end:56]"
+  - "i64 at [start_line:2 start_col:11 end_line:2 end_col:14 flat_start:57 flat_end:60]"
+  - "int at [start_line:2 start_col:15 end_line:2 end_col:18 flat_start:61 flat_end:64]"
+  - "u8 at [start_line:3 start_col:0 end_line:3 end_col:2 flat_start:65 flat_end:67]"
+  - "u16 at [start_line:3 start_col:3 end_line:3 end_col:6 flat_start:68 flat_end:71]"
+  - "u32 at [start_line:3 start_col:7 end_line:3 end_col:10 flat_start:72 flat_end:75]"
+  - "u64 at [start_line:3 start_col:11 end_line:3 end_col:14 flat_start:76 flat_end:79]"
+  - "uint at [start_line:3 start_col:15 end_line:3 end_col:19 flat_start:80 flat_end:84]"
+  - "bool at [start_line:4 start_col:0 end_line:4 end_col:4 flat_start:85 flat_end:89]"
+  - "char at [start_line:4 start_col:5 end_line:4 end_col:9 flat_start:90 flat_end:94]"
+  - "return at [start_line:5 start_col:0 end_line:5 end_col:6 flat_start:96 flat_end:102]"
+  - "mod at [start_line:5 start_col:7 end_line:5 end_col:10 flat_start:103 flat_end:106]"
+  - "struct at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:107 flat_end:113]"
+
