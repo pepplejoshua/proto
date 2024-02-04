@@ -225,7 +225,8 @@ impl Workspace {
         if self.config.dbg_info {
             reporter.show_info("parsing complete.".to_string());
             let pcode = parser.pcode;
-            pcode.show_program();
+            let pcode_s = pcode.as_str();
+            println!("{}", pcode_s);
         }
 
         if let Stage::Parser = self.config.max_stage {

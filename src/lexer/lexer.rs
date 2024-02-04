@@ -486,12 +486,14 @@ impl Lexer {
     }
 }
 
+#[cfg(test)]
 #[allow(dead_code)]
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct LexerTestResult {
     stringified_tokens: Vec<String>,
 }
 
+#[cfg(test)]
 #[test]
 fn test_lexer() {
     insta::glob!("lexer_inputs/*.pr", |path| {

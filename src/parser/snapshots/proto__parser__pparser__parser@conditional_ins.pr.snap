@@ -1,0 +1,24 @@
+---
+source: src/parser/pparser.rs
+expression: result
+input_file: src/parser/parser_inputs/conditional_ins.pr
+---
+pcode:
+  - "Constant main : <infer> : fn () void "
+  - Block
+  - "Variable a : <infer> = 0"
+  - "Variable b : <infer> = \"windows\""
+  - "Comment // if b == \"windows\" {"
+  - Comment //        a = 1;
+  - "Comment // } else if b == \"linux\" {"
+  - Comment //        a = 2;
+  - "Comment // } else if b == \"mac\" {"
+  - Comment //        a = 3;
+  - "Comment // } else {"
+  - Comment //        a = 4;
+  - "Comment //}"
+  - EndBlock
+lexer_errors: []
+parser_errors: []
+parse_warning: []
+

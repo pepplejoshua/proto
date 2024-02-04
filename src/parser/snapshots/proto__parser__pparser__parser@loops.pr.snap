@@ -1,0 +1,34 @@
+---
+source: src/parser/pparser.rs
+expression: result
+input_file: src/parser/parser_inputs/loops.pr
+---
+pcode:
+  - "Comment // fn main() void {"
+  - "Comment //}"
+  - "Comment //fn inf_loop() void {"
+  - Comment //mut sum = 0;
+  - Comment //mut counter = 0;
+  - "Comment //loop {"
+  - Comment //sum = sum + counter;
+  - Comment //counter = counter + 1;
+  - "Comment //}"
+  - "Comment //}"
+  - "Comment //fn while_loop() void {"
+  - Comment //mut sum = 0;
+  - Comment //mut counter = 0;
+  - "Comment //while counter < 10 {"
+  - Comment //sum = sum + counter;
+  - "Comment //}"
+  - "Comment //}"
+  - "Comment //fn iter_loop() void {"
+  - Comment //    mut sum = 0;
+  - Comment //    todo when iterators can be implemented as traits
+  - "Comment //    foreach counter in 0..10 {"
+  - Comment //        sum = sum + counter;
+  - "Comment //    }"
+  - "Comment //}"
+lexer_errors: []
+parser_errors: []
+parse_warning: []
+

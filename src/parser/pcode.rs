@@ -326,22 +326,21 @@ impl PCode {
         }
     }
 
-    pub fn show_program(&self) {
+    pub fn as_str(&self) -> String {
+        let mut lines = vec![];
         for ins in &self.top_level {
-            let ins = self.show_ins(ins, 0);
-            if ins.is_empty() {
-                continue;
-            }
-            println!("{ins}");
+            let ins = self.show_ins(ins);
+            lines.push(ins);
         }
+
+        lines.join("\n")
     }
 
-    pub fn show_ins(&self, ins: &Ins, indent: usize) -> String {
+    pub fn show_ins(&self, ins: &Ins) -> String {
         match ins {
             Ins::NewConstant { name, ty, val, .. } => {
                 format!(
-                    "{}{} : {} : {}",
-                    " ".repeat(indent),
+                    "Constant {} : {} : {}",
                     name,
                     ty.as_str(),
                     self.show_expr(&self.exprs[*val])
@@ -349,8 +348,7 @@ impl PCode {
             }
             Ins::NewVariable { name, ty, val, loc } => {
                 format!(
-                    "{}{} : {} = {};",
-                    " ".repeat(indent),
+                    "Variable {} : {} = {}",
                     name,
                     ty.as_str(),
                     if let Some(val) = val {
@@ -361,49 +359,40 @@ impl PCode {
                 )
             }
             Ins::NewBlock { code, loc } => {
-                let mut res = format!("{}{{\n", " ".repeat(indent));
+                let mut res = format!("\nBlock\n");
                 for ins_loc in code {
-                    res.push_str(&self.show_ins(&self.sub_ins[ins_loc.1], indent + 4));
+                    res.push_str(&self.show_ins(&self.sub_ins[ins_loc.1]));
                     res.push('\n');
                 }
-                res.push_str(&format!("{}}}", " ".repeat(indent)));
+                res.push_str(&format!("EndBlock"));
                 res
             }
             Ins::ExprIns { expr, loc } => {
-                format!(
-                    "{}{};",
-                    " ".repeat(indent),
-                    self.show_expr(&self.exprs[*expr])
-                )
+                format!("ExprIns {}", self.show_expr(&self.exprs[*expr]))
             }
             Ins::ErrorNode { expectation, loc } => {
-                format!("{}<ERROR!>: {}", " ".repeat(indent), expectation)
+                format!("Error: {}", expectation)
             }
             Ins::AssignTo { lhs, rhs, loc } => {
                 format!(
-                    "{}{} = {};",
-                    " ".repeat(indent),
+                    "AssignTo {} = {}",
                     self.show_expr(&self.exprs[*lhs]),
                     self.show_expr(&self.exprs[*rhs])
                 )
             }
             Ins::Directive { name, ins, loc } => {
-                format!(
-                    "{}@{}\n{};",
-                    " ".repeat(indent),
-                    name,
-                    self.show_ins(&self.get_ins(ins), indent)
-                )
+                format!("@{} {};", name, self.show_ins(&self.get_ins(ins)))
             }
-            Ins::Comment { comment, loc } => "".to_string(),
+            Ins::Comment { comment, loc } => {
+                format!("Comment {}", comment)
+            }
             Ins::Return { expr, loc } => {
                 format!(
-                    "{}return {};",
-                    " ".repeat(indent),
+                    "Return {};",
                     if let Some(expr) = expr {
                         self.show_expr(&self.exprs[*expr])
                     } else {
-                        "void".to_string()
+                        "".to_string()
                     }
                 )
             }
@@ -571,15 +560,15 @@ impl PCode {
                     ));
                 }
                 res.push_str(&arg_str.join(", "));
-                res.push_str(&format!(") -> {} ", ret_ty.as_str()));
-                res.push_str(&self.show_ins(&self.get_ins(code), 0));
+                res.push_str(&format!(") {} ", ret_ty.as_str()));
+                res.push_str(&self.show_ins(&self.get_ins(code)));
                 res
             }
             Expr::NewStruct { name, code, loc } => {
-                format!("struct {}", self.show_ins(&self.get_ins(code), 0))
+                format!("struct {}", self.show_ins(&self.get_ins(code)))
             }
             Expr::NewModule { name, code, loc } => {
-                format!("module {}", self.show_ins(&self.get_ins(code), 0))
+                format!("mod {}", self.show_ins(&self.get_ins(code)))
             }
             Expr::CallFunction { func, args, loc } => {
                 let mut res = format!("{}(", self.show_expr(&self.exprs[*func]));
@@ -609,7 +598,7 @@ impl PCode {
                 res
             }
             Expr::ErrorNode { expectation, loc } => {
-                format!("<ERROR!>: {}", expectation)
+                format!("Error: {}", expectation)
             }
         }
     }

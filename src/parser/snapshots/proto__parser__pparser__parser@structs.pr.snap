@@ -1,0 +1,38 @@
+---
+source: src/parser/pparser.rs
+expression: result
+input_file: src/parser/parser_inputs/structs.pr
+---
+pcode:
+  - Comment // This is a sample for user defined structs
+  - Comment // simple struct that uses defaults
+  - "Constant SourceFile : <infer> : struct "
+  - Block
+  - "Variable path : str = undefined"
+  - "Variable text : str = undefined"
+  - "Constant version : <infer> : 1"
+  - "Constant DiagInfo : <infer> : struct "
+  - Block
+  - "Variable error : str = undefined"
+  - "Variable flat_index : uint = undefined"
+  - "Variable col : uint = undefined"
+  - "Variable snippet : str = undefined"
+  - "Variable line : uint = undefined"
+  - EndBlock
+  - "Constant new : <infer> : fn () SourceFile "
+  - Block
+  - "Return SourceFile.(path: \"\", text: \"\");"
+  - EndBlock
+  - EndBlock
+  - "Constant main : <infer> : fn () void "
+  - Block
+  - "Comment // since we allow defaults, we can focus on the"
+  - Comment // members we care about initializing
+  - "Variable srcA : <infer> = SourceFile.(path: \"srcA\", text: \"textA\")"
+  - "Variable srcB : <infer> = SourceFile.new()"
+  - "Constant DiagnosticInfo : <infer> : SourceFile.DiagInfo"
+  - EndBlock
+lexer_errors: []
+parser_errors: []
+parse_warning: []
+

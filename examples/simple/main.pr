@@ -19,6 +19,10 @@ main :: fn () void {
 
 }
 
+dud :: fn () void {
+  return;
+}
+
 // struct type
 user :: struct {
   name : str;

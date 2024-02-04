@@ -159,7 +159,6 @@ impl Parser {
                     if matches!(cur, Token::Semicolon(_)) {
                         self.advance();
                         let span = cur.get_source_ref();
-                        self.advance();
                         self.add_ins(Ins::Return {
                             expr: None,
                             loc: span,
@@ -1388,4 +1387,48 @@ impl Parser {
             }
         }
     }
+}
+
+#[cfg(test)]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ParserTestResult {
+    pcode: Vec<String>,
+    lexer_errors: Vec<LexError>,
+    parser_errors: Vec<ParseError>,
+    parse_warning: Vec<ParseWarning>,
+}
+
+#[cfg(test)]
+#[test]
+fn test_parser() {
+    use crate::source::source::SourceFile;
+
+    insta::glob!("parser_inputs/*.pr", |path| {
+        // build the SourceFile from the proto file path
+        let path = path.to_str().unwrap().to_string();
+        let src = SourceFile::new(path);
+
+        // build the lexer
+        let lexer = Lexer::new(src);
+        let mut parser = Parser::new(lexer);
+
+        parser.parse_file();
+        let pcode = parser.pcode.as_str();
+        let pcode = pcode
+            .split("\n")
+            .map(|s| s.to_string())
+            .collect::<Vec<String>>();
+        let lexer_errors = parser.lex_errors.clone();
+        let parser_errors = parser.parse_errors.clone();
+        let parse_warning = parser.parse_warnings.clone();
+
+        let result = ParserTestResult {
+            pcode,
+            lexer_errors,
+            parser_errors,
+            parse_warning,
+        };
+
+        insta::assert_yaml_snapshot!(result);
+    });
 }

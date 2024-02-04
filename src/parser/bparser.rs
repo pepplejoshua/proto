@@ -1391,6 +1391,7 @@ impl Parser {
 }
 
 #[allow(dead_code)]
+#[test]
 #[derive(serde::Deserialize, serde::Serialize, Debug)]
 struct ParserTestResult {
     code: String,

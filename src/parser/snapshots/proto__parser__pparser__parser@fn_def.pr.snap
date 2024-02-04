@@ -1,0 +1,23 @@
+---
+source: src/parser/pparser.rs
+expression: result
+input_file: src/parser/parser_inputs/fn_def.pr
+---
+pcode:
+  - "Constant add : <infer> : fn (a: i64, b: i64) i64 "
+  - Block
+  - Return a + b;
+  - EndBlock
+  - "Constant do_nothing : <infer> : fn () void "
+  - Block
+  - EndBlock
+  - "Constant do_nothing_ : <infer> : fn () void Return 1;"
+  - "Comment // prototype :: fn () i64;"
+  - "Constant returns_nothing : <infer> : fn () void "
+  - Block
+  - Return ;
+  - EndBlock
+lexer_errors: []
+parser_errors: []
+parse_warning: []
+

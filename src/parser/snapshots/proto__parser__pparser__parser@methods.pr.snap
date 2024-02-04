@@ -1,0 +1,24 @@
+---
+source: src/parser/pparser.rs
+expression: result
+input_file: src/parser/parser_inputs/methods.pr
+---
+pcode:
+  - "Constant Person : <infer> : struct "
+  - Block
+  - "Variable name : str = undefined"
+  - "Variable age : i8 = undefined"
+  - "Constant get_name : <infer> : fn () str "
+  - Block
+  - Return self.name;
+  - EndBlock
+  - "Constant get_age : <infer> : fn () i8 "
+  - Block
+  - Return self.age;
+  - EndBlock
+  - EndBlock
+  - "Constant p : <infer> : Person.(name: \"John\", age: 32)"
+lexer_errors: []
+parser_errors: []
+parse_warning: []
+

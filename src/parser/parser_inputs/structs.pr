@@ -11,16 +11,16 @@ SourceFile :: struct {
         flat_index: uint;
         col: uint;
         snippet: str;
-        line uint,
-    };
+        line: uint;
+    }
 
     new :: fn () SourceFile {
         return SourceFile.(
             path: "",
-            text: "",
+            text: ""
         );
     }
-};
+}
 
 main :: fn () void {
     // since we allow defaults, we can focus on the
