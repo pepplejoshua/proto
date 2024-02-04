@@ -433,8 +433,13 @@ impl Parser {
 
         let mut args = vec![];
         while !self.at_eof() {
-            let cur = self.cur_token();
+            let mut cur = self.cur_token();
             if !matches!(cur, Token::RParen(_)) {
+                // TODO(@pepplejoshua): determine if this is required
+                // if args.len() == 0 && matches!(self.scope, ParseScope::Struct) {
+                // since we are in a struct, we can determine if the first
+                // argument is a self reference or not
+                // }
                 // parse identifier and the type
                 let arg_name = self.parse_ident();
                 let arg_name_span = self.pcode.get_expr(arg_name).get_source_ref();
@@ -460,6 +465,8 @@ impl Parser {
                     loc: arg_span,
                 })
             }
+
+            cur = self.cur_token();
 
             if matches!(cur, Token::RParen(_)) {
                 break;
@@ -1112,7 +1119,7 @@ impl Parser {
                         ));
                     }
 
-                    left = self.pcode.add_expr(Expr::CallFn {
+                    left = self.pcode.add_expr(Expr::CallFunction {
                         func: left,
                         args,
                         loc: span,

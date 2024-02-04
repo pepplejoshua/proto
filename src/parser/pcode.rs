@@ -164,7 +164,7 @@ pub enum Expr {
         code: InsLoc,
         loc: SourceRef,
     },
-    CallFn {
+    CallFunction {
         // function name
         func: ExprLoc,
         // function arguments
@@ -223,7 +223,7 @@ impl Expr {
             Expr::NewStruct { loc, .. } => loc.clone(),
             Expr::NewModule { loc, .. } => loc.clone(),
             Expr::ErrorNode { loc, .. } => loc.clone(),
-            Expr::CallFn { loc, .. } => loc.clone(),
+            Expr::CallFunction { loc, .. } => loc.clone(),
             Expr::IndexArray { loc, .. } => loc.clone(),
             Expr::Directive { loc, .. } => loc.clone(),
         }
@@ -581,7 +581,7 @@ impl PCode {
             Expr::NewModule { name, code, loc } => {
                 format!("module {}", self.show_ins(&self.get_ins(code), 0))
             }
-            Expr::CallFn { func, args, loc } => {
+            Expr::CallFunction { func, args, loc } => {
                 let mut res = format!("{}(", self.show_expr(&self.exprs[*func]));
                 let mut arg_str = vec![];
                 for arg in args {

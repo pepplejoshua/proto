@@ -1,4 +1,5 @@
 @use("next");
+
 // constants
 a : int : 1;
 b :: a + 2;
@@ -19,7 +20,7 @@ user :: struct {
   age : int;
 
   get_name :: fn () -> str {
-    return name;
+    return self.name;
   }
 }
 
