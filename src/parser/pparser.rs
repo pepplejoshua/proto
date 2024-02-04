@@ -132,19 +132,67 @@ impl Parser {
 
     pub fn parse_file(&mut self) {
         while !self.at_eof() {
-            self.next_instruction();
+            self.next_instruction(true);
         }
     }
 
-    fn next_instruction(&mut self) -> InsLoc {
+    fn next_instruction(&mut self, change_scope: bool) -> InsLoc {
         let cur = self.cur_token();
         match cur {
             Token::SingleLineComment(src, comment) => {
                 self.advance();
                 self.add_ins(Ins::Comment { comment, loc: src })
             }
+            Token::Return(_) => {
+                if !matches!(self.scope, ParseScope::Function) {
+                    self.report_error(ParseError::ReturnInstructionOutsideFunction(
+                        cur.get_source_ref(),
+                    ));
+                    self.add_ins(Ins::ErrorNode {
+                        expectation: "a return statement".to_string(),
+                        loc: cur.get_source_ref(),
+                    })
+                } else {
+                    self.advance();
+                    // we need to check if there is a semicolon
+                    let cur = self.cur_token();
+                    if matches!(cur, Token::Semicolon(_)) {
+                        self.advance();
+                        let span = cur.get_source_ref();
+                        self.advance();
+                        self.add_ins(Ins::Return {
+                            expr: None,
+                            loc: span,
+                        })
+                    } else {
+                        let value = self.parse_expr();
+                        let value_span = self.pcode.get_source_ref_expr(value);
+                        let mut span = cur.get_source_ref().combine(value_span);
+
+                        // we need to skip past the semi colon
+                        let cur_t = self.cur_token();
+                        if !matches!(cur_t, Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the return statement.".to_string(),
+                                cur_t.get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(cur_t.get_source_ref());
+                            self.advance();
+                        }
+                        self.add_ins(Ins::Return {
+                            expr: Some(value),
+                            loc: span,
+                        })
+                    }
+                }
+            }
             Token::LCurly(_) => {
-                if matches!(self.scope, ParseScope::Global) {
+                if matches!(
+                    self.scope,
+                    ParseScope::Global | ParseScope::Mod | ParseScope::Struct
+                ) {
                     self.report_error(ParseError::NoCodeBlockAllowedInCurrentContext(
                         cur.get_source_ref(),
                     ));
@@ -153,7 +201,7 @@ impl Parser {
                         loc: cur.get_source_ref(),
                     })
                 } else {
-                    self.parse_block()
+                    self.parse_block(change_scope)
                 }
             }
             _ => self.parse_ins(),
@@ -215,7 +263,7 @@ impl Parser {
                 cur = self.cur_token();
 
                 // get type
-                let ident_ty = if matches!(cur, Token::Colon(_) | Token::Assign(_)) {
+                let ident_ty = if !matches!(cur, Token::Colon(_) | Token::Assign(_)) {
                     let ty = self.parse_type();
                     let ty_span = ty.loc.clone();
                     span = loc.combine(ty_span);
@@ -476,7 +524,7 @@ impl Parser {
 
         let scope = self.scope;
         self.scope = ParseScope::Function;
-        let body = self.next_instruction();
+        let body = self.next_instruction(false);
         self.scope = scope;
         let body_span = self.pcode.get_source_ref(body);
         span = span.combine(body_span);
@@ -498,7 +546,7 @@ impl Parser {
 
         let scope = self.scope;
         self.scope = ParseScope::Struct;
-        let block = self.parse_block();
+        let block = self.parse_block(false);
         self.scope = scope;
         let block_span = self.pcode.get_source_ref(block);
         span = span.combine(block_span);
@@ -518,7 +566,7 @@ impl Parser {
 
         let scope = self.scope;
         self.scope = ParseScope::Mod;
-        let block = self.parse_block();
+        let block = self.parse_block(false);
         self.scope = scope;
         let block_span = self.pcode.get_source_ref(block);
         span = span.combine(block_span);
@@ -530,27 +578,34 @@ impl Parser {
         })
     }
 
-    fn parse_block(&mut self) -> InsLoc {
+    fn parse_block(&mut self, change_scope: bool) -> InsLoc {
         let start = self.cur_token();
         let mut span = start.get_source_ref();
         self.advance();
 
         let mut code = vec![];
+
+        let scope = if change_scope {
+            let temp = self.scope;
+            self.scope = ParseScope::Block;
+            temp
+        } else {
+            self.scope
+        };
         while !self.at_eof() {
             let cur = self.cur_token();
-            if matches!(cur, Token::RBracket(_)) {
+            if matches!(cur, Token::RCurly(_)) {
                 span = span.combine(cur.get_source_ref());
-                self.advance();
                 break;
             }
 
-            let scope = self.scope;
-            self.scope = ParseScope::Block;
-            let ins = self.next_instruction();
-            self.scope = scope;
+            let ins = self.next_instruction(true);
             let ins_span = self.pcode.get_source_ref(ins);
             span = span.combine(ins_span);
             code.push(ins);
+        }
+        if change_scope {
+            self.scope = scope;
         }
 
         if !matches!(self.cur_token(), Token::RCurly(_)) {
@@ -1094,7 +1149,7 @@ impl Parser {
                         self.advance();
                         let mut fields = vec![];
                         while !self.at_eof() {
-                            let cur = self.cur_token();
+                            let mut cur = self.cur_token();
 
                             if !matches!(cur, Token::RParen(_)) {
                                 // field : value | field : field
@@ -1107,6 +1162,8 @@ impl Parser {
                                 };
                                 fields.push((field, value));
                             }
+
+                            cur = self.cur_token();
 
                             if matches!(cur, Token::RParen(_)) {
                                 break;

@@ -285,6 +285,11 @@ pub enum Ins {
         comment: String,
         loc: SourceRef,
     },
+    Return {
+        // some expression to return
+        expr: Option<ExprLoc>,
+        loc: SourceRef,
+    },
 }
 
 impl Ins {
@@ -298,6 +303,7 @@ impl Ins {
             Ins::AssignTo { loc, .. } => loc.clone(),
             Ins::Directive { loc, .. } => loc.clone(),
             Ins::Comment { loc, .. } => loc.clone(),
+            Ins::Return { loc, .. } => loc.clone(),
         }
     }
 }
@@ -334,7 +340,7 @@ impl PCode {
         match ins {
             Ins::NewConstant { name, ty, val, .. } => {
                 format!(
-                    "{}{} : {} : {};",
+                    "{}{} : {} : {}",
                     " ".repeat(indent),
                     name,
                     ty.as_str(),
@@ -358,8 +364,9 @@ impl PCode {
                 let mut res = format!("{}{{\n", " ".repeat(indent));
                 for ins_loc in code {
                     res.push_str(&self.show_ins(&self.sub_ins[ins_loc.1], indent + 4));
+                    res.push('\n');
                 }
-                res.push_str(&format!("{}}}\n", " ".repeat(indent)));
+                res.push_str(&format!("{}}}", " ".repeat(indent)));
                 res
             }
             Ins::ExprIns { expr, loc } => {
@@ -389,6 +396,17 @@ impl PCode {
                 )
             }
             Ins::Comment { comment, loc } => "".to_string(),
+            Ins::Return { expr, loc } => {
+                format!(
+                    "{}return {};",
+                    " ".repeat(indent),
+                    if let Some(expr) = expr {
+                        self.show_expr(&self.exprs[*expr])
+                    } else {
+                        "void".to_string()
+                    }
+                )
+            }
         }
     }
 
