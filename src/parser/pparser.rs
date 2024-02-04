@@ -13,6 +13,7 @@ use crate::{
 
 use super::pcode::{Expr, ExprLoc, Ins, InsLoc, PCode};
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     Global,
     Function,
@@ -20,6 +21,7 @@ enum ParseScope {
     Mod,
     Block,
     Loop,
+    Directive,
 }
 
 pub struct Parser {
@@ -116,7 +118,19 @@ impl Parser {
         }
     }
 
-    fn parse_file(&mut self) {
+    fn add_ins(&mut self, ins: Ins) -> InsLoc {
+        match self.scope {
+            ParseScope::Global => self.pcode.add_top_level(ins),
+            ParseScope::Function
+            | ParseScope::Struct
+            | ParseScope::Mod
+            | ParseScope::Block
+            | ParseScope::Loop
+            | ParseScope::Directive => self.pcode.add_sub_ins(ins),
+        }
+    }
+
+    pub fn parse_file(&mut self) {
         while !self.at_eof() {
             self.next_instruction();
         }
@@ -127,34 +141,39 @@ impl Parser {
         match cur {
             Token::SingleLineComment(src, comment) => {
                 self.advance();
-                self.next_instruction()
+                self.add_ins(Ins::Comment { comment, loc: src })
             }
-            Token::At(_) => self.parse_directive_ins(),
-            _ => {
-                self.report_error(ParseError::Expected(
-                    "an instruction. They usually begin with an identifier.".to_string(),
-                    self.cur_token().get_source_ref(),
-                    None,
-                ));
-                todo!()
+            Token::LCurly(_) => {
+                if matches!(self.scope, ParseScope::Global) {
+                    self.report_error(ParseError::NoCodeBlockAllowedInCurrentContext(
+                        cur.get_source_ref(),
+                    ));
+                    self.add_ins(Ins::ErrorNode {
+                        expectation: "a declaration but found a block".to_string(),
+                        loc: cur.get_source_ref(),
+                    })
+                } else {
+                    self.parse_block()
+                }
             }
-        }
-    }
-
-    fn add_ins(&mut self, ins: Ins) -> InsLoc {
-        match self.scope {
-            ParseScope::Global => self.pcode.add_top_level(ins),
-            ParseScope::Function
-            | ParseScope::Struct
-            | ParseScope::Mod
-            | ParseScope::Block
-            | ParseScope::Loop => self.pcode.add_sub_ins(ins),
+            _ => self.parse_ins(),
         }
     }
 
     fn parse_ins(&mut self) -> InsLoc {
         let left_i = self.parse_expr();
         let left = self.pcode.get_expr_c(left_i);
+
+        // check if there is a semicolon and return an expr statement if there is
+        if matches!(self.cur_token(), Token::Semicolon(_)) {
+            let left_span = self.pcode.get_source_ref_expr(left_i);
+            let span = left_span.combine(self.cur_token().get_source_ref());
+            self.advance();
+            return self.add_ins(Ins::ExprIns {
+                expr: left_i,
+                loc: span,
+            });
+        }
 
         match left {
             // declaration of:
@@ -183,23 +202,20 @@ impl Parser {
                 // first a :
                 if !matches!(cur, Token::Colon(_)) {
                     self.report_error(ParseError::Expected(
-                        "a colon to separate the name from the type or the value.".to_string(),
-                        loc.clone(),
+                        "a colon to separate the identifier from its type.".to_string(),
+                        cur.get_source_ref(),
                         None,
                     ));
-                    return self.add_ins(Ins::ErrorNode {
-                        expectation: "a colon to separate the name from the type or the value."
-                            .to_string(),
-                        loc,
-                    });
+                } else {
+                    span = span.combine(cur.get_source_ref());
+                    self.advance();
                 }
 
                 // then a type or another : (for constants) or a = (for variables)
-                self.advance();
                 cur = self.cur_token();
 
                 // get type
-                let ident_ty = if !matches!(cur, Token::Colon(_) | Token::Equal(_)) {
+                let ident_ty = if matches!(cur, Token::Colon(_) | Token::Assign(_)) {
                     let ty = self.parse_type();
                     let ty_span = ty.loc.clone();
                     span = loc.combine(ty_span);
@@ -216,6 +232,7 @@ impl Parser {
 
                 // we have handled our optional type, now we need to determine whether it is a variable
                 // or a constant
+                cur = self.cur_token();
                 match cur {
                     Token::Colon(_) => {
                         // constant
@@ -230,7 +247,7 @@ impl Parser {
                             loc: span,
                         })
                     }
-                    Token::Equal(_) => {
+                    Token::Assign(_) => {
                         // variable
                         self.advance();
                         let value = self.parse_decl_value();
@@ -239,33 +256,41 @@ impl Parser {
                         self.add_ins(Ins::NewVariable {
                             name: name.clone(),
                             ty: ident_ty,
-                            val: value,
+                            val: Some(value),
                             loc: span,
                         })
                     }
                     _ => {
-                        self.report_error(ParseError::Expected(
-                            "a colon to separate the name from the type or the value.".to_string(),
-                            loc.clone(),
-                            None,
-                        ));
-                        self.add_ins(Ins::ErrorNode {
-                            expectation: "a colon to separate the name from the type or the value."
-                                .to_string(),
-                            loc,
+                        // skip past the semi colon
+                        if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the declaration.".to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance();
+                        }
+
+                        // this is an uninitialized variable
+                        self.add_ins(Ins::NewVariable {
+                            name: name.clone(),
+                            ty: ident_ty,
+                            val: None,
+                            loc: span,
                         })
                     }
                 }
-
-                // todo!()
             }
+
             // could be one of:
             // - assignment: expr = expr;
             // - expression statement: expr;
             _ => {
                 let cur = self.cur_token();
                 match cur {
-                    Token::Equal(_) => {
+                    Token::Assign(_) => {
                         let op = cur;
                         self.advance();
                         let right_i = self.parse_expr();
@@ -318,7 +343,20 @@ impl Parser {
             Token::Fn(_) => self.parse_fn(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_mod(),
-            _ => self.parse_expr(),
+            _ => {
+                let expr_i = self.parse_expr();
+                // we need to skip past the semi colon
+                if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a semicolon to terminate the declaration.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+                expr_i
+            }
         }
     }
 
@@ -436,12 +474,10 @@ impl Parser {
         let ret_span = ret_type.loc.clone();
         span = span.combine(ret_span);
 
-        let body = if matches!(self.cur_token(), Token::LBracket(_)) {
-            self.parse_block()
-        } else {
-            self.parse_ins()
-        };
-
+        let scope = self.scope;
+        self.scope = ParseScope::Function;
+        let body = self.next_instruction();
+        self.scope = scope;
         let body_span = self.pcode.get_source_ref(body);
         span = span.combine(body_span);
 
@@ -455,52 +491,79 @@ impl Parser {
     }
 
     fn parse_struct(&mut self) -> ExprLoc {
-        todo!()
+        // struct CODE BLOCK
+        let start = self.cur_token();
+        let mut span = start.get_source_ref();
+        self.advance();
+
+        let scope = self.scope;
+        self.scope = ParseScope::Struct;
+        let block = self.parse_block();
+        self.scope = scope;
+        let block_span = self.pcode.get_source_ref(block);
+        span = span.combine(block_span);
+
+        self.pcode.add_expr(Expr::NewStruct {
+            name: "<anon>".to_string(),
+            code: block,
+            loc: span,
+        })
     }
 
     fn parse_mod(&mut self) -> ExprLoc {
-        todo!()
+        // mod CODE BLOCK
+        let start = self.cur_token();
+        let mut span = start.get_source_ref();
+        self.advance();
+
+        let scope = self.scope;
+        self.scope = ParseScope::Mod;
+        let block = self.parse_block();
+        self.scope = scope;
+        let block_span = self.pcode.get_source_ref(block);
+        span = span.combine(block_span);
+
+        self.pcode.add_expr(Expr::NewModule {
+            name: "<anon>".to_string(),
+            code: block,
+            loc: span,
+        })
     }
 
     fn parse_block(&mut self) -> InsLoc {
-        todo!()
-    }
-
-    fn parse_directive_ins(&mut self) -> InsLoc {
-        // directive instructions take the form
-        // @name sub_ins
         let start = self.cur_token();
+        let mut span = start.get_source_ref();
         self.advance();
 
-        let dir_name = match self.cur_token() {
-            Token::Identifier(name, loc) => {
-                // skip past the directive name
+        let mut code = vec![];
+        while !self.at_eof() {
+            let cur = self.cur_token();
+            if matches!(cur, Token::RBracket(_)) {
+                span = span.combine(cur.get_source_ref());
                 self.advance();
-                name
+                break;
             }
-            _ => {
-                self.report_error(ParseError::Expected(
-                    "a directive name.".to_string(),
-                    self.cur_token().get_source_ref(),
-                    None,
-                ));
-                return self.add_ins(Ins::ErrorNode {
-                    expectation: "a directive name".to_string(),
-                    loc: start.get_source_ref(),
-                });
-            }
-        };
 
-        let ins = self.parse_ins();
-        let dir_span = start
-            .get_source_ref()
-            .combine(self.pcode.get_source_ref(ins));
+            let scope = self.scope;
+            self.scope = ParseScope::Block;
+            let ins = self.next_instruction();
+            self.scope = scope;
+            let ins_span = self.pcode.get_source_ref(ins);
+            span = span.combine(ins_span);
+            code.push(ins);
+        }
 
-        self.add_ins(Ins::Directive {
-            name: dir_name,
-            ins,
-            loc: dir_span,
-        })
+        if !matches!(self.cur_token(), Token::RCurly(_)) {
+            self.report_error(ParseError::UnterminatedCodeBlock(
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            span = span.combine(self.cur_token().get_source_ref());
+            self.advance();
+        }
+
+        self.add_ins(Ins::NewBlock { code, loc: span })
     }
 
     fn parse_type(&mut self) -> Type {
@@ -1167,11 +1230,12 @@ impl Parser {
         }
 
         while !self.at_eof() {
-            let cur = self.cur_token();
+            let mut cur = self.cur_token();
             if !matches!(cur, Token::RParen(_)) {
                 let arg = self.parse_expr();
                 args.push(arg);
             }
+            cur = self.cur_token();
 
             if matches!(cur, Token::RParen(_)) {
                 break;

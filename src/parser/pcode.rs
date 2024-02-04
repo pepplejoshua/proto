@@ -152,7 +152,7 @@ pub enum Expr {
         // struct fields
         // parsed as either a new constant or
         // a new variable
-        fields: Vec<InsLoc>,
+        code: InsLoc,
         loc: SourceRef,
     },
     NewModule {
@@ -161,7 +161,7 @@ pub enum Expr {
         // module code
         // this will be allow things similar to the
         // global scope
-        code: Vec<InsLoc>,
+        code: InsLoc,
         loc: SourceRef,
     },
     CallFn {
@@ -252,7 +252,7 @@ pub enum Ins {
         // maybe a given type or will be inferred
         ty: Type,
         // value
-        val: ExprLoc,
+        val: Option<ExprLoc>,
         loc: SourceRef,
     },
     NewBlock {
@@ -280,6 +280,11 @@ pub enum Ins {
         ins: InsLoc,
         loc: SourceRef,
     },
+    Comment {
+        // comment
+        comment: String,
+        loc: SourceRef,
+    },
 }
 
 impl Ins {
@@ -292,6 +297,7 @@ impl Ins {
             Ins::ExprIns { loc, .. } => loc.clone(),
             Ins::AssignTo { loc, .. } => loc.clone(),
             Ins::Directive { loc, .. } => loc.clone(),
+            Ins::Comment { loc, .. } => loc.clone(),
         }
     }
 }
@@ -311,6 +317,282 @@ impl PCode {
             top_level: Vec::new(),
             sub_ins: Vec::new(),
             exprs: Vec::new(),
+        }
+    }
+
+    pub fn show_program(&self) {
+        for ins in &self.top_level {
+            let ins = self.show_ins(ins, 0);
+            if ins.is_empty() {
+                continue;
+            }
+            println!("{ins}");
+        }
+    }
+
+    pub fn show_ins(&self, ins: &Ins, indent: usize) -> String {
+        match ins {
+            Ins::NewConstant { name, ty, val, .. } => {
+                format!(
+                    "{}{} : {} : {};",
+                    " ".repeat(indent),
+                    name,
+                    ty.as_str(),
+                    self.show_expr(&self.exprs[*val])
+                )
+            }
+            Ins::NewVariable { name, ty, val, loc } => {
+                format!(
+                    "{}{} : {} = {};",
+                    " ".repeat(indent),
+                    name,
+                    ty.as_str(),
+                    if let Some(val) = val {
+                        self.show_expr(&self.exprs[*val])
+                    } else {
+                        "undefined".to_string()
+                    }
+                )
+            }
+            Ins::NewBlock { code, loc } => {
+                let mut res = format!("{}{{\n", " ".repeat(indent));
+                for ins_loc in code {
+                    res.push_str(&self.show_ins(&self.sub_ins[ins_loc.1], indent + 4));
+                }
+                res.push_str(&format!("{}}}\n", " ".repeat(indent)));
+                res
+            }
+            Ins::ExprIns { expr, loc } => {
+                format!(
+                    "{}{};",
+                    " ".repeat(indent),
+                    self.show_expr(&self.exprs[*expr])
+                )
+            }
+            Ins::ErrorNode { expectation, loc } => {
+                format!("{}<ERROR!>: {}", " ".repeat(indent), expectation)
+            }
+            Ins::AssignTo { lhs, rhs, loc } => {
+                format!(
+                    "{}{} = {};",
+                    " ".repeat(indent),
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Ins::Directive { name, ins, loc } => {
+                format!(
+                    "{}@{}\n{};",
+                    " ".repeat(indent),
+                    name,
+                    self.show_ins(&self.get_ins(ins), indent)
+                )
+            }
+            Ins::Comment { comment, loc } => "".to_string(),
+        }
+    }
+
+    pub fn show_expr(&self, expr: &Expr) -> String {
+        match expr {
+            Expr::Number { val, .. } => val.clone(),
+            Expr::Str { val, .. } => format!("\"{}\"", val),
+            Expr::Char { val, .. } => format!("'{}'", val),
+            Expr::Bool { val, .. } => val.to_string(),
+            Expr::Void { .. } => "void".to_string(),
+            Expr::Ident { name, .. } => name.clone(),
+            Expr::Add { lhs, rhs, .. } => {
+                format!(
+                    "{} + {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Sub { lhs, rhs, .. } => {
+                format!(
+                    "{} - {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Mul { lhs, rhs, .. } => {
+                format!(
+                    "{} * {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Div { lhs, rhs, .. } => {
+                format!(
+                    "{} / {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Mod { lhs, rhs, .. } => {
+                format!(
+                    "{} % {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Pow { lhs, rhs, .. } => {
+                format!(
+                    "{} ^ {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::And { lhs, rhs, .. } => {
+                format!(
+                    "{} && {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Or { lhs, rhs, .. } => {
+                format!(
+                    "{} || {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Not { expr, .. } => {
+                format!("!{}", self.show_expr(&self.exprs[*expr]))
+            }
+            Expr::Negate { expr, .. } => {
+                format!("-{}", self.show_expr(&self.exprs[*expr]))
+            }
+            Expr::Eq { lhs, rhs, .. } => {
+                format!(
+                    "{} == {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Neq { lhs, rhs, .. } => {
+                format!(
+                    "{} != {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Gt { lhs, rhs, .. } => {
+                format!(
+                    "{} > {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::Lt { lhs, rhs, .. } => {
+                format!(
+                    "{} < {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::GtEq { lhs, rhs, .. } => {
+                format!(
+                    "{} >= {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::LtEq { lhs, rhs, .. } => {
+                format!(
+                    "{} <= {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::AssignTo { lhs, rhs, .. } => {
+                format!(
+                    "{} = {}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::AccessMember { lhs, rhs, .. } => {
+                format!(
+                    "{}.{}",
+                    self.show_expr(&self.exprs[*lhs]),
+                    self.show_expr(&self.exprs[*rhs])
+                )
+            }
+            Expr::InitStruct {
+                struct_name,
+                fields,
+                loc,
+            } => {
+                let mut res = format!("{}.(", self.show_expr(&self.exprs[*struct_name]));
+                let mut arg_str = vec![];
+                for (field_name, field_val) in fields {
+                    arg_str.push(format!(
+                        "{}: {}",
+                        self.show_expr(&self.exprs[*field_name]),
+                        self.show_expr(&self.exprs[*field_val])
+                    ));
+                }
+                res.push_str(&arg_str.join(", "));
+                res.push_str(")");
+                res
+            }
+            Expr::NewFunction {
+                args,
+                ret_ty,
+                code,
+                loc,
+                ..
+            } => {
+                let mut res = format!("fn (");
+                let mut arg_str = vec![];
+                for arg in args {
+                    arg_str.push(format!(
+                        "{}: {}",
+                        self.show_expr(&self.exprs[arg.name]),
+                        arg.ty.as_str()
+                    ));
+                }
+                res.push_str(&arg_str.join(", "));
+                res.push_str(&format!(") -> {} ", ret_ty.as_str()));
+                res.push_str(&self.show_ins(&self.get_ins(code), 0));
+                res
+            }
+            Expr::NewStruct { name, code, loc } => {
+                format!("struct {}", self.show_ins(&self.get_ins(code), 0))
+            }
+            Expr::NewModule { name, code, loc } => {
+                format!("module {}", self.show_ins(&self.get_ins(code), 0))
+            }
+            Expr::CallFn { func, args, loc } => {
+                let mut res = format!("{}(", self.show_expr(&self.exprs[*func]));
+                let mut arg_str = vec![];
+                for arg in args {
+                    arg_str.push(self.show_expr(&self.exprs[*arg]));
+                }
+                res.push_str(&arg_str.join(", "));
+                res.push_str(")");
+                res
+            }
+            Expr::IndexArray { arr, idx, loc } => {
+                format!(
+                    "{}[{}]",
+                    self.show_expr(&self.exprs[*arr]),
+                    self.show_expr(&self.exprs[*idx])
+                )
+            }
+            Expr::Directive { name, args, loc } => {
+                let mut res = format!("@{}(", name);
+                let mut arg_str = vec![];
+                for arg in args {
+                    arg_str.push(self.show_expr(&self.exprs[*arg]));
+                }
+                res.push_str(&arg_str.join(", "));
+                res.push_str(")");
+                res
+            }
+            Expr::ErrorNode { expectation, loc } => {
+                format!("<ERROR!>: {}", expectation)
+            }
         }
     }
 
@@ -344,7 +626,7 @@ impl PCode {
         loc
     }
 
-    pub fn get_ins(&self, loc: InsLoc) -> &Ins {
+    pub fn get_ins(&self, loc: &InsLoc) -> &Ins {
         match loc.0 {
             0 => &self.top_level[loc.1],
             1 => &self.sub_ins[loc.1],

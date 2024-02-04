@@ -1,35 +1,38 @@
 @lib("std");
 @use("next");
-
 // constants
 a : int : 1;
-b :: a + 2;
+// b :: a + 2;
 
 // variables
-c := b + a + 4;
-d : int = (c + a);
-e := @todo();
+// c := b + a + 4;
+// d : int = (c + a);
+// e : int;
 
 // functions
-main :: fn () -> void {
-  age :: next.forward(23);
-  name :: "joshua";
-  josh := user.(name, age);
-}
+// main :: fn () -> void {
+//  age :: next.forward(23);
+//  name :: "joshua";
+//  josh := user.(name, age);
+// }
 
 // struct type
-user :: struct {
-  name : str;
-  age : int;
-}
+// user :: struct {
+//   name : str;
+//   age : int;
+
+//   get_name :: fn () -> str {
+//     return name;
+//   }
+// }
 
 // code module
-maths :: mod {
-  add :: (a : int, b : int) -> int {
-    return a + b;
-  }
-
-  sub :: (a : int, b : int) -> int {
-    return a - b;
-  }
-}
+// maths :: mod {
+//   add :: (a : int, b : int) -> int {
+//     return a + b;
+//   }
+//
+//   sub :: (a : int, b : int) -> int {
+//     return a - b;
+//   }
+// }

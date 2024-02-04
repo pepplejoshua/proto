@@ -186,8 +186,8 @@ impl Lexer {
             "return" => Ok(Token::Return(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
 
-            "and" => Ok(Token::And(combined_ref)),
-            "or" => Ok(Token::Or(combined_ref)),
+            "&&" => Ok(Token::And(combined_ref)),
+            "||" => Ok(Token::Or(combined_ref)),
 
             "i8" => Ok(Token::I8(combined_ref)),
             "i16" => Ok(Token::I16(combined_ref)),

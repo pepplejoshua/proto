@@ -197,6 +197,7 @@ impl Workspace {
         }
 
         let mut parser = Parser::new(lexer);
+        parser.parse_file();
 
         if !parser.lex_errors.is_empty() {
             for le in parser.lex_errors {
@@ -219,6 +220,12 @@ impl Workspace {
             for pw in parser.parse_warnings {
                 reporter.report_parser_warning(pw);
             }
+        }
+
+        if self.config.dbg_info {
+            reporter.show_info("parsing complete.".to_string());
+            let pcode = parser.pcode;
+            pcode.show_program();
         }
 
         if let Stage::Parser = self.config.max_stage {
