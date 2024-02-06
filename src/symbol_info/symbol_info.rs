@@ -60,9 +60,12 @@ impl SymbolTable {
     pub fn show_info(&self) {
         println!("\nSymbols:");
         for (name, val_ty) in &self.symbols {
-            println!("{}: {:?}", name, val_ty);
+            println!("{}: {:?}", name, val_ty.as_str());
         }
 
+        if self.sub_tables.is_empty() {
+            return;
+        }
         println!("Subtables:");
         for (name, sub_table) in &self.sub_tables {
             println!("{name}");

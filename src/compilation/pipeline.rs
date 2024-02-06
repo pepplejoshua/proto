@@ -236,5 +236,7 @@ impl Workspace {
 
         let mut checker = Checker::new(parser.pcode);
         checker.check();
+        let sym_table = checker.sym_table;
+        sym_table.show_info();
     }
 }

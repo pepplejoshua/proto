@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 use crate::{
-    parser::pcode::{ExprLoc, Ins, PCode},
+    parser::pcode::{Expr, ExprLoc, Ins, PCode},
     symbol_info::symbol_info::SymbolTable,
     types::signature::{Sig, Type},
 };
@@ -23,6 +23,7 @@ pub struct Checker {
     pub pcode: PCode, // parsed code
     pub sym_table: SymbolTable,
     scope: CheckerScope,
+    needs_next_pass: bool,
 }
 
 impl Checker {
@@ -31,6 +32,7 @@ impl Checker {
             pcode,
             sym_table: SymbolTable::new(),
             scope: CheckerScope::Global,
+            needs_next_pass: false,
         }
     }
 
@@ -40,7 +42,7 @@ impl Checker {
                 if let Some(name) = &ty.name {
                     self.sym_table.check_name(name)
                 } else {
-                    panic!("Identifier type has no name");
+                    panic!("Checker::verify_type: type has no name field");
                 }
             }
             Sig::Infer => true,
@@ -71,42 +73,313 @@ impl Checker {
                 Ins::NewConstant { name, ty, val, loc } => {
                     // check if the constant is already defined
                     if self.sym_table.check_name(&name) {
-                        panic!("constant {} is already defined", name);
+                        panic!("Checker::collect_info: constant {} already defined", name);
                     }
-
-                    // collect info about the init value
-                    let val_ty = self.check_expr(&val);
-
-                    let mut needs_next_pass = false;
 
                     // if we cannot verify the type of `ty`, we will use the
                     // type of the init expression. if we cannot get that type,
                     // we will use the Sig::Infer type
-                    if !self.verify_type(&ty) {}
-
-                    // if we don't know the type of the init expression yet
-                    // we will use the Sig::Infer type so we can infer the
-                    // type of the constant later in the second pass
-                    if val_ty.tag == Sig::Infer {
-                        self.sym_table.register(name.clone(), val_ty);
+                    let mut needs_next_pass = false;
+                    let mut sym_ty = ty.clone();
+                    if !self.verify_type(&ty) {
+                        needs_next_pass = true;
                     } else {
-                        // if we know the type of the init expression we can
-                        // insert the constant into the symbol table
-                        self.sym_table.register(name, ty);
+                        // we can check the expression using our verified type
+                        let expr_ty = self.check_expr(&val, &ty);
+                        if !self.verify_type(&expr_ty) {
+                            needs_next_pass = true;
+                        } else {
+                            sym_ty = expr_ty;
+                        }
+                    }
+
+                    if needs_next_pass {
+                        // we will need to check the expression again
+                        // after we have collected all the type information
+                        // we will add the constant to the symbol table
+                        self.sym_table.register(
+                            name,
+                            Type {
+                                tag: Sig::Infer,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: None,
+                                loc: ty.loc.clone(),
+                            },
+                        );
+                        self.needs_next_pass = true;
+                    } else {
+                        // we can add the constant to the symbol table
+                        self.sym_table.register(name, sym_ty);
                     }
                 }
                 _ => todo!(),
             }
         }
-        todo!()
     }
 
-    fn check_expr(&mut self, expr_i: &ExprLoc, recv_ty: Option<&Type>) -> Type {
-        todo!()
+    fn check_expr(&mut self, expr_i: &ExprLoc, recv_ty: &Type) -> Type {
+        let expr = self.pcode.get_expr_mut(expr_i);
+
+        match expr {
+            Expr::Number {
+                val,
+                loc,
+                ty: num_ty,
+            } => {
+                if matches!(recv_ty.tag, Sig::Infer) {
+                    // if the recv_ty is Sig::Infer, we will try to convert the number to
+                    // an int. If that fails, we will return an error type
+                    let val_int = val.parse::<i64>();
+                    if let Ok(_) = val_int {
+                        return Type {
+                            tag: Sig::Int,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                    } else {
+                        return Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                    }
+                } else {
+                    // if we do have a type, we will check if the number can be
+                    // converted to that type. If it can, we will return that type.
+                    // If it cannot, we will return an error type
+                    if recv_ty.tag.is_numerical_type() {
+                        match recv_ty.tag {
+                            Sig::I8 => {
+                                let val_i8 = val.parse::<i8>();
+                                if let Ok(_) = val_i8 {
+                                    return Type {
+                                        tag: Sig::I8,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::I16 => {
+                                let val_i16 = val.parse::<i16>();
+                                if let Ok(_) = val_i16 {
+                                    return Type {
+                                        tag: Sig::I16,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::I32 => {
+                                let val_i32 = val.parse::<i32>();
+                                if let Ok(_) = val_i32 {
+                                    return Type {
+                                        tag: Sig::I32,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::I64 => {
+                                let val_i64 = val.parse::<i64>();
+                                if let Ok(_) = val_i64 {
+                                    return Type {
+                                        tag: Sig::I64,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::Int => {
+                                let val_int = val.parse::<i64>();
+                                if let Ok(_) = val_int {
+                                    return Type {
+                                        tag: Sig::Int,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::U8 => {
+                                let val_u8 = val.parse::<u8>();
+                                if let Ok(_) = val_u8 {
+                                    return Type {
+                                        tag: Sig::U8,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::U16 => {
+                                let val_u16 = val.parse::<u16>();
+                                if let Ok(_) = val_u16 {
+                                    return Type {
+                                        tag: Sig::U16,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::U32 => {
+                                let val_u32 = val.parse::<u32>();
+                                if let Ok(_) = val_u32 {
+                                    return Type {
+                                        tag: Sig::U32,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::U64 => {
+                                let val_u64 = val.parse::<u64>();
+                                if let Ok(_) = val_u64 {
+                                    return Type {
+                                        tag: Sig::U64,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            Sig::UInt => {
+                                let val_uint = val.parse::<u64>();
+                                if let Ok(_) = val_uint {
+                                    return Type {
+                                        tag: Sig::UInt,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                } else {
+                                    return Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: loc.clone(),
+                                    };
+                                }
+                            }
+                            _ => {
+                                return Type {
+                                    tag: Sig::ErrorType,
+                                    name: None,
+                                    sub_types: vec![],
+                                    aux_type: None,
+                                    loc: loc.clone(),
+                                }
+                            }
+                        }
+                    } else {
+                        return Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                    }
+                }
+            }
+            _ => todo!("Checker::check_expr: implement more cases"),
+        }
     }
 
     pub fn check(&mut self) {
         self.collect_info();
-        todo!()
     }
 }

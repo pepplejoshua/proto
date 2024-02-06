@@ -27,6 +27,39 @@ pub enum Sig {
     ErrorType,
 }
 
+impl Sig {
+    pub fn is_numerical_type(&self) -> bool {
+        match self {
+            Sig::I8
+            | Sig::I16
+            | Sig::I32
+            | Sig::I64
+            | Sig::Int
+            | Sig::U8
+            | Sig::U16
+            | Sig::U32
+            | Sig::U64
+            | Sig::UInt => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_simple_type(&self) -> bool {
+        match self {
+            Sig::Bool | Sig::Char | Sig::Void | Sig::Str => true,
+            ty if ty.is_numerical_type() => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_infer_type(&self) -> bool {
+        match self {
+            Sig::Infer => true,
+            _ => false,
+        }
+    }
+}
+
 #[derive(Debug, Clone)]
 pub struct Type {
     pub tag: Sig,

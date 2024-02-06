@@ -634,12 +634,16 @@ impl PCode {
         }
     }
 
-    pub fn get_expr(&self, loc: ExprLoc) -> &Expr {
-        &self.exprs[loc]
+    pub fn get_expr(&self, loc: &ExprLoc) -> &Expr {
+        &self.exprs[*loc]
     }
 
-    pub fn get_expr_c(&self, loc: ExprLoc) -> Expr {
-        self.exprs[loc].clone()
+    pub fn get_expr_mut(&mut self, loc: &ExprLoc) -> &mut Expr {
+        &mut self.exprs[*loc]
+    }
+
+    pub fn get_expr_c(&self, loc: &ExprLoc) -> Expr {
+        self.exprs[*loc].clone()
     }
 
     pub fn get_mut_ins(&mut self, loc: InsLoc) -> &mut Ins {

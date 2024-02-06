@@ -209,7 +209,7 @@ impl Parser {
 
     fn parse_ins(&mut self) -> InsLoc {
         let left_i = self.parse_expr();
-        let left = self.pcode.get_expr_c(left_i);
+        let left = self.pcode.get_expr_c(&left_i);
 
         // check if there is a semicolon and return an expr statement if there is
         if matches!(self.cur_token(), Token::Semicolon(_)) {
@@ -366,7 +366,7 @@ impl Parser {
                         let op = cur;
                         self.advance();
                         let right_i = self.parse_expr();
-                        let right = self.pcode.get_expr(right_i);
+                        let right = self.pcode.get_expr(&right_i);
                         let left_span = self.pcode.get_source_ref_expr(left_i);
                         let right_span = self.pcode.get_source_ref_expr(right_i);
                         let mut span = left_span.combine(right_span);
@@ -477,7 +477,7 @@ impl Parser {
                 // }
                 // parse identifier and the type
                 let arg_name = self.parse_ident();
-                let arg_name_span = self.pcode.get_expr(arg_name).get_source_ref();
+                let arg_name_span = self.pcode.get_expr(&arg_name).get_source_ref();
 
                 let arg_ty = if !matches!(self.cur_token(), Token::Colon(_)) {
                     self.report_error(ParseError::Expected(
