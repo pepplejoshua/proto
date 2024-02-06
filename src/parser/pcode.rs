@@ -20,6 +20,7 @@ pub enum Expr {
     Number {
         val: String,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Str {
         val: String,
@@ -39,6 +40,7 @@ pub enum Expr {
     Ident {
         name: String,
         loc: SourceRef,
+        ty: Option<Type>,
     },
 
     // operators
@@ -46,31 +48,31 @@ pub enum Expr {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Sub {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Mul {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Div {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Mod {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-    },
-    Pow {
-        lhs: ExprLoc,
-        rhs: ExprLoc,
-        loc: SourceRef,
+        ty: Option<Type>,
     },
     And {
         lhs: ExprLoc,
@@ -89,6 +91,7 @@ pub enum Expr {
     Negate {
         expr: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Eq {
         lhs: ExprLoc,
@@ -120,20 +123,17 @@ pub enum Expr {
         rhs: ExprLoc,
         loc: SourceRef,
     },
-    AssignTo {
-        lhs: ExprLoc,
-        rhs: ExprLoc,
-        loc: SourceRef,
-    },
     AccessMember {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     InitStruct {
         struct_name: ExprLoc,
         fields: Vec<(ExprLoc, ExprLoc)>,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     NewFunction {
         // function name
@@ -145,6 +145,7 @@ pub enum Expr {
         // function body
         code: InsLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     NewStruct {
         // struct name
@@ -154,6 +155,9 @@ pub enum Expr {
         // a new variable
         code: InsLoc,
         loc: SourceRef,
+        // will contain struct name, fields
+        // and methods / functions
+        ty: Option<Type>,
     },
     NewModule {
         // module name
@@ -163,6 +167,7 @@ pub enum Expr {
         // global scope
         code: InsLoc,
         loc: SourceRef,
+        // all modules have type module
     },
     CallFunction {
         // function name
@@ -170,6 +175,7 @@ pub enum Expr {
         // function arguments
         args: Vec<ExprLoc>,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     IndexArray {
         // array
@@ -177,6 +183,7 @@ pub enum Expr {
         // index
         idx: ExprLoc,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     Directive {
         // directive name
@@ -184,6 +191,7 @@ pub enum Expr {
         // directive arguments
         args: Vec<ExprLoc>,
         loc: SourceRef,
+        ty: Option<Type>,
     },
     ErrorNode {
         expectation: String,
@@ -205,7 +213,6 @@ impl Expr {
             Expr::Mul { loc, .. } => loc.clone(),
             Expr::Div { loc, .. } => loc.clone(),
             Expr::Mod { loc, .. } => loc.clone(),
-            Expr::Pow { loc, .. } => loc.clone(),
             Expr::And { loc, .. } => loc.clone(),
             Expr::Or { loc, .. } => loc.clone(),
             Expr::Not { loc, .. } => loc.clone(),
@@ -216,7 +223,6 @@ impl Expr {
             Expr::Lt { loc, .. } => loc.clone(),
             Expr::GtEq { loc, .. } => loc.clone(),
             Expr::LtEq { loc, .. } => loc.clone(),
-            Expr::AssignTo { loc, .. } => loc.clone(),
             Expr::AccessMember { loc, .. } => loc.clone(),
             Expr::InitStruct { loc, .. } => loc.clone(),
             Expr::NewFunction { loc, .. } => loc.clone(),
@@ -443,13 +449,6 @@ impl PCode {
                     self.show_expr(&self.exprs[*rhs])
                 )
             }
-            Expr::Pow { lhs, rhs, .. } => {
-                format!(
-                    "{} ^ {}",
-                    self.show_expr(&self.exprs[*lhs]),
-                    self.show_expr(&self.exprs[*rhs])
-                )
-            }
             Expr::And { lhs, rhs, .. } => {
                 format!(
                     "{} && {}",
@@ -512,13 +511,6 @@ impl PCode {
                     self.show_expr(&self.exprs[*rhs])
                 )
             }
-            Expr::AssignTo { lhs, rhs, .. } => {
-                format!(
-                    "{} = {}",
-                    self.show_expr(&self.exprs[*lhs]),
-                    self.show_expr(&self.exprs[*rhs])
-                )
-            }
             Expr::AccessMember { lhs, rhs, .. } => {
                 format!(
                     "{}.{}",
@@ -529,7 +521,7 @@ impl PCode {
             Expr::InitStruct {
                 struct_name,
                 fields,
-                loc,
+                ..
             } => {
                 let mut res = format!("{}.(", self.show_expr(&self.exprs[*struct_name]));
                 let mut arg_str = vec![];
@@ -565,13 +557,13 @@ impl PCode {
                 res.push_str(&self.show_ins(&self.get_ins(code)));
                 res
             }
-            Expr::NewStruct { name, code, loc } => {
+            Expr::NewStruct { name, code, .. } => {
                 format!("struct {}", self.show_ins(&self.get_ins(code)))
             }
             Expr::NewModule { name, code, loc } => {
                 format!("mod {}", self.show_ins(&self.get_ins(code)))
             }
-            Expr::CallFunction { func, args, loc } => {
+            Expr::CallFunction { func, args, .. } => {
                 let mut res = format!("{}(", self.show_expr(&self.exprs[*func]));
                 let mut arg_str = vec![];
                 for arg in args {
@@ -581,14 +573,14 @@ impl PCode {
                 res.push_str(")");
                 res
             }
-            Expr::IndexArray { arr, idx, loc } => {
+            Expr::IndexArray { arr, idx, .. } => {
                 format!(
                     "{}[{}]",
                     self.show_expr(&self.exprs[*arr]),
                     self.show_expr(&self.exprs[*idx])
                 )
             }
-            Expr::Directive { name, args, loc } => {
+            Expr::Directive { name, args, .. } => {
                 let mut res = format!("@{}(", name);
                 let mut arg_str = vec![];
                 for arg in args {

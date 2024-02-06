@@ -237,7 +237,7 @@ impl Parser {
             // name :: struct { variable init | constant init | function header | function definition | struct }
             // - module:
             // name :: mod { variable init | constant init | function header | function definition | struct }
-            Expr::Ident { name, loc } => {
+            Expr::Ident { name, loc, .. } => {
                 if matches!(self.cur_token(), Token::Assign(_)) {
                     // variable assignment
                     let mut span = loc.clone().combine(self.cur_token().get_source_ref());
@@ -547,6 +547,7 @@ impl Parser {
             ret_ty: ret_type,
             code: body,
             loc: span,
+            ty: None,
         })
     }
 
@@ -567,6 +568,7 @@ impl Parser {
             name: "<anon>".to_string(),
             code: block,
             loc: span,
+            ty: None,
         })
     }
 
@@ -959,6 +961,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: op.get_source_ref(),
+                        ty: None,
                     });
                 }
                 Token::Minus(_) => {
@@ -966,6 +969,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: op.get_source_ref(),
+                        ty: None,
                     });
                 }
                 _ => unreachable!("Parser::parse_term: unreachable op: {:?}", op),
@@ -993,6 +997,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: op.get_source_ref(),
+                        ty: None,
                     });
                 }
                 Token::Slash(_) => {
@@ -1000,6 +1005,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: op.get_source_ref(),
+                        ty: None,
                     });
                 }
                 Token::Modulo(_) => {
@@ -1007,6 +1013,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: op.get_source_ref(),
+                        ty: None,
                     });
                 }
                 _ => unreachable!("Parser::parse_factor: unreachable op: {:?}", op),
@@ -1026,6 +1033,7 @@ impl Parser {
                 self.pcode.add_expr(Expr::Negate {
                     loc: op.get_source_ref(),
                     expr: right,
+                    ty: None,
                 })
             }
             Token::Not(_) => {
@@ -1096,6 +1104,7 @@ impl Parser {
                         func: left,
                         args,
                         loc: span,
+                        ty: None,
                     });
                 }
                 // array index
@@ -1118,6 +1127,7 @@ impl Parser {
                         arr: left,
                         idx: index,
                         loc: span,
+                        ty: None,
                     });
                 }
                 // struct field access | struct intialization
@@ -1179,6 +1189,7 @@ impl Parser {
                             struct_name: left,
                             fields,
                             loc: span,
+                            ty: None,
                         });
                     } else {
                         let field = self.parse_ident();
@@ -1189,6 +1200,7 @@ impl Parser {
                             lhs: left,
                             rhs: field,
                             loc: span,
+                            ty: None,
                         });
                     }
                 }
@@ -1203,7 +1215,11 @@ impl Parser {
         match cur {
             Token::Identifier(name, loc) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Ident { name, loc })
+                self.pcode.add_expr(Expr::Ident {
+                    name,
+                    loc,
+                    ty: None,
+                })
             }
             _ => {
                 self.report_error(ParseError::Expected(
@@ -1308,6 +1324,7 @@ impl Parser {
             name: dir_name,
             args,
             loc: span,
+            ty: None,
         })
     }
 
@@ -1322,7 +1339,11 @@ impl Parser {
             Token::Identifier(_, _) => self.parse_ident(),
             Token::NumberLiteral(num, src) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Number { val: num, loc: src })
+                self.pcode.add_expr(Expr::Number {
+                    val: num,
+                    loc: src,
+                    ty: None,
+                })
             }
             Token::SingleLineStringLiteral(loc, str) => {
                 self.advance();

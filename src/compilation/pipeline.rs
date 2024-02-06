@@ -234,7 +234,7 @@ impl Workspace {
             return;
         }
 
-        let checker = Checker::new(parser.pcode);
+        let mut checker = Checker::new(parser.pcode);
         checker.check();
     }
 }

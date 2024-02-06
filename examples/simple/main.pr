@@ -1,7 +1,7 @@
 @use("next");
 
 // constants
-a : int : 1;
+a : int : 23;
 b :: a + 2;
 
 // variables
@@ -9,14 +9,21 @@ c := b + a + 4;
 d := true && false;
 e := true || false;
 
+// out of order declarations
+h := g + f; // 3
+g :: f + 1; // 2
+f :: 1;     // 1
+
 // functions
 main :: fn () void {
-  age :: next.forward(23);
+  age :: next.forward(a);
   name :: "joshua";
+  
+  // struct initialization syntax
+  // with implicit field names
   josh := user.(name, age);
-
-  code :: "greeting = \"hello world\"";
-
+  // with explicit field names
+  pepple :: user.(name: "pepple", age: 24);
 }
 
 dud :: fn () void {
