@@ -79,4 +79,14 @@ pub enum CheckerError {
         number: String,
         given_type: String,
     },
+    ReferenceToUndefinedName {
+        loc: SourceRef,
+        var_name: String,
+    },
+    InvalidUseOfBinaryOperator {
+        loc: SourceRef,
+        op: String,
+        left: String,
+        right: String,
+    },
 }

@@ -390,8 +390,25 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::ReferenceToUndefinedName { loc, var_name } => {
+                let msg = format!("Reference to an undefined name: '{}'.", var_name);
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::InvalidUseOfBinaryOperator {
+                loc,
+                op,
+                left,
+                right,
+            } => {
+                let msg = format!(
+                    "Invalid use of binary operator '{}'. It cannot apply operator to values of types '{}' and '{}'.",
+                    op, left, right
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
+
     pub fn show_info(&self, msg: String) {
         let output = format!("*[_, *, l_green:d_black]info:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));

@@ -200,6 +200,26 @@ pub enum Expr {
 }
 
 impl Expr {
+    pub fn update_type(&mut self, new_type: Type) {
+        match self {
+            Expr::Number { ty, .. } => *ty = Some(new_type),
+            Expr::Add { ty, .. } => *ty = Some(new_type),
+            Expr::Sub { ty, .. } => *ty = Some(new_type),
+            Expr::Mul { ty, .. } => *ty = Some(new_type),
+            Expr::Div { ty, .. } => *ty = Some(new_type),
+            Expr::Mod { ty, .. } => *ty = Some(new_type),
+            Expr::Negate { ty, .. } => *ty = Some(new_type),
+            Expr::AccessMember { ty, .. } => *ty = Some(new_type),
+            Expr::InitStruct { ty, .. } => *ty = Some(new_type),
+            Expr::NewFunction { ty, .. } => *ty = Some(new_type),
+            Expr::NewStruct { ty, .. } => *ty = Some(new_type),
+            Expr::CallFunction { ty, .. } => *ty = Some(new_type),
+            Expr::IndexArray { ty, .. } => *ty = Some(new_type),
+            Expr::Directive { ty, .. } => *ty = Some(new_type),
+            _ => (),
+        }
+    }
+
     pub fn get_source_ref(&self) -> SourceRef {
         match self {
             Expr::Number { loc, .. } => loc.clone(),
@@ -331,6 +351,10 @@ impl PCode {
             sub_ins: Vec::new(),
             exprs: Vec::new(),
         }
+    }
+
+    pub fn update_expr_type(&mut self, loc: &ExprLoc, new_type: Type) {
+        self.exprs[*loc].update_type(new_type);
     }
 
     pub fn as_str(&self) -> String {

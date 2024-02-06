@@ -22,6 +22,12 @@ enum CheckerScope {
     Directive,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum Pass {
+    First,
+    Second,
+}
+
 #[derive(Clone)]
 pub struct Checker {
     pub pcode: PCode, // parsed code
@@ -29,6 +35,7 @@ pub struct Checker {
     scope: CheckerScope,
     needs_next_pass: bool,
     reporter: SourceReporter,
+    pass: Pass,
 }
 
 impl Checker {
@@ -39,6 +46,7 @@ impl Checker {
             scope: CheckerScope::Global,
             needs_next_pass: false,
             reporter: SourceReporter::new(src),
+            pass: Pass::First,
         }
     }
 
@@ -76,6 +84,9 @@ impl Checker {
         let top_level = pcode.top_level;
         for stmt in top_level {
             match stmt {
+                Ins::Comment { comment, loc } => {
+                    // do nothing
+                }
                 Ins::NewConstant { name, ty, val, loc } => {
                     // check if the constant is already defined
                     if self.sym_table.check_name(&name) {
@@ -107,8 +118,11 @@ impl Checker {
                                 // given to the constant, we can set the type of the constant to an
                                 // error type
                                 // we can report an error here as well
+                                let span = ty.loc.clone();
+                                let expr_span = expr_ty.loc.clone();
+                                let span = span.combine(expr_span);
                                 let err = CheckerError::TypeMismatch {
-                                    loc: loc.clone(),
+                                    loc: span,
                                     expected: ty.as_str(),
                                     found: expr_ty.as_str(),
                                 };
@@ -151,7 +165,7 @@ impl Checker {
     }
 
     fn check_expr(&mut self, expr_i: &ExprLoc, recv_ty: &Type) -> Type {
-        let expr = self.pcode.get_expr_mut(expr_i);
+        let expr = self.pcode.get_expr_c(expr_i);
 
         match expr {
             Expr::Number {
@@ -216,7 +230,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::I16 => {
@@ -244,7 +258,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::I32 => {
@@ -272,7 +286,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::I64 => {
@@ -301,7 +315,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::Int => {
@@ -329,7 +343,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::U8 => {
@@ -357,7 +371,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::U16 => {
@@ -385,7 +399,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::U32 => {
@@ -413,7 +427,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::U64 => {
@@ -441,7 +455,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             Sig::UInt => {
@@ -469,7 +483,7 @@ impl Checker {
                                         loc: loc.clone(),
                                     }
                                 };
-                                num_ty.replace(ty.clone());
+                                self.pcode.update_expr_type(expr_i, ty.clone());
                                 return ty;
                             }
                             _ => {
@@ -526,6 +540,133 @@ impl Checker {
                     aux_type: None,
                     loc: loc.clone(),
                 };
+            }
+            Expr::Void { loc } => {
+                // we already know the type of the expression
+                return Type {
+                    tag: Sig::Void,
+                    name: None,
+                    sub_types: vec![],
+                    aux_type: None,
+                    loc: loc.clone(),
+                };
+            }
+            Expr::Ident { name, loc, ty } => {
+                // check if the identifier is in the symbol table
+                if self.sym_table.check_name(&name) {
+                    // if it does, we will return the type of the identifier
+                    let ty = self.sym_table.get(&name).unwrap().clone();
+                    ty
+                } else {
+                    // if we are in the first pass, we will return an infer type
+                    if matches!(self.pass, Pass::First) {
+                        return Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                    } else {
+                        // we are in the second pass where we should know about this identifier
+                        // if the identifier is not in the symbol table, we will return an error type
+                        // and report an error
+                        let err = CheckerError::ReferenceToUndefinedName {
+                            loc: loc.clone(),
+                            var_name: name.clone(),
+                        };
+                        self.reporter.report_checker_error(err);
+                        return Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                    }
+                }
+            }
+            Expr::Add { lhs, rhs, loc, ty } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Str, Sig::Char) => {
+                        // if the left hand side of the expression is a string and the right hand side of the expression
+                        // is a char, we will return the type of the left hand side of the expression
+                        Type {
+                            tag: Sig::Str,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Str, Sig::Str) => {
+                        // if the left hand side of the expression is a string and the right hand side of the expression
+                        // is a string, we will return the type of the left hand side of the expression
+                        Type {
+                            tag: Sig::Str,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Char, Sig::Char) => {
+                        // if the left hand side of the expression is a char and the right hand side of the expression
+                        // is a char, we will return the type of the left hand side of the expression
+                        Type {
+                            tag: Sig::Char,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "+".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.reporter.report_checker_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                }
             }
             _ => todo!("Checker::check_expr: implement more cases"),
         }

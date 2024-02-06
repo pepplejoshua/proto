@@ -840,7 +840,7 @@ impl Parser {
             left = self.pcode.add_expr(Expr::Or {
                 lhs: left,
                 rhs: right,
-                loc: op.get_source_ref(),
+                loc: span,
             });
         }
 
@@ -860,7 +860,7 @@ impl Parser {
             left = self.pcode.add_expr(Expr::And {
                 lhs: left,
                 rhs: right,
-                loc: op.get_source_ref(),
+                loc: span,
             });
         }
 
@@ -883,13 +883,13 @@ impl Parser {
                 left = self.pcode.add_expr(Expr::Eq {
                     lhs: left,
                     rhs: right,
-                    loc: op.get_source_ref(),
+                    loc: span,
                 });
             } else {
                 left = self.pcode.add_expr(Expr::Neq {
                     lhs: left,
                     rhs: right,
-                    loc: op.get_source_ref(),
+                    loc: span,
                 });
             }
         }
@@ -915,28 +915,28 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Lt {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                     });
                 }
                 Token::LessEqual(_) => {
                     left = self.pcode.add_expr(Expr::LtEq {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                     });
                 }
                 Token::Greater(_) => {
                     left = self.pcode.add_expr(Expr::Gt {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                     });
                 }
                 Token::GreaterEqual(_) => {
                     left = self.pcode.add_expr(Expr::GtEq {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                     });
                 }
                 _ => unreachable!("Parser::parse_comparison: unreachable op: {:?}", op),
@@ -960,7 +960,7 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Add {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                         ty: None,
                     });
                 }
@@ -968,7 +968,7 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Sub {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                         ty: None,
                     });
                 }
@@ -996,7 +996,7 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Mul {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                         ty: None,
                     });
                 }
@@ -1004,7 +1004,7 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Div {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                         ty: None,
                     });
                 }
@@ -1012,7 +1012,7 @@ impl Parser {
                     left = self.pcode.add_expr(Expr::Mod {
                         lhs: left,
                         rhs: right,
-                        loc: op.get_source_ref(),
+                        loc: span,
                         ty: None,
                     });
                 }
@@ -1031,7 +1031,7 @@ impl Parser {
                 let right_span = self.pcode.get_source_ref_expr(right);
                 let span = op.get_source_ref().combine(right_span);
                 self.pcode.add_expr(Expr::Negate {
-                    loc: op.get_source_ref(),
+                    loc: span,
                     expr: right,
                     ty: None,
                 })
@@ -1042,7 +1042,7 @@ impl Parser {
                 let right_span = self.pcode.get_source_ref_expr(right);
                 let span = op.get_source_ref().combine(right_span);
                 self.pcode.add_expr(Expr::Not {
-                    loc: op.get_source_ref(),
+                    loc: span,
                     expr: right,
                 })
             }

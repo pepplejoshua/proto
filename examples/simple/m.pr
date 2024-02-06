@@ -1,5 +1,11 @@
+// out of order referring to global constants
+f :: a + b;
+
+// declarations
 a :: 1;
 b : int : 2;
 c :: 'a';
 d : str : "this is a string";
 e :: true;
+
+g :: a + b;
