@@ -62,3 +62,21 @@ impl ParseWarning {
         self.src.clone()
     }
 }
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub enum CheckerError {
+    TypeMismatch {
+        loc: SourceRef,
+        expected: String,
+        found: String,
+    },
+    NumberTypeDefaultInferenceFailed {
+        loc: SourceRef,
+        number: String,
+    },
+    NumberTypeInferenceFailed {
+        loc: SourceRef,
+        number: String,
+        given_type: String,
+    },
+}

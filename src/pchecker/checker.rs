@@ -3,6 +3,10 @@
 
 use crate::{
     parser::pcode::{Expr, ExprLoc, Ins, PCode},
+    source::{
+        errors::CheckerError,
+        source::{SourceFile, SourceReporter},
+    },
     symbol_info::symbol_info::SymbolTable,
     types::signature::{Sig, Type},
 };
@@ -24,15 +28,17 @@ pub struct Checker {
     pub sym_table: SymbolTable,
     scope: CheckerScope,
     needs_next_pass: bool,
+    reporter: SourceReporter,
 }
 
 impl Checker {
-    pub fn new(pcode: PCode) -> Checker {
+    pub fn new(pcode: PCode, src: SourceFile) -> Checker {
         Checker {
             pcode,
             sym_table: SymbolTable::new(),
             scope: CheckerScope::Global,
             needs_next_pass: false,
+            reporter: SourceReporter::new(src),
         }
     }
 
@@ -76,22 +82,37 @@ impl Checker {
                         panic!("Checker::collect_info: constant {} already defined", name);
                     }
 
-                    // if we cannot verify the type of `ty`, we will use the
-                    // type of the init expression. if we cannot get that type,
-                    // we will use the Sig::Infer type
                     let mut needs_next_pass = false;
                     let mut sym_ty = ty.clone();
                     if !self.verify_type(&ty) {
+                        // if we cannot verify the type given to the constant,
+                        // we will leave it to the next pass
                         needs_next_pass = true;
                     } else {
                         // we can check the expression using our verified type
+                        // to infer the type of the expression if needed
                         let expr_ty = self.check_expr(&val, &ty);
                         if !self.verify_type(&expr_ty) {
+                            // if we cannot verify the type of the expression,
+                            // we will leave it to the next pass as well
                             needs_next_pass = true;
                         } else {
+                            // if we can verify the type of the expression,
+                            // we can use the type given to the constant to typecheck
+                            // the expression type. Infer type will accept any type
                             if ty.typecheck(&expr_ty) {
                                 sym_ty = expr_ty;
                             } else {
+                                // if the type of the expression does not match the type
+                                // given to the constant, we can set the type of the constant to an
+                                // error type
+                                // we can report an error here as well
+                                let err = CheckerError::TypeMismatch {
+                                    loc: loc.clone(),
+                                    expected: ty.as_str(),
+                                    found: expr_ty.as_str(),
+                                };
+                                self.reporter.report_checker_error(err);
                                 sym_ty = Type {
                                     tag: Sig::ErrorType,
                                     name: None,
@@ -99,6 +120,7 @@ impl Checker {
                                     aux_type: None,
                                     loc: loc.clone(),
                                 };
+                                // report mismatch of types error
                             }
                         }
                     }
@@ -150,6 +172,11 @@ impl Checker {
                             loc: loc.clone(),
                         };
                     } else {
+                        let err = CheckerError::NumberTypeDefaultInferenceFailed {
+                            loc: loc.clone(),
+                            number: val.clone(),
+                        };
+                        self.reporter.report_checker_error(err);
                         return Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -166,215 +193,300 @@ impl Checker {
                         match recv_ty.tag {
                             Sig::I8 => {
                                 let val_i8 = val.parse::<i8>();
-                                if let Ok(_) = val_i8 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_i8 {
+                                    Type {
                                         tag: Sig::I8,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::I16 => {
                                 let val_i16 = val.parse::<i16>();
-                                if let Ok(_) = val_i16 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_i16 {
+                                    Type {
                                         tag: Sig::I16,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::I32 => {
                                 let val_i32 = val.parse::<i32>();
-                                if let Ok(_) = val_i32 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_i32 {
+                                    Type {
                                         tag: Sig::I32,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::I64 => {
                                 let val_i64 = val.parse::<i64>();
-                                if let Ok(_) = val_i64 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_i64 {
+                                    Type {
                                         tag: Sig::I64,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    // report error
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::Int => {
                                 let val_int = val.parse::<i64>();
-                                if let Ok(_) = val_int {
-                                    return Type {
+                                let ty = if let Ok(_) = val_int {
+                                    Type {
                                         tag: Sig::Int,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::U8 => {
                                 let val_u8 = val.parse::<u8>();
-                                if let Ok(_) = val_u8 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_u8 {
+                                    Type {
                                         tag: Sig::U8,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::U16 => {
                                 let val_u16 = val.parse::<u16>();
-                                if let Ok(_) = val_u16 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_u16 {
+                                    Type {
                                         tag: Sig::U16,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::U32 => {
                                 let val_u32 = val.parse::<u32>();
-                                if let Ok(_) = val_u32 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_u32 {
+                                    Type {
                                         tag: Sig::U32,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::U64 => {
                                 let val_u64 = val.parse::<u64>();
-                                if let Ok(_) = val_u64 {
-                                    return Type {
+                                let ty = if let Ok(_) = val_u64 {
+                                    Type {
                                         tag: Sig::U64,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             Sig::UInt => {
                                 let val_uint = val.parse::<u64>();
-                                if let Ok(_) = val_uint {
-                                    return Type {
+                                let ty = if let Ok(_) = val_uint {
+                                    Type {
                                         tag: Sig::UInt,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
+                                    }
                                 } else {
-                                    return Type {
+                                    let err = CheckerError::NumberTypeInferenceFailed {
+                                        loc: loc.clone(),
+                                        number: val.clone(),
+                                        given_type: recv_ty.as_str(),
+                                    };
+                                    self.reporter.report_checker_error(err);
+                                    Type {
                                         tag: Sig::ErrorType,
                                         name: None,
                                         sub_types: vec![],
                                         aux_type: None,
                                         loc: loc.clone(),
-                                    };
-                                }
+                                    }
+                                };
+                                num_ty.replace(ty.clone());
+                                return ty;
                             }
                             _ => {
-                                return Type {
-                                    tag: Sig::ErrorType,
-                                    name: None,
-                                    sub_types: vec![],
-                                    aux_type: None,
-                                    loc: loc.clone(),
-                                }
+                                unreachable!(
+                                    "Checker::check_expr: unreachable code for numerical types"
+                                );
                             }
                         }
                     } else {
+                        // if the type given to the number is not a numerical type,
+                        // we will return an error type
+                        let err = CheckerError::NumberTypeInferenceFailed {
+                            loc: loc.clone(),
+                            number: val.clone(),
+                            given_type: recv_ty.as_str(),
+                        };
+                        self.reporter.report_checker_error(err);
                         return Type {
                             tag: Sig::ErrorType,
                             name: None,

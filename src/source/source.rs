@@ -226,13 +226,14 @@ impl SourceRef {
 }
 
 #[allow(dead_code)]
+#[derive(Debug, Clone)]
 pub struct SourceReporter {
     src: SourceFile,
 }
 
 use crate::pastel::pastel;
 
-use super::errors::{LexError, ParseError, ParseWarning};
+use super::errors::{CheckerError, LexError, ParseError, ParseWarning};
 
 #[allow(dead_code)]
 impl SourceReporter {
@@ -361,6 +362,36 @@ impl SourceReporter {
         }
     }
 
+    pub fn report_checker_error(&self, ce: CheckerError) {
+        match ce {
+            CheckerError::TypeMismatch {
+                loc,
+                expected,
+                found,
+            } => {
+                let msg = format!(
+                    "Type mismatch. Expected a value of type: `{}` but found a value of type: `{}`",
+                    expected, found
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::NumberTypeDefaultInferenceFailed { loc, number } => {
+                let msg = format!("Fsiled to convert Number<'{}'> to int.", number);
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::NumberTypeInferenceFailed {
+                loc,
+                number,
+                given_type,
+            } => {
+                let msg = format!(
+                    "Number '{}' is not compatible with the given type '{}'.",
+                    number, given_type
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
+        }
+    }
     pub fn show_info(&self, msg: String) {
         let output = format!("*[_, *, l_green:d_black]info:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
