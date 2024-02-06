@@ -1,2 +1,5 @@
 a :: 1;
 b : int : 2;
+c :: 'a';
+d : str : "this is a string";
+e :: true;

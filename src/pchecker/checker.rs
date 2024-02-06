@@ -89,7 +89,17 @@ impl Checker {
                         if !self.verify_type(&expr_ty) {
                             needs_next_pass = true;
                         } else {
-                            sym_ty = expr_ty;
+                            if ty.typecheck(&expr_ty) {
+                                sym_ty = expr_ty;
+                            } else {
+                                sym_ty = Type {
+                                    tag: Sig::ErrorType,
+                                    name: None,
+                                    sub_types: vec![],
+                                    aux_type: None,
+                                    loc: loc.clone(),
+                                };
+                            }
                         }
                     }
 
@@ -374,6 +384,36 @@ impl Checker {
                         };
                     }
                 }
+            }
+            Expr::Char { loc, .. } => {
+                // we already know the type of the expression
+                return Type {
+                    tag: Sig::Char,
+                    name: None,
+                    sub_types: vec![],
+                    aux_type: None,
+                    loc: loc.clone(),
+                };
+            }
+            Expr::Str { loc, .. } => {
+                // we already know the type of the expression
+                return Type {
+                    tag: Sig::Str,
+                    name: None,
+                    sub_types: vec![],
+                    aux_type: None,
+                    loc: loc.clone(),
+                };
+            }
+            Expr::Bool { loc, .. } => {
+                // we already know the type of the expression
+                return Type {
+                    tag: Sig::Bool,
+                    name: None,
+                    sub_types: vec![],
+                    aux_type: None,
+                    loc: loc.clone(),
+                };
             }
             _ => todo!("Checker::check_expr: implement more cases"),
         }

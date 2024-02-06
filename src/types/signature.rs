@@ -109,4 +109,26 @@ impl Type {
             Sig::ErrorType => "<error>".to_string(),
         }
     }
+
+    pub fn typecheck(&self, other: &Type) -> bool {
+        if self.tag == Sig::Infer {
+            return true;
+        }
+
+        if self.tag != other.tag {
+            return false;
+        }
+
+        if self.sub_types.len() != other.sub_types.len() {
+            return false;
+        }
+
+        for (i, sub_type) in self.sub_types.iter().enumerate() {
+            if !sub_type.typecheck(&other.sub_types[i]) {
+                return false;
+            }
+        }
+
+        true
+    }
 }
