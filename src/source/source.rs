@@ -401,10 +401,28 @@ impl SourceReporter {
                 right,
             } => {
                 let msg = format!(
-                    "Invalid use of binary operator '{}'. It cannot apply operator to values of types '{}' and '{}'.",
+                    "Invalid use of binary operator '{}'. It cannot be applied to values of types '{}' and '{}'.",
                     op, left, right
                 );
                 self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::InvalidUseOfUnaryOperator {
+                loc,
+                op,
+                operand,
+                tip,
+            } => {
+                let msg = format!(
+                    "Invalid use of unary operator '{}'. It cannot be applied to a value of type '{}'.",
+                    op, operand
+                );
+                self.report_with_ref(&loc, msg, tip, false);
+            }
+            CheckerError::TooManyErrors => {
+                let msg = "Too many errors during semantic analysis. Stopping.".to_string();
+                let tip =
+                    "Errors might be cascading. Try fixing some error and recompiling.".to_string();
+                self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
             }
         }
     }

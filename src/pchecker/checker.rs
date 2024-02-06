@@ -35,6 +35,7 @@ pub struct Checker {
     scope: CheckerScope,
     needs_next_pass: bool,
     reporter: SourceReporter,
+    error_count: u8,
     pass: Pass,
 }
 
@@ -47,6 +48,7 @@ impl Checker {
             needs_next_pass: false,
             reporter: SourceReporter::new(src),
             pass: Pass::First,
+            error_count: 0,
         }
     }
 
@@ -104,9 +106,14 @@ impl Checker {
                         // to infer the type of the expression if needed
                         let expr_ty = self.check_expr(&val, &ty);
                         if !self.verify_type(&expr_ty) {
-                            // if we cannot verify the type of the expression,
-                            // we will leave it to the next pass as well
-                            needs_next_pass = true;
+                            // if we have an error type, we can report it here
+                            if matches!(expr_ty.tag, Sig::ErrorType) {
+                                sym_ty = expr_ty;
+                            } else {
+                                // if we cannot verify the type of the expression,
+                                // we will leave it to the next pass as well
+                                needs_next_pass = true;
+                            }
                         } else {
                             // if we can verify the type of the expression,
                             // we can use the type given to the constant to typecheck
@@ -126,7 +133,8 @@ impl Checker {
                                     expected: ty.as_str(),
                                     found: expr_ty.as_str(),
                                 };
-                                self.reporter.report_checker_error(err);
+                                self.report_error(err);
+                                self.error_count += 1;
                                 sym_ty = Type {
                                     tag: Sig::ErrorType,
                                     name: None,
@@ -164,15 +172,22 @@ impl Checker {
         }
     }
 
+    fn report_error(&mut self, err: CheckerError) {
+        self.reporter.report_checker_error(err);
+        self.error_count += 1;
+
+        if self.error_count >= 10 {
+            let err = CheckerError::TooManyErrors;
+            self.reporter.report_checker_error(err);
+            std::process::exit(1);
+        }
+    }
+
     fn check_expr(&mut self, expr_i: &ExprLoc, recv_ty: &Type) -> Type {
         let expr = self.pcode.get_expr_c(expr_i);
 
         match expr {
-            Expr::Number {
-                val,
-                loc,
-                ty: num_ty,
-            } => {
+            Expr::Number { val, loc, .. } => {
                 if matches!(recv_ty.tag, Sig::Infer) {
                     // if the recv_ty is Sig::Infer, we will try to convert the number to
                     // an int. If that fails, we will return an error type
@@ -190,7 +205,8 @@ impl Checker {
                             loc: loc.clone(),
                             number: val.clone(),
                         };
-                        self.reporter.report_checker_error(err);
+                        self.report_error(err);
+
                         return Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -221,7 +237,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -249,7 +265,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -277,7 +293,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -306,7 +322,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -334,7 +350,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -362,7 +378,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -390,7 +406,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -418,7 +434,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -446,7 +462,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -474,7 +490,7 @@ impl Checker {
                                         number: val.clone(),
                                         given_type: recv_ty.as_str(),
                                     };
-                                    self.reporter.report_checker_error(err);
+                                    self.report_error(err);
                                     Type {
                                         tag: Sig::ErrorType,
                                         name: None,
@@ -500,7 +516,7 @@ impl Checker {
                             number: val.clone(),
                             given_type: recv_ty.as_str(),
                         };
-                        self.reporter.report_checker_error(err);
+                        self.report_error(err);
                         return Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -551,7 +567,7 @@ impl Checker {
                     loc: loc.clone(),
                 };
             }
-            Expr::Ident { name, loc, ty } => {
+            Expr::Ident { name, loc, .. } => {
                 // check if the identifier is in the symbol table
                 if self.sym_table.check_name(&name) {
                     // if it does, we will return the type of the identifier
@@ -575,7 +591,7 @@ impl Checker {
                             loc: loc.clone(),
                             var_name: name.clone(),
                         };
-                        self.reporter.report_checker_error(err);
+                        self.report_error(err);
                         return Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -592,7 +608,7 @@ impl Checker {
                 let rhs_ty = self.check_expr(&rhs, recv_ty);
                 // if the types of the left and right hand side of the expression are not numerical types,
                 // we will return an error type
-                match (lhs_ty.tag, rhs_ty.tag) {
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
                     (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
                         // if the types of the left and right hand side of the expression are numerical types,
                         // we will return the type of the left hand side of the expression
@@ -657,7 +673,7 @@ impl Checker {
                             left: lhs_ty.as_str(),
                             right: rhs_ty.as_str(),
                         };
-                        self.reporter.report_checker_error(err);
+                        self.report_error(err);
                         Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -666,7 +682,444 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Sub { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "-".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Mul { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "*".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Div { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "/".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Mod { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "%".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::And { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not boolean types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (Sig::Bool, Sig::Bool) => {
+                        // if the types of the left and right hand side of the expression are boolean types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not boolean types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "&&".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Or { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not boolean types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (Sig::Bool, Sig::Bool) => {
+                        // if the types of the left and right hand side of the expression are boolean types,
+                        // we will return the type of the left hand side of the expression
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not boolean types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "||".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Not { expr, loc, .. } => {
+                // we will check the type of the expression
+                let expr_ty = self.check_expr(&expr, recv_ty);
+
+                // if the type of the expression is not a boolean type,
+                // we will return an error type
+                let ty = match expr_ty.tag {
+                    Sig::Bool => {
+                        // if the type of the expression is a boolean type,
+                        // we will return the type of the expression
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    Sig::Infer => {
+                        // if the type of the expression is an infer type,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the type of the expression is not a boolean type,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfUnaryOperator {
+                            loc: loc.clone(),
+                            op: "!".to_string(),
+                            operand: expr_ty.as_str(),
+                            tip: None,
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Negate { expr, loc, .. } => {
+                // we will check the type of the expression
+                let expr_ty = self.check_expr(&expr, recv_ty);
+
+                // if the type of the expression is not a numerical type,
+                // we will return an error type
+                let ty = match expr_ty.tag {
+                    l_tag if l_tag.is_signed_type() => {
+                        // if the type of the expression is a signed type,
+                        // we will return the type of the expression
+                        Type {
+                            tag: l_tag,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    l_tag if l_tag.is_unsigned_type() => {
+                        // if the type of the expression is an unsigned type,
+                        // we cannot negate it, since we cannot guarantee it won't overflow
+                        // so we can hint the user that this operation is not allowed
+                        let tip =
+                            "Consider converting the value to a signed type before negating it"
+                                .to_string();
+                        let err = CheckerError::InvalidUseOfUnaryOperator {
+                            loc: loc.clone(),
+                            op: "-".to_string(),
+                            operand: expr_ty.as_str(),
+                            tip: Some(tip),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    Sig::Infer => {
+                        // if the type of the expression is an infer type,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the type of the expression is not a numerical type,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfUnaryOperator {
+                            loc: loc.clone(),
+                            op: "-".to_string(),
+                            operand: expr_ty.as_str(),
+                            tip: None,
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
             }
             _ => todo!("Checker::check_expr: implement more cases"),
         }

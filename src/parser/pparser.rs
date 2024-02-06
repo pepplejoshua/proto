@@ -841,6 +841,7 @@ impl Parser {
                 lhs: left,
                 rhs: right,
                 loc: span,
+                ty: None,
             });
         }
 
@@ -861,6 +862,7 @@ impl Parser {
                 lhs: left,
                 rhs: right,
                 loc: span,
+                ty: None,
             });
         }
 
@@ -884,12 +886,14 @@ impl Parser {
                     lhs: left,
                     rhs: right,
                     loc: span,
+                    ty: None,
                 });
             } else {
                 left = self.pcode.add_expr(Expr::Neq {
                     lhs: left,
                     rhs: right,
                     loc: span,
+                    ty: None,
                 });
             }
         }
@@ -916,6 +920,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: span,
+                        ty: None,
                     });
                 }
                 Token::LessEqual(_) => {
@@ -923,6 +928,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: span,
+                        ty: None,
                     });
                 }
                 Token::Greater(_) => {
@@ -930,6 +936,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: span,
+                        ty: None,
                     });
                 }
                 Token::GreaterEqual(_) => {
@@ -937,6 +944,7 @@ impl Parser {
                         lhs: left,
                         rhs: right,
                         loc: span,
+                        ty: None,
                     });
                 }
                 _ => unreachable!("Parser::parse_comparison: unreachable op: {:?}", op),
@@ -1044,6 +1052,7 @@ impl Parser {
                 self.pcode.add_expr(Expr::Not {
                     loc: span,
                     expr: right,
+                    ty: None,
                 })
             }
             _ => self.parse_index_expr(),

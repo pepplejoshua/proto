@@ -44,6 +44,20 @@ impl Sig {
         }
     }
 
+    pub fn is_signed_type(&self) -> bool {
+        match self {
+            Sig::I8 | Sig::I16 | Sig::I32 | Sig::I64 | Sig::Int => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unsigned_type(&self) -> bool {
+        match self {
+            Sig::U8 | Sig::U16 | Sig::U32 | Sig::U64 | Sig::UInt => true,
+            _ => false,
+        }
+    }
+
     pub fn is_simple_type(&self) -> bool {
         match self {
             Sig::Bool | Sig::Char | Sig::Void | Sig::Str => true,

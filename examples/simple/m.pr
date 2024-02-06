@@ -8,4 +8,5 @@ c :: 'a';
 d : str : "this is a string";
 e :: true;
 
-g :: a + b;
+g :: !e;
+h :: -a;

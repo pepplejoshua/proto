@@ -89,4 +89,11 @@ pub enum CheckerError {
         left: String,
         right: String,
     },
+    InvalidUseOfUnaryOperator {
+        loc: SourceRef,
+        op: String,
+        operand: String,
+        tip: Option<String>,
+    },
+    TooManyErrors,
 }
