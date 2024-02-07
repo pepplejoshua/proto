@@ -174,6 +174,106 @@ impl Checker {
                         self.sym_table.register(name, sym_ty, info);
                     }
                 }
+                Ins::NewVariable { name, ty, val, loc } => {
+                    // check if the variable is already defined
+                    if self.sym_table.check_name(&name) {
+                        panic!("Checker::collect_info: variable {} already defined", name);
+                    }
+
+                    let mut needs_next_pass = false;
+                    let mut sym_ty = ty.clone();
+                    if !self.verify_type(&ty) {
+                        // if we cannot verify the type given to the variable,
+                        // we will leave it to the next pass
+                        needs_next_pass = true;
+                    } else {
+                        // we can check the expression using our verified type
+                        // to infer the type of the expression if needed. That is if the
+                        // user has initialized the variable
+                        if val.is_some() {
+                            let val = val.unwrap();
+                            let expr_ty = self.check_expr(&val, &ty);
+                            if !self.verify_type(&expr_ty) {
+                                // if we have an error type, we can report it here
+                                if matches!(expr_ty.tag, Sig::ErrorType) {
+                                    sym_ty = expr_ty;
+                                } else {
+                                    // if we cannot verify the type of the expression,
+                                    // we will leave it to the next pass as well
+                                    needs_next_pass = true;
+                                }
+                            } else {
+                                // if we can verify the type of the expression,
+                                // we can use the type given to the variable to typecheck
+                                // the expression type. Infer type will accept any type
+                                if ty.typecheck(&expr_ty) {
+                                    sym_ty = expr_ty;
+                                } else {
+                                    // if the type of the expression does not match the type
+                                    // given to the variable, we can set the type of the variable to an
+                                    // error type
+                                    // we can report an error here as well
+                                    let span = ty.loc.clone();
+                                    let expr_span = expr_ty.loc.clone();
+                                    let span = span.combine(expr_span);
+                                    let err = CheckerError::TypeMismatch {
+                                        loc: span,
+                                        expected: ty.as_str(),
+                                        found: expr_ty.as_str(),
+                                    };
+                                    self.report_error(err);
+                                    self.error_count += 1;
+                                    sym_ty = Type {
+                                        tag: Sig::ErrorType,
+                                        name: None,
+                                        sub_types: vec![],
+                                        aux_type: None,
+                                        loc: ty.loc.clone(),
+                                    };
+                                    // report mismatch of types error
+                                }
+                            }
+                        }
+                    }
+
+                    if needs_next_pass {
+                        // we will need to check the expression again
+                        // after we have collected all the type information
+                        // we will add the variable to the symbol table
+                        let info = if val.is_some() {
+                            let mut info = SymbolInfo::new_var_info_initialized();
+                            info.set_def_location(loc.clone());
+                            info
+                        } else {
+                            let mut info = SymbolInfo::new_var_info();
+                            info.set_def_location(loc.clone());
+                            info
+                        };
+                        self.sym_table.register(
+                            name,
+                            Type {
+                                tag: Sig::Infer,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: None,
+                                loc: ty.loc.clone(),
+                            },
+                            info,
+                        );
+                    } else {
+                        // we can add the variable to the symbol table
+                        let info = if val.is_some() {
+                            let mut info = SymbolInfo::new_var_info_initialized();
+                            info.set_def_location(loc.clone());
+                            info
+                        } else {
+                            let mut info = SymbolInfo::new_var_info();
+                            info.set_def_location(loc.clone());
+                            info
+                        };
+                        self.sym_table.register(name, sym_ty, info);
+                    }
+                }
                 Ins::ExprIns { expr, loc } => {
                     // we will check the expression
                     let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));

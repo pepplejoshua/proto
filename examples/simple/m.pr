@@ -4,3 +4,4 @@ f :: a + b;
 // declarations
 a :: 1;
 b : int : 2;
+c : int = f;
