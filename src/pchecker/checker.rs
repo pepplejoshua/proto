@@ -1121,6 +1121,362 @@ impl Checker {
                 self.pcode.update_expr_type(expr_i, ty.clone());
                 ty
             }
+            Expr::Eq { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not the same,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_simple_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are the same,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not the same,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "==".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Neq { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not the same,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_simple_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are the same,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not the same,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "!=".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Gt { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Char, Sig::Char) => {
+                        // if the left hand side of the expression is a char and the right hand side of the expression
+                        // is a char, we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: ">".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::Lt { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Char, Sig::Char) => {
+                        // if the left hand side of the expression is a char and the right hand side of the expression
+                        // is a char, we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "<".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::GtEq { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Char, Sig::Char) => {
+                        // if the left hand side of the expression is a char and the right hand side of the expression
+                        // is a char, we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: ">=".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
+            Expr::LtEq { lhs, rhs, loc, .. } => {
+                // we will check the types of the left and right hand side of the expression
+                let lhs_ty = self.check_expr(&lhs, recv_ty);
+                let rhs_ty = self.check_expr(&rhs, recv_ty);
+
+                // if the types of the left and right hand side of the expression are not numerical types,
+                // we will return an error type
+                let ty = match (lhs_ty.tag, rhs_ty.tag) {
+                    (l_tag, r_tag) if l_tag.is_numerical_type() && l_tag == r_tag => {
+                        // if the types of the left and right hand side of the expression are numerical types,
+                        // we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (Sig::Char, Sig::Char) => {
+                        // if the left hand side of the expression is a char and the right hand side of the expression
+                        // is a char, we will return a boolean type
+                        Type {
+                            tag: Sig::Bool,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                        // if the types of the left and right hand side of the expression are infer types,
+                        // we will return an infer type
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    _ => {
+                        // if the types of the left and right hand side of the expression are not numerical types,
+                        // we will return an error type
+                        let err = CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: "<=".to_string(),
+                            left: lhs_ty.as_str(),
+                            right: rhs_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                };
+                self.pcode.update_expr_type(expr_i, ty.clone());
+                ty
+            }
             _ => todo!("Checker::check_expr: implement more cases"),
         }
     }
