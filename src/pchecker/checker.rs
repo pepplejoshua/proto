@@ -7,7 +7,7 @@ use crate::{
         errors::CheckerError,
         source::{SourceFile, SourceReporter},
     },
-    symbol_info::symbol_info::SymbolTable,
+    symbol_info::symbol_info::{SymbolInfo, SymbolTable},
     types::signature::{Sig, Type},
 };
 
@@ -151,6 +151,10 @@ impl Checker {
                         // we will need to check the expression again
                         // after we have collected all the type information
                         // we will add the constant to the symbol table
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+
                         self.sym_table.register(
                             name,
                             Type {
@@ -160,11 +164,34 @@ impl Checker {
                                 aux_type: None,
                                 loc: ty.loc.clone(),
                             },
+                            info,
                         );
                         self.needs_next_pass = true;
                     } else {
                         // we can add the constant to the symbol table
-                        self.sym_table.register(name, sym_ty);
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name, sym_ty, info);
+                    }
+                }
+                Ins::ExprIns { expr, loc } => {
+                    // we will check the expression
+                    let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
+                    if !self.verify_type(&ty) {
+                        // if we cannot verify the type of the expression,
+                        // we will leave it to the next pass
+                        self.needs_next_pass = true;
+                    }
+                }
+                Ins::Return { expr, loc } => {
+                    if let Some(expr) = expr {
+                        // we will check the expression
+                        let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
+                        if !self.verify_type(&ty) {
+                            // if we cannot verify the type of the expression,
+                            // we will leave it to the next pass
+                            self.needs_next_pass = true;
+                        }
                     }
                 }
                 _ => todo!(),
@@ -571,7 +598,8 @@ impl Checker {
                 // check if the identifier is in the symbol table
                 if self.sym_table.check_name(&name) {
                     // if it does, we will return the type of the identifier
-                    let ty = self.sym_table.get(&name).unwrap().clone();
+                    let ty = self.sym_table.get_type(&name).unwrap().clone();
+                    self.sym_table.update_uses(&name, loc.clone());
                     ty
                 } else {
                     // if we are in the first pass, we will return an infer type

@@ -4,8 +4,5 @@ f :: a + b;
 // declarations
 a :: 1;
 b : int : 2;
-c :: 'a';
-d : str : "this is a string";
-e :: true;
-
-g :: c >= 'b';
+c :: a + a;
+d :: c + a + b;

@@ -84,6 +84,16 @@ pub struct Type {
 }
 
 impl Type {
+    pub fn new_infer_type(loc: SourceRef) -> Type {
+        Type {
+            tag: Sig::Infer,
+            name: None,
+            sub_types: vec![],
+            aux_type: None,
+            loc,
+        }
+    }
+
     pub fn as_str(&self) -> String {
         match self.tag {
             Sig::Identifier => {
