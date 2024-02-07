@@ -599,7 +599,11 @@ impl Checker {
                 if self.sym_table.check_name(&name) {
                     // if it does, we will return the type of the identifier
                     let ty = self.sym_table.get_type(&name).unwrap().clone();
-                    self.sym_table.update_uses(&name, loc.clone());
+                    // TODO(@pepplejoshua):
+                    // figure out a way to allow the user decide if this is import for them
+                    // in their current file and toggle it on. maybe with a directive
+                    // self.sym_table.update_uses(&name, loc.clone());
+                    self.pcode.update_expr_type(expr_i, ty.clone());
                     ty
                 } else {
                     // if we are in the first pass, we will return an infer type
