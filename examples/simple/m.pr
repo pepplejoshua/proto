@@ -1,7 +1,7 @@
 // out of order referring to global constants
-f :: a + b;
+ooo :: a + b;
 
 // declarations
 a :: 1;
 b : int : 2;
-c : int = f;
+c : int =  a + e;
