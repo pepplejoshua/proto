@@ -104,8 +104,10 @@ impl Checker {
                     } else {
                         // we can check the expression using our verified type
                         // to infer the type of the expression if needed
+                        // if we still need information about the init value,
+                        // we will leave it to the next pass
                         let expr_ty = self.check_expr(&val, &ty);
-                        if !self.verify_type(&expr_ty) {
+                        if !self.verify_type(&expr_ty) || expr_ty.is_infer_type() {
                             // if we have an error type, we can report it here
                             if matches!(expr_ty.tag, Sig::ErrorType) {
                                 sym_ty = expr_ty;
@@ -193,7 +195,7 @@ impl Checker {
                         if val.is_some() {
                             let val = val.unwrap();
                             let expr_ty = self.check_expr(&val, &ty);
-                            if !self.verify_type(&expr_ty) {
+                            if !self.verify_type(&expr_ty) || expr_ty.is_infer_type() {
                                 // if we have an error type, we can report it here
                                 if matches!(expr_ty.tag, Sig::ErrorType) {
                                     sym_ty = expr_ty;

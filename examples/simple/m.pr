@@ -4,4 +4,8 @@ ooo :: a + b;
 // declarations
 a :: 1;
 b : int : 2;
+<<<<<<< Updated upstream
 c : int =  a + e;
+=======
+c : int = a + e;
+>>>>>>> Stashed changes

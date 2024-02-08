@@ -94,6 +94,10 @@ impl Type {
         }
     }
 
+    pub fn is_infer_type(&self) -> bool {
+        self.tag == Sig::Infer
+    }
+
     pub fn as_str(&self) -> String {
         match self.tag {
             Sig::Identifier => {
