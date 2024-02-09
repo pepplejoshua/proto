@@ -86,7 +86,7 @@ impl Checker {
         let top_level = pcode.top_level;
         for stmt in top_level {
             match stmt {
-                Ins::Comment { comment, loc } => {
+                Ins::Comment { .. } => {
                     // do nothing
                 }
                 Ins::NewConstant { name, ty, val, loc } => {
@@ -296,9 +296,44 @@ impl Checker {
                         }
                     }
                 }
-                _ => todo!(),
+                _ => todo!(
+                    "Checker::collect_info: handle other instructions: {:?}",
+                    stmt
+                ),
             }
         }
+    }
+
+    fn check_collected_info(&mut self) {
+        let pcode = self.pcode.clone();
+        let top_level = pcode.top_level;
+        for stmt in top_level {
+            match stmt {
+                Ins::Comment { .. } => {
+                    // do nothing
+                }
+                Ins::Return { expr, loc } => {
+                    if let Some(expr) = expr {
+                        // we will check the expression
+                        let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
+                        if !self.verify_type(&ty) {
+                            // if we cannot verify the type of the expression,
+                            // we will leave it to the next pass
+                            self.needs_next_pass = true;
+                        }
+                    }
+                }
+                _ => todo!(
+                    "Checker::check_collected_info: handle other instructions: {:?}",
+                    stmt
+                ),
+            }
+        }
+    }
+
+    fn expr_has_type(&mut self, expr: ExprLoc) -> bool {
+        let expr = self.pcode.get_expr_c(&expr);
+        expr.has_type()
     }
 
     fn report_error(&mut self, err: CheckerError) {
@@ -1615,7 +1650,11 @@ impl Checker {
         }
     }
 
-    pub fn check(&mut self) {
+    pub fn check(&mut self) -> SymbolTable {
         self.collect_info();
+        if self.needs_next_pass {
+            self.check_collected_info();
+        }
+        self.sym_table.clone()
     }
 }

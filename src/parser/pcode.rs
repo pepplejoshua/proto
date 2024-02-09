@@ -234,7 +234,42 @@ impl Expr {
             Expr::CallFunction { ty, .. } => *ty = Some(new_type),
             Expr::IndexArray { ty, .. } => *ty = Some(new_type),
             Expr::Directive { ty, .. } => *ty = Some(new_type),
+            Expr::Ident { ty, .. } => *ty = Some(new_type),
             _ => (),
+        }
+    }
+
+    pub fn has_type(&self) -> bool {
+        match self {
+            Expr::Number { ty, .. } => ty.is_some(),
+            Expr::Add { ty, .. } => ty.is_some(),
+            Expr::Sub { ty, .. } => ty.is_some(),
+            Expr::Mul { ty, .. } => ty.is_some(),
+            Expr::Div { ty, .. } => ty.is_some(),
+            Expr::Mod { ty, .. } => ty.is_some(),
+            Expr::And { ty, .. } => ty.is_some(),
+            Expr::Or { ty, .. } => ty.is_some(),
+            Expr::Not { ty, .. } => ty.is_some(),
+            Expr::Eq { ty, .. } => ty.is_some(),
+            Expr::Neq { ty, .. } => ty.is_some(),
+            Expr::Gt { ty, .. } => ty.is_some(),
+            Expr::Lt { ty, .. } => ty.is_some(),
+            Expr::GtEq { ty, .. } => ty.is_some(),
+            Expr::LtEq { ty, .. } => ty.is_some(),
+            Expr::Negate { ty, .. } => ty.is_some(),
+            Expr::AccessMember { ty, .. } => ty.is_some(),
+            Expr::InitStruct { ty, .. } => ty.is_some(),
+            Expr::NewFunction { ty, .. } => ty.is_some(),
+            Expr::NewStruct { ty, .. } => ty.is_some(),
+            Expr::CallFunction { ty, .. } => ty.is_some(),
+            Expr::IndexArray { ty, .. } => ty.is_some(),
+            Expr::Directive { ty, .. } => ty.is_some(),
+            Expr::Bool { .. } => true,
+            Expr::Char { .. } => true,
+            Expr::Str { .. } => true,
+            Expr::Void { .. } => true,
+            Expr::Ident { ty, .. } => ty.is_some(),
+            _ => false,
         }
     }
 

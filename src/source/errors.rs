@@ -95,5 +95,9 @@ pub enum CheckerError {
         operand: String,
         tip: Option<String>,
     },
+    UnknownType {
+        loc: SourceRef,
+        type_name: String,
+    },
     TooManyErrors,
 }
