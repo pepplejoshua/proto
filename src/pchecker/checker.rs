@@ -7,7 +7,7 @@ use crate::{
         errors::CheckerError,
         source::{SourceFile, SourceReporter},
     },
-    symbol_info::symbol_info::{SymbolInfo, SymbolTable},
+    symbol_info::symbol_info::{SymbolInfo, SymbolTable, SymbolTableType},
     types::signature::{Sig, Type},
 };
 
@@ -24,8 +24,8 @@ enum CheckerScope {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Pass {
-    First,
-    Second,
+    One,
+    Two,
 }
 
 #[derive(Clone)]
@@ -43,11 +43,11 @@ impl Checker {
     pub fn new(pcode: PCode, src: SourceFile) -> Checker {
         Checker {
             pcode,
-            sym_table: SymbolTable::new(),
+            sym_table: SymbolTable::new(SymbolTableType::Preserved),
             scope: CheckerScope::Global,
             needs_next_pass: false,
             reporter: SourceReporter::new(src),
-            pass: Pass::First,
+            pass: Pass::One,
             error_count: 0,
         }
     }
@@ -80,6 +80,74 @@ impl Checker {
             Sig::ErrorType => false,
         }
     }
+
+    fn in_pass_1(&self) -> bool {
+        self.pass == Pass::One
+    }
+
+    fn in_pass_2(&self) -> bool {
+        self.pass == Pass::Two
+    }
+
+    fn pass_1(&mut self) {
+        let pcode = self.pcode.clone();
+        let top_level = pcode.top_level;
+        for stmt in top_level {
+            match stmt {
+                Ins::Comment { .. } => {
+                    // do nothing
+                }
+                Ins::NewConstant { name, ty, val, loc } => {
+                    let const_exists = self.sym_table.name_is_const_and_initialized(&name);
+                    let type_is_valid = self.verify_type(&ty);
+
+                    if const_exists {
+                        let err = CheckerError::ConstantAlreadyDefined {
+                            loc: loc.clone(),
+                            name,
+                        };
+                        self.report_error(err);
+                        continue;
+                    }
+
+                    if !type_is_valid {
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+
+                        self.sym_table.register(
+                            name,
+                            Type {
+                                tag: Sig::Infer,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: None,
+                                loc: ty.loc.clone(),
+                            },
+                            info,
+                        );
+                        self.needs_next_pass = true;
+                        continue;
+                    }
+
+                    let expr_ty = self.check_expr(&val, &ty);
+                    let expr_ty_is_valid = self.verify_type(&expr_ty);
+                    if !expr_ty_is_valid || expr_ty.is_infer_type() {
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+
+                        self.sym_table.register(name, expr_ty, info);
+                        self.needs_next_pass = true;
+                        continue;
+                    }
+                }
+                _ => todo!("Checker::process: implement stmt: {:?}", stmt),
+            }
+        }
+    }
+
+    fn pass_2(&mut self) {}
 
     pub fn collect_info(&mut self) {
         let pcode = self.pcode.clone();
@@ -136,7 +204,6 @@ impl Checker {
                                     found: expr_ty.as_str(),
                                 };
                                 self.report_error(err);
-                                self.error_count += 1;
                                 sym_ty = Type {
                                     tag: Sig::ErrorType,
                                     name: None,
@@ -744,7 +811,7 @@ impl Checker {
                     ty
                 } else {
                     // if we are in the first pass, we will return an infer type
-                    if matches!(self.pass, Pass::First) {
+                    if matches!(self.pass, Pass::One) {
                         return Type {
                             tag: Sig::Infer,
                             name: None,

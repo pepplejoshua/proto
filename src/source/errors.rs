@@ -95,9 +95,14 @@ pub enum CheckerError {
         operand: String,
         tip: Option<String>,
     },
-    UnknownType {
+    InvalidType {
         loc: SourceRef,
         type_name: String,
+    },
+    // TODO: track the location of the previous definition
+    ConstantAlreadyDefined {
+        loc: SourceRef,
+        name: String,
     },
     TooManyErrors,
 }

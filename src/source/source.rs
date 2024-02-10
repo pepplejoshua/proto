@@ -364,6 +364,10 @@ impl SourceReporter {
 
     pub fn report_checker_error(&self, ce: CheckerError) {
         match ce {
+            CheckerError::InvalidType { loc, type_name } => {
+                let msg = format!("Invalid type: '{}'.", type_name);
+                self.report_with_ref(&loc, msg, None, false);
+            }
             CheckerError::TypeMismatch {
                 loc,
                 expected,
@@ -423,6 +427,10 @@ impl SourceReporter {
                 let tip =
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
+            }
+            CheckerError::ConstantAlreadyDefined { loc, name } => {
+                let msg = format!("Constant '{name}' is already defined.");
+                self.report_with_ref(&loc, msg, None, false);
             }
         }
     }

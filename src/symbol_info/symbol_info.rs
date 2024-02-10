@@ -77,6 +77,22 @@ impl SymbolInfo {
     }
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum SymbolTableType {
+    // this table will be dropped when the scope ends
+    // used for function bodies, loops, if statements, etc.
+    Locals,
+    // this table will be preserved when the scope ends
+    // used exclusively for global scope
+    Preserved,
+    // this table will be preserved when the scope ends
+    // and will be used to resolve symbols in sub-tables
+    // used for structs, enums, etc.
+    // its children scopes will be preserved if they are
+    // SelfContained.
+    SelfContained,
+}
+
 // these will store the symbols and their types
 #[derive(Clone)]
 pub struct SymbolTable {
@@ -90,22 +106,25 @@ pub struct SymbolTable {
     // then their internals will survive scopes. If the enclosing scope is Locals,
     // then the sub_tables will be dropped when the scope ends.
     pub sub_tables: HashMap<String, Box<SymbolTable>>,
+    pub table_type: SymbolTableType,
 }
 
 impl SymbolTable {
-    pub fn new() -> Self {
+    pub fn new(table_type: SymbolTableType) -> Self {
         SymbolTable {
             parent: None,
             symbols: HashMap::new(),
             sub_tables: HashMap::new(),
+            table_type,
         }
     }
 
-    pub fn make_child_env(parent: SymbolTable) -> Self {
+    pub fn make_child_env(parent: SymbolTable, table_type: SymbolTableType) -> Self {
         SymbolTable {
             parent: Some(Box::new(parent)),
             symbols: HashMap::new(),
             sub_tables: HashMap::new(),
+            table_type,
         }
     }
 
@@ -141,6 +160,19 @@ impl SymbolTable {
 
     pub fn check_name(&self, name: &str) -> bool {
         self.symbols.contains_key(name)
+    }
+
+    pub fn name_is_const_and_initialized(&self, name: &str) -> bool {
+        if let Some((_, info)) = self.symbols.get(name) {
+            info.is_const() && info.fully_initialized
+        } else {
+            // look in parent scopes
+            if let Some(parent) = &self.parent {
+                parent.name_is_const_and_initialized(name)
+            } else {
+                false
+            }
+        }
     }
 
     pub fn insert_scoped(&mut self, name: String, scope: SymbolTable) {
