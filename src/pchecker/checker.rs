@@ -332,6 +332,7 @@ impl Checker {
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
                     self.sym_table.register(name.clone(), expr_ty, info);
+                    return;
                 } else {
                     // now we are in a Preserved or SelfContained table
                     // so we should have seen this constant before. We will
@@ -368,6 +369,17 @@ impl Checker {
                                             type_name: ty.as_str(),
                                         };
                                         self.report_error(err);
+
+                                        // set the type of the constant to error
+                                        // so that we don't process it again
+                                        let err_ty = Type {
+                                            tag: Sig::ErrorType,
+                                            loc: ty.loc.clone(),
+                                            name: None,
+                                            sub_types: vec![],
+                                            aux_type: None,
+                                        };
+                                        self.sym_table.update_type(&name, err_ty, true);
                                         return;
                                     }
 
@@ -392,7 +404,7 @@ impl Checker {
                                             sub_types: vec![],
                                             aux_type: None,
                                         };
-                                        self.sym_table.update_type(&name, err_ty);
+                                        self.sym_table.update_type(&name, err_ty, true);
                                         return;
                                     }
 
@@ -406,10 +418,20 @@ impl Checker {
                                             found: expr_ty.as_str(),
                                         };
                                         self.report_error(err);
+
+                                        // set the type of the constant to error
+                                        let err_ty = Type {
+                                            tag: Sig::ErrorType,
+                                            loc: ty.loc.clone(),
+                                            name: None,
+                                            sub_types: vec![],
+                                            aux_type: None,
+                                        };
+                                        self.sym_table.update_type(&name, err_ty, true);
                                         return;
                                     }
 
-                                    self.sym_table.update_type(&name, expr_ty);
+                                    self.sym_table.update_type(&name, expr_ty, true);
                                 }
                                 _ => {
                                     unreachable!("Checker::pass_2_check_ins: constant type is not Infer or Error")
@@ -449,22 +471,32 @@ impl Checker {
                         return;
                     }
 
-                    // sometimes, a variable is declared but not initialized
-                    // in that case, we will not have a value to typecheck with
-                    // and can assume that the type is correct but the variable
-                    // is not fully initialized
+                    // sometimes a variable will be declared without an init value
                     if let Some(val) = val {
                         let expr_ty = self.check_expr(&val, &ty);
-                        let expr_ty_is_valid =
-                            self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
+                        let expr_ty_is_valid = self.verify_type(&expr_ty);
+                        let expr_ty_is_error = expr_ty.tag.is_error_type();
                         if !expr_ty_is_valid {
-                            // now we have to throw an error since given all the information
-                            // we have, we still cannot resolve this type
-                            let err = CheckerError::InvalidType {
-                                loc: expr_ty.loc.clone(),
-                                type_name: expr_ty.as_str(),
+                            if !expr_ty_is_error {
+                                // now we have to throw an error since given all the information
+                                // we have, we still cannot resolve this type
+                                let err = CheckerError::InvalidType {
+                                    loc: expr_ty.loc.clone(),
+                                    type_name: expr_ty.as_str(),
+                                };
+                                self.report_error(err);
+                            }
+                            // we have to assign an error type to the variable
+                            let err_ty = Type {
+                                tag: Sig::ErrorType,
+                                loc: ty.loc.clone(),
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: None,
                             };
-                            self.report_error(err);
+                            let mut info = SymbolInfo::new_var_info();
+                            info.set_def_location(loc.clone());
+                            self.sym_table.register(name.clone(), err_ty, info);
                             return;
                         }
 
@@ -478,10 +510,36 @@ impl Checker {
                                 found: expr_ty.as_str(),
                             };
                             self.report_error(err);
+
+                            // we have to assign an error type to the variable
+                            let err_ty = Type {
+                                tag: Sig::ErrorType,
+                                loc: ty.loc.clone(),
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: None,
+                            };
+                            let mut info = SymbolInfo::new_var_info();
+                            info.set_def_location(loc.clone());
+                            self.sym_table.register(name.clone(), err_ty, info);
                             return;
                         }
+
+                        let mut info = SymbolInfo::new_var_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), ty.clone(), info);
+                        return;
                     } else {
+                        // we have to assign the type to the variable although it is not
+                        // initialized yet
+                        let mut info = SymbolInfo::new_var_info();
+                        info.fully_initialized = false;
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), ty.clone(), info);
+                        return;
                     }
+                } else {
+                    // handle the case where we are not in a local table
                 }
             }
             _ => todo!(

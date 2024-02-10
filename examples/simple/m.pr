@@ -1,6 +1,6 @@
 // out of order referring to global constants
 ooo :: a + b;
-ooo_var : int = c + a + b;
+ooo_var : str = c + a + b;
 
 // declarations
 a :: 1;

@@ -228,10 +228,10 @@ impl SymbolTable {
         self.table_type == SymbolTableType::Locals
     }
 
-    pub fn update_type(&mut self, name: &str, new_type: Type) {
+    pub fn update_type(&mut self, name: &str, new_type: Type, init: bool) {
         if let Some((val_ty, info)) = self.symbols.get_mut(name) {
             *val_ty = new_type;
-            info.fully_initialized = true;
+            info.fully_initialized = init;
         }
     }
 }
