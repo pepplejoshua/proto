@@ -711,6 +711,14 @@ impl PCode {
         }
     }
 
+    pub fn get_ins_c(&self, loc: &InsLoc) -> Ins {
+        match loc.0 {
+            0 => self.top_level[loc.1].clone(),
+            1 => self.sub_ins[loc.1].clone(),
+            _ => panic!("Invalid InsLoc"),
+        }
+    }
+
     pub fn get_expr(&self, loc: &ExprLoc) -> &Expr {
         &self.exprs[*loc]
     }

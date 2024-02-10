@@ -200,6 +200,10 @@ impl SymbolTable {
             sub_table.show_info();
         }
     }
+
+    pub fn is_locals_table(&self) -> bool {
+        self.table_type == SymbolTableType::Locals
+    }
 }
 
 pub type SymIndex = usize;

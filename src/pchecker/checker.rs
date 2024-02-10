@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 use crate::{
-    parser::pcode::{Expr, ExprLoc, Ins, PCode},
+    parser::pcode::{Expr, ExprLoc, Ins, InsLoc, PCode},
     source::{
         errors::CheckerError,
         source::{SourceFile, SourceReporter},
@@ -81,321 +81,137 @@ impl Checker {
         }
     }
 
-    fn pass_1(&mut self) {
-        let pcode = self.pcode.clone();
-        let top_level = pcode.top_level;
-        for stmt in top_level {
-            match stmt {
-                Ins::Comment { .. } => {
-                    // do nothing
+    fn pass_1_check_ins(&mut self, ins_i: InsLoc) {
+        let stmt = self.pcode.get_ins_c(&ins_i);
+        match stmt {
+            Ins::Comment { .. } => {
+                // do nothing
+            }
+            Ins::NewConstant { name, ty, val, loc } => {
+                let const_exists = self.sym_table.name_is_const_and_initialized(&name);
+                let type_is_valid = self.verify_type(&ty);
+
+                if const_exists {
+                    let err = CheckerError::ConstantAlreadyDefined {
+                        loc: loc.clone(),
+                        name: name.clone(),
+                    };
+                    self.report_error(err);
+                    return;
                 }
-                Ins::NewConstant { name, ty, val, loc } => {
-                    let const_exists = self.sym_table.name_is_const_and_initialized(&name);
-                    let type_is_valid = self.verify_type(&ty);
 
-                    if const_exists {
-                        let err = CheckerError::ConstantAlreadyDefined {
-                            loc: loc.clone(),
-                            name,
-                        };
-                        self.report_error(err);
-                        continue;
-                    }
+                if !type_is_valid {
+                    let mut info = SymbolInfo::new_const_info();
+                    info.set_def_location(loc.clone());
+                    info.fully_initialized = false;
 
-                    if !type_is_valid {
-                        let mut info = SymbolInfo::new_const_info();
-                        info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
-
-                        self.sym_table.register(
-                            name,
-                            Type {
-                                tag: Sig::Infer,
-                                name: None,
-                                sub_types: vec![],
-                                aux_type: None,
-                                loc: ty.loc.clone(),
-                            },
-                            info,
-                        );
-                        self.needs_next_pass = true;
-                        continue;
-                    }
-
-                    let expr_ty = self.check_expr(&val, &ty);
-                    let expr_ty_is_valid = self.verify_type(&expr_ty);
-                    if !expr_ty_is_valid || expr_ty.is_infer_type() {
-                        let mut info = SymbolInfo::new_const_info();
-                        info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
-
-                        self.sym_table.register(name, expr_ty, info);
-                        self.needs_next_pass = true;
-                        continue;
-                    }
-
-                    if !ty.typecheck(&expr_ty) {
-                        let span = ty.loc.clone();
-                        let expr_span = expr_ty.loc.clone();
-                        let span = span.combine(expr_span);
-                        let err = CheckerError::TypeMismatch {
-                            loc: span,
-                            expected: ty.as_str(),
-                            found: expr_ty.as_str(),
-                        };
-                        self.report_error(err);
-
-                        let mut info = SymbolInfo::new_const_info();
-                        info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
-                        let const_ty = Type {
-                            tag: Sig::ErrorType,
+                    self.sym_table.register(
+                        name.clone(),
+                        Type {
+                            tag: Sig::Infer,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
-                            loc: loc.clone(),
-                        };
-                        self.sym_table.register(name, const_ty, info);
-                        continue;
-                    }
+                            loc: ty.loc.clone(),
+                        },
+                        info,
+                    );
+                    self.needs_next_pass = true;
+                    return;
+                }
+
+                let expr_ty = self.check_expr(&val, &ty);
+                let expr_ty_is_valid = self.verify_type(&expr_ty);
+                if !expr_ty_is_valid || expr_ty.is_infer_type() {
+                    let mut info = SymbolInfo::new_const_info();
+                    info.set_def_location(loc.clone());
+                    info.fully_initialized = false;
+
+                    self.sym_table.register(name.clone(), expr_ty, info);
+                    self.needs_next_pass = true;
+                    return;
+                }
+
+                if !ty.typecheck(&expr_ty) {
+                    let span = ty.loc.clone();
+                    let expr_span = expr_ty.loc.clone();
+                    let span = span.combine(expr_span);
+                    let err = CheckerError::TypeMismatch {
+                        loc: span,
+                        expected: ty.as_str(),
+                        found: expr_ty.as_str(),
+                    };
+                    self.report_error(err);
 
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
-                    info.fully_initialized = true;
-                    self.sym_table.register(name, expr_ty, info);
+                    info.fully_initialized = false;
+                    let const_ty = Type {
+                        tag: Sig::ErrorType,
+                        name: None,
+                        sub_types: vec![],
+                        aux_type: None,
+                        loc: loc.clone(),
+                    };
+                    self.sym_table.register(name.clone(), const_ty, info);
+                    return;
                 }
-                _ => todo!("Checker::process: implement stmt: {:?}", stmt),
+
+                let mut info = SymbolInfo::new_const_info();
+                info.set_def_location(loc.clone());
+                info.fully_initialized = true;
+                self.sym_table.register(name.clone(), expr_ty, info);
             }
+            _ => todo!(
+                "Checker::pass_1_check_ins: implement checking for {:?} :> {:?}",
+                ins_i,
+                stmt
+            ),
         }
     }
 
-    fn pass_2(&mut self) {}
-
-    pub fn collect_info(&mut self) {
-        let pcode = self.pcode.clone();
-        let top_level = pcode.top_level;
-        for stmt in top_level {
-            match stmt {
-                Ins::Comment { .. } => {
-                    // do nothing
-                }
-                Ins::NewConstant { name, ty, val, loc } => {
-                    // check if the constant is already defined
-                    if self.sym_table.check_name(&name) {
-                        panic!("Checker::collect_info: constant {} already defined", name);
-                    }
-
-                    let mut needs_next_pass = false;
-                    let mut sym_ty = ty.clone();
-                    if !self.verify_type(&ty) {
-                        // if we cannot verify the type given to the constant,
-                        // we will leave it to the next pass
-                        needs_next_pass = true;
-                    } else {
-                        // we can check the expression using our verified type
-                        // to infer the type of the expression if needed
-                        // if we still need information about the init value,
-                        // we will leave it to the next pass
-                        let expr_ty = self.check_expr(&val, &ty);
-                        if !self.verify_type(&expr_ty) || expr_ty.is_infer_type() {
-                            // if we have an error type, we can report it here
-                            if matches!(expr_ty.tag, Sig::ErrorType) {
-                                sym_ty = expr_ty;
-                            } else {
-                                // if we cannot verify the type of the expression,
-                                // we will leave it to the next pass as well
-                                needs_next_pass = true;
-                            }
-                        } else {
-                            // if we can verify the type of the expression,
-                            // we can use the type given to the constant to typecheck
-                            // the expression type. Infer type will accept any type
-                            if ty.typecheck(&expr_ty) {
-                                sym_ty = expr_ty;
-                            } else {
-                                // if the type of the expression does not match the type
-                                // given to the constant, we can set the type of the constant to an
-                                // error type
-                                // we can report an error here as well
-                                let span = ty.loc.clone();
-                                let expr_span = expr_ty.loc.clone();
-                                let span = span.combine(expr_span);
-                                let err = CheckerError::TypeMismatch {
-                                    loc: span,
-                                    expected: ty.as_str(),
-                                    found: expr_ty.as_str(),
-                                };
-                                self.report_error(err);
-                                sym_ty = Type {
-                                    tag: Sig::ErrorType,
-                                    name: None,
-                                    sub_types: vec![],
-                                    aux_type: None,
-                                    loc: loc.clone(),
-                                };
-                                // report mismatch of types error
-                            }
-                        }
-                    }
-
-                    if needs_next_pass {
-                        // we will need to check the expression again
-                        // after we have collected all the type information
-                        // we will add the constant to the symbol table
-                        let mut info = SymbolInfo::new_const_info();
-                        info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
-
-                        self.sym_table.register(
-                            name,
-                            Type {
-                                tag: Sig::Infer,
-                                name: None,
-                                sub_types: vec![],
-                                aux_type: None,
-                                loc: ty.loc.clone(),
-                            },
-                            info,
-                        );
-                        self.needs_next_pass = true;
-                    } else {
-                        // we can add the constant to the symbol table
-                        let mut info = SymbolInfo::new_const_info();
-                        info.set_def_location(loc.clone());
-                        self.sym_table.register(name, sym_ty, info);
-                    }
-                }
-                Ins::NewVariable { name, ty, val, loc } => {
-                    // check if the variable is already defined
-                    if self.sym_table.check_name(&name) {
-                        panic!("Checker::collect_info: variable {} already defined", name);
-                    }
-
-                    let mut needs_next_pass = false;
-                    let mut sym_ty = ty.clone();
-                    if !self.verify_type(&ty) {
-                        // if we cannot verify the type given to the variable,
-                        // we will leave it to the next pass
-                        needs_next_pass = true;
-                    } else {
-                        // we can check the expression using our verified type
-                        // to infer the type of the expression if needed. That is if the
-                        // user has initialized the variable
-                        if val.is_some() {
-                            let val = val.unwrap();
-                            let expr_ty = self.check_expr(&val, &ty);
-                            if !self.verify_type(&expr_ty) || expr_ty.is_infer_type() {
-                                // if we have an error type, we can report it here
-                                if matches!(expr_ty.tag, Sig::ErrorType) {
-                                    sym_ty = expr_ty;
-                                } else {
-                                    // if we cannot verify the type of the expression,
-                                    // we will leave it to the next pass as well
-                                    needs_next_pass = true;
-                                }
-                            } else {
-                                // if we can verify the type of the expression,
-                                // we can use the type given to the variable to typecheck
-                                // the expression type. Infer type will accept any type
-                                if ty.typecheck(&expr_ty) {
-                                    sym_ty = expr_ty;
-                                } else {
-                                    // if the type of the expression does not match the type
-                                    // given to the variable, we can set the type of the variable to an
-                                    // error type
-                                    // we can report an error here as well
-                                    let span = ty.loc.clone();
-                                    let expr_span = expr_ty.loc.clone();
-                                    let span = span.combine(expr_span);
-                                    let err = CheckerError::TypeMismatch {
-                                        loc: span,
-                                        expected: ty.as_str(),
-                                        found: expr_ty.as_str(),
-                                    };
-                                    self.report_error(err);
-                                    self.error_count += 1;
-                                    sym_ty = Type {
-                                        tag: Sig::ErrorType,
-                                        name: None,
-                                        sub_types: vec![],
-                                        aux_type: None,
-                                        loc: ty.loc.clone(),
-                                    };
-                                    // report mismatch of types error
-                                }
-                            }
-                        }
-                    }
-
-                    if needs_next_pass {
-                        // we will need to check the expression again
-                        // after we have collected all the type information
-                        // we will add the variable to the symbol table
-                        let info = if val.is_some() {
-                            let mut info = SymbolInfo::new_var_info_initialized();
-                            info.set_def_location(loc.clone());
-                            info
-                        } else {
-                            let mut info = SymbolInfo::new_var_info();
-                            info.set_def_location(loc.clone());
-                            info
-                        };
-                        self.sym_table.register(
-                            name,
-                            Type {
-                                tag: Sig::Infer,
-                                name: None,
-                                sub_types: vec![],
-                                aux_type: None,
-                                loc: ty.loc.clone(),
-                            },
-                            info,
-                        );
-                    } else {
-                        // we can add the variable to the symbol table
-                        let info = if val.is_some() {
-                            let mut info = SymbolInfo::new_var_info_initialized();
-                            info.set_def_location(loc.clone());
-                            info
-                        } else {
-                            let mut info = SymbolInfo::new_var_info();
-                            info.set_def_location(loc.clone());
-                            info
-                        };
-                        self.sym_table.register(name, sym_ty, info);
-                    }
-                }
-                Ins::ExprIns { expr, loc } => {
-                    // we will check the expression
-                    let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
-                    if !self.verify_type(&ty) {
-                        // if we cannot verify the type of the expression,
-                        // we will leave it to the next pass
-                        self.needs_next_pass = true;
-                    }
-                }
-                Ins::Return { expr, loc } => {
-                    if let Some(expr) = expr {
-                        // we will check the expression
-                        let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
-                        if !self.verify_type(&ty) {
-                            // if we cannot verify the type of the expression,
-                            // we will leave it to the next pass
-                            self.needs_next_pass = true;
-                        }
-                    }
-                }
-                _ => todo!(
-                    "Checker::collect_info: handle other instructions: {:?}",
-                    stmt
-                ),
-            }
+    fn pass_1(&mut self) {
+        let top_level = self.pcode.top_level.clone();
+        for (loc, _) in top_level.iter().enumerate() {
+            self.pass_1_check_ins((0, loc));
         }
     }
 
-    fn expr_has_type(&mut self, expr: ExprLoc) -> bool {
-        let expr = self.pcode.get_expr_c(&expr);
-        expr.has_type()
+    fn pass_2_check_ins(&mut self, ins_i: InsLoc) {
+        let stmt = self.pcode.get_ins_c(&ins_i);
+        match stmt {
+            Ins::Comment { .. } => {
+                // do nothing
+            }
+            Ins::NewConstant { name, ty, val, loc } => {
+                let in_local_table = self.sym_table.is_locals_table();
+
+                // in a local table, we should not have any constants already defined / declared
+                // because we are in a new scope. if there is a constant already defined, it is
+                // an error which we already reported in pass_1
+                let const_exists = self.sym_table.name_is_const_and_initialized(&name);
+                if in_local_table && const_exists {
+                    return;
+                }
+
+                if in_local_table {
+                    // we can treat it normally and process it
+                } else {
+                }
+            }
+            _ => todo!(
+                "Checker::pass_2_check_ins: implement checking for {:?} :> {:?}",
+                ins_i,
+                stmt
+            ),
+        }
+    }
+
+    fn pass_2(&mut self) {
+        let top_level = self.pcode.top_level.clone();
+        for (loc, _) in top_level.iter().enumerate() {
+            self.pass_2_check_ins((0, loc));
+        }
     }
 
     fn report_error(&mut self, err: CheckerError) {
