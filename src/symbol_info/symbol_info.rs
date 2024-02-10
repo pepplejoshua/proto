@@ -184,7 +184,7 @@ impl SymbolTable {
         for (name, (val_ty, info)) in &self.symbols {
             println!(
                 // "{}: {:?} was used {} times.",
-                "{}: {:?}",
+                "{}: {}",
                 name,
                 val_ty.as_str(),
                 // info.references_to_sym.len()

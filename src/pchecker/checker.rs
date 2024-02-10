@@ -81,14 +81,6 @@ impl Checker {
         }
     }
 
-    fn in_pass_1(&self) -> bool {
-        self.pass == Pass::One
-    }
-
-    fn in_pass_2(&self) -> bool {
-        self.pass == Pass::Two
-    }
-
     fn pass_1(&mut self) {
         let pcode = self.pcode.clone();
         let top_level = pcode.top_level;
@@ -141,6 +133,36 @@ impl Checker {
                         self.needs_next_pass = true;
                         continue;
                     }
+
+                    if !ty.typecheck(&expr_ty) {
+                        let span = ty.loc.clone();
+                        let expr_span = expr_ty.loc.clone();
+                        let span = span.combine(expr_span);
+                        let err = CheckerError::TypeMismatch {
+                            loc: span,
+                            expected: ty.as_str(),
+                            found: expr_ty.as_str(),
+                        };
+                        self.report_error(err);
+
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+                        let const_ty = Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                        self.sym_table.register(name, const_ty, info);
+                        continue;
+                    }
+
+                    let mut info = SymbolInfo::new_const_info();
+                    info.set_def_location(loc.clone());
+                    info.fully_initialized = true;
+                    self.sym_table.register(name, expr_ty, info);
                 }
                 _ => todo!("Checker::process: implement stmt: {:?}", stmt),
             }
@@ -365,33 +387,6 @@ impl Checker {
                 }
                 _ => todo!(
                     "Checker::collect_info: handle other instructions: {:?}",
-                    stmt
-                ),
-            }
-        }
-    }
-
-    fn check_collected_info(&mut self) {
-        let pcode = self.pcode.clone();
-        let top_level = pcode.top_level;
-        for stmt in top_level {
-            match stmt {
-                Ins::Comment { .. } => {
-                    // do nothing
-                }
-                Ins::Return { expr, loc } => {
-                    if let Some(expr) = expr {
-                        // we will check the expression
-                        let ty = self.check_expr(&expr, &Type::new_infer_type(loc.clone()));
-                        if !self.verify_type(&ty) {
-                            // if we cannot verify the type of the expression,
-                            // we will leave it to the next pass
-                            self.needs_next_pass = true;
-                        }
-                    }
-                }
-                _ => todo!(
-                    "Checker::check_collected_info: handle other instructions: {:?}",
                     stmt
                 ),
             }
@@ -1718,9 +1713,9 @@ impl Checker {
     }
 
     pub fn check(&mut self) -> SymbolTable {
-        self.collect_info();
+        self.pass_1();
         if self.needs_next_pass {
-            self.check_collected_info();
+            self.pass_2();
         }
         self.sym_table.clone()
     }
