@@ -88,11 +88,11 @@ impl Checker {
                 // do nothing
             }
             Ins::NewConstant { name, ty, val, loc } => {
-                let const_exists = self.sym_table.name_is_const_and_initialized(&name);
+                let const_exists = self.sym_table.check_name(&name);
                 let type_is_valid = self.verify_type(&ty);
 
                 if const_exists {
-                    let err = CheckerError::ConstantAlreadyDefined {
+                    let err = CheckerError::NameAlreadyDefined {
                         loc: loc.clone(),
                         name: name.clone(),
                     };
@@ -121,7 +121,7 @@ impl Checker {
                 }
 
                 let expr_ty = self.check_expr(&val, &ty);
-                let expr_ty_is_valid = self.verify_type(&expr_ty);
+                let expr_ty_is_valid = self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
                 if !expr_ty_is_valid || expr_ty.is_infer_type() {
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
@@ -162,6 +162,96 @@ impl Checker {
                 info.fully_initialized = true;
                 self.sym_table.register(name.clone(), expr_ty, info);
             }
+            Ins::NewVariable { name, ty, val, loc } => {
+                let var_exists = self.sym_table.check_name(&name);
+                let type_is_valid = self.verify_type(&ty);
+
+                if var_exists {
+                    let err = CheckerError::NameAlreadyDefined {
+                        loc: loc.clone(),
+                        name: name.clone(),
+                    };
+                    self.report_error(err);
+                    return;
+                }
+
+                if !type_is_valid {
+                    let mut info = SymbolInfo::new_var_info();
+                    info.set_def_location(loc.clone());
+                    info.fully_initialized = false;
+
+                    self.sym_table.register(
+                        name.clone(),
+                        Type {
+                            tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: ty.loc.clone(),
+                        },
+                        info,
+                    );
+                    self.needs_next_pass = true;
+                    return;
+                }
+
+                // sometimes, u might want to declare a variable and initialize
+                // it later, so we don't need to check the value here
+                let mut _var_type = ty.clone();
+                if let Some(val) = val {
+                    let expr_ty = self.check_expr(&val, &ty);
+                    let expr_ty_is_valid =
+                        self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
+                    if !expr_ty_is_valid || expr_ty.is_infer_type() {
+                        let mut info = SymbolInfo::new_var_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+
+                        self.sym_table.register(name.clone(), expr_ty, info);
+                        self.needs_next_pass = true;
+                        return;
+                    }
+
+                    if !ty.typecheck(&expr_ty) {
+                        let span = ty.loc.clone();
+                        let expr_span = expr_ty.loc.clone();
+                        let span = span.combine(expr_span);
+                        let err = CheckerError::TypeMismatch {
+                            loc: span,
+                            expected: ty.as_str(),
+                            found: expr_ty.as_str(),
+                        };
+                        self.report_error(err);
+
+                        let mut info = SymbolInfo::new_var_info();
+                        info.set_def_location(loc.clone());
+                        info.fully_initialized = false;
+                        let var_ty = Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                        self.sym_table.register(name.clone(), var_ty, info);
+                        return;
+                    } else {
+                        _var_type = expr_ty;
+                    }
+                } else {
+                    let mut info = SymbolInfo::new_var_info();
+                    info.set_def_location(loc.clone());
+                    info.fully_initialized = false;
+
+                    self.sym_table.register(name.clone(), ty.clone(), info);
+                    return;
+                }
+
+                let mut info = SymbolInfo::new_var_info();
+                info.set_def_location(loc.clone());
+                info.fully_initialized = true;
+                self.sym_table.register(name.clone(), _var_type, info);
+            }
             _ => todo!(
                 "Checker::pass_1_check_ins: implement checking for {:?} :> {:?}",
                 ins_i,
@@ -190,7 +280,7 @@ impl Checker {
                 // in a local table, we should not have any constants already defined / declared
                 // because we are in a new scope. if there is a constant already defined, it is
                 // an error which we already reported in pass_1
-                let const_exists = self.sym_table.name_is_const_and_initialized(&name);
+                let const_exists = self.sym_table.name_is_const(&name);
                 if in_local_table && const_exists {
                     return;
                 }
@@ -213,7 +303,8 @@ impl Checker {
                     }
 
                     let expr_ty = self.check_expr(&val, &ty);
-                    let expr_ty_is_valid = self.verify_type(&expr_ty);
+                    let expr_ty_is_valid =
+                        self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
                     if !expr_ty_is_valid {
                         // now we have to throw an error since given all the information
                         // we have, we still cannot resolve this type
@@ -282,14 +373,26 @@ impl Checker {
 
                                     let expr_ty = self.check_expr(&val, &ty);
                                     let expr_ty_is_valid = self.verify_type(&expr_ty);
+                                    let expr_ty_is_error = expr_ty.tag.is_error_type();
                                     if !expr_ty_is_valid {
-                                        // now we have to throw an error since given all the information
-                                        // we have, we still cannot resolve this type
-                                        let err = CheckerError::InvalidType {
-                                            loc: expr_ty.loc.clone(),
-                                            type_name: expr_ty.as_str(),
+                                        if !expr_ty_is_error {
+                                            // now we have to throw an error since given all the information
+                                            // we have, we still cannot resolve this type
+                                            let err = CheckerError::InvalidType {
+                                                loc: expr_ty.loc.clone(),
+                                                type_name: expr_ty.as_str(),
+                                            };
+                                            self.report_error(err);
+                                        }
+                                        // set the type of the constant to error
+                                        let err_ty = Type {
+                                            tag: Sig::ErrorType,
+                                            loc: ty.loc.clone(),
+                                            name: None,
+                                            sub_types: vec![],
+                                            aux_type: None,
                                         };
-                                        self.report_error(err);
+                                        self.sym_table.update_type(&name, err_ty);
                                         return;
                                     }
 
@@ -316,6 +419,68 @@ impl Checker {
                         None => {
                             panic!("Checker::pass_2_check_ins: constant not found in table");
                         }
+                    }
+                }
+            }
+            Ins::NewVariable { name, ty, val, loc } => {
+                let in_local_table = self.sym_table.is_locals_table();
+
+                // in a local table, we should not have any variables already defined / declared
+                // with the same name. If we do, it is an error which we already reported in pass_1
+                // so we can safely ignore it here
+                let var_exists = self.sym_table.name_is_var(&name);
+                if in_local_table && var_exists {
+                    return;
+                }
+
+                if in_local_table {
+                    // we can treat it normally and process it
+                    // because we are in a new scope and we don't have any
+                    // variables already defined with same name
+                    let type_is_valid = self.verify_type(&ty);
+                    if !type_is_valid {
+                        // now we have to throw an error since given all the information
+                        // we have, we still cannot resolve this type
+                        let err = CheckerError::InvalidType {
+                            loc: ty.loc.clone(),
+                            type_name: ty.as_str(),
+                        };
+                        self.report_error(err);
+                        return;
+                    }
+
+                    // sometimes, a variable is declared but not initialized
+                    // in that case, we will not have a value to typecheck with
+                    // and can assume that the type is correct but the variable
+                    // is not fully initialized
+                    if let Some(val) = val {
+                        let expr_ty = self.check_expr(&val, &ty);
+                        let expr_ty_is_valid =
+                            self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
+                        if !expr_ty_is_valid {
+                            // now we have to throw an error since given all the information
+                            // we have, we still cannot resolve this type
+                            let err = CheckerError::InvalidType {
+                                loc: expr_ty.loc.clone(),
+                                type_name: expr_ty.as_str(),
+                            };
+                            self.report_error(err);
+                            return;
+                        }
+
+                        if !ty.typecheck(&expr_ty) {
+                            let span = ty.loc.clone();
+                            let expr_span = expr_ty.loc.clone();
+                            let span = span.combine(expr_span);
+                            let err = CheckerError::TypeMismatch {
+                                loc: span,
+                                expected: ty.as_str(),
+                                found: expr_ty.as_str(),
+                            };
+                            self.report_error(err);
+                            return;
+                        }
+                    } else {
                     }
                 }
             }

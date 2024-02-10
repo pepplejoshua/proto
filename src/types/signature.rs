@@ -72,6 +72,13 @@ impl Sig {
             _ => false,
         }
     }
+
+    pub fn is_error_type(&self) -> bool {
+        match self {
+            Sig::ErrorType => true,
+            _ => false,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]

@@ -428,8 +428,8 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
             }
-            CheckerError::ConstantAlreadyDefined { loc, name } => {
-                let msg = format!("Constant '{name}' is already defined.");
+            CheckerError::NameAlreadyDefined { loc, name } => {
+                let msg = format!("'{name}' is already defined.");
                 self.report_with_ref(&loc, msg, None, false);
             }
         }

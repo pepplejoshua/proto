@@ -159,16 +159,39 @@ impl SymbolTable {
     }
 
     pub fn check_name(&self, name: &str) -> bool {
-        self.symbols.contains_key(name)
-    }
-
-    pub fn name_is_const_and_initialized(&self, name: &str) -> bool {
-        if let Some((_, info)) = self.symbols.get(name) {
-            info.is_const() && info.fully_initialized
+        let exists = self.symbols.contains_key(name);
+        if exists {
+            return true;
         } else {
             // look in parent scopes
             if let Some(parent) = &self.parent {
-                parent.name_is_const_and_initialized(name)
+                parent.check_name(name)
+            } else {
+                false
+            }
+        }
+    }
+
+    pub fn name_is_const(&self, name: &str) -> bool {
+        if let Some((_, info)) = self.symbols.get(name) {
+            info.is_const()
+        } else {
+            // look in parent scopes
+            if let Some(parent) = &self.parent {
+                parent.name_is_const(name)
+            } else {
+                false
+            }
+        }
+    }
+
+    pub fn name_is_var(&self, name: &str) -> bool {
+        if let Some((_, info)) = self.symbols.get(name) {
+            info.is_var()
+        } else {
+            // look in parent scopes
+            if let Some(parent) = &self.parent {
+                parent.name_is_var(name)
             } else {
                 false
             }

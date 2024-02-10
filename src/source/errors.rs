@@ -100,7 +100,7 @@ pub enum CheckerError {
         type_name: String,
     },
     // TODO: track the location of the previous definition
-    ConstantAlreadyDefined {
+    NameAlreadyDefined {
         loc: SourceRef,
         name: String,
     },
