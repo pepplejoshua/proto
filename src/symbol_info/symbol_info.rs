@@ -204,6 +204,13 @@ impl SymbolTable {
     pub fn is_locals_table(&self) -> bool {
         self.table_type == SymbolTableType::Locals
     }
+
+    pub fn update_type(&mut self, name: &str, new_type: Type) {
+        if let Some((val_ty, info)) = self.symbols.get_mut(name) {
+            *val_ty = new_type;
+            info.fully_initialized = true;
+        }
+    }
 }
 
 pub type SymIndex = usize;

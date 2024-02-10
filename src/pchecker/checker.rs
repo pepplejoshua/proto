@@ -172,6 +172,7 @@ impl Checker {
 
     fn pass_1(&mut self) {
         let top_level = self.pcode.top_level.clone();
+
         for (loc, _) in top_level.iter().enumerate() {
             self.pass_1_check_ins((0, loc));
         }
@@ -196,7 +197,126 @@ impl Checker {
 
                 if in_local_table {
                     // we can treat it normally and process it
+                    // because we are in a new scope and we don't have any
+                    // constants already defined with same name
+
+                    let type_is_valid = self.verify_type(&ty);
+                    if !type_is_valid {
+                        // now we have to throw an error since given all the information
+                        // we have, we still cannot resolve this type
+                        let err = CheckerError::InvalidType {
+                            loc: ty.loc.clone(),
+                            type_name: ty.as_str(),
+                        };
+                        self.report_error(err);
+                        return;
+                    }
+
+                    let expr_ty = self.check_expr(&val, &ty);
+                    let expr_ty_is_valid = self.verify_type(&expr_ty);
+                    if !expr_ty_is_valid {
+                        // now we have to throw an error since given all the information
+                        // we have, we still cannot resolve this type
+                        let err = CheckerError::InvalidType {
+                            loc: expr_ty.loc.clone(),
+                            type_name: expr_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        return;
+                    }
+
+                    if !ty.typecheck(&expr_ty) {
+                        let span = ty.loc.clone();
+                        let expr_span = expr_ty.loc.clone();
+                        let span = span.combine(expr_span);
+                        let err = CheckerError::TypeMismatch {
+                            loc: span,
+                            expected: ty.as_str(),
+                            found: expr_ty.as_str(),
+                        };
+                        self.report_error(err);
+                        return;
+                    }
+
+                    let mut info = SymbolInfo::new_const_info();
+                    info.set_def_location(loc.clone());
+                    self.sym_table.register(name.clone(), expr_ty, info);
                 } else {
+                    // now we are in a Preserved or SelfContained table
+                    // so we should have seen this constant before. We will
+                    // get what info we have on it and then decide whether it needs
+                    // further processing or not
+                    let const_info = self.sym_table.get_info(&name);
+                    match const_info {
+                        Some(info) => {
+                            if info.fully_initialized {
+                                // we are done with this constant
+                                return;
+                            }
+
+                            // we still have to process it if its type is
+                            // "Infer" and not "Error"
+                            let sym_ty = self.sym_table.get_type(&name).unwrap();
+                            match sym_ty.tag {
+                                Sig::ErrorType => {
+                                    // we are done with this constant
+                                    return;
+                                }
+                                Sig::Infer => {
+                                    // now we can focus on the expression type and the type assigned to the
+                                    // constant, if any. If the type is not assigned, we will assign the type
+                                    // of the expression to the constant, else we will typecheck with the
+                                    // assigned value
+                                    let type_is_valid = self.verify_type(&ty);
+
+                                    if !type_is_valid {
+                                        // now we have to throw an error since given all the information
+                                        // we have, we still cannot resolve this type
+                                        let err = CheckerError::InvalidType {
+                                            loc: ty.loc.clone(),
+                                            type_name: ty.as_str(),
+                                        };
+                                        self.report_error(err);
+                                        return;
+                                    }
+
+                                    let expr_ty = self.check_expr(&val, &ty);
+                                    let expr_ty_is_valid = self.verify_type(&expr_ty);
+                                    if !expr_ty_is_valid {
+                                        // now we have to throw an error since given all the information
+                                        // we have, we still cannot resolve this type
+                                        let err = CheckerError::InvalidType {
+                                            loc: expr_ty.loc.clone(),
+                                            type_name: expr_ty.as_str(),
+                                        };
+                                        self.report_error(err);
+                                        return;
+                                    }
+
+                                    if !ty.typecheck(&expr_ty) {
+                                        let span = ty.loc.clone();
+                                        let expr_span = expr_ty.loc.clone();
+                                        let span = span.combine(expr_span);
+                                        let err = CheckerError::TypeMismatch {
+                                            loc: span,
+                                            expected: ty.as_str(),
+                                            found: expr_ty.as_str(),
+                                        };
+                                        self.report_error(err);
+                                        return;
+                                    }
+
+                                    self.sym_table.update_type(&name, expr_ty);
+                                }
+                                _ => {
+                                    unreachable!("Checker::pass_2_check_ins: constant type is not Infer or Error")
+                                }
+                            }
+                        }
+                        None => {
+                            panic!("Checker::pass_2_check_ins: constant not found in table");
+                        }
+                    }
                 }
             }
             _ => todo!(
