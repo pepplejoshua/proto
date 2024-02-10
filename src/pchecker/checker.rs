@@ -434,12 +434,12 @@ impl Checker {
                                     self.sym_table.update_type(&name, expr_ty, true);
                                 }
                                 _ => {
-                                    unreachable!("Checker::pass_2_check_ins: constant type is not Infer or Error")
+                                    unreachable!("Checker::pass_2_check_ins: constant type is not Infer or Error");
                                 }
                             }
                         }
                         None => {
-                            panic!("Checker::pass_2_check_ins: constant not found in table");
+                            unreachable!("Checker::pass_2_check_ins: constant not found in table");
                         }
                     }
                 }
@@ -539,7 +539,132 @@ impl Checker {
                         return;
                     }
                 } else {
-                    // handle the case where we are not in a local table
+                    // since we are in a Preserved or SelfContained table so we should
+                    // have seen this variable before. We will get what info we have on it and
+                    // then decide whether it needs further processing or not
+                    let var_info = self.sym_table.get_info(&name);
+                    match var_info {
+                        Some(info) => {
+                            if info.fully_initialized {
+                                // we have already processed this variable
+                                return;
+                            }
+
+                            let sym_ty = self.sym_table.get_type(&name).unwrap();
+                            match sym_ty.tag {
+                                Sig::ErrorType => {
+                                    // we have already processed this variable
+                                    return;
+                                }
+                                Sig::Infer => {
+                                    // now we can focus on the expression type (if any) and
+                                    // the type assigned to the variable, if any. If we have
+                                    // no expression, we can just assign the type to the variable
+                                    // (without marking it as initialized) and if we have an expression,
+                                    // we can check it against the type if any and assign its type to
+                                    // the variable
+                                    let type_is_valid = self.verify_type(&ty);
+
+                                    if !type_is_valid {
+                                        // now we have to throw an error since given all the information
+                                        // we have, we still cannot resolve this type
+                                        let err = CheckerError::InvalidType {
+                                            loc: ty.loc.clone(),
+                                            type_name: ty.as_str(),
+                                        };
+                                        self.report_error(err);
+
+                                        // we have to update the variable'stype to an error type
+                                        // and mark it as fully initialized
+                                        let err_ty = Type {
+                                            tag: Sig::ErrorType,
+                                            loc: ty.loc.clone(),
+                                            name: None,
+                                            sub_types: vec![],
+                                            aux_type: None,
+                                        };
+                                        self.sym_table.update_type(&name, err_ty, true);
+                                        return;
+                                    }
+
+                                    // we have to handle the init expression if there is any
+                                    if let Some(val) = val {
+                                        let expr_ty = self.check_expr(&val, &ty);
+                                        let expr_ty_is_valid = self.verify_type(&expr_ty);
+                                        let expr_ty_is_error = expr_ty.tag.is_error_type();
+
+                                        if !expr_ty_is_valid {
+                                            if !expr_ty_is_error {
+                                                // now we have to throw an error since given all the information
+                                                // we have, we still cannot resolve this type
+                                                let err = CheckerError::InvalidType {
+                                                    loc: expr_ty.loc.clone(),
+                                                    type_name: expr_ty.as_str(),
+                                                };
+                                                self.report_error(err);
+                                            }
+                                            // we have to assign an error type to the variable
+                                            let err_ty = Type {
+                                                tag: Sig::ErrorType,
+                                                loc: ty.loc.clone(),
+                                                name: None,
+                                                sub_types: vec![],
+                                                aux_type: None,
+                                            };
+                                            self.sym_table.update_type(&name, err_ty, true);
+                                            return;
+                                        }
+
+                                        if !ty.typecheck(&expr_ty) {
+                                            let span = ty.loc.clone();
+                                            let expr_span = expr_ty.loc.clone();
+                                            let span = span.combine(expr_span);
+                                            let err = CheckerError::TypeMismatch {
+                                                loc: span,
+                                                expected: ty.as_str(),
+                                                found: expr_ty.as_str(),
+                                            };
+                                            self.report_error(err);
+
+                                            // we have to assign an error type to the variable
+                                            let err_ty = Type {
+                                                tag: Sig::ErrorType,
+                                                loc: ty.loc.clone(),
+                                                name: None,
+                                                sub_types: vec![],
+                                                aux_type: None,
+                                            };
+                                            self.sym_table.update_type(&name, err_ty, true);
+                                            return;
+                                        }
+
+                                        // since the expression type is valid and it matches the type
+                                        // assigned to the variable, we can assign the type to the variable
+                                        // and mark it as fully initialized
+                                        self.sym_table.update_type(&name, expr_ty, true);
+                                        return;
+                                    } else {
+                                        // we can assign the type to the variable without marking it as
+                                        // fully initialized
+                                        self.sym_table.update_type(&name, ty, false);
+                                        return;
+                                    }
+                                }
+                                _ => {
+                                    // we can confirm that even though the variable is not fully initialized,
+                                    // it has a valid type assigned to it (and it really has no expression to init it)
+                                    if val.is_none() {
+                                        return;
+                                    } else {
+                                        unreachable!("Checker::pass_2_check_ins: variable type is not Infer or Error and it has an expression to init it");
+                                    }
+                                }
+                            }
+                        }
+                        None => {
+                            unreachable!("Checker::pass_2_check_ins: variable not found in table");
+                        }
+                    }
                 }
             }
             _ => todo!(
