@@ -1082,6 +1082,24 @@ impl Checker {
                 if self.sym_table.check_name(&name) {
                     // if it does, we will return the type of the identifier
                     let ty = self.sym_table.get_type(&name).unwrap().clone();
+                    let name_info = self.sym_table.get_info(&name).unwrap();
+
+                    if !name_info.fully_initialized {
+                        let err = CheckerError::UseOfUninitializedVariable {
+                            loc: loc.clone(),
+                            name: name.clone(),
+                        };
+                        self.report_error(err);
+                        let err_ty = Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        };
+                        self.pcode.update_expr_type(expr_i, err_ty.clone());
+                        return err_ty;
+                    }
                     // TODO(@pepplejoshua):
                     // figure out a way to allow the user decide if this is import for them
                     // in their current file and toggle it on. maybe with a directive

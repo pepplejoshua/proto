@@ -432,6 +432,10 @@ impl SourceReporter {
                 let msg = format!("'{name}' is already defined.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::UseOfUninitializedVariable { loc, name } => {
+                let msg = format!("Use of uninitialized variable: '{}'.", name);
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

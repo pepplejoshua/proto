@@ -716,6 +716,13 @@ impl Parser {
                 aux_type: None,
                 loc,
             },
+            Token::Bool(loc) => Type {
+                tag: Sig::Bool,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
             Token::Str(loc) => Type {
                 tag: Sig::Str,
                 name: None,

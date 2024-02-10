@@ -1,9 +1,10 @@
 // out of order referring to global constants
 ooo :: a + b;
 ooo_var := c + a + b;
-empty : int;
+empty : int : 0;
 
 // declarations
 a :: 1;
 b :: 2;
 c : int : a + b;
+d :: empty > a;

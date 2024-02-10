@@ -104,5 +104,9 @@ pub enum CheckerError {
         loc: SourceRef,
         name: String,
     },
+    UseOfUninitializedVariable {
+        loc: SourceRef,
+        name: String,
+    },
     TooManyErrors,
 }
