@@ -1,4 +1,6 @@
-// out of order referring to global constants
+// out of order referring to global constants.
+// they refer to things not yet existing at
+// the time of their declaration.
 ooo :: a + b;
 ooo_var := c + a + b;
 empty : int = 0;
