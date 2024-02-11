@@ -1,7 +1,10 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use crate::{source::source::SourceRef, types::signature::Type};
+use crate::{
+    source::source::SourceRef,
+    types::signature::{Sig, Type},
+};
 
 #[derive(Debug, Clone)]
 pub struct FnArg {
@@ -270,6 +273,64 @@ impl Expr {
             Expr::Void { .. } => true,
             Expr::Ident { ty, .. } => ty.is_some(),
             _ => false,
+        }
+    }
+
+    pub fn get_type(&self) -> Option<Type> {
+        match self {
+            Expr::Number { ty, .. } => ty.clone(),
+            Expr::Add { ty, .. } => ty.clone(),
+            Expr::Sub { ty, .. } => ty.clone(),
+            Expr::Mul { ty, .. } => ty.clone(),
+            Expr::Div { ty, .. } => ty.clone(),
+            Expr::Mod { ty, .. } => ty.clone(),
+            Expr::And { ty, .. } => ty.clone(),
+            Expr::Or { ty, .. } => ty.clone(),
+            Expr::Not { ty, .. } => ty.clone(),
+            Expr::Eq { ty, .. } => ty.clone(),
+            Expr::Neq { ty, .. } => ty.clone(),
+            Expr::Gt { ty, .. } => ty.clone(),
+            Expr::Lt { ty, .. } => ty.clone(),
+            Expr::GtEq { ty, .. } => ty.clone(),
+            Expr::LtEq { ty, .. } => ty.clone(),
+            Expr::Negate { ty, .. } => ty.clone(),
+            Expr::AccessMember { ty, .. } => ty.clone(),
+            Expr::InitStruct { ty, .. } => ty.clone(),
+            Expr::NewFunction { ty, .. } => ty.clone(),
+            Expr::NewStruct { ty, .. } => ty.clone(),
+            Expr::CallFunction { ty, .. } => ty.clone(),
+            Expr::IndexArray { ty, .. } => ty.clone(),
+            Expr::Directive { ty, .. } => ty.clone(),
+            Expr::Bool { loc, .. } => Some(Type {
+                tag: Sig::Bool,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            }),
+            Expr::Char { loc, .. } => Some(Type {
+                tag: Sig::Char,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            }),
+            Expr::Str { loc, .. } => Some(Type {
+                tag: Sig::Str,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            }),
+            Expr::Void { loc, .. } => Some(Type {
+                tag: Sig::Void,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            }),
+            Expr::Ident { ty, .. } => ty.clone(),
+            _ => None,
         }
     }
 
