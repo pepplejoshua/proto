@@ -157,6 +157,7 @@ pub enum Expr {
         // function body
         code: InsLoc,
         loc: SourceRef,
+        fn_sig_loc: SourceRef,
         ty: Option<Type>,
     },
     NewStruct {

@@ -138,7 +138,7 @@ impl Type {
                     }
                 }
                 s.push_str(") ");
-                s.push_str(&self.sub_types.last().unwrap().as_str());
+                s.push_str(&self.aux_type.as_ref().unwrap().as_str());
                 s
             }
             Sig::ErrorType => "<error>".to_string(),

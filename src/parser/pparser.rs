@@ -444,7 +444,7 @@ impl Parser {
     }
 
     fn parse_fn(&mut self) -> ExprLoc {
-        // fn (arg: type, arg: type, ...) -> type INS
+        // fn (arg: type, arg: type, ...) type INS
         // where INS is either a block or a single instruction
 
         let start = self.cur_token();
@@ -533,6 +533,7 @@ impl Parser {
         let ret_type = self.parse_type();
         let ret_span = ret_type.loc.clone();
         span = span.combine(ret_span);
+        let fn_sig_span = span.clone();
 
         let scope = self.scope;
         self.scope = ParseScope::Function;
@@ -548,6 +549,7 @@ impl Parser {
             code: body,
             loc: span,
             ty: None,
+            fn_sig_loc: fn_sig_span,
         })
     }
 

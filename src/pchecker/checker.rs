@@ -1403,6 +1403,7 @@ impl Checker {
                 ret_ty,
                 code,
                 loc,
+                fn_sig_loc,
                 ..
             } => {
                 // this wlil allow us to declare a function.
@@ -1429,12 +1430,14 @@ impl Checker {
                 // now we can check all the arguments of the function
                 let mut arg_needs_next_pass = false;
                 let mut arg_loc = loc.clone();
+                let mut arg_tys = vec![];
                 for arg in args {
                     let arg_ty_is_valid = self.verify_type(&arg.ty);
                     if !arg_ty_is_valid {
                         arg_needs_next_pass = true;
                         arg_loc = arg.loc.clone();
                     }
+                    arg_tys.push(arg.ty.clone());
                 }
 
                 if arg_needs_next_pass {
@@ -1452,7 +1455,46 @@ impl Checker {
                 }
 
                 // we can now check the body of the function
-                todo!()
+                // but we need to do 2 things:
+                // - we need to create a new Locals sym table for the function
+                // - we need to track the current state of needs_next_pass, set it to
+                //   false, and then restore it after the function body has been checked
+                //   (this lets us know if the function needs a next pass or not)
+                let temp_scope = self.scope;
+                self.scope = CheckerScope::Function;
+                let temp_needs_next_pass = self.needs_next_pass;
+                self.needs_next_pass = false;
+                self.pass_1_check_ins(code);
+                let fn_body_needs_next_pass = self.needs_next_pass;
+                self.needs_next_pass = temp_needs_next_pass;
+                self.scope = temp_scope;
+
+                if fn_body_needs_next_pass {
+                    // we need another pass on the function body
+                    let ty = Type {
+                        tag: Sig::Infer,
+                        name: None,
+                        sub_types: vec![],
+                        aux_type: None,
+                        loc: loc.clone(),
+                    };
+                    self.needs_next_pass = true;
+                    self.pcode.update_expr_type(expr_i, ty.clone());
+                    return ty;
+                }
+
+                // we have checked and verified all the information for the function
+                // to be used so we can now update the type of the function
+                let fn_ty = Type {
+                    tag: Sig::Function,
+                    name: None,
+                    sub_types: arg_tys,
+                    aux_type: Some(Box::new(ret_ty.clone())),
+                    loc: fn_sig_loc.clone(),
+                };
+
+                self.pcode.update_expr_type(expr_i, fn_ty.clone());
+                fn_ty
             }
             _ => todo!(
                 "Checker::pass_1_check_expr: unimplemented  expr: {:?}",
@@ -1466,6 +1508,38 @@ impl Checker {
         match stmt {
             Ins::Comment { .. } => {
                 // do nothing
+            }
+            Ins::NewBlock { code, loc } => {
+                // we loop through the code in the block and check each instruction
+                let temp_scope = self.scope;
+                self.scope = CheckerScope::Block;
+                let mut pop_scope = false;
+                // based on the previous scope, we decide if we go into
+                // a new scope or not
+                // for Function, Struct, and Mod, we do not go into a new scope
+                // since they handle their own scope
+                // for Global, we do not go into a new scope since it is the
+                // top level scope and we do not want to create a new scope
+                // for Block, Loop, and Directive, we go into a new temp scope
+                match temp_scope {
+                    CheckerScope::Block | CheckerScope::Loop | CheckerScope::Directive => {
+                        self.sym_table = SymbolTable::make_child_env(
+                            self.sym_table.clone(),
+                            SymbolTableType::Locals,
+                        );
+                        pop_scope = true;
+                    }
+                    _ => {
+                        // do nothing
+                    }
+                }
+                for ins in code {
+                    self.pass_1_check_ins(ins);
+                }
+                self.scope = temp_scope;
+                if pop_scope {
+                    self.sym_table = self.sym_table.clone().return_parent_env().unwrap();
+                }
             }
             Ins::NewConstant { name, ty, val, loc } => {
                 let const_exists = self.sym_table.check_name(&name);
