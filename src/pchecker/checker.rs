@@ -34,6 +34,7 @@ pub struct Checker {
     pub sym_table: SymbolTable,
     scope: CheckerScope,
     needs_next_pass: bool,
+    error_occured: bool,
     reporter: SourceReporter,
     error_count: u8,
     pass: Pass,
@@ -46,6 +47,7 @@ impl Checker {
             sym_table: SymbolTable::new(SymbolTableType::Preserved),
             scope: CheckerScope::Global,
             needs_next_pass: false,
+            error_occured: false,
             reporter: SourceReporter::new(src),
             pass: Pass::One,
             error_count: 0,
@@ -91,13 +93,15 @@ impl Checker {
                     // an int. If that fails, we will return an error type
                     let val_int = val.parse::<i64>();
                     if let Ok(_) = val_int {
-                        return Type {
+                        let ty = Type {
                             tag: Sig::Int,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
                         };
+                        self.pcode.update_expr_type(expr_i, ty.clone());
+                        return ty;
                     } else {
                         let err = CheckerError::NumberTypeDefaultInferenceFailed {
                             loc: loc.clone(),
@@ -105,13 +109,15 @@ impl Checker {
                         };
                         self.report_error(err);
 
-                        return Type {
+                        let ty = Type {
                             tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
                         };
+                        self.pcode.update_expr_type(expr_i, ty.clone());
+                        return ty;
                     }
                 } else {
                     // if we do have a type, we will check if the number can be
@@ -415,13 +421,15 @@ impl Checker {
                             given_type: recv_ty.as_str(),
                         };
                         self.report_error(err);
-                        return Type {
+                        let ty = Type {
                             tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
                         };
+                        self.pcode.update_expr_type(expr_i, ty.clone());
+                        return ty;
                     }
                 }
             }
@@ -473,11 +481,14 @@ impl Checker {
                     let name_info = self.sym_table.get_info(&name).unwrap();
 
                     if !name_info.fully_initialized {
-                        let err = CheckerError::UseOfUninitializedVariable {
-                            loc: loc.clone(),
-                            name: name.clone(),
-                        };
-                        self.report_error(err);
+                        if !ty.tag.is_error_type() {
+                            let err = CheckerError::UseOfUninitializedVariable {
+                                loc: loc.clone(),
+                                name: name.clone(),
+                            };
+                            self.report_error(err);
+                        }
+
                         let err_ty = Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -1464,10 +1475,35 @@ impl Checker {
                 self.scope = CheckerScope::Function;
                 let temp_needs_next_pass = self.needs_next_pass;
                 self.needs_next_pass = false;
-                self.pass_1_check_ins(code);
+                let temp_error_occured = self.error_occured;
+                self.error_occured = false;
+                if self.pass == Pass::One {
+                    self.pass_1_check_ins(code);
+                } else {
+                    self.pass_2_check_ins(code);
+                }
                 let fn_body_needs_next_pass = self.needs_next_pass;
                 self.needs_next_pass = temp_needs_next_pass;
                 self.scope = temp_scope;
+                let error_occured = self.error_occured;
+                self.error_occured = temp_error_occured;
+
+                if error_occured {
+                    // some sort of error occured during the checking
+                    // of this function so there is no point in
+                    // rechecking it later until something changes in the
+                    // code
+                    let ty = Type {
+                        tag: Sig::ErrorType,
+                        name: None,
+                        sub_types: vec![],
+                        aux_type: None,
+                        loc: loc.clone(),
+                    };
+                    self.error_occured = true;
+                    self.pcode.update_expr_type(expr_i, ty.clone());
+                    return ty;
+                }
 
                 if fn_body_needs_next_pass {
                     // we need another pass on the function body
@@ -1578,14 +1614,20 @@ impl Checker {
                 }
 
                 let expr_ty = self.pass_1_check_expr(&val, &ty);
-                let expr_ty_is_valid = self.verify_type(&expr_ty) && !expr_ty.tag.is_error_type();
+                let expr_ty_is_valid = self.verify_type(&expr_ty);
+                // println!("{} : {} : {}", name, ty.as_str(), expr_ty.as_str());
+                // println!("expr_ty_is_valid: {}\n", expr_ty_is_valid);
                 if !expr_ty_is_valid || expr_ty.is_infer_type() {
+                    if expr_ty.tag.is_error_type() {}
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
                     info.fully_initialized = false;
 
+                    if expr_ty.is_infer_type() {
+                        self.needs_next_pass = true;
+                    }
+
                     self.sym_table.register(name.clone(), expr_ty, info);
-                    self.needs_next_pass = true;
                     return;
                 }
 
@@ -1750,6 +1792,41 @@ impl Checker {
         match stmt {
             Ins::Comment { .. } => {
                 // do nothing
+            }
+            Ins::NewBlock { code, loc } => {
+                // we loop through the code in the block and check each instruction
+                let temp_scope = self.scope;
+                self.scope = CheckerScope::Block;
+                let mut pop_scope = false;
+                // based on the previous scope, we decide if we go into
+                // a new scope or not
+                // for Function, Struct, and Mod, we do not go into a new scope
+                // since they handle their own scope
+                // for Global, we do not go into a new scope since it is the
+                // top level scope and we do not want to create a new scope
+                // for Block, Loop, and Directive, we go into a new temp scope
+                match temp_scope {
+                    CheckerScope::Function
+                    | CheckerScope::Block
+                    | CheckerScope::Loop
+                    | CheckerScope::Directive => {
+                        self.sym_table = SymbolTable::make_child_env(
+                            self.sym_table.clone(),
+                            SymbolTableType::Locals,
+                        );
+                        pop_scope = true;
+                    }
+                    _ => {
+                        // do nothing
+                    }
+                }
+                for ins in code {
+                    self.pass_2_check_ins(ins);
+                }
+                self.scope = temp_scope;
+                if pop_scope {
+                    self.sym_table = self.sym_table.clone().return_parent_env().unwrap();
+                }
             }
             Ins::NewConstant { name, ty, val, loc } => {
                 let in_local_table = self.sym_table.is_locals_table();
@@ -2163,6 +2240,7 @@ impl Checker {
     fn report_error(&mut self, err: CheckerError) {
         self.reporter.report_checker_error(err);
         self.error_count += 1;
+        self.error_occured = true;
 
         if self.error_count >= 10 {
             let err = CheckerError::TooManyErrors;
@@ -2175,6 +2253,22 @@ impl Checker {
         self.pass_1();
         if self.needs_next_pass {
             self.pass_2();
+        }
+
+        if self.error_occured {
+            let piece = if self.error_count == 1 {
+                "error.".to_string()
+            } else {
+                "errors.".to_string()
+            };
+            self.reporter.show_info(
+                "Checker: found ".to_string() + &self.error_count.to_string() + " " + &piece,
+            );
+        }
+
+        if self.needs_next_pass {
+            self.reporter
+                .show_info("Checker: used 2 passes.".to_string());
         }
         self.sym_table.clone()
     }

@@ -436,6 +436,18 @@ impl SourceReporter {
                 let msg = format!("Use of uninitialized variable: '{}'.", name);
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::UseOfErroredVariableOrConstant {
+                is_const,
+                loc,
+                name,
+            } => {
+                let msg = format!(
+                    "Use of errored {} '{}'.",
+                    if is_const { "constant" } else { "variable" },
+                    name
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

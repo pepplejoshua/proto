@@ -108,5 +108,10 @@ pub enum CheckerError {
         loc: SourceRef,
         name: String,
     },
+    UseOfErroredVariableOrConstant {
+        is_const: bool,
+        loc: SourceRef,
+        name: String,
+    },
     TooManyErrors,
 }

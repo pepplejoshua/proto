@@ -1,5 +1,9 @@
-b :: 2;
-
 main :: fn () void {
-    a :: b;
+    b :: 2;
+    // why is this working???
+    // it isn't working. it does not error on a
+    // reference to an ill defined variable
+    a : int : b;
+    c : int = b;
+    d : str = a + b + 'a';
 }

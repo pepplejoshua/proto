@@ -146,7 +146,7 @@ impl Type {
     }
 
     pub fn typecheck(&self, other: &Type) -> bool {
-        if self.tag == Sig::Infer {
+        if self.tag == Sig::Infer && other.tag != Sig::ErrorType {
             return true;
         }
 
