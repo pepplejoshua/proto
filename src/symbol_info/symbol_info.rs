@@ -140,7 +140,14 @@ impl SymbolTable {
         let res = self.symbols.get(name);
         match res {
             Some((val_ty, info)) => Some(val_ty),
-            None => None,
+            None => {
+                // look in parent scopes
+                if let Some(parent) = &self.parent {
+                    parent.get_type(name)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -148,7 +155,14 @@ impl SymbolTable {
         let res = self.symbols.get(name);
         match res {
             Some((_, info)) => Some(info),
-            None => None,
+            None => {
+                // look in parent scopes
+                if let Some(parent) = &self.parent {
+                    parent.get_info(name)
+                } else {
+                    None
+                }
+            }
         }
     }
 
@@ -156,6 +170,10 @@ impl SymbolTable {
         if let Some((_, info)) = self.symbols.get_mut(name) {
             info.update_uses(new_use);
         }
+    }
+
+    pub fn check_name_shallow(&self, name: &str) -> bool {
+        self.symbols.contains_key(name)
     }
 
     pub fn check_name(&self, name: &str) -> bool {

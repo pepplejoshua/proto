@@ -1522,7 +1522,10 @@ impl Checker {
                 // top level scope and we do not want to create a new scope
                 // for Block, Loop, and Directive, we go into a new temp scope
                 match temp_scope {
-                    CheckerScope::Block | CheckerScope::Loop | CheckerScope::Directive => {
+                    CheckerScope::Function
+                    | CheckerScope::Block
+                    | CheckerScope::Loop
+                    | CheckerScope::Directive => {
                         self.sym_table = SymbolTable::make_child_env(
                             self.sym_table.clone(),
                             SymbolTableType::Locals,
@@ -1542,7 +1545,7 @@ impl Checker {
                 }
             }
             Ins::NewConstant { name, ty, val, loc } => {
-                let const_exists = self.sym_table.check_name(&name);
+                let const_exists = self.sym_table.check_name_shallow(&name);
                 let type_is_valid = self.verify_type(&ty);
 
                 if const_exists {
@@ -1617,7 +1620,7 @@ impl Checker {
                 self.sym_table.register(name.clone(), expr_ty, info);
             }
             Ins::NewVariable { name, ty, val, loc } => {
-                let var_exists = self.sym_table.check_name(&name);
+                let var_exists = self.sym_table.check_name_shallow(&name);
                 let type_is_valid = self.verify_type(&ty);
 
                 if var_exists {
