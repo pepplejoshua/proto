@@ -1398,6 +1398,62 @@ impl Checker {
                 self.pcode.update_expr_type(expr_i, ty.clone());
                 ty
             }
+            Expr::NewFunction {
+                args,
+                ret_ty,
+                code,
+                loc,
+                ..
+            } => {
+                // this wlil allow us to declare a function.
+                // we need to verify that the argument and return types are valid (else we will need)
+                // another pass. And then we can check the body of the function
+                let ret_ty_is_valid = self.verify_type(&ret_ty);
+
+                if !ret_ty_is_valid {
+                    // we cannot verify the return type of the function
+                    // at this point of the checking so we will return an
+                    // infer type and update the function type as well
+                    let ty = Type {
+                        tag: Sig::Infer,
+                        name: None,
+                        sub_types: vec![],
+                        aux_type: None,
+                        loc: loc.clone(),
+                    };
+                    self.needs_next_pass = true;
+                    self.pcode.update_expr_type(expr_i, ty.clone());
+                    return ty;
+                }
+
+                // now we can check all the arguments of the function
+                let mut arg_needs_next_pass = false;
+                let mut arg_loc = loc.clone();
+                for arg in args {
+                    let arg_ty_is_valid = self.verify_type(&arg.ty);
+                    if !arg_ty_is_valid {
+                        arg_needs_next_pass = true;
+                        arg_loc = arg.loc.clone();
+                    }
+                }
+
+                if arg_needs_next_pass {
+                    // we need another pass on the variables
+                    let ty = Type {
+                        tag: Sig::Infer,
+                        name: None,
+                        sub_types: vec![],
+                        aux_type: None,
+                        loc: arg_loc,
+                    };
+                    self.needs_next_pass = true;
+                    self.pcode.update_expr_type(expr_i, ty.clone());
+                    return ty;
+                }
+
+                // we can now check the body of the function
+                todo!()
+            }
             _ => todo!(
                 "Checker::pass_1_check_expr: unimplemented  expr: {:?}",
                 expr,
@@ -2020,6 +2076,7 @@ impl Checker {
     }
 
     fn pass_2(&mut self) {
+        self.pass = Pass::Two;
         let top_level = self.pcode.top_level.clone();
         for (loc, _) in top_level.iter().enumerate() {
             self.pass_2_check_ins((0, loc));

@@ -1,12 +1,3 @@
-// out of order referring to global constants.
-// they refer to things not yet existing at
-// the time of their declaration.
-ooo :: a + b;
-ooo_var := c + a + b;
-empty : int = 0;
-
-// declarations
-a :: 1;
-b :: 2;
-c : int : a + b;
-d :: empty > a;
+main :: fn () void {
+    a :: 1;
+}
