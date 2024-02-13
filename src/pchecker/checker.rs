@@ -2204,15 +2204,7 @@ impl Checker {
                                         return;
                                     }
                                 }
-                                _ => {
-                                    // we can confirm that even though the variable is not fully initialized,
-                                    // it has a valid type assigned to it (and it really has no expression to init it)
-                                    if val.is_none() {
-                                        return;
-                                    } else {
-                                        unreachable!("Checker::pass_2_check_ins: variable type is not Infer or Error and it has an expression to init it");
-                                    }
-                                }
+                                _ => {}
                             }
                         }
                         None => {
@@ -2262,13 +2254,13 @@ impl Checker {
                 "errors.".to_string()
             };
             self.reporter.show_info(
-                "Checker: found ".to_string() + &self.error_count.to_string() + " " + &piece,
+                "checker found ".to_string() + &self.error_count.to_string() + " " + &piece,
             );
         }
 
         if self.needs_next_pass {
             self.reporter
-                .show_info("Checker: used 2 passes.".to_string());
+                .show_info("checker used 2 passes.".to_string());
         }
         self.sym_table.clone()
     }
