@@ -1,4 +1,6 @@
-a :: b;
-ooo :: a + 1;
+main :: fn () void {
+    a :: b;
+    b :: a + 1;
+}
 
 b :: 2;

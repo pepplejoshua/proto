@@ -86,6 +86,14 @@ impl Checker {
     fn pass_1_check_expr(&mut self, expr_i: &ExprLoc, recv_ty: &Type) -> Type {
         let expr = self.pcode.get_expr_c(&expr_i);
 
+        if self.pass == Pass::Two {
+            if let Some(ty) = self.pcode.get_expr(expr_i).get_type() {
+                if !matches!(ty.tag, Sig::Infer) {
+                    return ty;
+                }
+            }
+        }
+
         match expr {
             Expr::Number { val, loc, .. } => {
                 if matches!(recv_ty.tag, Sig::Infer) {
@@ -508,13 +516,15 @@ impl Checker {
                 } else {
                     // if we are in the first pass, we will return an infer type
                     if matches!(self.pass, Pass::One) {
-                        Type {
+                        let ty = Type {
                             tag: Sig::Infer,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
-                        }
+                        };
+                        self.pcode.update_expr_type(expr_i, ty.clone());
+                        ty
                     } else {
                         // we are in the second pass where we should know about this identifier
                         // if the identifier is not in the symbol table, we will return an error type
@@ -524,13 +534,15 @@ impl Checker {
                             var_name: name.clone(),
                         };
                         self.report_error(err);
-                        Type {
+                        let ty = Type {
                             tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
-                        }
+                        };
+                        self.pcode.update_expr_type(expr_i, ty.clone());
+                        ty
                     }
                 }
             }
@@ -1596,7 +1608,7 @@ impl Checker {
                 if !type_is_valid {
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
-                    info.fully_initialized = false;
+                    info.fully_initialized = true;
 
                     self.sym_table.register(
                         name.clone(),
@@ -1621,7 +1633,7 @@ impl Checker {
                     if expr_ty.tag.is_error_type() {}
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
-                    info.fully_initialized = false;
+                    info.fully_initialized = true;
 
                     if expr_ty.is_infer_type() {
                         self.needs_next_pass = true;
@@ -1633,7 +1645,7 @@ impl Checker {
 
                 if !ty.typecheck(&expr_ty) {
                     let span = ty.loc.clone();
-                    let expr_span = expr_ty.loc.clone();
+                    let expr_span = self.pcode.get_source_ref_expr(val);
                     let span = span.combine(expr_span);
                     let err = CheckerError::TypeMismatch {
                         loc: span,
@@ -1644,7 +1656,7 @@ impl Checker {
 
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
-                    info.fully_initialized = false;
+                    info.fully_initialized = true;
                     let const_ty = Type {
                         tag: Sig::ErrorType,
                         name: None,
@@ -1677,7 +1689,7 @@ impl Checker {
                 if !type_is_valid {
                     let mut info = SymbolInfo::new_var_info();
                     info.set_def_location(loc.clone());
-                    info.fully_initialized = false;
+                    info.fully_initialized = true;
 
                     self.sym_table.register(
                         name.clone(),
@@ -1704,7 +1716,7 @@ impl Checker {
                     if !expr_ty_is_valid || expr_ty.is_infer_type() {
                         let mut info = SymbolInfo::new_var_info();
                         info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
+                        info.fully_initialized = true;
 
                         self.sym_table.register(name.clone(), expr_ty, info);
                         self.needs_next_pass = true;
@@ -1713,7 +1725,7 @@ impl Checker {
 
                     if !ty.typecheck(&expr_ty) {
                         let span = ty.loc.clone();
-                        let expr_span = expr_ty.loc.clone();
+                        let expr_span = self.pcode.get_source_ref_expr(val);
                         let span = span.combine(expr_span);
                         let err = CheckerError::TypeMismatch {
                             loc: span,
@@ -1724,7 +1736,7 @@ impl Checker {
 
                         let mut info = SymbolInfo::new_var_info();
                         info.set_def_location(loc.clone());
-                        info.fully_initialized = false;
+                        info.fully_initialized = true;
                         let var_ty = Type {
                             tag: Sig::ErrorType,
                             name: None,
@@ -1872,7 +1884,7 @@ impl Checker {
 
                     if !ty.typecheck(&expr_ty) {
                         let span = ty.loc.clone();
-                        let expr_span = expr_ty.loc.clone();
+                        let expr_span = self.pcode.get_source_ref_expr(val);
                         let span = span.combine(expr_span);
                         let err = CheckerError::TypeMismatch {
                             loc: span,
@@ -1886,7 +1898,6 @@ impl Checker {
                     let mut info = SymbolInfo::new_const_info();
                     info.set_def_location(loc.clone());
                     self.sym_table.register(name.clone(), expr_ty, info);
-                    return;
                 } else {
                     // now we are in a Preserved or SelfContained table
                     // so we should have seen this constant before. We will
@@ -1895,10 +1906,10 @@ impl Checker {
                     let const_info = self.sym_table.get_info(&name);
                     match const_info {
                         Some(info) => {
-                            if info.fully_initialized {
-                                // we are done with this constant
-                                return;
-                            }
+                            // if info.fully_initialized {
+                            // we are done with this constant
+                            // return;
+                            // }
 
                             // we still have to process it if its type is
                             // "Infer" and not "Error"
@@ -1906,7 +1917,6 @@ impl Checker {
                             match sym_ty.tag {
                                 Sig::ErrorType => {
                                     // we are done with this constant
-                                    return;
                                 }
                                 Sig::Infer => {
                                     // now we can focus on the expression type and the type assigned to the
@@ -1964,7 +1974,7 @@ impl Checker {
 
                                     if !ty.typecheck(&expr_ty) {
                                         let span = ty.loc.clone();
-                                        let expr_span = expr_ty.loc.clone();
+                                        let expr_span = self.pcode.get_source_ref_expr(val);
                                         let span = span.combine(expr_span);
                                         let err = CheckerError::TypeMismatch {
                                             loc: span,
@@ -1987,9 +1997,7 @@ impl Checker {
 
                                     self.sym_table.update_type(&name, expr_ty, true);
                                 }
-                                _ => {
-                                    unreachable!("Checker::pass_2_check_ins: constant type is not Infer or Error");
-                                }
+                                _ => {}
                             }
                         }
                         None => {
@@ -2056,7 +2064,7 @@ impl Checker {
 
                         if !ty.typecheck(&expr_ty) {
                             let span = ty.loc.clone();
-                            let expr_span = expr_ty.loc.clone();
+                            let expr_span = self.pcode.get_source_ref_expr(val);
                             let span = span.combine(expr_span);
                             let err = CheckerError::TypeMismatch {
                                 loc: span,
@@ -2082,7 +2090,6 @@ impl Checker {
                         let mut info = SymbolInfo::new_var_info();
                         info.set_def_location(loc.clone());
                         self.sym_table.register(name.clone(), ty.clone(), info);
-                        return;
                     } else {
                         // we have to assign the type to the variable although it is not
                         // initialized yet
@@ -2090,7 +2097,6 @@ impl Checker {
                         info.fully_initialized = false;
                         info.set_def_location(loc.clone());
                         self.sym_table.register(name.clone(), ty.clone(), info);
-                        return;
                     }
                 } else {
                     // since we are in a Preserved or SelfContained table so we should
@@ -2099,16 +2105,10 @@ impl Checker {
                     let var_info = self.sym_table.get_info(&name);
                     match var_info {
                         Some(info) => {
-                            if info.fully_initialized {
-                                // we have already processed this variable
-                                return;
-                            }
-
                             let sym_ty = self.sym_table.get_type(&name).unwrap();
                             match sym_ty.tag {
                                 Sig::ErrorType => {
                                     // we have already processed this variable
-                                    return;
                                 }
                                 Sig::Infer => {
                                     // now we can focus on the expression type (if any) and
@@ -2171,7 +2171,7 @@ impl Checker {
 
                                         if !ty.typecheck(&expr_ty) {
                                             let span = ty.loc.clone();
-                                            let expr_span = expr_ty.loc.clone();
+                                            let expr_span = self.pcode.get_source_ref_expr(val);
                                             let span = span.combine(expr_span);
                                             let err = CheckerError::TypeMismatch {
                                                 loc: span,
