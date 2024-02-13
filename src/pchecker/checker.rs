@@ -101,7 +101,7 @@ impl Checker {
                             loc: loc.clone(),
                         };
                         self.pcode.update_expr_type(expr_i, ty.clone());
-                        return ty;
+                        ty
                     } else {
                         let err = CheckerError::NumberTypeDefaultInferenceFailed {
                             loc: loc.clone(),
@@ -117,7 +117,7 @@ impl Checker {
                             loc: loc.clone(),
                         };
                         self.pcode.update_expr_type(expr_i, ty.clone());
-                        return ty;
+                        ty
                     }
                 } else {
                     // if we do have a type, we will check if the number can be
@@ -151,7 +151,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::I16 => {
                                 let val_i16 = val.parse::<i16>();
@@ -179,7 +179,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::I32 => {
                                 let val_i32 = val.parse::<i32>();
@@ -207,7 +207,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::I64 => {
                                 let val_i64 = val.parse::<i64>();
@@ -236,7 +236,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::Int => {
                                 let val_int = val.parse::<i64>();
@@ -264,7 +264,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::U8 => {
                                 let val_u8 = val.parse::<u8>();
@@ -292,7 +292,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::U16 => {
                                 let val_u16 = val.parse::<u16>();
@@ -320,7 +320,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::U32 => {
                                 let val_u32 = val.parse::<u32>();
@@ -348,7 +348,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::U64 => {
                                 let val_u64 = val.parse::<u64>();
@@ -376,7 +376,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             Sig::UInt => {
                                 let val_uint = val.parse::<u64>();
@@ -404,7 +404,7 @@ impl Checker {
                                     }
                                 };
                                 self.pcode.update_expr_type(expr_i, ty.clone());
-                                return ty;
+                                ty
                             }
                             _ => {
                                 unreachable!(
@@ -429,49 +429,49 @@ impl Checker {
                             loc: loc.clone(),
                         };
                         self.pcode.update_expr_type(expr_i, ty.clone());
-                        return ty;
+                        ty
                     }
                 }
             }
             Expr::Char { loc, .. } => {
                 // we already know the type of the expression
-                return Type {
+                Type {
                     tag: Sig::Char,
                     name: None,
                     sub_types: vec![],
                     aux_type: None,
                     loc: loc.clone(),
-                };
+                }
             }
             Expr::Str { loc, .. } => {
                 // we already know the type of the expression
-                return Type {
+                Type {
                     tag: Sig::Str,
                     name: None,
                     sub_types: vec![],
                     aux_type: None,
                     loc: loc.clone(),
-                };
+                }
             }
             Expr::Bool { loc, .. } => {
                 // we already know the type of the expression
-                return Type {
+                Type {
                     tag: Sig::Bool,
                     name: None,
                     sub_types: vec![],
                     aux_type: None,
                     loc: loc.clone(),
-                };
+                }
             }
             Expr::Void { loc } => {
                 // we already know the type of the expression
-                return Type {
+                Type {
                     tag: Sig::Void,
                     name: None,
                     sub_types: vec![],
                     aux_type: None,
                     loc: loc.clone(),
-                };
+                }
             }
             Expr::Ident { name, loc, .. } => {
                 // check if the identifier is in the symbol table
@@ -508,13 +508,13 @@ impl Checker {
                 } else {
                     // if we are in the first pass, we will return an infer type
                     if matches!(self.pass, Pass::One) {
-                        return Type {
+                        Type {
                             tag: Sig::Infer,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
-                        };
+                        }
                     } else {
                         // we are in the second pass where we should know about this identifier
                         // if the identifier is not in the symbol table, we will return an error type
@@ -524,13 +524,13 @@ impl Checker {
                             var_name: name.clone(),
                         };
                         self.report_error(err);
-                        return Type {
+                        Type {
                             tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
                             loc: loc.clone(),
-                        };
+                        }
                     }
                 }
             }
