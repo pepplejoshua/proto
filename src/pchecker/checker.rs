@@ -597,11 +597,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -648,11 +659,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -700,11 +722,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -752,11 +785,33 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_type, r_type) if l_type.is_error_type() || r_type.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -804,11 +859,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -856,11 +922,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -908,11 +985,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -964,6 +1052,17 @@ impl Checker {
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    Sig::ErrorType => {
+                        // if the type of the expression is an error type,
+                        // we will return an error type
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1043,6 +1142,17 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
+                    Sig::ErrorType => {
+                        // if the type of the expression is an error type,
+                        // we will return an error type
+                        Type {
+                            tag: Sig::ErrorType,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
                     _ => {
                         // if the type of the expression is not a numerical type,
                         // we will return an error type
@@ -1084,11 +1194,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1136,11 +1257,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1199,11 +1331,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1262,11 +1405,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1325,11 +1479,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
@@ -1388,11 +1553,22 @@ impl Checker {
                             loc: loc.clone(),
                         }
                     }
-                    (l_type, r_type) if l_type.is_infer_type() || r_type.is_infer_type() => {
+                    (l_tag, r_tag) if l_tag.is_infer_type() || r_tag.is_infer_type() => {
                         // if the types of the left and right hand side of the expression are infer types,
                         // we will return an infer type
                         Type {
                             tag: Sig::Infer,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                            loc: loc.clone(),
+                        }
+                    }
+                    (l_tag, r_tag) if l_tag.is_error_type() || r_tag.is_error_type() => {
+                        // if any side of the expression is an error type, we will just return an error
+                        // type without reporting any errors
+                        Type {
+                            tag: Sig::ErrorType,
                             name: None,
                             sub_types: vec![],
                             aux_type: None,
