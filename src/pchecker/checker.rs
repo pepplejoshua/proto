@@ -2406,13 +2406,18 @@ impl Checker {
     }
 
     fn report_error(&mut self, err: CheckerError) {
-        self.reporter.report_checker_error(err);
+        let pass = if self.pass == Pass::One {
+            "Pass 1".to_string()
+        } else {
+            "Pass 2".to_string()
+        };
+        self.reporter.report_checker_error(err, pass.clone());
         self.error_count += 1;
         self.error_occured = true;
 
         if self.error_count >= 10 {
             let err = CheckerError::TooManyErrors;
-            self.reporter.report_checker_error(err);
+            self.reporter.report_checker_error(err, pass);
             std::process::exit(1);
         }
     }
