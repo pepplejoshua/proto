@@ -1,6 +1,11 @@
 main := fn () void {
-    a := b;
-    b : i8 = a + 1;
+    a_main :: b;
+    c_main : i8 : a + 1;
 }
+ 
+a := b;
+c : i8 = a + 1;
+b := 2;
 
-b :: 2;
+// we have found an issue with our 2 pass system. Finally I have found
+// the issue

@@ -2041,6 +2041,19 @@ impl Checker {
                             type_name: ty.as_str(),
                         };
                         self.report_error(err);
+
+                        // set the type of the constant to error
+                        // so that we don't process it again
+                        let err_ty = Type {
+                            tag: Sig::ErrorType,
+                            loc: ty.loc.clone(),
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                        };
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), err_ty, info);
                         return;
                     }
 
@@ -2055,6 +2068,17 @@ impl Checker {
                             type_name: expr_ty.as_str(),
                         };
                         self.report_error(err);
+                        // set the type of the constant to error
+                        let err_ty = Type {
+                            tag: Sig::ErrorType,
+                            loc: ty.loc.clone(),
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                        };
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), err_ty, info);
                         return;
                     }
 
@@ -2068,6 +2092,18 @@ impl Checker {
                             found: expr_ty.as_str(),
                         };
                         self.report_error(err);
+
+                        // set the type of the constant to error
+                        let err_ty = Type {
+                            tag: Sig::ErrorType,
+                            loc: ty.loc.clone(),
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                        };
+                        let mut info = SymbolInfo::new_const_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), err_ty, info);
                         return;
                     }
 
@@ -2206,6 +2242,19 @@ impl Checker {
                             type_name: ty.as_str(),
                         };
                         self.report_error(err);
+
+                        // we have to update the variable'stype to an error type
+                        // and mark it as fully initialized
+                        let err_ty = Type {
+                            tag: Sig::ErrorType,
+                            loc: ty.loc.clone(),
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: None,
+                        };
+                        let mut info = SymbolInfo::new_var_info();
+                        info.set_def_location(loc.clone());
+                        self.sym_table.register(name.clone(), err_ty, info);
                         return;
                     }
 
@@ -2213,17 +2262,14 @@ impl Checker {
                     if let Some(val) = val {
                         let expr_ty = self.pass_2_check_expr(&val, &ty);
                         let expr_ty_is_valid = self.verify_type(&expr_ty);
-                        let expr_ty_is_error = expr_ty.tag.is_error_type();
                         if !expr_ty_is_valid {
-                            if !expr_ty_is_error {
-                                // now we have to throw an error since given all the information
-                                // we have, we still cannot resolve this type
-                                let err = CheckerError::InvalidType {
-                                    loc: expr_ty.loc.clone(),
-                                    type_name: expr_ty.as_str(),
-                                };
-                                self.report_error(err);
-                            }
+                            // now we have to throw an error since given all the information
+                            // we have, we still cannot resolve this type
+                            let err = CheckerError::InvalidType {
+                                loc: expr_ty.loc.clone(),
+                                type_name: expr_ty.as_str(),
+                            };
+                            self.report_error(err);
                             // we have to assign an error type to the variable
                             let err_ty = Type {
                                 tag: Sig::ErrorType,
