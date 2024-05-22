@@ -4,4 +4,4 @@
 
 # Overview
 
-A compiler/tooling project for the Proto programming language. This project is a side project that I plan to work on long-term. I intend to learn as much about compiler theory as I can using this project as my outlet for learning. I am inspired by the work of the Zig team, Jonathan Blow on Jai (hopefully it will be available for public use in the near future) and the fun I am having learning and writing Rust.
+A compiler/tooling project for the Proto programming language. This project is a side project that I plan to work on long-term. I intend to learn as much about compiler theory as I can using this project as my outlet for learning.
