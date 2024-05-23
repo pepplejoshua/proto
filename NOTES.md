@@ -1,24 +1,33 @@
-- implementation practice: https://nicktasios.nl/posts/space-invaders-from-scratch-part-1.html
+// Structs and Functions
+struct Name {
+  field_name: type1;
+  field_name2: type2;
 
-- parallel work queue: https://gist.github.com/NoraCodes/e6d40782b05dc8ac40faf3a0405debd3
+  struct AnotherName {
+    field_name: type3;
+    field_name2: type4;
+  }
+}
 
-- use other proto files in your proto file with @use("path_to_proto")
-  - this will allow you to use the types and functions in the other proto file in your code
-  - this is similar to the `use` keyword in rust
+fn main() void {
+  a :: add(1, 3);
+  b :: sub(a, 1);
+  c :: mult(b, a);
+}
 
-- memory management through the use of custom allocators or (new | delete) constructs
-  - this will allow us to manage memory in a way that is more efficient than the default memory management in rust
-  - we can also use this to manage memory in a way that is more efficient than the default memory management in rust
+// return type will be inferred to be i32
+fn add(a i32, b i32) {
+  return a + b;
+}
 
-- Uniform Function Calling Syntax ?
-  - stuff like 1.add(2) which is equivalent to add_int(1, 2) or some interned version of that name where 1 and 2 are inferred to be integers
+// a and b are both typed i32
+// return type will be inferred to be i32
+fn sub(a, b i32) {
+  return a - b;
+}
 
-- compile execution of code based on KNOWN information
-  - this can allow us generate code from generic functions and types
-  - we can also load things at compile time and generate code based on that
-
-- use c libs with @lib("path_to_lib_mapping_in_proto")
-  - we will use this to map the types and function in the c lib to the proto so you can use them in your code
-  - @ffi directive is used on prototypes to inform the compiler that the function is implemented in a c lib. jo blow mentions "dyn_call"
-  - @ffi("__c_lib_name__") can be used to specify the actual name in the c lib to link against
-  - look into https://dyncall.org/ for ffi
+// b has to be typed i32 for the multiplication to be true
+// return type is therefore inferred to be i32
+fn mult(a i32, b) {
+  return a * b;
+}

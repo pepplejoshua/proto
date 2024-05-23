@@ -3,7 +3,6 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::pparser::Parser,
-    pchecker::checker::Checker,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -11,7 +10,6 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
-    Checker,
 }
 
 #[allow(dead_code)]
@@ -46,7 +44,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Checker,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -67,7 +65,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::CPP,
                         target_file: "".to_string(),
-                        max_stage: Stage::Checker,
+                        max_stage: Stage::Parser,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -75,7 +73,7 @@ impl PipelineConfig {
                 }
                 let target_file = args.next().unwrap();
                 let mut backend = Backend::CPP;
-                let mut max_stage = Stage::Checker;
+                let mut max_stage = Stage::Parser;
                 let mut show_help = false;
                 let mut dbg_info = false;
                 let mut use_pfmt = false;
@@ -85,7 +83,6 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "check" => max_stage = Stage::Checker,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -105,7 +102,7 @@ impl PipelineConfig {
             "h" | "help" => PipelineConfig {
                 backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Checker,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -114,7 +111,7 @@ impl PipelineConfig {
             _ => PipelineConfig {
                 backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Checker,
+                max_stage: Stage::Parser,
                 show_help: true,
                 dbg_info: false,
                 cmd: None,
@@ -233,9 +230,5 @@ impl Workspace {
         if let Stage::Parser = self.config.max_stage {
             return;
         }
-
-        let mut checker = Checker::new(parser.pcode, parser.lexer.src);
-        let sym_table = checker.check();
-        sym_table.show_info();
     }
 }
