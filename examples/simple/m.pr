@@ -1,8 +1,8 @@
-main := fn () void {
+fn main() void {
     a_main :: b;
     c_main : i8 : a + 1;
 }
 
 a := b;
-c : i8 = a + 1;
-b := 2;
+c := a + 1;
+b : int = 2;
