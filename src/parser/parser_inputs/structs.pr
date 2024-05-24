@@ -1,12 +1,12 @@
 // This is a sample for user defined structs
 
 // simple struct that uses defaults
-SourceFile :: struct {
+struct SourceFile {
     path: str;
     text: str;
 
     version :: 1;
-    DiagInfo :: struct {
+    struct DiagInfo {
         error: str;
         flat_index: uint;
         col: uint;
@@ -14,7 +14,7 @@ SourceFile :: struct {
         line: uint;
     }
 
-    new :: fn () SourceFile {
+    fn new() SourceFile {
         return SourceFile.(
             path: "",
             text: ""
@@ -22,7 +22,7 @@ SourceFile :: struct {
     }
 }
 
-main :: fn () void {
+fn main() void {
     // since we allow defaults, we can focus on the
     // members we care about initializing
     srcA := SourceFile.(
@@ -30,5 +30,5 @@ main :: fn () void {
         text: "textA",
     );
     srcB := SourceFile.new();
-    DiagnosticInfo :: SourceFile.DiagInfo;
+    // alias DiagnosticInfo SourceFile.DiagInfo;
 }

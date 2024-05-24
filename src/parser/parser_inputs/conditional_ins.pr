@@ -1,4 +1,4 @@
-main :: fn () void {
+fn main() void {
     a := 0;
     b := "windows";
     // if b == "windows" {

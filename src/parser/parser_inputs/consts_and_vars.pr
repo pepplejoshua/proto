@@ -2,7 +2,7 @@ a : i8 : 32;
 c := false;
 e : uint = 0;
 
-main :: fn () void {
+fn main() void {
     b := a;
     d :: !c;
 }

@@ -139,6 +139,9 @@ impl Parser {
     fn next_instruction(&mut self, change_scope: bool) -> InsLoc {
         let cur = self.cur_token();
         match cur {
+            Token::Fn(_) => todo!(),
+            Token::Struct(_) => todo!(),
+            Token::Mod(_) => todo!(),
             Token::SingleLineComment(src, comment) => {
                 self.advance();
                 self.add_ins(Ins::Comment { comment, loc: src })
@@ -203,11 +206,11 @@ impl Parser {
                     self.parse_block(change_scope)
                 }
             }
-            _ => self.parse_ins(),
+            _ => self.parse_expr_ins(),
         }
     }
 
-    fn parse_ins(&mut self) -> InsLoc {
+    fn parse_expr_ins(&mut self) -> InsLoc {
         let left_i = self.parse_expr();
         let left = self.pcode.get_expr_c(&left_i);
 
@@ -228,15 +231,6 @@ impl Parser {
             // name : type? = value;
             // - constant init:
             // name : type? : value;
-            // - function header:
-            // name :: fn (args) -> ret_type; for const functions
-            // - function definition:
-            // name :: fn (args) -> ret_type { code } for const functions
-            // name := fn (args) -> ret_type { code } for non-const functions
-            // - struct:
-            // name :: struct { variable init | constant init | function header | function definition | struct }
-            // - module:
-            // name :: mod { variable init | constant init | function header | function definition | struct }
             Expr::Ident { name, loc, .. } => {
                 if matches!(self.cur_token(), Token::Assign(_)) {
                     // variable assignment
@@ -309,7 +303,7 @@ impl Parser {
                     Token::Colon(_) => {
                         // constant
                         self.advance();
-                        let value = self.parse_decl_value();
+                        let value = self.parse_expr();
                         let value_span = self.pcode.get_source_ref_expr(value);
                         span = span.combine(value_span);
                         self.add_ins(Ins::NewConstant {
@@ -322,7 +316,7 @@ impl Parser {
                     Token::Assign(_) => {
                         // variable
                         self.advance();
-                        let value = self.parse_decl_value();
+                        let value = self.parse_expr();
                         let value_span = self.pcode.get_source_ref_expr(value);
                         span = span.combine(value_span);
                         self.add_ins(Ins::NewVariable {
@@ -415,36 +409,8 @@ impl Parser {
         }
     }
 
-    fn parse_decl_value(&mut self) -> ExprLoc {
-        let cur = self.cur_token();
-        // this will handle parsing:
-        // - functions
-        // - structs
-        // - modules
-        // - expressions if it matches non of the above
-        match cur {
-            Token::Fn(_) => self.parse_fn(),
-            Token::Struct(_) => self.parse_struct(),
-            Token::Mod(_) => self.parse_mod(),
-            _ => {
-                let expr_i = self.parse_expr();
-                // we need to skip past the semi colon
-                if !matches!(self.cur_token(), Token::Semicolon(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a semicolon to terminate the declaration.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                } else {
-                    self.advance();
-                }
-                expr_i
-            }
-        }
-    }
-
-    fn parse_fn(&mut self) -> ExprLoc {
-        // fn (arg: type, arg: type, ...) type INS
+    fn parse_fn(&mut self) -> InsLoc {
+        // fn name(arg: type, arg: type, ...) type INS
         // where INS is either a block or a single instruction
 
         let start = self.cur_token();
@@ -457,7 +423,7 @@ impl Parser {
                 self.cur_token().get_source_ref(),
                 None,
             ));
-            return self.pcode.add_expr(Expr::ErrorNode {
+            return self.pcode.add_sub_ins(Ins::ErrorNode {
                 expectation: "a left parenthesis to begin the list of argument names.".to_string(),
                 loc: start.get_source_ref(),
             });
@@ -553,7 +519,7 @@ impl Parser {
         })
     }
 
-    fn parse_struct(&mut self) -> ExprLoc {
+    fn parse_struct(&mut self) -> InsLoc {
         // struct CODE BLOCK
         let start = self.cur_token();
         let mut span = start.get_source_ref();
@@ -574,7 +540,7 @@ impl Parser {
         })
     }
 
-    fn parse_mod(&mut self) -> ExprLoc {
+    fn parse_mod(&mut self) -> InsLoc {
         // mod CODE BLOCK
         let start = self.cur_token();
         let mut span = start.get_source_ref();

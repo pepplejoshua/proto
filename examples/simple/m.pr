@@ -1,8 +1,33 @@
-fn main() void {
-    a_main :: b;
-    c_main : i8 : a + 1;
+// Structs and Functions
+struct Name {
+  field_name: type1;
+  field_name2: type2;
+
+  struct AnotherName {
+    field_name: type3;
+    field_name2: type4;
+  }
 }
 
-a := b;
-c := a + 1;
-b : int = 2;
+fn main() void {
+  a :: add(1, 3);
+  b :: sub(a, 1);
+  c :: mult(b, a);
+}
+
+// return type will be inferred to be i32
+fn add(a i32, b i32) {
+  return a + b;
+}
+
+// a and b are both typed i32
+// return type will be inferred to be i32
+fn sub(a, b i32) {
+  return a - b;
+}
+
+// b has to be typed i32 for the multiplication to be true
+// return type is therefore inferred to be i32
+fn mult(a i32, b) {
+  return a * b;
+}

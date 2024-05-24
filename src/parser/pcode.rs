@@ -23,7 +23,6 @@ pub enum Expr {
     Number {
         val: String,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Str {
         val: String,
@@ -51,136 +50,84 @@ pub enum Expr {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Sub {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Mul {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Div {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Mod {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     And {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Or {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Not {
         expr: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Negate {
         expr: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Eq {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Neq {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Gt {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Lt {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     GtEq {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     LtEq {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     AccessMember {
         lhs: ExprLoc,
         rhs: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     InitStruct {
         struct_name: ExprLoc,
         fields: Vec<(ExprLoc, ExprLoc)>,
         loc: SourceRef,
-        ty: Option<Type>,
-    },
-    NewFunction {
-        // function name
-        name: String,
-        // function arguments
-        args: Vec<FnArg>,
-        // function return type
-        ret_ty: Type,
-        // function body
-        code: InsLoc,
-        loc: SourceRef,
-        fn_sig_loc: SourceRef,
-        ty: Option<Type>,
-    },
-    NewStruct {
-        // struct name
-        name: String,
-        // struct fields
-        // parsed as either a new constant or
-        // a new variable
-        code: InsLoc,
-        loc: SourceRef,
-        // will contain struct name, fields
-        // and methods / functions
-        ty: Option<Type>,
-    },
-    NewModule {
-        // module name
-        name: String,
-        // module code
-        // this will be allow things similar to the
-        // global scope
-        code: InsLoc,
-        loc: SourceRef,
-        // all modules have type module
     },
     CallFunction {
         // function name
@@ -188,7 +135,6 @@ pub enum Expr {
         // function arguments
         args: Vec<ExprLoc>,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     IndexArray {
         // array
@@ -196,7 +142,6 @@ pub enum Expr {
         // index
         idx: ExprLoc,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     Directive {
         // directive name
@@ -204,7 +149,6 @@ pub enum Expr {
         // directive arguments
         args: Vec<ExprLoc>,
         loc: SourceRef,
-        ty: Option<Type>,
     },
     ErrorNode {
         expectation: String,
@@ -213,128 +157,6 @@ pub enum Expr {
 }
 
 impl Expr {
-    pub fn update_type(&mut self, new_type: Type) {
-        match self {
-            Expr::Number { ty, .. } => *ty = Some(new_type),
-            Expr::Add { ty, .. } => *ty = Some(new_type),
-            Expr::Sub { ty, .. } => *ty = Some(new_type),
-            Expr::Mul { ty, .. } => *ty = Some(new_type),
-            Expr::Div { ty, .. } => *ty = Some(new_type),
-            Expr::Mod { ty, .. } => *ty = Some(new_type),
-            Expr::And { ty, .. } => *ty = Some(new_type),
-            Expr::Or { ty, .. } => *ty = Some(new_type),
-            Expr::Not { ty, .. } => *ty = Some(new_type),
-            Expr::Eq { ty, .. } => *ty = Some(new_type),
-            Expr::Neq { ty, .. } => *ty = Some(new_type),
-            Expr::Gt { ty, .. } => *ty = Some(new_type),
-            Expr::Lt { ty, .. } => *ty = Some(new_type),
-            Expr::GtEq { ty, .. } => *ty = Some(new_type),
-            Expr::LtEq { ty, .. } => *ty = Some(new_type),
-            Expr::Negate { ty, .. } => *ty = Some(new_type),
-            Expr::AccessMember { ty, .. } => *ty = Some(new_type),
-            Expr::InitStruct { ty, .. } => *ty = Some(new_type),
-            Expr::NewFunction { ty, .. } => *ty = Some(new_type),
-            Expr::NewStruct { ty, .. } => *ty = Some(new_type),
-            Expr::CallFunction { ty, .. } => *ty = Some(new_type),
-            Expr::IndexArray { ty, .. } => *ty = Some(new_type),
-            Expr::Directive { ty, .. } => *ty = Some(new_type),
-            Expr::Ident { ty, .. } => *ty = Some(new_type),
-            _ => (),
-        }
-    }
-
-    pub fn has_type(&self) -> bool {
-        match self {
-            Expr::Number { ty, .. } => ty.is_some(),
-            Expr::Add { ty, .. } => ty.is_some(),
-            Expr::Sub { ty, .. } => ty.is_some(),
-            Expr::Mul { ty, .. } => ty.is_some(),
-            Expr::Div { ty, .. } => ty.is_some(),
-            Expr::Mod { ty, .. } => ty.is_some(),
-            Expr::And { ty, .. } => ty.is_some(),
-            Expr::Or { ty, .. } => ty.is_some(),
-            Expr::Not { ty, .. } => ty.is_some(),
-            Expr::Eq { ty, .. } => ty.is_some(),
-            Expr::Neq { ty, .. } => ty.is_some(),
-            Expr::Gt { ty, .. } => ty.is_some(),
-            Expr::Lt { ty, .. } => ty.is_some(),
-            Expr::GtEq { ty, .. } => ty.is_some(),
-            Expr::LtEq { ty, .. } => ty.is_some(),
-            Expr::Negate { ty, .. } => ty.is_some(),
-            Expr::AccessMember { ty, .. } => ty.is_some(),
-            Expr::InitStruct { ty, .. } => ty.is_some(),
-            Expr::NewFunction { ty, .. } => ty.is_some(),
-            Expr::NewStruct { ty, .. } => ty.is_some(),
-            Expr::CallFunction { ty, .. } => ty.is_some(),
-            Expr::IndexArray { ty, .. } => ty.is_some(),
-            Expr::Directive { ty, .. } => ty.is_some(),
-            Expr::Bool { .. } => true,
-            Expr::Char { .. } => true,
-            Expr::Str { .. } => true,
-            Expr::Void { .. } => true,
-            Expr::Ident { ty, .. } => ty.is_some(),
-            _ => false,
-        }
-    }
-
-    pub fn get_type(&self) -> Option<Type> {
-        match self {
-            Expr::Number { ty, .. } => ty.clone(),
-            Expr::Add { ty, .. } => ty.clone(),
-            Expr::Sub { ty, .. } => ty.clone(),
-            Expr::Mul { ty, .. } => ty.clone(),
-            Expr::Div { ty, .. } => ty.clone(),
-            Expr::Mod { ty, .. } => ty.clone(),
-            Expr::And { ty, .. } => ty.clone(),
-            Expr::Or { ty, .. } => ty.clone(),
-            Expr::Not { ty, .. } => ty.clone(),
-            Expr::Eq { ty, .. } => ty.clone(),
-            Expr::Neq { ty, .. } => ty.clone(),
-            Expr::Gt { ty, .. } => ty.clone(),
-            Expr::Lt { ty, .. } => ty.clone(),
-            Expr::GtEq { ty, .. } => ty.clone(),
-            Expr::LtEq { ty, .. } => ty.clone(),
-            Expr::Negate { ty, .. } => ty.clone(),
-            Expr::AccessMember { ty, .. } => ty.clone(),
-            Expr::InitStruct { ty, .. } => ty.clone(),
-            Expr::NewFunction { ty, .. } => ty.clone(),
-            Expr::NewStruct { ty, .. } => ty.clone(),
-            Expr::CallFunction { ty, .. } => ty.clone(),
-            Expr::IndexArray { ty, .. } => ty.clone(),
-            Expr::Directive { ty, .. } => ty.clone(),
-            Expr::Bool { loc, .. } => Some(Type {
-                tag: Sig::Bool,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                loc: loc.clone(),
-            }),
-            Expr::Char { loc, .. } => Some(Type {
-                tag: Sig::Char,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                loc: loc.clone(),
-            }),
-            Expr::Str { loc, .. } => Some(Type {
-                tag: Sig::Str,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                loc: loc.clone(),
-            }),
-            Expr::Void { loc, .. } => Some(Type {
-                tag: Sig::Void,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                loc: loc.clone(),
-            }),
-            Expr::Ident { ty, .. } => ty.clone(),
-            _ => None,
-        }
-    }
-
     pub fn get_source_ref(&self) -> SourceRef {
         match self {
             Expr::Number { loc, .. } => loc.clone(),
@@ -360,9 +182,6 @@ impl Expr {
             Expr::LtEq { loc, .. } => loc.clone(),
             Expr::AccessMember { loc, .. } => loc.clone(),
             Expr::InitStruct { loc, .. } => loc.clone(),
-            Expr::NewFunction { loc, .. } => loc.clone(),
-            Expr::NewStruct { loc, .. } => loc.clone(),
-            Expr::NewModule { loc, .. } => loc.clone(),
             Expr::ErrorNode { loc, .. } => loc.clone(),
             Expr::CallFunction { loc, .. } => loc.clone(),
             Expr::IndexArray { loc, .. } => loc.clone(),
@@ -394,6 +213,37 @@ pub enum Ins {
         ty: Type,
         // value
         val: Option<ExprLoc>,
+        loc: SourceRef,
+    },
+    NewFunction {
+        // function name
+        name: String,
+        // function arguments
+        args: Vec<FnArg>,
+        // function return type
+        ret_ty: Type,
+        // function body
+        code: InsLoc,
+        loc: SourceRef,
+        fn_sig_loc: SourceRef,
+        ty: Option<Type>,
+    },
+    NewStruct {
+        // struct name
+        name: String,
+        // struct fields
+        // parsed as either a new constant or
+        // a new variable
+        code: InsLoc,
+        loc: SourceRef,
+    },
+    NewModule {
+        // module name
+        name: String,
+        // module code
+        // this will be allow things similar to the
+        // global scope
+        code: InsLoc,
         loc: SourceRef,
     },
     NewBlock {
@@ -445,6 +295,7 @@ impl Ins {
             Ins::Directive { loc, .. } => loc.clone(),
             Ins::Comment { loc, .. } => loc.clone(),
             Ins::Return { loc, .. } => loc.clone(),
+            Ins::NewFunction { loc, .. } => loc.clone(),
         }
     }
 }
@@ -466,10 +317,6 @@ impl PCode {
             sub_ins: Vec::new(),
             exprs: Vec::new(),
         }
-    }
-
-    pub fn update_expr_type(&mut self, loc: &ExprLoc, new_type: Type) {
-        self.exprs[*loc].update_type(new_type);
     }
 
     pub fn as_str(&self) -> String {
@@ -542,6 +389,17 @@ impl PCode {
                     }
                 )
             }
+            Ins::NewFunction {
+                name,
+                args,
+                ret_ty,
+                code,
+                loc,
+                fn_sig_loc,
+                ty,
+            } => {}
+            Ins::NewStruct { name, code, loc } => todo!(),
+            Ins::NewModule { name, code, loc } => todo!(),
         }
     }
 
@@ -674,33 +532,6 @@ impl PCode {
                 res.push_str(&arg_str.join(", "));
                 res.push_str(")");
                 res
-            }
-            Expr::NewFunction {
-                args,
-                ret_ty,
-                code,
-                loc,
-                ..
-            } => {
-                let mut res = format!("fn (");
-                let mut arg_str = vec![];
-                for arg in args {
-                    arg_str.push(format!(
-                        "{}: {}",
-                        self.show_expr(&self.exprs[arg.name]),
-                        arg.ty.as_str()
-                    ));
-                }
-                res.push_str(&arg_str.join(", "));
-                res.push_str(&format!(") {} ", ret_ty.as_str()));
-                res.push_str(&self.show_ins(&self.get_ins(code)));
-                res
-            }
-            Expr::NewStruct { name, code, .. } => {
-                format!("struct {}", self.show_ins(&self.get_ins(code)))
-            }
-            Expr::NewModule { name, code, loc } => {
-                format!("mod {}", self.show_ins(&self.get_ins(code)))
             }
             Expr::CallFunction { func, args, .. } => {
                 let mut res = format!("{}(", self.show_expr(&self.exprs[*func]));

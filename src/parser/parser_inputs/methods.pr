@@ -1,12 +1,12 @@
-Person :: struct {
+struct Person {
     name : str;
     age : i8;
 
-    get_name :: fn() str {
+    fn get_name() str {
         return self.name;
     }
 
-    get_age :: fn () i8 {
+    fn get_age() i8 {
         return self.age;
     }
 }

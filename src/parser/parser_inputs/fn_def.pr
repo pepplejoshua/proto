@@ -1,13 +1,17 @@
-add :: fn (a: i64, b: i64) i64 {
+fn add(a i64, b i64) i64 {
     return a + b;
 }
 
-do_nothing :: fn () void {}
+fn add(a, b i64) i64 {
+    return a + b;
+}
 
-do_nothing_ :: fn() void return 1;
+fn do_nothing() void {}
 
-// prototype :: fn () i64;
+fn do_nothing_() void return 1;
 
-returns_nothing :: fn () void {
+fn prototype() i64;
+
+ fn returns_nothing() void {
     return;
 }
