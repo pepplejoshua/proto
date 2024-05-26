@@ -9,7 +9,7 @@ use crate::{
     types::signature::{Sig, Type},
 };
 
-use super::ast::{BinOpType, Expr, FileModule, Ins};
+use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     TopLevel,
@@ -397,12 +397,12 @@ impl Parser {
         while matches!(self.cur_token(), Token::And(_)) {
             self.advance();
             let rhs = self.parse_equality();
-            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let and_span = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op: BinOpType::And,
                 left: Box::new(lhs),
                 right: Box::new(rhs),
-                loc: or_span,
+                loc: and_span,
             }
         }
 
@@ -416,22 +416,17 @@ impl Parser {
             let op = self.cur_token();
             self.advance();
             let rhs = self.parse_comparison();
-            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let eq_span = lhs.get_source_ref().combine(rhs.get_source_ref());
 
-            lhs = if matches!(op, Token::Equal(_)) {
-                Expr::BinOp {
-                    op: BinOpType::Eq,
-                    left: Box::new(lhs),
-                    right: Box::new(rhs),
-                    loc: or_span,
-                }
-            } else {
-                Expr::BinOp {
-                    op: BinOpType::Neq,
-                    left: Box::new(lhs),
-                    right: Box::new(rhs),
-                    loc: or_span,
-                }
+            lhs = Expr::BinOp {
+                op: if matches!(op, Token::Equal(_)) {
+                    BinOpType::Eq
+                } else {
+                    BinOpType::Neq
+                },
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: eq_span,
             };
         }
 
@@ -439,19 +434,136 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_term();
+
+        while matches!(
+            self.cur_token(),
+            Token::Less(_) | Token::Greater(_) | Token::LessEqual(_) | Token::GreaterEqual(_)
+        ) {
+            let op = self.cur_token();
+            self.advance();
+            let rhs = self.parse_term();
+            let comp_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = match op {
+                Token::Less(_) => Expr::BinOp {
+                    op: BinOpType::Lt,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::Greater(_) => Expr::BinOp {
+                    op: BinOpType::Gt,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::LessEqual(_) => Expr::BinOp {
+                    op: BinOpType::LtEq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::GreaterEqual(_) => Expr::BinOp {
+                    op: BinOpType::GtEq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                _ => unreachable!("Parser::parse_comparison: unexpected op: {op:?}"),
+            };
+        }
+
+        lhs
     }
 
     fn parse_term(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_factor();
+
+        while matches!(self.cur_token(), Token::Plus(_) | Token::Minus(_)) {
+            let op = self.cur_token();
+            self.advance();
+            let rhs = self.parse_factor();
+            let term_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = Expr::BinOp {
+                op: if matches!(op, Token::Plus(_)) {
+                    BinOpType::Add
+                } else {
+                    BinOpType::Sub
+                },
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: term_span,
+            };
+        }
+
+        lhs
     }
 
     fn parse_factor(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_unary();
+
+        while matches!(
+            self.cur_token(),
+            Token::Star(_) | Token::Slash(_) | Token::Modulo(_)
+        ) {
+            let op = self.cur_token();
+            self.advance();
+            let rhs = self.parse_unary();
+            let factor_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = match op {
+                Token::Star(_) => Expr::BinOp {
+                    op: BinOpType::Mult,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                Token::Slash(_) => Expr::BinOp {
+                    op: BinOpType::Div,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                Token::Modulo(_) => Expr::BinOp {
+                    op: BinOpType::Mod,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                _ => unreachable!("Parser::parse_factor: unexpected op: {op:?}"),
+            };
+        }
+
+        lhs
     }
 
     fn parse_unary(&mut self) -> Expr {
-        todo!()
+        let op = self.cur_token();
+        match op {
+            Token::Minus(_) => {
+                self.advance();
+                let rhs = self.parse_unary();
+                let un_span = op.get_source_ref().combine(rhs.get_source_ref());
+                Expr::UnaryOp {
+                    op: UnaryOpType::Negate,
+                    expr: Box::new(rhs),
+                    loc: un_span,
+                }
+            }
+            Token::Not(_) => {
+                self.advance();
+                let rhs = self.parse_unary();
+                let un_span = op.get_source_ref().combine(rhs.get_source_ref());
+                Expr::UnaryOp {
+                    op: UnaryOpType::Not,
+                    expr: Box::new(rhs),
+                    loc: un_span,
+                }
+            }
+            _ => self.parse_index_expr(),
+        }
     }
 
     fn parse_index_expr(&mut self) -> Expr {

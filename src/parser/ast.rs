@@ -273,7 +273,7 @@ impl Ins {
                         format!("{} : {}", name.as_str(), tyv.as_str())
                     }
                     None => {
-                        unreachable!("ast.rs::[NO TYPE OR INIT VALUE FOR VARIABLE]")
+                        unreachable!("Ast::as_str: no initialization value or type for variable declaration.")
                     }
                 },
             },
