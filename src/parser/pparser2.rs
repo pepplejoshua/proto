@@ -6,7 +6,7 @@ use crate::{
         errors::{LexError, ParseError, ParseWarning},
         source::SourceReporter,
     },
-    types::signature::Type,
+    types::signature::{Sig, Type},
 };
 
 use super::ast::{Expr, FileModule, Ins};
@@ -118,24 +118,63 @@ impl Parser {
         }
     }
 
-    fn next_ins(&mut self, change_scope: bool) -> Ins {
+    fn next_ins(&mut self, use_new_scope: bool) -> Ins {
         let cur = self.cur_token();
         match cur {
-            Token::Fn(_) => todo!(),
-            Token::Struct(_) => todo!(),
-            Token::Mod(_) => todo!(),
+            Token::Fn(_) => self.parse_fn(),
+            Token::Struct(_) => self.parse_struct(),
+            Token::Mod(_) => self.parse_module(),
             Token::SingleLineComment(loc, comment) => {
                 self.advance();
                 Ins::SingleLineComment { comment, loc }
             }
-            Token::Return(_) => todo!(),
-            Token::LCurly(_) => todo!(),
+            Token::Return(_) => self.parse_return(),
+            Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
         }
     }
 
     fn parse_return(&mut self) -> Ins {
-        todo!()
+        if !matches!(self.scope, ParseScope::Function) {
+            self.report_error(ParseError::ReturnInstructionOutsideFunction(
+                self.cur_token().get_source_ref(),
+            ));
+            Ins::ErrorIns {
+                msg: "found a return statement outside a function body".to_string(),
+                loc: self.cur_token().get_source_ref(),
+            }
+        } else {
+            let start_loc = self.cur_token().get_source_ref();
+            self.advance();
+            // check if there is semicolon, else we need a parse an expression
+            let cur = self.cur_token();
+            if matches!(cur, Token::Semicolon(_)) {
+                // skip past the semicolon
+                self.advance();
+                let loc = start_loc.combine(cur.get_source_ref());
+                Ins::Return { expr: None, loc }
+            } else {
+                let val = self.parse_expr();
+                // TODO: determine if this triggered an error and react appropriately
+                let mut return_loc = start_loc.combine(val.get_source_ref());
+                let semi = self.cur_token();
+                // then skip past the semicolon
+                if !matches!(semi, Token::Semicolon(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a semicolon to terminate the return statement.".to_string(),
+                        return_loc.clone(),
+                        None,
+                    ));
+                } else {
+                    return_loc = return_loc.combine(semi.get_source_ref());
+                }
+
+                Ins::Return {
+                    expr: Some(val),
+                    loc: return_loc,
+                }
+            }
+        }
     }
 
     fn parse_fn(&mut self) -> Ins {
@@ -146,7 +185,7 @@ impl Parser {
         todo!()
     }
 
-    fn parse_mod(&mut self) -> Ins {
+    fn parse_module(&mut self) -> Ins {
         todo!()
     }
 
@@ -159,7 +198,129 @@ impl Parser {
     }
 
     fn parse_type(&mut self) -> Type {
-        todo!()
+        let cur = self.cur_token();
+        self.advance();
+        match cur {
+            Token::I8(loc) => Type {
+                tag: Sig::I8,
+                name: None,
+                sub_types: vec![],
+                loc,
+                aux_type: None,
+            },
+            Token::I16(loc) => Type {
+                tag: Sig::I16,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::I32(loc) => Type {
+                tag: Sig::I32,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::I64(loc) => Type {
+                tag: Sig::I64,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Int(loc) => Type {
+                tag: Sig::Int,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::U8(loc) => Type {
+                tag: Sig::U8,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::U16(loc) => Type {
+                tag: Sig::U16,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::U32(loc) => Type {
+                tag: Sig::U32,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::U64(loc) => Type {
+                tag: Sig::U64,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::UInt(loc) => Type {
+                tag: Sig::UInt,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Char(loc) => Type {
+                tag: Sig::Char,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Bool(loc) => Type {
+                tag: Sig::Bool,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Str(loc) => Type {
+                tag: Sig::Str,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Identifier(name, loc) => Type {
+                tag: Sig::Identifier,
+                name: Some(name),
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::Void(loc) => Type {
+                tag: Sig::Void,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc,
+            },
+            Token::LBracket(loc) => {
+                todo!("Parser::parse_type: array types")
+            }
+            _ => {
+                // TODO: is it wise to advance the cursor here?
+                self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
+                Type {
+                    tag: Sig::ErrorType,
+                    name: None,
+                    sub_types: vec![],
+                    aux_type: None,
+                    loc: cur.get_source_ref(),
+                }
+            }
+        }
     }
 
     fn parse_expr(&mut self) -> Expr {
