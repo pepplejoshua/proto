@@ -285,7 +285,7 @@ impl SourceReporter {
     pub fn report_parser_error(&self, pe: ParseError) {
         match pe {
             ParseError::Expected(msg, src, tip) => {
-                self.report_with_ref(&src, "Expected ".to_owned() + &msg, tip, false);
+                self.report_with_ref(&src, "Expected ".to_string() + &msg, tip, false);
             }
             ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => {
                 let msg = "Constant declaration needs an initialization type or value.".to_string();

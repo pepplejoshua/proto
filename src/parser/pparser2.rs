@@ -567,11 +567,196 @@ impl Parser {
     }
 
     fn parse_index_expr(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_primary();
+        while matches!(
+            self.cur_token(),
+            Token::LParen(_) | Token::LBracket(_) | Token::Dot(_)
+        ) {
+            let op = self.cur_token();
+            self.advance();
+            match op {
+                // Function Calls
+                Token::LParen(_) => {
+                    // read arguments for the call
+                    let mut args = vec![];
+                    let mut saw_rparen = false;
+                    while !self.is_at_eof() {
+                        let mut cur = self.cur_token();
+
+                        // if we are not already at the end of the argument list,
+                        // parse an expression
+                        if !matches!(cur, Token::RParen(_)) {
+                            let arg = self.parse_expr();
+                            args.push(arg);
+                            cur = self.cur_token();
+                        }
+
+                        // check to see if we have reached the end of the argument
+                        // list
+                        if matches!(cur, Token::RParen(_)) {
+                            saw_rparen = true;
+                            break;
+                        }
+
+                        // arguments are to be comma separated
+                        if !matches!(cur, Token::Comma(_)) {
+                            self.report_error(ParseError::Expected("a comma to separate argements or a right parenthesis to terminate function call.".to_string(), cur.get_source_ref(), None));
+                            break;
+                        }
+                        self.advance();
+                    }
+                    let mut call_span = lhs.get_source_ref();
+                    if saw_rparen {
+                        call_span = call_span.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    } else {
+                        self.report_error(ParseError::Expected(
+                            "a right parenthesis to terminate function call.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    }
+
+                    lhs = Expr::CallFn {
+                        func: Box::new(lhs),
+                        args,
+                        loc: call_span,
+                    };
+                }
+                // Index Array
+                Token::LBracket(_) => {
+                    let index_expr = self.parse_expr();
+                    let mut index_span = lhs.get_source_ref().combine(index_expr.get_source_ref());
+                    if !matches!(self.cur_token(), Token::RBracket(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a right bracket to terminate index expression.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ))
+                    } else {
+                        index_span = index_span.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    }
+                    lhs = Expr::BinOp {
+                        op: BinOpType::IndexArray,
+                        left: Box::new(lhs),
+                        right: Box::new(index_expr),
+                        loc: index_span,
+                    }
+                }
+                // Struct Member Access or Initialization
+                // struct.field or StructName.(key: value, key2, key3: value)
+                Token::Dot(_) => {
+                    let mut cur = self.cur_token();
+                    match cur {
+                        // Struct Initialization
+                        Token::LParen(_) => {
+                            self.advance();
+                            let mut fields = vec![];
+                            let mut saw_rparen = false;
+                            while !self.is_at_eof() {
+                                cur = self.cur_token();
+
+                                // if we are not already at the end of the init list,
+                                // we can parse a field and value pairing
+                                if !matches!(cur, Token::RParen(_)) {
+                                    // field : value, || field,
+                                    let field = self.parse_primary();
+                                    let value = match self.cur_token() {
+                                        Token::Colon(_) => {
+                                            // there is a value to parse
+                                            self.advance();
+                                            self.parse_expr()
+                                        }
+                                        _ => field.clone(),
+                                    };
+                                    fields.push((field, value));
+                                }
+
+                                cur = self.cur_token();
+
+                                if matches!(cur, Token::RParen(_)) {
+                                    saw_rparen = true;
+                                    break;
+                                }
+
+                                if !matches!(cur, Token::Comma(_)) {
+                                    self.report_error(ParseError::Expected(
+                                        "a comma to separate field-value pairs or a right parenthesis to terminate the struct initialization expression.".to_string(),
+                                        cur.get_source_ref(),
+                                        None
+                                    ));
+                                    break;
+                                }
+
+                                self.advance();
+                            }
+
+                            let s_init_span = if saw_rparen {
+                                cur = self.cur_token();
+                                self.advance();
+                                lhs.get_source_ref().combine(cur.get_source_ref())
+                            } else {
+                                let last_pair = fields.last();
+                                let pair_span = if let Some(pair) = last_pair {
+                                    pair.1.get_source_ref()
+                                } else {
+                                    op.get_source_ref()
+                                };
+                                self.report_error(ParseError::Expected(
+                                    "a right parenthesis to terminate the struct initialization expression.".to_string(),
+                                    self.cur_token().get_source_ref(),
+                                    None
+                                ));
+                                lhs.get_source_ref().combine(pair_span)
+                            };
+
+                            lhs = Expr::InitStruct {
+                                struct_name: Box::new(lhs),
+                                fields,
+                                loc: s_init_span,
+                            };
+                        }
+                        // Struct Member Access
+                        _ => {
+                            let member = self.parse_identifier();
+                            let mem_acc_span =
+                                lhs.get_source_ref().combine(member.get_source_ref());
+                            lhs = Expr::BinOp {
+                                op: BinOpType::AccessMember,
+                                left: Box::new(lhs),
+                                right: Box::new(member),
+                                loc: mem_acc_span,
+                            }
+                        }
+                    }
+                }
+                _ => unreachable!("Parser::parse_index_expr: unexpected op: {op:?}"),
+            }
+        }
+
+        lhs
     }
 
     fn parse_identifier(&mut self) -> Expr {
-        todo!()
+        let cur = self.cur_token();
+        match cur {
+            Token::Identifier(name, loc) => {
+                self.advance();
+                Expr::Ident { name, loc }
+            }
+            _ => {
+                self.report_error(ParseError::Expected(
+                    "an identifier.".to_string(),
+                    cur.get_source_ref(),
+                    None,
+                ));
+                Expr::ErrorExpr {
+                    msg: "expected an identifier.".to_string(),
+                    loc: cur.get_source_ref(),
+                }
+            }
+        }
     }
 
     fn parse_primary(&mut self) -> Expr {
