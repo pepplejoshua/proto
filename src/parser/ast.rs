@@ -211,6 +211,10 @@ pub enum Ins {
         expr: Option<Expr>,
         loc: SourceRef,
     },
+    SingleLineComment {
+        comment: String,
+        loc: SourceRef,
+    },
     ErrorIns {
         msg: String,
         loc: SourceRef,
@@ -226,6 +230,7 @@ impl Ins {
             | Ins::AssignTo { loc, .. }
             | Ins::Return { loc, .. }
             | Ins::DeclFunc { loc, .. }
+            | Ins::SingleLineComment { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -246,6 +251,7 @@ impl Ins {
                     format!("{} :: {};", name.as_str(), init_val.as_str())
                 }
             }
+            Ins::SingleLineComment { comment, .. } => format!("//{comment}"),
             Ins::DeclVar {
                 name, ty, init_val, ..
             } => match init_val {
@@ -328,5 +334,15 @@ impl FileModule {
 
     pub fn add_top_level_ins(&mut self, ins: Ins) {
         self.top_level.push(ins);
+    }
+
+    pub fn as_str(&self) -> String {
+        let mut buf = String::new();
+        for tl_ins in self.top_level.iter() {
+            buf.push_str(&tl_ins.as_str());
+            buf.push('\n');
+        }
+
+        buf
     }
 }
