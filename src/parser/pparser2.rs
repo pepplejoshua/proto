@@ -9,7 +9,7 @@ use crate::{
     types::signature::{Sig, Type},
 };
 
-use super::ast::{Expr, FileModule, Ins};
+use super::ast::{BinOpType, Expr, FileModule, Ins};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     TopLevel,
@@ -27,7 +27,7 @@ pub struct Parser {
     pub parse_warns: Vec<ParseWarning>,
     pub file_mod: FileModule,
     scope: ParseScope,
-    last_token: Option<Token>,
+    lexed_token: Option<Token>,
 }
 
 impl Parser {
@@ -39,7 +39,7 @@ impl Parser {
             parse_warns: Vec::new(),
             file_mod: FileModule::new(),
             scope: ParseScope::TopLevel,
-            last_token: None,
+            lexed_token: None,
         };
 
         p.advance();
@@ -50,7 +50,7 @@ impl Parser {
         loop {
             match self.lexer.next_token() {
                 Ok(token) => {
-                    self.last_token = Some(token);
+                    self.lexed_token = Some(token);
                     break;
                 }
                 Err(lex_err) => self.lex_errs.push(lex_err),
@@ -59,7 +59,7 @@ impl Parser {
     }
 
     fn cur_token(&self) -> Token {
-        self.last_token.clone().unwrap()
+        self.lexed_token.clone().unwrap()
     }
 
     fn is_at_eof(&self) -> bool {
@@ -194,7 +194,53 @@ impl Parser {
     }
 
     fn parse_block(&mut self, use_new_scope: bool) -> Ins {
-        todo!()
+        let mut block_loc = self.cur_token().get_source_ref();
+        self.advance();
+
+        let mut code = vec![];
+
+        let old_scope = if use_new_scope {
+            let temp = self.scope;
+            self.scope = ParseScope::Block;
+            temp
+        } else {
+            self.scope
+        };
+        let mut saw_rcurly = false;
+        while !self.is_at_eof() {
+            let cur = self.cur_token();
+            if matches!(cur, Token::RCurly(_)) {
+                block_loc = block_loc.combine(cur.get_source_ref());
+                saw_rcurly = true;
+                break;
+            }
+
+            let ins = self.next_ins(true);
+            code.push(ins);
+        }
+        let last_ins = code.last();
+        if let Some(last_ins) = last_ins {
+            block_loc = block_loc.combine(last_ins.get_source_ref());
+        }
+
+        if use_new_scope {
+            self.scope = old_scope;
+        }
+
+        if !saw_rcurly {
+            self.report_error(ParseError::UnterminatedCodeBlock(
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            block_loc = block_loc.combine(self.cur_token().get_source_ref());
+            self.advance();
+        }
+
+        Ins::Block {
+            code,
+            loc: block_loc,
+        }
     }
 
     fn parse_type(&mut self) -> Type {
@@ -324,19 +370,72 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Expr {
-        todo!()
+        self.parse_or()
     }
 
     fn parse_or(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_and();
+
+        while matches!(self.cur_token(), Token::Or(_)) {
+            self.advance();
+            let rhs = self.parse_and();
+            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::Or,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: or_span,
+            }
+        }
+
+        lhs
     }
 
     fn parse_and(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_equality();
+
+        while matches!(self.cur_token(), Token::And(_)) {
+            self.advance();
+            let rhs = self.parse_equality();
+            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::And,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: or_span,
+            }
+        }
+
+        lhs
     }
 
     fn parse_equality(&mut self) -> Expr {
-        todo!()
+        let mut lhs = self.parse_comparison();
+
+        while matches!(self.cur_token(), Token::Equal(_) | Token::NotEqual(_)) {
+            let op = self.cur_token();
+            self.advance();
+            let rhs = self.parse_comparison();
+            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = if matches!(op, Token::Equal(_)) {
+                Expr::BinOp {
+                    op: BinOpType::Eq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: or_span,
+                }
+            } else {
+                Expr::BinOp {
+                    op: BinOpType::Neq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: or_span,
+                }
+            };
+        }
+
+        lhs
     }
 
     fn parse_comparison(&mut self) -> Expr {
