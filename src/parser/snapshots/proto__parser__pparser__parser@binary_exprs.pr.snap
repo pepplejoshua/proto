@@ -3,12 +3,13 @@ source: src/parser/pparser.rs
 expression: result
 input_file: src/parser/parser_inputs/binary_exprs.pr
 ---
-pcode:
-  - "Variable a : <infer> = 1 + 2"
-  - "Constant b : <infer> : 3 * 5"
-  - "Constant c : <infer> : a + b * a / b - a"
-  - AssignTo a = 3
-  - AssignTo a = c * b / a + b - 1
+code_str_repr:
+  - "a := [1 + 2];"
+  - "b :: [3 * 5];"
+  - "c :: [[a + [[b * a] / b]] - a];"
+  - a = 3;
+  - "a = [[[[c * b] / a] + b] - 1];"
+  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

@@ -3,21 +3,19 @@ source: src/parser/pparser.rs
 expression: result
 input_file: src/parser/parser_inputs/methods.pr
 ---
-pcode:
-  - "Constant Person : <infer> : struct "
-  - Block
-  - "Variable name : str = undefined"
-  - "Variable age : i8 = undefined"
-  - "Constant get_name : <infer> : fn () str "
-  - Block
-  - Return self.name;
-  - EndBlock
-  - "Constant get_age : <infer> : fn () i8 "
-  - Block
-  - Return self.age;
-  - EndBlock
-  - EndBlock
-  - "Constant p : <infer> : Person.(name: \"John\", age: 32)"
+code_str_repr:
+  - struct Person
+  - "name : str"
+  - "age : i8"
+  - fn get_name() str
+  - "return [self . name];"
+  - ""
+  - fn get_age() i8
+  - "return [self . age];"
+  - ""
+  - ""
+  - "p :: Person.(name: \"John\", age: 32);"
+  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

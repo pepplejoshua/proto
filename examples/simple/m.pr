@@ -16,18 +16,18 @@ fn main() void {
 }
 
 // return type will be inferred to be i32
-fn add(a i32, b i32) {
+fn add(a i32, b i32) i32 {
   return a + b;
 }
 
 // a and b are both typed i32
 // return type will be inferred to be i32
-fn sub(a, b i32) {
+fn sub(a i32, b i32) i32 {
   return a - b;
 }
 
 // b has to be typed i32 for the multiplication to be true
 // return type is therefore inferred to be i32
-fn mult(a i32, b) {
+fn mult(a i32, b i32) i32 {
   return a * b;
 }

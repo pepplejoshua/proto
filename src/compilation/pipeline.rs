@@ -2,6 +2,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
+    parser::pparser::Parser,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -193,38 +194,38 @@ impl Workspace {
             return;
         }
 
-        // let mut parser = Parser::new(lexer);
-        // parser.parse_file();
+        let mut parser = Parser::new(lexer);
+        parser.parse_file();
 
-        // if !parser.lex_errors.is_empty() {
-        //     for le in parser.lex_errors {
-        //         reporter.report_lexer_error(&le);
-        //     }
-        //     return;
-        // }
-        // if self.config.dbg_info {
-        //     reporter.show_info("lexing complete.".to_string());
-        // }
+        if !parser.lex_errs.is_empty() {
+            for le in parser.lex_errs {
+                reporter.report_lexer_error(&le);
+            }
+            return;
+        }
+        if self.config.dbg_info {
+            reporter.show_info("lexing complete.".to_string());
+        }
 
-        // if !parser.parse_errors.is_empty() {
-        //     for pe in parser.parse_errors {
-        //         reporter.report_parser_error(pe);
-        //     }
-        //     return;
-        // }
+        if !parser.parse_errs.is_empty() {
+            for pe in parser.parse_errs {
+                reporter.report_parser_error(pe);
+            }
+            return;
+        }
 
-        // if !parser.parse_warnings.is_empty() {
-        //     for pw in parser.parse_warnings {
-        //         reporter.report_parser_warning(pw);
-        //     }
-        // }
+        if !parser.parse_warns.is_empty() {
+            for pw in parser.parse_warns {
+                reporter.report_parser_warning(pw);
+            }
+        }
 
-        // if self.config.dbg_info {
-        //     reporter.show_info("parsing complete.".to_string());
-        //     let pcode = parser.pcode.clone();
-        //     let pcode_s = pcode.as_str();
-        //     println!("{}", pcode_s);
-        // }
+        if self.config.dbg_info {
+            reporter.show_info("parsing complete.".to_string());
+            let file_mod = parser.file_mod.clone();
+            let file_mod_s = file_mod.as_str();
+            println!("{file_mod_s}");
+        }
 
         // if let Stage::Parser = self.config.max_stage {
         //     return;

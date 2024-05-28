@@ -2,7 +2,7 @@ fn add(a i64, b i64) i64 {
     return a + b;
 }
 
-fn add(a, b i64) i64 {
+fn add(a i64, b i64) i64 {
     return a + b;
 }
 
@@ -10,7 +10,7 @@ fn do_nothing() void {}
 
 fn do_nothing_() void return 1;
 
-fn prototype() i64;
+fn prototype() i64 {}
 
  fn returns_nothing() void {
     return;

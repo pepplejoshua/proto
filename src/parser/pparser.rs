@@ -1,9 +1,10 @@
-#![allow(dead_code)]
-#![allow(unused_variables)]
+#![allow(unused)]
+
+use std::rc;
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
-    parser::pcode::FnArg,
+    parser::ast::FnParam,
     source::{
         errors::{LexError, ParseError, ParseWarning},
         source::SourceReporter,
@@ -11,39 +12,37 @@ use crate::{
     types::signature::{Sig, Type},
 };
 
-use super::pcode::{Expr, ExprLoc, Ins, InsLoc, PCode};
-
+use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
-    Global,
+    TopLevel,
     Function,
     Struct,
     Mod,
     Block,
     Loop,
-    Directive,
 }
 
 pub struct Parser {
     pub lexer: Lexer,
-    pub lex_errors: Vec<LexError>,
-    pub parse_errors: Vec<ParseError>,
-    pub parse_warnings: Vec<ParseWarning>,
-    pub pcode: PCode,
+    pub lex_errs: Vec<LexError>,
+    pub parse_errs: Vec<ParseError>,
+    pub parse_warns: Vec<ParseWarning>,
+    pub file_mod: FileModule,
     scope: ParseScope,
-    last_token: Option<Token>,
+    lexed_token: Option<Token>,
 }
 
 impl Parser {
     pub fn new(lexer: Lexer) -> Self {
         let mut p = Parser {
             lexer,
-            lex_errors: Vec::new(),
-            pcode: PCode::new(),
-            parse_errors: Vec::new(),
-            parse_warnings: Vec::new(),
-            scope: ParseScope::Global,
-            last_token: None,
+            lex_errs: Vec::new(),
+            parse_errs: Vec::new(),
+            parse_warns: Vec::new(),
+            file_mod: FileModule::new(),
+            scope: ParseScope::TopLevel,
+            lexed_token: None,
         };
 
         p.advance();
@@ -54,553 +53,462 @@ impl Parser {
         loop {
             match self.lexer.next_token() {
                 Ok(token) => {
-                    self.last_token = Some(token);
+                    self.lexed_token = Some(token);
                     break;
                 }
-                Err(err) => {
-                    self.lex_errors.push(err);
-                }
+                Err(lex_err) => self.lex_errs.push(lex_err),
             }
         }
     }
 
     fn cur_token(&self) -> Token {
-        self.last_token.clone().unwrap()
+        self.lexed_token.clone().unwrap()
     }
 
-    fn at_eof(&self) -> bool {
+    fn is_at_eof(&self) -> bool {
         matches!(self.cur_token(), Token::Eof(_))
     }
 
     fn report_error(&mut self, err: ParseError) {
-        self.parse_errors.push(err);
+        self.parse_errs.push(err);
 
-        if self.parse_errors.len() > 5 {
+        if self.parse_errs.len() > 10 {
             let reporter = SourceReporter::new(self.lexer.src.clone());
-            for err in self.lex_errors.iter() {
+            for err in self.lex_errs.iter() {
                 reporter.report_lexer_error(err);
             }
 
-            for err in self.parse_errors.iter() {
+            for err in self.parse_errs.iter() {
                 reporter.report_parser_error(err.clone());
             }
 
-            for warn in self.parse_warnings.iter() {
+            for warn in self.parse_warns.iter() {
                 reporter.report_parser_warning(warn.clone());
             }
 
-            let too_many_errors = ParseError::TooManyErrors(self.cur_token().get_source_ref());
-            reporter.report_parser_error(too_many_errors);
+            let too_many_errs = ParseError::TooManyErrors(self.cur_token().get_source_ref());
+            reporter.report_parser_error(too_many_errs);
             std::process::exit(1);
         }
     }
 
-    fn report_warning(&mut self, warn: ParseWarning) {
-        self.parse_warnings.push(warn);
+    fn report_warning(&mut self, err: ParseWarning) {
+        self.parse_warns.push(err);
 
-        if self.parse_warnings.len() > 5 {
+        if self.parse_errs.len() > 10 {
             let reporter = SourceReporter::new(self.lexer.src.clone());
-            for err in self.lex_errors.iter() {
+            for err in self.lex_errs.iter() {
                 reporter.report_lexer_error(err);
             }
 
-            for err in self.parse_errors.iter() {
+            for err in self.parse_errs.iter() {
                 reporter.report_parser_error(err.clone());
             }
 
-            for warn in self.parse_warnings.iter() {
+            for warn in self.parse_warns.iter() {
                 reporter.report_parser_warning(warn.clone());
             }
 
-            let too_many_warnings = ParseError::TooManyErrors(self.cur_token().get_source_ref());
-            reporter.report_parser_error(too_many_warnings);
+            let too_many_errs = ParseError::TooManyErrors(self.cur_token().get_source_ref());
+            reporter.report_parser_error(too_many_errs);
             std::process::exit(1);
-        }
-    }
-
-    fn add_ins(&mut self, ins: Ins) -> InsLoc {
-        match self.scope {
-            ParseScope::Global => self.pcode.add_top_level(ins),
-            ParseScope::Function
-            | ParseScope::Struct
-            | ParseScope::Mod
-            | ParseScope::Block
-            | ParseScope::Loop
-            | ParseScope::Directive => self.pcode.add_sub_ins(ins),
         }
     }
 
     pub fn parse_file(&mut self) {
-        while !self.at_eof() {
-            self.next_instruction(true);
+        while !self.is_at_eof() {
+            let ins = self.next_ins(true);
+            self.file_mod.top_level.push(ins);
         }
     }
 
-    fn next_instruction(&mut self, change_scope: bool) -> InsLoc {
+    fn next_ins(&mut self, use_new_scope: bool) -> Ins {
         let cur = self.cur_token();
         match cur {
-            Token::Fn(_) => todo!(),
-            Token::Struct(_) => todo!(),
-            Token::Mod(_) => todo!(),
-            Token::SingleLineComment(src, comment) => {
+            Token::Fn(_) => self.parse_fn(),
+            Token::Struct(_) => self.parse_struct(),
+            Token::Mod(_) => self.parse_module(),
+            Token::SingleLineComment(loc, comment) => {
                 self.advance();
-                self.add_ins(Ins::Comment { comment, loc: src })
+                Ins::SingleLineComment { comment, loc }
             }
-            Token::Return(_) => {
-                if !matches!(self.scope, ParseScope::Function) {
-                    self.report_error(ParseError::ReturnInstructionOutsideFunction(
-                        cur.get_source_ref(),
-                    ));
-                    self.add_ins(Ins::ErrorNode {
-                        expectation: "a return statement".to_string(),
-                        loc: cur.get_source_ref(),
-                    })
-                } else {
-                    self.advance();
-                    // we need to check if there is a semicolon
-                    let cur = self.cur_token();
-                    if matches!(cur, Token::Semicolon(_)) {
-                        self.advance();
-                        let span = cur.get_source_ref();
-                        self.add_ins(Ins::Return {
-                            expr: None,
-                            loc: span,
-                        })
-                    } else {
-                        let value = self.parse_expr();
-                        let value_span = self.pcode.get_source_ref_expr(value);
-                        let mut span = cur.get_source_ref().combine(value_span);
-
-                        // we need to skip past the semi colon
-                        let cur_t = self.cur_token();
-                        if !matches!(cur_t, Token::Semicolon(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a semicolon to terminate the return statement.".to_string(),
-                                cur_t.get_source_ref(),
-                                None,
-                            ));
-                        } else {
-                            span = span.combine(cur_t.get_source_ref());
-                            self.advance();
-                        }
-                        self.add_ins(Ins::Return {
-                            expr: Some(value),
-                            loc: span,
-                        })
-                    }
-                }
-            }
-            Token::LCurly(_) => {
-                if matches!(
-                    self.scope,
-                    ParseScope::Global | ParseScope::Mod | ParseScope::Struct
-                ) {
-                    self.report_error(ParseError::NoCodeBlockAllowedInCurrentContext(
-                        cur.get_source_ref(),
-                    ));
-                    self.add_ins(Ins::ErrorNode {
-                        expectation: "a declaration but found a block".to_string(),
-                        loc: cur.get_source_ref(),
-                    })
-                } else {
-                    self.parse_block(change_scope)
-                }
-            }
+            Token::Return(_) => self.parse_return(),
+            Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
         }
     }
 
-    fn parse_expr_ins(&mut self) -> InsLoc {
-        let left_i = self.parse_expr();
-        let left = self.pcode.get_expr_c(&left_i);
-
-        // check if there is a semicolon and return an expr statement if there is
-        if matches!(self.cur_token(), Token::Semicolon(_)) {
-            let left_span = self.pcode.get_source_ref_expr(left_i);
-            let span = left_span.combine(self.cur_token().get_source_ref());
+    fn parse_return(&mut self) -> Ins {
+        if !matches!(self.scope, ParseScope::Function) {
+            self.report_error(ParseError::ReturnInstructionOutsideFunction(
+                self.cur_token().get_source_ref(),
+            ));
+            Ins::ErrorIns {
+                msg: "found a return statement outside a function body".to_string(),
+                loc: self.cur_token().get_source_ref(),
+            }
+        } else {
+            let start_loc = self.cur_token().get_source_ref();
             self.advance();
-            return self.add_ins(Ins::ExprIns {
-                expr: left_i,
-                loc: span,
-            });
-        }
-
-        match left {
-            // declaration of:
-            // - variable init:
-            // name : type? = value;
-            // - constant init:
-            // name : type? : value;
-            Expr::Ident { name, loc, .. } => {
-                if matches!(self.cur_token(), Token::Assign(_)) {
-                    // variable assignment
-                    let mut span = loc.clone().combine(self.cur_token().get_source_ref());
-                    self.advance();
-
-                    let value = self.parse_expr();
-                    let value_span = self.pcode.get_source_ref_expr(value);
-                    span = span.combine(value_span);
-                    // we need to skip past the semi colon
-                    if !matches!(self.cur_token(), Token::Semicolon(_)) {
-                        self.report_error(ParseError::Expected(
-                            "a semicolon to terminate the assignment.".to_string(),
-                            self.cur_token().get_source_ref(),
-                            None,
-                        ));
-                    } else {
-                        span = span.combine(self.cur_token().get_source_ref());
-                        self.advance();
-                    }
-                    return self.add_ins(Ins::AssignTo {
-                        lhs: left_i,
-                        rhs: value,
-                        loc: span,
-                    });
-                }
-                let loc = loc.clone();
-                let mut cur = self.cur_token();
-                let mut span = loc.combine(cur.get_source_ref());
-
-                // since all the declarations follow the same form, we can just parse the first sections
-                // and then call the right function to parse the rest
-
-                // we already have the name so we need to see if there is some type provided
-                // first a :
-                if !matches!(cur, Token::Colon(_)) {
+            // check if there is semicolon, else we need a parse an expression
+            let cur = self.cur_token();
+            if matches!(cur, Token::Semicolon(_)) {
+                // skip past the semicolon
+                self.advance();
+                let loc = start_loc.combine(cur.get_source_ref());
+                Ins::Return { expr: None, loc }
+            } else {
+                let val = self.parse_expr();
+                // TODO: determine if this triggered an error and react appropriately
+                let mut return_loc = start_loc.combine(val.get_source_ref());
+                let semi = self.cur_token();
+                // then skip past the semicolon
+                if !matches!(semi, Token::Semicolon(_)) {
                     self.report_error(ParseError::Expected(
-                        "a colon to separate the identifier from its type.".to_string(),
-                        cur.get_source_ref(),
+                        "a semicolon to terminate the return statement.".to_string(),
+                        return_loc.clone(),
                         None,
                     ));
                 } else {
-                    span = span.combine(cur.get_source_ref());
                     self.advance();
+                    return_loc = return_loc.combine(semi.get_source_ref());
                 }
 
-                // then a type or another : (for constants) or a = (for variables)
-                cur = self.cur_token();
-
-                // get type
-                let ident_ty = if !matches!(cur, Token::Colon(_) | Token::Assign(_)) {
-                    let ty = self.parse_type();
-                    let ty_span = ty.loc.clone();
-                    span = loc.combine(ty_span);
-                    ty
-                } else {
-                    Type {
-                        tag: Sig::Infer,
-                        name: None,
-                        sub_types: vec![],
-                        aux_type: None,
-                        loc: loc.clone(),
-                    }
-                };
-
-                // we have handled our optional type, now we need to determine whether it is a variable
-                // or a constant
-                cur = self.cur_token();
-                match cur {
-                    Token::Colon(_) => {
-                        // constant
-                        self.advance();
-                        let value = self.parse_expr();
-                        let value_span = self.pcode.get_source_ref_expr(value);
-                        span = span.combine(value_span);
-                        self.add_ins(Ins::NewConstant {
-                            name: name.clone(),
-                            ty: ident_ty,
-                            val: value,
-                            loc: span,
-                        })
-                    }
-                    Token::Assign(_) => {
-                        // variable
-                        self.advance();
-                        let value = self.parse_expr();
-                        let value_span = self.pcode.get_source_ref_expr(value);
-                        span = span.combine(value_span);
-                        self.add_ins(Ins::NewVariable {
-                            name: name.clone(),
-                            ty: ident_ty,
-                            val: Some(value),
-                            loc: span,
-                        })
-                    }
-                    _ => {
-                        // skip past the semi colon
-                        if !matches!(self.cur_token(), Token::Semicolon(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a semicolon to terminate the declaration.".to_string(),
-                                self.cur_token().get_source_ref(),
-                                None,
-                            ));
-                        } else {
-                            span = span.combine(self.cur_token().get_source_ref());
-                            self.advance();
-                        }
-
-                        // this is an uninitialized variable
-                        self.add_ins(Ins::NewVariable {
-                            name: name.clone(),
-                            ty: ident_ty,
-                            val: None,
-                            loc: span,
-                        })
-                    }
-                }
-            }
-
-            // could be one of:
-            // - assignment: expr = expr;
-            // - expression statement: expr;
-            _ => {
-                let cur = self.cur_token();
-                match cur {
-                    Token::Assign(_) => {
-                        let op = cur;
-                        self.advance();
-                        let right_i = self.parse_expr();
-                        let right = self.pcode.get_expr(&right_i);
-                        let left_span = self.pcode.get_source_ref_expr(left_i);
-                        let right_span = self.pcode.get_source_ref_expr(right_i);
-                        let mut span = left_span.combine(right_span);
-                        // we need to skip past the semi colon
-                        if !matches!(self.cur_token(), Token::Semicolon(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a semicolon to terminate the assignment.".to_string(),
-                                self.cur_token().get_source_ref(),
-                                None,
-                            ));
-                        } else {
-                            span = span.combine(self.cur_token().get_source_ref());
-                            self.advance();
-                        }
-                        self.add_ins(Ins::AssignTo {
-                            lhs: left_i,
-                            rhs: right_i,
-                            loc: span,
-                        })
-                    }
-                    Token::Semicolon(_) => {
-                        let left_span = self.pcode.get_source_ref_expr(left_i);
-                        let span = left_span.combine(cur.get_source_ref());
-                        self.advance();
-                        self.add_ins(Ins::ExprIns {
-                            expr: left_i,
-                            loc: span,
-                        })
-                    }
-                    _ => {
-                        let left_span = self.pcode.get_source_ref_expr(left_i);
-                        let span = left_span.combine(cur.get_source_ref());
-                        // error
-                        self.report_error(ParseError::Expected(
-                            "a semicolon to terminate the expression instruction or '=' if you intend to assign to this expression.".to_string(),
-                            span.clone(),
-                            None,
-                        ));
-                        self.add_ins(Ins::ErrorNode {
-                            expectation: "a semicolon to terminate the expression instruction or '=' if you intend to assign to this expression.".to_string(),
-                            loc: span,
-                        })
-                    }
+                Ins::Return {
+                    expr: Some(val),
+                    loc: return_loc,
                 }
             }
         }
     }
 
-    fn parse_fn(&mut self) -> InsLoc {
-        // fn name(arg: type, arg: type, ...) type INS
-        // where INS is either a block or a single instruction
-
+    fn parse_fn(&mut self) -> Ins {
         let start = self.cur_token();
-        let mut span = start.get_source_ref();
         self.advance();
 
-        if !matches!(self.cur_token(), Token::LParen(_)) {
+        let fn_name = self.parse_identifier();
+
+        let mut cur = self.cur_token();
+
+        if !matches!(cur, Token::LParen(_)) {
             self.report_error(ParseError::Expected(
-                "a left parenthesis to begin the list of argument names.".to_string(),
-                self.cur_token().get_source_ref(),
+                "a left parenthesis to begin the list of parameters.".to_string(),
+                cur.get_source_ref(),
                 None,
             ));
-            return self.pcode.add_sub_ins(Ins::ErrorNode {
-                expectation: "a left parenthesis to begin the list of argument names.".to_string(),
-                loc: start.get_source_ref(),
-            });
+            return Ins::ErrorIns {
+                msg: "a left parenthesis to begin the list of parameters.".to_string(),
+                loc: start.get_source_ref().combine(fn_name.get_source_ref()),
+            };
         }
 
-        span = span.combine(self.cur_token().get_source_ref());
         self.advance();
 
-        let mut args = vec![];
-        while !self.at_eof() {
-            let mut cur = self.cur_token();
-            if !matches!(cur, Token::RParen(_)) {
-                // TODO(@pepplejoshua): determine if this is required
-                // if args.len() == 0 && matches!(self.scope, ParseScope::Struct) {
-                // since we are in a struct, we can determine if the first
-                // argument is a self reference or not
-                // }
-                // parse identifier and the type
-                let arg_name = self.parse_ident();
-                let arg_name_span = self.pcode.get_expr(&arg_name).get_source_ref();
-
-                let arg_ty = if !matches!(self.cur_token(), Token::Colon(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a colon to separate the argument name from its type.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                    // still attempt to parse the type to recover
-                    self.parse_type()
-                } else {
-                    self.advance();
-                    self.parse_type()
-                };
-
-                let arg_span = arg_ty.loc.clone().combine(arg_name_span);
-                span = span.combine(arg_span.clone());
-                args.push(FnArg {
-                    name: arg_name,
-                    ty: arg_ty,
-                    loc: arg_span,
-                })
+        let mut params = vec![];
+        let mut saw_rparen = false;
+        while !self.is_at_eof() {
+            cur = self.cur_token();
+            if matches!(cur, Token::RParen(_)) {
+                saw_rparen = true;
+                break;
             }
+
+            // parse parameter name and type
+            let param_name = self.parse_identifier();
+            let param_ty = self.parse_type();
 
             cur = self.cur_token();
 
             if matches!(cur, Token::RParen(_)) {
-                break;
-            }
-
-            if !matches!(cur, Token::Comma(_)) {
+                saw_rparen = true;
+            } else if !matches!(cur, Token::Comma(_)) {
                 self.report_error(ParseError::Expected(
-                    "a comma to separate argument types or a right parenthesis to terminate the list of argument types.".to_string(),
+                    "a comma to separate parameters or a right parenthesis to terminate the list of parameters.".to_string(),
                     cur.get_source_ref(),
                     None,
-                ));
-                break;
+                ))
+            } else {
+                self.advance();
             }
 
-            self.advance();
+            let param_span = param_ty.loc.combine(param_name.get_source_ref());
+            params.push(FnParam {
+                name: param_name,
+                given_ty: param_ty,
+                loc: param_span,
+            });
+
+            if saw_rparen {
+                break;
+            }
         }
 
-        if matches!(self.cur_token(), Token::RParen(_)) {
-            span = span.combine(self.cur_token().get_source_ref());
-            self.advance();
-        } else {
+        if !saw_rparen {
             self.report_error(ParseError::Expected(
-                "a right parenthesis to terminate the list of argument types.".to_string(),
+                "a right parenthesis to terminate the list of parameters.".to_string(),
                 self.cur_token().get_source_ref(),
                 None,
             ));
+        } else {
+            self.advance();
         }
 
         let ret_type = self.parse_type();
-        let ret_span = ret_type.loc.clone();
-        span = span.combine(ret_span);
-        let fn_sig_span = span.clone();
-
-        let scope = self.scope;
+        let old_scope = self.scope;
         self.scope = ParseScope::Function;
-        let body = self.next_instruction(false);
-        self.scope = scope;
-        let body_span = self.pcode.get_source_ref(body);
-        span = span.combine(body_span);
+        let body = self.next_ins(false);
+        self.scope = old_scope;
+        let fn_span = start.get_source_ref().combine(body.get_source_ref());
 
-        self.pcode.add_expr(Expr::NewFunction {
-            name: "<anon>".to_string(),
-            args,
-            ret_ty: ret_type,
-            code: body,
-            loc: span,
-            ty: None,
-            fn_sig_loc: fn_sig_span,
-        })
+        Ins::DeclFunc {
+            name: fn_name,
+            params,
+            ret_type,
+            body: Box::new(body),
+            loc: fn_span,
+        }
     }
 
-    fn parse_struct(&mut self) -> InsLoc {
-        // struct CODE BLOCK
+    fn parse_struct(&mut self) -> Ins {
         let start = self.cur_token();
-        let mut span = start.get_source_ref();
         self.advance();
 
-        let scope = self.scope;
+        let struct_name = self.parse_identifier();
+
+        let old_scope = self.scope;
         self.scope = ParseScope::Struct;
-        let block = self.parse_block(false);
-        self.scope = scope;
-        let block_span = self.pcode.get_source_ref(block);
-        span = span.combine(block_span);
+        let body = self.parse_block(false);
+        self.scope = old_scope;
+        let struct_span = start.get_source_ref().combine(body.get_source_ref());
 
-        self.pcode.add_expr(Expr::NewStruct {
-            name: "<anon>".to_string(),
-            code: block,
-            loc: span,
-            ty: None,
-        })
+        Ins::DeclStruct {
+            name: struct_name,
+            body: Box::new(body),
+            loc: struct_span,
+        }
     }
 
-    fn parse_mod(&mut self) -> InsLoc {
-        // mod CODE BLOCK
+    fn parse_module(&mut self) -> Ins {
         let start = self.cur_token();
-        let mut span = start.get_source_ref();
         self.advance();
 
-        let scope = self.scope;
-        self.scope = ParseScope::Mod;
-        let block = self.parse_block(false);
-        self.scope = scope;
-        let block_span = self.pcode.get_source_ref(block);
-        span = span.combine(block_span);
+        let mod_name = self.parse_identifier();
 
-        self.pcode.add_expr(Expr::NewModule {
-            name: "<anon>".to_string(),
-            code: block,
-            loc: span,
-        })
+        let old_scope = self.scope;
+        self.scope = ParseScope::Mod;
+        let body = self.parse_block(false);
+        self.scope = old_scope;
+        let struct_span = start.get_source_ref().combine(body.get_source_ref());
+
+        Ins::DeclModule {
+            name: mod_name,
+            body: Box::new(body),
+            loc: struct_span,
+        }
     }
 
-    fn parse_block(&mut self, change_scope: bool) -> InsLoc {
-        let start = self.cur_token();
-        let mut span = start.get_source_ref();
+    fn parse_expr_ins(&mut self) -> Ins {
+        let lhs = self.parse_expr();
+
+        if matches!(self.cur_token(), Token::Semicolon(_)) {
+            let expr_ins_span = lhs
+                .get_source_ref()
+                .combine(self.cur_token().get_source_ref());
+
+            self.advance();
+            return Ins::ExprIns {
+                expr: lhs,
+                loc: expr_ins_span,
+            };
+        }
+
+        let mut cur = self.cur_token();
+        match (lhs, cur) {
+            // Variable / Constant Declaration and Initialization:
+            // Variable Declaration and Initialization => Expr::Ident : Type? = Expr?;
+            // Variable Declaration => Expr::Ident : Type;
+            // Constant => Expr::Ident : Type? : Expr;
+            (Expr::Ident { name, loc }, Token::Colon(_)) => {
+                // skip the ':'
+                self.advance();
+
+                cur = self.cur_token();
+
+                // get type if any is provided
+                let decl_ty = if !matches!(cur, Token::Colon(_) | Token::Assign(_)) {
+                    Some(self.parse_type())
+                } else {
+                    None
+                };
+
+                // now we have to determine if we are dealing with a constant or variable
+                // declaration
+                cur = self.cur_token();
+                match cur {
+                    // Variable Declaration and Initialization
+                    Token::Assign(_) => {
+                        self.advance();
+                        let val = self.parse_expr();
+                        let mut decl_var_span = loc.combine(val.get_source_ref());
+
+                        cur = self.cur_token();
+                        if !matches!(cur, Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the variable declaration.".to_string(),
+                                cur.get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            decl_var_span = loc.combine(decl_var_span);
+                            self.advance();
+                        }
+
+                        Ins::DeclVar {
+                            name: Expr::Ident { name, loc },
+                            ty: decl_ty,
+                            init_val: Some(val),
+                            loc: decl_var_span,
+                        }
+                    }
+                    // Constant Declaration and Initialization
+                    Token::Colon(_) => {
+                        self.advance();
+                        let val = self.parse_expr();
+                        let mut decl_const_span = loc.combine(val.get_source_ref());
+
+                        cur = self.cur_token();
+                        if !matches!(cur, Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the constant declaration.".to_string(),
+                                cur.get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            decl_const_span = decl_const_span.combine(cur.get_source_ref());
+                            self.advance();
+                        }
+
+                        Ins::DeclConst {
+                            name: Expr::Ident { name, loc },
+                            ty: decl_ty,
+                            init_val: val,
+                            loc: decl_const_span,
+                        }
+                    }
+                    // Potential Variable Declaration without Initialization
+                    Token::Semicolon(_) => {
+                        // we can guarantee there will be a provided type by this point
+                        self.advance();
+                        let decl_ty = decl_ty.unwrap();
+                        Ins::DeclVar {
+                            name: Expr::Ident {
+                                name,
+                                loc: loc.clone(),
+                            },
+                            ty: Some(decl_ty),
+                            init_val: None,
+                            loc: loc.combine(cur.get_source_ref()),
+                        }
+                    }
+                    _ => {
+                        self.report_error(ParseError::Expected(
+                            "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
+                            loc.combine(cur.get_source_ref()),
+                            None,
+                        ));
+                        Ins::ErrorIns {
+                            msg: "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
+                            loc: loc.combine(cur.get_source_ref())
+                        }
+                    }
+                }
+            }
+            // Assignment Instruction:
+            // Expr = Expr;
+            (lhs, Token::Assign(_)) => {
+                // skip past the '='
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                // look for a semicolon and skip it
+                if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a semicolon to terminate the assignment instruction.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    assign_span = assign_span.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                Ins::AssignTo {
+                    target: lhs,
+                    value,
+                    loc: assign_span,
+                }
+            }
+            (_, following_token) => {
+                self.report_error(ParseError::Expected(
+                    "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(),
+                    following_token.get_source_ref(),
+                    None
+                ));
+
+                Ins::ErrorIns { msg: "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(), loc: following_token.get_source_ref() }
+            }
+        }
+    }
+
+    fn parse_block(&mut self, use_new_scope: bool) -> Ins {
+        let mut block_loc = self.cur_token().get_source_ref();
         self.advance();
 
         let mut code = vec![];
 
-        let scope = if change_scope {
+        let old_scope = if use_new_scope {
             let temp = self.scope;
             self.scope = ParseScope::Block;
             temp
         } else {
             self.scope
         };
-        while !self.at_eof() {
+        let mut saw_rcurly = false;
+        while !self.is_at_eof() {
             let cur = self.cur_token();
             if matches!(cur, Token::RCurly(_)) {
-                span = span.combine(cur.get_source_ref());
+                block_loc = block_loc.combine(cur.get_source_ref());
+                saw_rcurly = true;
                 break;
             }
 
-            let ins = self.next_instruction(true);
-            let ins_span = self.pcode.get_source_ref(ins);
-            span = span.combine(ins_span);
+            let ins = self.next_ins(true);
             code.push(ins);
         }
-        if change_scope {
-            self.scope = scope;
+        let last_ins = code.last();
+        if let Some(last_ins) = last_ins {
+            block_loc = block_loc.combine(last_ins.get_source_ref());
         }
 
-        if !matches!(self.cur_token(), Token::RCurly(_)) {
+        if use_new_scope {
+            self.scope = old_scope;
+        }
+
+        if !saw_rcurly {
             self.report_error(ParseError::UnterminatedCodeBlock(
                 self.cur_token().get_source_ref(),
                 None,
             ));
         } else {
-            span = span.combine(self.cur_token().get_source_ref());
+            block_loc = block_loc.combine(self.cur_token().get_source_ref());
             self.advance();
         }
 
-        self.add_ins(Ins::NewBlock { code, loc: span })
+        Ins::Block {
+            code,
+            loc: block_loc,
+        }
     }
 
     fn parse_type(&mut self) -> Type {
@@ -715,77 +623,8 @@ impl Parser {
             Token::LBracket(loc) => {
                 todo!("Parser::parse_type: array types")
             }
-            Token::Fn(loc) => {
-                // this is a complex type of form:
-                // fn (type, type, ...) -> type
-                let cur_t = self.cur_token();
-                let mut span = loc;
-                if !matches!(cur_t, Token::LParen(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a left parenthesis to begin the list of argument types.".to_string(),
-                        cur_t.get_source_ref(),
-                        None,
-                    ));
-                    return Type {
-                        tag: Sig::ErrorType,
-                        name: None,
-                        sub_types: vec![],
-                        aux_type: None,
-                        loc: span,
-                    };
-                }
-
-                self.advance();
-                let mut args = vec![];
-                while !self.at_eof() {
-                    let mut cur = self.cur_token();
-                    if !matches!(cur, Token::RParen(_)) {
-                        let arg = self.parse_type();
-                        args.push(arg);
-                    }
-
-                    cur = self.cur_token();
-
-                    if matches!(cur, Token::RParen(_)) {
-                        break;
-                    }
-
-                    if !matches!(cur, Token::Comma(_)) {
-                        self.report_error(ParseError::Expected(
-                            "a comma to separate argument types or a right parenthesis to terminate the list of argument types.".to_string(),
-                            cur.get_source_ref(),
-                            None,
-                        ));
-                        break;
-                    }
-
-                    self.advance();
-                }
-
-                if matches!(self.cur_token(), Token::RParen(_)) {
-                    span = span.combine(self.cur_token().get_source_ref());
-                    self.advance();
-                } else {
-                    self.report_error(ParseError::Expected(
-                        "a right parenthesis to terminate the list of argument types.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                }
-
-                let ret_type = self.parse_type();
-                let ret_span = ret_type.loc.clone();
-                span = span.combine(ret_span);
-
-                Type {
-                    tag: Sig::Function,
-                    name: None,
-                    sub_types: args,
-                    aux_type: Some(Box::new(ret_type)),
-                    loc: span,
-                }
-            }
             _ => {
+                // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
                 Type {
                     tag: Sig::ErrorType,
@@ -798,171 +637,140 @@ impl Parser {
         }
     }
 
-    fn parse_expr(&mut self) -> ExprLoc {
+    fn parse_expr(&mut self) -> Expr {
         self.parse_or()
     }
 
-    fn parse_or(&mut self) -> ExprLoc {
-        let mut left = self.parse_and();
+    fn parse_or(&mut self) -> Expr {
+        let mut lhs = self.parse_and();
 
         while matches!(self.cur_token(), Token::Or(_)) {
-            let op = self.cur_token();
             self.advance();
-            let right = self.parse_and();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
-            left = self.pcode.add_expr(Expr::Or {
-                lhs: left,
-                rhs: right,
-                loc: span,
-                ty: None,
-            });
+            let rhs = self.parse_and();
+            let or_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::Or,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: or_span,
+            }
         }
 
-        left
+        lhs
     }
 
-    fn parse_and(&mut self) -> ExprLoc {
-        let mut left = self.parse_equality();
+    fn parse_and(&mut self) -> Expr {
+        let mut lhs = self.parse_equality();
 
         while matches!(self.cur_token(), Token::And(_)) {
-            let op = self.cur_token();
             self.advance();
-            let right = self.parse_equality();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
-            left = self.pcode.add_expr(Expr::And {
-                lhs: left,
-                rhs: right,
-                loc: span,
-                ty: None,
-            });
+            let rhs = self.parse_equality();
+            let and_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::And,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: and_span,
+            }
         }
 
-        left
+        lhs
     }
 
-    fn parse_equality(&mut self) -> ExprLoc {
-        let mut left = self.parse_comparison();
+    fn parse_equality(&mut self) -> Expr {
+        let mut lhs = self.parse_comparison();
 
         while matches!(self.cur_token(), Token::Equal(_) | Token::NotEqual(_)) {
             let op = self.cur_token();
             self.advance();
-            let right = self.parse_comparison();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
+            let rhs = self.parse_comparison();
+            let eq_span = lhs.get_source_ref().combine(rhs.get_source_ref());
 
-            let is_eq = matches!(op, Token::Equal(_));
-            if is_eq {
-                left = self.pcode.add_expr(Expr::Eq {
-                    lhs: left,
-                    rhs: right,
-                    loc: span,
-                    ty: None,
-                });
-            } else {
-                left = self.pcode.add_expr(Expr::Neq {
-                    lhs: left,
-                    rhs: right,
-                    loc: span,
-                    ty: None,
-                });
-            }
+            lhs = Expr::BinOp {
+                op: if matches!(op, Token::Equal(_)) {
+                    BinOpType::Eq
+                } else {
+                    BinOpType::Neq
+                },
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: eq_span,
+            };
         }
 
-        left
+        lhs
     }
 
-    fn parse_comparison(&mut self) -> ExprLoc {
-        let mut left = self.parse_term();
+    fn parse_comparison(&mut self) -> Expr {
+        let mut lhs = self.parse_term();
 
         while matches!(
             self.cur_token(),
-            Token::Less(_) | Token::LessEqual(_) | Token::Greater(_) | Token::GreaterEqual(_)
+            Token::Less(_) | Token::Greater(_) | Token::LessEqual(_) | Token::GreaterEqual(_)
         ) {
             let op = self.cur_token();
             self.advance();
-            let right = self.parse_term();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
-            match op {
-                Token::Less(_) => {
-                    left = self.pcode.add_expr(Expr::Lt {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::LessEqual(_) => {
-                    left = self.pcode.add_expr(Expr::LtEq {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::Greater(_) => {
-                    left = self.pcode.add_expr(Expr::Gt {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::GreaterEqual(_) => {
-                    left = self.pcode.add_expr(Expr::GtEq {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                _ => unreachable!("Parser::parse_comparison: unreachable op: {:?}", op),
-            }
+            let rhs = self.parse_term();
+            let comp_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = match op {
+                Token::Less(_) => Expr::BinOp {
+                    op: BinOpType::Lt,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::Greater(_) => Expr::BinOp {
+                    op: BinOpType::Gt,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::LessEqual(_) => Expr::BinOp {
+                    op: BinOpType::LtEq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                Token::GreaterEqual(_) => Expr::BinOp {
+                    op: BinOpType::GtEq,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: comp_span,
+                },
+                _ => unreachable!("Parser::parse_comparison: unexpected op: {op:?}"),
+            };
         }
-        left
+
+        lhs
     }
 
-    fn parse_term(&mut self) -> ExprLoc {
-        let mut left = self.parse_factor();
+    fn parse_term(&mut self) -> Expr {
+        let mut lhs = self.parse_factor();
 
         while matches!(self.cur_token(), Token::Plus(_) | Token::Minus(_)) {
             let op = self.cur_token();
             self.advance();
-            let right = self.parse_factor();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
-            match op {
-                Token::Plus(_) => {
-                    left = self.pcode.add_expr(Expr::Add {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::Minus(_) => {
-                    left = self.pcode.add_expr(Expr::Sub {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                _ => unreachable!("Parser::parse_term: unreachable op: {:?}", op),
-            }
+            let rhs = self.parse_factor();
+            let term_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = Expr::BinOp {
+                op: if matches!(op, Token::Plus(_)) {
+                    BinOpType::Add
+                } else {
+                    BinOpType::Sub
+                },
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc: term_span,
+            };
         }
-        left
+
+        lhs
     }
 
-    fn parse_factor(&mut self) -> ExprLoc {
-        let mut left = self.parse_unary();
+    fn parse_factor(&mut self) -> Expr {
+        let mut lhs = self.parse_unary();
 
         while matches!(
             self.cur_token(),
@@ -970,72 +778,64 @@ impl Parser {
         ) {
             let op = self.cur_token();
             self.advance();
-            let right = self.parse_unary();
-            let left_span = self.pcode.get_source_ref_expr(left);
-            let right_span = self.pcode.get_source_ref_expr(right);
-            let span = left_span.combine(right_span);
-            match op {
-                Token::Star(_) => {
-                    left = self.pcode.add_expr(Expr::Mul {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::Slash(_) => {
-                    left = self.pcode.add_expr(Expr::Div {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                Token::Modulo(_) => {
-                    left = self.pcode.add_expr(Expr::Mod {
-                        lhs: left,
-                        rhs: right,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                _ => unreachable!("Parser::parse_factor: unreachable op: {:?}", op),
-            }
+            let rhs = self.parse_unary();
+            let factor_span = lhs.get_source_ref().combine(rhs.get_source_ref());
+
+            lhs = match op {
+                Token::Star(_) => Expr::BinOp {
+                    op: BinOpType::Mult,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                Token::Slash(_) => Expr::BinOp {
+                    op: BinOpType::Div,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                Token::Modulo(_) => Expr::BinOp {
+                    op: BinOpType::Mod,
+                    left: Box::new(lhs),
+                    right: Box::new(rhs),
+                    loc: factor_span,
+                },
+                _ => unreachable!("Parser::parse_factor: unexpected op: {op:?}"),
+            };
         }
-        left
+
+        lhs
     }
 
-    fn parse_unary(&mut self) -> ExprLoc {
+    fn parse_unary(&mut self) -> Expr {
         let op = self.cur_token();
         match op {
             Token::Minus(_) => {
                 self.advance();
-                let right = self.parse_unary();
-                let right_span = self.pcode.get_source_ref_expr(right);
-                let span = op.get_source_ref().combine(right_span);
-                self.pcode.add_expr(Expr::Negate {
-                    loc: span,
-                    expr: right,
-                    ty: None,
-                })
+                let rhs = self.parse_unary();
+                let un_span = op.get_source_ref().combine(rhs.get_source_ref());
+                Expr::UnaryOp {
+                    op: UnaryOpType::Negate,
+                    expr: Box::new(rhs),
+                    loc: un_span,
+                }
             }
             Token::Not(_) => {
                 self.advance();
-                let right = self.parse_unary();
-                let right_span = self.pcode.get_source_ref_expr(right);
-                let span = op.get_source_ref().combine(right_span);
-                self.pcode.add_expr(Expr::Not {
-                    loc: span,
-                    expr: right,
-                    ty: None,
-                })
+                let rhs = self.parse_unary();
+                let un_span = op.get_source_ref().combine(rhs.get_source_ref());
+                Expr::UnaryOp {
+                    op: UnaryOpType::Not,
+                    expr: Box::new(rhs),
+                    loc: un_span,
+                }
             }
             _ => self.parse_index_expr(),
         }
     }
 
-    fn parse_index_expr(&mut self) -> ExprLoc {
-        let mut left = self.parse_primary();
+    fn parse_index_expr(&mut self) -> Expr {
+        let mut lhs = self.parse_primary();
         while matches!(
             self.cur_token(),
             Token::LParen(_) | Token::LBracket(_) | Token::Dot(_)
@@ -1043,167 +843,175 @@ impl Parser {
             let op = self.cur_token();
             self.advance();
             match op {
-                // function call
+                // Function Calls
                 Token::LParen(_) => {
+                    // read arguments for the call
                     let mut args = vec![];
-                    while !self.at_eof() {
+                    let mut saw_rparen = false;
+                    while !self.is_at_eof() {
                         let mut cur = self.cur_token();
 
+                        // if we are not already at the end of the argument list,
+                        // parse an expression
                         if !matches!(cur, Token::RParen(_)) {
                             let arg = self.parse_expr();
                             args.push(arg);
                             cur = self.cur_token();
                         }
 
+                        // check to see if we have reached the end of the argument
+                        // list
                         if matches!(cur, Token::RParen(_)) {
+                            saw_rparen = true;
                             break;
                         }
 
+                        // arguments are to be comma separated
                         if !matches!(cur, Token::Comma(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a comma to separate arguments or a right parenthesis to terminate function call.".to_string(),
-                                cur.get_source_ref(),
-                                None,
-                            ));
+                            self.report_error(ParseError::Expected("a comma to separate argements or a right parenthesis to terminate function call.".to_string(), cur.get_source_ref(), None));
                             break;
                         }
-
                         self.advance();
                     }
-
-                    let left_span = self.pcode.get_source_ref_expr(left);
-                    let span = left_span.combine(self.cur_token().get_source_ref());
-
-                    if matches!(self.cur_token(), Token::RParen(_)) {
+                    let mut call_span = lhs.get_source_ref();
+                    if saw_rparen {
+                        call_span = call_span.combine(self.cur_token().get_source_ref());
                         self.advance();
                     } else {
                         self.report_error(ParseError::Expected(
-                            "a right parenthesis.".to_string(),
+                            "a right parenthesis to terminate function call.".to_string(),
                             self.cur_token().get_source_ref(),
                             None,
                         ));
                     }
 
-                    left = self.pcode.add_expr(Expr::CallFunction {
-                        func: left,
+                    lhs = Expr::CallFn {
+                        func: Box::new(lhs),
                         args,
-                        loc: span,
-                        ty: None,
-                    });
+                        loc: call_span,
+                    };
                 }
-                // array index
+                // Index Array
                 Token::LBracket(_) => {
-                    let index = self.parse_expr();
-                    let left_span = self.pcode.get_source_ref_expr(left);
-                    let right_span = self.pcode.get_source_ref_expr(index);
-                    let mut span = left_span.combine(right_span);
-                    if matches!(self.cur_token(), Token::RBracket(_)) {
-                        span = span.combine(self.cur_token().get_source_ref());
-                        self.advance();
-                    } else {
+                    let index_expr = self.parse_expr();
+                    let mut index_span = lhs.get_source_ref().combine(index_expr.get_source_ref());
+                    if !matches!(self.cur_token(), Token::RBracket(_)) {
                         self.report_error(ParseError::Expected(
-                            "a right bracket.".to_string(),
+                            "a right bracket to terminate index expression.".to_string(),
                             self.cur_token().get_source_ref(),
                             None,
-                        ));
-                    }
-                    left = self.pcode.add_expr(Expr::IndexArray {
-                        arr: left,
-                        idx: index,
-                        loc: span,
-                        ty: None,
-                    });
-                }
-                // struct field access | struct intialization
-                // - struct field access: name.name
-                // - struct initialization: name.(value, value, ...)
-                Token::Dot(_) => {
-                    let maybe_lparen = self.cur_token();
-                    if matches!(self.cur_token(), Token::LParen(_)) {
-                        self.advance();
-                        let mut fields = vec![];
-                        while !self.at_eof() {
-                            let mut cur = self.cur_token();
-
-                            if !matches!(cur, Token::RParen(_)) {
-                                // field : value | field : field
-                                let field = self.parse_primary();
-                                let value = if matches!(self.cur_token(), Token::Colon(_)) {
-                                    self.advance();
-                                    self.parse_expr()
-                                } else {
-                                    field
-                                };
-                                fields.push((field, value));
-                            }
-
-                            cur = self.cur_token();
-
-                            if matches!(cur, Token::RParen(_)) {
-                                break;
-                            }
-
-                            if !matches!(cur, Token::Comma(_)) {
-                                self.report_error(ParseError::Expected(
-                                    "a comma to separate fields or a right parenthesis to terminate struct initialization.".to_string(),
-                                    cur.get_source_ref(),
-                                    None,
-                                ));
-                                break;
-                            }
-
-                            self.advance();
-                        }
-
-                        let left_span = self.pcode.get_source_ref_expr(left);
-                        let span = left_span.combine(self.cur_token().get_source_ref());
-
-                        if matches!(self.cur_token(), Token::RParen(_)) {
-                            self.advance();
-                        } else {
-                            self.report_error(ParseError::Expected(
-                                "a right parenthesis to terminate struct initialization."
-                                    .to_string(),
-                                self.cur_token().get_source_ref(),
-                                None,
-                            ));
-                        }
-
-                        left = self.pcode.add_expr(Expr::InitStruct {
-                            struct_name: left,
-                            fields,
-                            loc: span,
-                            ty: None,
-                        });
+                        ))
                     } else {
-                        let field = self.parse_ident();
-                        let left_span = self.pcode.get_source_ref_expr(left);
-                        let right_span = self.pcode.get_source_ref_expr(field);
-                        let span = left_span.combine(right_span);
-                        left = self.pcode.add_expr(Expr::AccessMember {
-                            lhs: left,
-                            rhs: field,
-                            loc: span,
-                            ty: None,
-                        });
+                        index_span = index_span.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    }
+                    lhs = Expr::BinOp {
+                        op: BinOpType::IndexArray,
+                        left: Box::new(lhs),
+                        right: Box::new(index_expr),
+                        loc: index_span,
                     }
                 }
-                _ => unreachable!("Parser::parse_index_expr: unreachable op: {:?}", op),
+                // Struct Member Access or Initialization
+                // struct.field or StructName.(key: value, key2, key3: value)
+                Token::Dot(_) => {
+                    let mut cur = self.cur_token();
+                    match cur {
+                        // Struct Initialization
+                        Token::LParen(_) => {
+                            self.advance();
+                            let mut fields = vec![];
+                            let mut saw_rparen = false;
+                            while !self.is_at_eof() {
+                                cur = self.cur_token();
+
+                                // if we are not already at the end of the init list,
+                                // we can parse a field and value pairing
+                                if !matches!(cur, Token::RParen(_)) {
+                                    // field : value, || field,
+                                    let field = self.parse_primary();
+                                    let value = match self.cur_token() {
+                                        Token::Colon(_) => {
+                                            // there is a value to parse
+                                            self.advance();
+                                            self.parse_expr()
+                                        }
+                                        _ => field.clone(),
+                                    };
+                                    fields.push((field, value));
+                                }
+
+                                cur = self.cur_token();
+
+                                if matches!(cur, Token::RParen(_)) {
+                                    saw_rparen = true;
+                                    break;
+                                }
+
+                                if !matches!(cur, Token::Comma(_)) {
+                                    self.report_error(ParseError::Expected(
+                                        "a comma to separate field-value pairs or a right parenthesis to terminate the struct initialization expression.".to_string(),
+                                        cur.get_source_ref(),
+                                        None
+                                    ));
+                                    break;
+                                }
+
+                                self.advance();
+                            }
+
+                            let s_init_span = if saw_rparen {
+                                cur = self.cur_token();
+                                self.advance();
+                                lhs.get_source_ref().combine(cur.get_source_ref())
+                            } else {
+                                let last_pair = fields.last();
+                                let pair_span = if let Some(pair) = last_pair {
+                                    pair.1.get_source_ref()
+                                } else {
+                                    op.get_source_ref()
+                                };
+                                self.report_error(ParseError::Expected(
+                                    "a right parenthesis to terminate the struct initialization expression.".to_string(),
+                                    self.cur_token().get_source_ref(),
+                                    None
+                                ));
+                                lhs.get_source_ref().combine(pair_span)
+                            };
+
+                            lhs = Expr::InitStruct {
+                                struct_name: Box::new(lhs),
+                                fields,
+                                loc: s_init_span,
+                            };
+                        }
+                        // Struct Member Access
+                        _ => {
+                            let member = self.parse_identifier();
+                            let mem_acc_span =
+                                lhs.get_source_ref().combine(member.get_source_ref());
+                            lhs = Expr::BinOp {
+                                op: BinOpType::AccessMember,
+                                left: Box::new(lhs),
+                                right: Box::new(member),
+                                loc: mem_acc_span,
+                            }
+                        }
+                    }
+                }
+                _ => unreachable!("Parser::parse_index_expr: unexpected op: {op:?}"),
             }
         }
-        left
+
+        lhs
     }
 
-    fn parse_ident(&mut self) -> ExprLoc {
+    fn parse_identifier(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur {
             Token::Identifier(name, loc) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Ident {
-                    name,
-                    loc,
-                    ty: None,
-                })
+                Expr::Ident { name, loc }
             }
             _ => {
                 self.report_error(ParseError::Expected(
@@ -1211,184 +1019,66 @@ impl Parser {
                     cur.get_source_ref(),
                     None,
                 ));
-                self.pcode.add_expr(Expr::ErrorNode {
-                    expectation: "an identifier".to_string(),
+                Expr::ErrorExpr {
+                    msg: "expected an identifier.".to_string(),
                     loc: cur.get_source_ref(),
-                })
+                }
             }
         }
     }
 
-    fn parse_directive_expr(&mut self) -> ExprLoc {
-        // directive expressions take the form
-        // @name(value, value, ...)
-        let start = self.cur_token();
-        self.advance();
-
-        let dir_name = match self.cur_token() {
-            Token::Identifier(name, loc) => {
-                // skip past the directive name
-                self.advance();
-                name
-            }
-            _ => {
-                self.report_error(ParseError::Expected(
-                    "a directive name.".to_string(),
-                    self.cur_token().get_source_ref(),
-                    None,
-                ));
-                return self.pcode.add_expr(Expr::ErrorNode {
-                    expectation: "a directive name".to_string(),
-                    loc: start.get_source_ref(),
-                });
-            }
-        };
-
-        let mut args = vec![];
-
-        // skip past the left parenthesis
-        if matches!(self.cur_token(), Token::LParen(_)) {
-            self.advance();
-        } else {
-            self.report_error(ParseError::Expected(
-                "a left parenthesis to begin the list of directive arguments.".to_string(),
-                start
-                    .get_source_ref()
-                    .combine(self.cur_token().get_source_ref()),
-                None,
-            ));
-            return self.pcode.add_expr(Expr::ErrorNode {
-                expectation: "a left parenthesis to begin the list of directive arguments"
-                    .to_string(),
-                loc: start
-                    .get_source_ref()
-                    .combine(self.cur_token().get_source_ref()),
-            });
-        }
-
-        while !self.at_eof() {
-            let mut cur = self.cur_token();
-            if !matches!(cur, Token::RParen(_)) {
-                let arg = self.parse_expr();
-                args.push(arg);
-            }
-            cur = self.cur_token();
-
-            if matches!(cur, Token::RParen(_)) {
-                break;
-            }
-
-            if !matches!(cur, Token::Comma(_)) {
-                self.report_error(ParseError::Expected(
-                    "a comma to separate directive arguments or a right parenthesis to terminate the list of directive arguments.".to_string(),
-                    cur.get_source_ref(),
-                    None,
-                ));
-                break;
-            }
-
-            self.advance();
-        }
-
-        let span = start
-            .get_source_ref()
-            .combine(self.cur_token().get_source_ref());
-
-        if matches!(self.cur_token(), Token::RParen(_)) {
-            self.advance();
-        } else {
-            self.report_error(ParseError::Expected(
-                "a right parenthesis to terminate the list of directive arguments.".to_string(),
-                self.cur_token().get_source_ref(),
-                None,
-            ));
-        }
-
-        self.pcode.add_expr(Expr::Directive {
-            name: dir_name,
-            args,
-            loc: span,
-            ty: None,
-        })
-    }
-
-    fn parse_primary(&mut self) -> ExprLoc {
+    fn parse_primary(&mut self) -> Expr {
         let cur = self.cur_token();
 
         match cur {
-            Token::CharLiteral(src, chr) => {
+            Token::CharLiteral(loc, chr) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Char { val: chr, loc: src })
+                Expr::Char { val: chr, loc }
             }
-            Token::Identifier(_, _) => self.parse_ident(),
+            Token::Identifier(..) => self.parse_identifier(),
             Token::NumberLiteral(num, src) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Number {
-                    val: num,
-                    loc: src,
-                    ty: None,
-                })
+                Expr::Number { val: num, loc: src }
             }
             Token::SingleLineStringLiteral(loc, str) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Str { val: str, loc })
+                Expr::Str { val: str, loc }
             }
-            Token::At(_) => self.parse_directive_expr(),
             Token::MultiLineStringFragment(loc, fragment) => {
-                // these are syntactic shortcuts for concatenating single line string
-                // literals
-                let mut str = fragment;
-                let mut span = loc;
-                self.advance();
-
-                while !self.at_eof()
-                    && matches!(self.cur_token(), Token::MultiLineStringFragment(_, _))
-                {
-                    match self.cur_token() {
-                        Token::MultiLineStringFragment(_, fragment) => {
-                            str.push_str(&fragment);
-                            span = span.combine(self.cur_token().get_source_ref());
-                            self.advance();
-                        }
-                        _ => break,
-                    }
-                }
-
-                self.pcode.add_expr(Expr::Str {
-                    val: str,
-                    loc: span,
-                })
+                // TODO
+                unreachable!("Parse::parse_primary: proto should not have multiline string support just yet.")
             }
             Token::True(loc) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Bool { val: true, loc })
+                Expr::Bool { val: true, loc }
             }
             Token::False(loc) => {
                 self.advance();
-                self.pcode.add_expr(Expr::Bool { val: false, loc })
+                Expr::Bool { val: false, loc }
             }
             Token::LParen(_) => {
                 self.advance();
-                let expr = self.parse_expr();
-                let span = self.pcode.get_source_ref_expr(expr);
-                if matches!(self.cur_token(), Token::RParen(_)) {
-                    self.advance();
-                } else {
+                let inner_expr = self.parse_expr();
+                let mut i_expr_span = cur.get_source_ref().combine(inner_expr.get_source_ref());
+                if !matches!(self.cur_token(), Token::RParen(_)) {
                     self.report_error(ParseError::Expected(
-                        "a right parenthesis.".to_string(),
+                        "a right parenthesis to terminate grouped expression.".to_string(),
                         self.cur_token().get_source_ref(),
                         None,
                     ));
+                } else {
+                    i_expr_span = self.cur_token().get_source_ref().combine(i_expr_span);
+                    self.advance();
                 }
-                expr
+                inner_expr
             }
             _ => {
-                let src = cur.get_source_ref();
-                self.report_error(ParseError::CannotParseAnExpression(src.clone()));
-                self.pcode.add_expr(Expr::ErrorNode {
-                    expectation: "an expression".to_string(),
-                    loc: src,
-                })
+                let span = cur.get_source_ref();
+                self.report_error(ParseError::CannotParseAnExpression(span.clone()));
+                Expr::ErrorExpr {
+                    msg: "an expression.".to_string(),
+                    loc: span,
+                }
             }
         }
     }
@@ -1397,7 +1087,7 @@ impl Parser {
 #[cfg(test)]
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ParserTestResult {
-    pcode: Vec<String>,
+    code_str_repr: Vec<String>,
     lexer_errors: Vec<LexError>,
     parser_errors: Vec<ParseError>,
     parse_warning: Vec<ParseWarning>,
@@ -1418,17 +1108,17 @@ fn test_parser() {
         let mut parser = Parser::new(lexer);
 
         parser.parse_file();
-        let pcode = parser.pcode.as_str();
-        let pcode = pcode
+        let file_mod_str = parser.file_mod.as_str();
+        let code_str_repr = file_mod_str
             .split("\n")
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
-        let lexer_errors = parser.lex_errors.clone();
-        let parser_errors = parser.parse_errors.clone();
-        let parse_warning = parser.parse_warnings.clone();
+        let lexer_errors = parser.lex_errs.clone();
+        let parser_errors = parser.parse_errs.clone();
+        let parse_warning = parser.parse_warns.clone();
 
         let result = ParserTestResult {
-            pcode,
+            code_str_repr,
             lexer_errors,
             parser_errors,
             parse_warning,

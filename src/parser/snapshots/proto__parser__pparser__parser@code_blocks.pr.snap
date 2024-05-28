@@ -3,18 +3,14 @@ source: src/parser/pparser.rs
 expression: result
 input_file: src/parser/parser_inputs/code_blocks.pr
 ---
-pcode:
-  - "Constant main : <infer> : fn () void "
-  - Block
-  - "Constant a : <infer> : 4"
+code_str_repr:
+  - fn main() void
+  - "a :: 4;"
+  - "b := a;"
   - ""
-  - Block
-  - "Variable b : <infer> = a"
   - ""
-  - Block
-  - EndBlock
-  - EndBlock
-  - EndBlock
+  - ""
+  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

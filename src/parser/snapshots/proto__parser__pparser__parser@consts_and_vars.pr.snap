@@ -3,15 +3,15 @@ source: src/parser/pparser.rs
 expression: result
 input_file: src/parser/parser_inputs/consts_and_vars.pr
 ---
-pcode:
-  - "Constant a : i8 : 32"
-  - "Variable c : <infer> = false"
-  - "Variable e : uint = 0"
-  - "Constant main : <infer> : fn () void "
-  - Block
-  - "Variable b : <infer> = a"
-  - "Constant d : <infer> : !c"
-  - EndBlock
+code_str_repr:
+  - "a : i8 : 32;"
+  - "c := false;"
+  - "e : uint = 0;"
+  - fn main() void
+  - "b := a;"
+  - "d :: !c;"
+  - ""
+  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

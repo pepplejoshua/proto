@@ -3,10 +3,11 @@ source: src/parser/pparser.rs
 expression: result
 input_file: src/parser/parser_inputs/fn_calls.pr
 ---
-pcode:
-  - "Variable a : <infer> = add(1, 2)"
-  - "ExprIns sub(420, 300)"
-  - "ExprIns sub(add(1, 2), 3)"
+code_str_repr:
+  - "a := add(1, 2);"
+  - "sub(420, 300);"
+  - "sub(add(1, 2), 3);"
+  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

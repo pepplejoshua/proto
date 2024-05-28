@@ -130,7 +130,8 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Number { val, .. } | Expr::Str { val, .. } => val.clone(),
+            Expr::Number { val, .. } => val.clone(),
+            Expr::Str { val, .. } => format!("\"{val}\""),
             Expr::Char { val, .. } => val.to_string(),
             Expr::Bool { val, .. } => {
                 if *val {
@@ -268,7 +269,7 @@ impl Ins {
                     format!("{} :: {};", name.as_str(), init_val.as_str())
                 }
             }
-            Ins::SingleLineComment { comment, .. } => format!("//{comment}"),
+            Ins::SingleLineComment { comment, .. } => format!("{comment}"),
             Ins::DeclVar {
                 name, ty, init_val, ..
             } => match init_val {
@@ -309,7 +310,7 @@ impl Ins {
                     .collect();
                 let params_str = params_str.join(", ");
                 let mut buf = format!(
-                    "fn {}({params_str}) {}\n{}\n",
+                    "fn {}({params_str}) {}\n{}",
                     name.as_str(),
                     ret_type.as_str(),
                     body.as_str()
@@ -339,7 +340,7 @@ impl Ins {
             }
             Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
             Ins::DeclStruct { name, body, .. } => {
-                format!("struct {}\n{}\n", name.as_str(), body.as_str())
+                format!("struct {}\n{}", name.as_str(), body.as_str())
             }
             Ins::DeclModule { name, body, .. } => {
                 format!("mod {}\n{}\n", name.as_str(), body.as_str())
