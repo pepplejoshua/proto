@@ -4,6 +4,7 @@ use std::rc;
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
+    parser::ast::FnParam,
     source::{
         errors::{LexError, ParseError, ParseWarning},
         source::SourceReporter,
@@ -185,11 +186,97 @@ impl Parser {
 
         let fn_name = self.parse_identifier();
 
-        todo!()
+        let mut cur = self.cur_token();
+
+        if !matches!(cur, Token::LParen(_)) {
+            self.report_error(ParseError::Expected(
+                "a left parenthesis to begin the list of parameters.".to_string(),
+                cur.get_source_ref(),
+                None,
+            ));
+            return Ins::ErrorIns {
+                msg: "a left parenthesis to begin the list of parameters.".to_string(),
+                loc: start.get_source_ref().combine(fn_name.get_source_ref()),
+            };
+        }
+
+        self.advance();
+
+        let mut params = vec![];
+        let mut saw_rparen = false;
+        while !self.is_at_eof() {
+            cur = self.cur_token();
+            if matches!(cur, Token::RParen(_)) {
+                saw_rparen = true;
+                break;
+            }
+
+            // parse parameter name and type
+            let param_name = self.parse_identifier();
+            let param_ty = self.parse_type();
+
+            cur = self.cur_token();
+            if !matches!(cur, Token::Comma(_)) {
+                self.report_error(ParseError::Expected(
+                    "a comma to separate parameters or a right parenthesis to terminate the list of parameters.".to_string(),
+                    cur.get_source_ref(),
+                    None,
+                ))
+            } else {
+                self.advance();
+            }
+
+            let param_span = param_ty.loc.combine(param_name.get_source_ref());
+            params.push(FnParam {
+                name: param_name,
+                given_ty: param_ty,
+                loc: param_span,
+            });
+        }
+
+        if !saw_rparen {
+            self.report_error(ParseError::Expected(
+                "a right parenthesis to terminate the list of parameters.".to_string(),
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
+        }
+
+        let ret_type = self.parse_type();
+        let old_scope = self.scope;
+        self.scope = ParseScope::Function;
+        let body = self.next_ins(false);
+        self.scope = old_scope;
+        let fn_span = start.get_source_ref().combine(body.get_source_ref());
+
+        Ins::DeclFunc {
+            name: fn_name,
+            params,
+            ret_type,
+            body: Box::new(body),
+            loc: fn_span,
+        }
     }
 
     fn parse_struct(&mut self) -> Ins {
-        todo!()
+        let start = self.cur_token();
+        self.advance();
+
+        let struct_name = self.parse_identifier();
+
+        let old_scope = self.scope;
+        self.scope = ParseScope::Struct;
+        let body = self.parse_block(false);
+        self.scope = old_scope;
+        let struct_span = start.get_source_ref().combine(body.get_source_ref());
+
+        Ins::DeclStruct {
+            name: struct_name,
+            body: Box::new(body),
+            loc: struct_span,
+        }
     }
 
     fn parse_module(&mut self) -> Ins {

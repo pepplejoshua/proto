@@ -172,7 +172,7 @@ impl Expr {
 
 #[derive(Debug, Clone)]
 pub struct FnParam {
-    pub name: String,
+    pub name: Expr,
     pub given_ty: Type,
     pub loc: SourceRef,
 }
@@ -192,9 +192,19 @@ pub enum Ins {
         loc: SourceRef,
     },
     DeclFunc {
-        name: String,
+        name: Expr,
         params: Vec<FnParam>,
         ret_type: Type,
+        body: Box<Ins>,
+        loc: SourceRef,
+    },
+    DeclStruct {
+        name: Expr,
+        body: Box<Ins>,
+        loc: SourceRef,
+    },
+    DeclModule {
+        name: Expr,
         body: Box<Ins>,
         loc: SourceRef,
     },
@@ -236,6 +246,8 @@ impl Ins {
             | Ins::DeclFunc { loc, .. }
             | Ins::SingleLineComment { loc, .. }
             | Ins::ExprIns { loc, .. }
+            | Ins::DeclStruct { loc, .. }
+            | Ins::DeclModule { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -291,7 +303,9 @@ impl Ins {
             } => {
                 let params_str: Vec<String> = params
                     .iter()
-                    .map(|fn_param| format!("{} {}", fn_param.name, fn_param.given_ty.as_str()))
+                    .map(|fn_param| {
+                        format!("{} {}", fn_param.name.as_str(), fn_param.given_ty.as_str())
+                    })
                     .collect();
                 let params_str = params_str.join(", ");
                 let mut buf = format!(
@@ -320,8 +334,16 @@ impl Ins {
                     format!("return;")
                 }
             },
-            Ins::ExprIns { expr, loc } => todo!(),
+            Ins::ExprIns { expr, .. } => {
+                format!("{};", expr.as_str())
+            }
             Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
+            Ins::DeclStruct { name, body, .. } => {
+                format!("struct {}\n{}\n", name.as_str(), body.as_str())
+            }
+            Ins::DeclModule { name, body, .. } => {
+                format!("mod {}\n{}\n", name.as_str(), body.as_str())
+            }
         }
     }
 }
