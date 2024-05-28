@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::rc;
+
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     source::{
@@ -190,7 +192,66 @@ impl Parser {
     }
 
     fn parse_expr_ins(&mut self) -> Ins {
-        todo!()
+        let lhs = self.parse_expr();
+
+        if matches!(self.cur_token(), Token::Semicolon(_)) {
+            let expr_ins_span = lhs
+                .get_source_ref()
+                .combine(self.cur_token().get_source_ref());
+
+            self.advance();
+            return Ins::ExprIns {
+                expr: lhs,
+                loc: expr_ins_span,
+            };
+        }
+
+        let mut cur = self.cur_token();
+        match (lhs, cur) {
+            // Variable / Constant Declaration:
+            // Variable => Expr::Ident : Type? = Expr?;
+            // Constant => Expr::Ident : Type? : Expr;
+            (Expr::Ident { name, loc }, Token::Colon(_)) => {
+                todo!()
+            }
+            // Assignment Instruction:
+            // Expr = Expr;
+            (lhs, Token::Assign(_)) => {
+                // skip past the '='
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                // look for a semicolon and skip it
+                if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a semicolon to terminate the assignment instruction.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    assign_span = assign_span.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                Ins::AssignTo {
+                    target: lhs,
+                    value,
+                    loc: assign_span,
+                }
+            }
+            (lhs, following_token) => {
+                let lhs_span = lhs.get_source_ref();
+
+                self.report_error(ParseError::Expected(
+                    "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(),
+                    lhs_span.clone(),
+                    None
+                ));
+
+                Ins::ErrorIns { msg: "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(), loc: lhs_span }
+            }
+        }
     }
 
     fn parse_block(&mut self, use_new_scope: bool) -> Ins {
@@ -760,7 +821,59 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> Expr {
-        todo!()
+        let cur = self.cur_token();
+
+        match cur {
+            Token::CharLiteral(loc, chr) => {
+                self.advance();
+                Expr::Char { val: chr, loc }
+            }
+            Token::Identifier(..) => self.parse_identifier(),
+            Token::NumberLiteral(num, src) => {
+                self.advance();
+                Expr::Number { val: num, loc: src }
+            }
+            Token::SingleLineStringLiteral(loc, str) => {
+                self.advance();
+                Expr::Str { val: str, loc }
+            }
+            Token::MultiLineStringFragment(loc, fragment) => {
+                // TODO
+                unreachable!("Parse::parse_primary: proto should not have multiline string support just yet.")
+            }
+            Token::True(loc) => {
+                self.advance();
+                Expr::Bool { val: true, loc }
+            }
+            Token::False(loc) => {
+                self.advance();
+                Expr::Bool { val: false, loc }
+            }
+            Token::LParen(_) => {
+                self.advance();
+                let inner_expr = self.parse_expr();
+                let mut i_expr_span = cur.get_source_ref().combine(inner_expr.get_source_ref());
+                if !matches!(self.cur_token(), Token::RParen(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a right parenthesis to terminate grouped expression.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    i_expr_span = self.cur_token().get_source_ref().combine(i_expr_span);
+                    self.advance();
+                }
+                inner_expr
+            }
+            _ => {
+                let span = cur.get_source_ref();
+                self.report_error(ParseError::CannotParseAnExpression(span.clone()));
+                Expr::ErrorExpr {
+                    msg: "an expression.".to_string(),
+                    loc: span,
+                }
+            }
+        }
     }
 }
 

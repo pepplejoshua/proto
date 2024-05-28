@@ -207,6 +207,10 @@ pub enum Ins {
         value: Expr,
         loc: SourceRef,
     },
+    ExprIns {
+        expr: Expr,
+        loc: SourceRef,
+    },
     Return {
         expr: Option<Expr>,
         loc: SourceRef,
@@ -231,6 +235,7 @@ impl Ins {
             | Ins::Return { loc, .. }
             | Ins::DeclFunc { loc, .. }
             | Ins::SingleLineComment { loc, .. }
+            | Ins::ExprIns { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -315,7 +320,8 @@ impl Ins {
                     format!("return;")
                 }
             },
-            Ins::ErrorIns { msg, loc } => format!("[ErrIns {msg}]"),
+            Ins::ExprIns { expr, loc } => todo!(),
+            Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
         }
     }
 }

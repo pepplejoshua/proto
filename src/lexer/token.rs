@@ -52,6 +52,7 @@ pub enum Token {
     RCurly(SourceRef),
     LBracket(SourceRef),
     RBracket(SourceRef),
+    Newline(SourceRef),
     Semicolon(SourceRef),
     Colon(SourceRef),
     Comma(SourceRef),
@@ -91,69 +92,70 @@ pub enum Token {
 impl Token {
     pub fn get_source_ref(&self) -> SourceRef {
         match self {
-            Token::SingleLineComment(src, _) => src.clone(),
-            Token::Fn(src) => src.clone(),
-            Token::Let(src) => src.clone(),
-            Token::Mut(src) => src.clone(),
-            Token::If(src) => src.clone(),
-            Token::Else(src) => src.clone(),
-            Token::Loop(src) => src.clone(),
-            Token::While(src) => src.clone(),
-            Token::Plus(src) => src.clone(),
-            Token::Minus(src) => src.clone(),
-            Token::Star(src) => src.clone(),
-            Token::Slash(src) => src.clone(),
-            Token::Modulo(src) => src.clone(),
-            Token::Equal(src) => src.clone(),
-            Token::NotEqual(src) => src.clone(),
-            Token::Less(src) => src.clone(),
-            Token::LessEqual(src) => src.clone(),
-            Token::Greater(src) => src.clone(),
-            Token::GreaterEqual(src) => src.clone(),
-            Token::Assign(src) => src.clone(),
-            Token::And(src) => src.clone(),
-            Token::Or(src) => src.clone(),
-            Token::Not(src) => src.clone(),
-            Token::LParen(src) => src.clone(),
-            Token::RParen(src) => src.clone(),
-            Token::LCurly(src) => src.clone(),
-            Token::RCurly(src) => src.clone(),
-            Token::LBracket(src) => src.clone(),
-            Token::RBracket(src) => src.clone(),
-            Token::Semicolon(src) => src.clone(),
-            Token::Comma(src) => src.clone(),
-            Token::Eof(src) => src.clone(),
-            Token::Void(src) => src.clone(),
-            Token::True(src) => src.clone(),
-            Token::False(src) => src.clone(),
-            Token::CharLiteral(src, _) => src.clone(),
-            Token::Identifier(_, src) => src.clone(),
-            Token::Dot(src) => src.clone(),
-            Token::Break(src) => src.clone(),
-            Token::Continue(src) => src.clone(),
-            Token::Pub(src) => src.clone(),
-            Token::Return(src) => src.clone(),
-            Token::At(src) => src.clone(),
-            Token::Mod(src) => src.clone(),
-            Token::SingleLineStringLiteral(src, _) => src.clone(),
-            Token::MultiLineStringFragment(src, _) => src.clone(),
-            Token::NumberLiteral(_, src) => src.clone(),
-            Token::Struct(src) => src.clone(),
-            Token::I8(src) => src.clone(),
-            Token::I16(src) => src.clone(),
-            Token::I32(src) => src.clone(),
-            Token::I64(src) => src.clone(),
-            Token::Int(src) => src.clone(),
-            Token::U8(src) => src.clone(),
-            Token::U16(src) => src.clone(),
-            Token::U32(src) => src.clone(),
-            Token::U64(src) => src.clone(),
-            Token::UInt(src) => src.clone(),
-            Token::Bool(src) => src.clone(),
-            Token::Char(src) => src.clone(),
-            Token::Str(src) => src.clone(),
-            Token::Type(src) => src.clone(),
-            Token::Colon(src) => src.clone(),
+            Token::SingleLineComment(src, _)
+            | Token::Fn(src)
+            | Token::Let(src)
+            | Token::Mut(src)
+            | Token::If(src)
+            | Token::Else(src)
+            | Token::Loop(src)
+            | Token::While(src)
+            | Token::Plus(src)
+            | Token::Minus(src)
+            | Token::Star(src)
+            | Token::Slash(src)
+            | Token::Modulo(src)
+            | Token::Equal(src)
+            | Token::NotEqual(src)
+            | Token::Less(src)
+            | Token::LessEqual(src)
+            | Token::Greater(src)
+            | Token::GreaterEqual(src)
+            | Token::Assign(src)
+            | Token::And(src)
+            | Token::Or(src)
+            | Token::Not(src)
+            | Token::LParen(src)
+            | Token::RParen(src)
+            | Token::LCurly(src)
+            | Token::RCurly(src)
+            | Token::LBracket(src)
+            | Token::RBracket(src)
+            | Token::Semicolon(src)
+            | Token::Comma(src)
+            | Token::Eof(src)
+            | Token::Void(src)
+            | Token::True(src)
+            | Token::False(src)
+            | Token::CharLiteral(src, _)
+            | Token::Identifier(_, src)
+            | Token::Dot(src)
+            | Token::Break(src)
+            | Token::Continue(src)
+            | Token::Pub(src)
+            | Token::Return(src)
+            | Token::At(src)
+            | Token::Mod(src)
+            | Token::SingleLineStringLiteral(src, _)
+            | Token::MultiLineStringFragment(src, _)
+            | Token::NumberLiteral(_, src)
+            | Token::Struct(src)
+            | Token::I8(src)
+            | Token::I16(src)
+            | Token::I32(src)
+            | Token::I64(src)
+            | Token::Int(src)
+            | Token::U8(src)
+            | Token::U16(src)
+            | Token::U32(src)
+            | Token::U64(src)
+            | Token::UInt(src)
+            | Token::Bool(src)
+            | Token::Char(src)
+            | Token::Str(src)
+            | Token::Type(src)
+            | Token::Colon(src)
+            | Token::Newline(src) => src.clone(),
         }
     }
 
@@ -245,6 +247,7 @@ impl Token {
             Token::Colon(_) => ":".into(),
             Token::SingleLineStringLiteral(_, content) => content.clone(),
             Token::MultiLineStringFragment(_, mls) => mls.clone(),
+            Token::Newline(_) => '\n'.to_string(),
         }
     }
 }

@@ -79,6 +79,14 @@ impl Lexer {
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexError> {
         while self.src.cur_char().is_whitespace() {
+            // TODO: understand the ramifications of using newlines instead of ;
+            // we care about newline characters since they take the place
+            // of semicolons in the grammar
+            // if self.src.cur_char() == '\n' {
+            //     let newline_loc = self.src.get_ref();
+            //     self.src.next_char();
+            //     return Ok(Token::Newline(newline_loc));
+            // }
             // skip all preceding whitespace
             self.skip_whitespace();
             // process comments
@@ -222,18 +230,6 @@ impl Lexer {
                 Ok(Token::Plus(cur_ref.combine(self.src.get_ref())))
             }
             '-' => {
-                // if the next character is a '-',
-                // if self.src.peek_char() == '-' {
-                //     self.src.next_char();
-                //     // look for the next '-' character
-                //     if self.src.peek_char() == '-' {
-                //         return self.lex_multi_line_string_fragment();
-                //     } else {
-                //         return Err(LexError::InvalidCharacter(
-                //             cur_ref.combine(self.src.get_ref()),
-                //         ));
-                //     }
-                // }
                 self.src.next_char();
                 Ok(Token::Minus(cur_ref.combine(self.src.get_ref())))
             }
