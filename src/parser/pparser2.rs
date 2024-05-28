@@ -180,6 +180,11 @@ impl Parser {
     }
 
     fn parse_fn(&mut self) -> Ins {
+        let start = self.cur_token();
+        self.advance();
+
+        let fn_name = self.parse_identifier();
+
         todo!()
     }
 
@@ -208,11 +213,104 @@ impl Parser {
 
         let mut cur = self.cur_token();
         match (lhs, cur) {
-            // Variable / Constant Declaration:
-            // Variable => Expr::Ident : Type? = Expr?;
+            // Variable / Constant Declaration and Initialization:
+            // Variable Declaration and Initialization => Expr::Ident : Type? = Expr?;
+            // Variable Declaration => Expr::Ident : Type;
             // Constant => Expr::Ident : Type? : Expr;
             (Expr::Ident { name, loc }, Token::Colon(_)) => {
-                todo!()
+                // skip the ':'
+                self.advance();
+
+                cur = self.cur_token();
+
+                // get type if any is provided
+                let decl_ty = if !matches!(cur, Token::Colon(_) | Token::Assign(_)) {
+                    Some(self.parse_type())
+                } else {
+                    None
+                };
+
+                // now we have to determine if we are dealing with a constant or variable
+                // declaration
+                cur = self.cur_token();
+                match cur {
+                    // Variable Declaration and Initialization
+                    Token::Assign(_) => {
+                        self.advance();
+                        let val = self.parse_expr();
+                        let mut decl_var_span = loc.combine(val.get_source_ref());
+
+                        cur = self.cur_token();
+                        if !matches!(cur, Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the variable declaration.".to_string(),
+                                cur.get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            decl_var_span = loc.combine(decl_var_span);
+                            self.advance();
+                        }
+
+                        Ins::DeclVar {
+                            name: Expr::Ident { name, loc },
+                            ty: decl_ty,
+                            init_val: Some(val),
+                            loc: decl_var_span,
+                        }
+                    }
+                    // Constant Declaration and Initialization
+                    Token::Colon(_) => {
+                        self.advance();
+                        let val = self.parse_expr();
+                        let mut decl_const_span = loc.combine(val.get_source_ref());
+
+                        cur = self.cur_token();
+                        if !matches!(cur, Token::Semicolon(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a semicolon to terminate the constant declaration.".to_string(),
+                                cur.get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            decl_const_span = decl_const_span.combine(cur.get_source_ref());
+                            self.advance();
+                        }
+
+                        Ins::DeclConst {
+                            name: Expr::Ident { name, loc },
+                            ty: decl_ty,
+                            init_val: val,
+                            loc: decl_const_span,
+                        }
+                    }
+                    // Potential Variable Declaration without Initialization
+                    Token::Semicolon(_) => {
+                        // we can guarantee there will be a provided type by this point
+                        self.advance();
+                        let decl_ty = decl_ty.unwrap();
+                        Ins::DeclVar {
+                            name: Expr::Ident {
+                                name,
+                                loc: loc.clone(),
+                            },
+                            ty: Some(decl_ty),
+                            init_val: None,
+                            loc: loc.combine(cur.get_source_ref()),
+                        }
+                    }
+                    _ => {
+                        self.report_error(ParseError::Expected(
+                            "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
+                            loc.combine(cur.get_source_ref()),
+                            None,
+                        ));
+                        Ins::ErrorIns {
+                            msg: "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
+                            loc: loc.combine(cur.get_source_ref())
+                        }
+                    }
+                }
             }
             // Assignment Instruction:
             // Expr = Expr;
@@ -240,16 +338,14 @@ impl Parser {
                     loc: assign_span,
                 }
             }
-            (lhs, following_token) => {
-                let lhs_span = lhs.get_source_ref();
-
+            (_, following_token) => {
                 self.report_error(ParseError::Expected(
                     "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(),
-                    lhs_span.clone(),
+                    following_token.get_source_ref(),
                     None
                 ));
 
-                Ins::ErrorIns { msg: "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(), loc: lhs_span }
+                Ins::ErrorIns { msg: "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(), loc: following_token.get_source_ref() }
             }
         }
     }
