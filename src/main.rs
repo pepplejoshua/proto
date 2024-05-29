@@ -7,6 +7,7 @@ mod compilation;
 mod lexer;
 mod parser;
 mod pastel;
+mod seman;
 mod source;
 mod types;
 
