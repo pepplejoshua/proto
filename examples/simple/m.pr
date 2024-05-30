@@ -1,7 +1,12 @@
-fn main() void {
-  a : i32 : 11;
-  b :: 31;
-  c :: a + b;
-  d :: c * 2;
-  e :: d > 10;
+fn rets() bool {    // "return": bool
+  a : i32 : 11;     // "a": i32 |> T_11 = i32
+  b :: 31;          // "b": T_b |> T_b = T_31
+  c :: a + b;       // "c": T_c |> T_c = i32, T_c = T_b
+  d :: c * 2;       // "d": T_d |> T_d = T_c, T_d = T_2
+  e :: d > 10;      // "e": T_e |> T_e = bool, T_d = T_10
+  return e;         // |> T_e = bool
+}
+
+fn main() void {    // "return": void
+    res :: rets();  // "res": T_res |> T_res = bool
 }

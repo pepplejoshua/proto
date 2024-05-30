@@ -14,6 +14,12 @@ pub struct NameInfo {
 }
 
 #[derive(Debug, Clone)]
+pub struct TypeEnv {
+    env: HashMap<String, NameInfo>,
+    parent: Option<TypeEnv>,
+}
+
+#[derive(Debug, Clone)]
 pub struct TypeScope {
     names: HashMap<String, NameInfo>,
     parent: Option<Rc<RefCell<TypeScope>>>,
