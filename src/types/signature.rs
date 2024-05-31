@@ -81,7 +81,7 @@ impl Sig {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Type {
     pub tag: Sig,
     pub name: Option<String>,

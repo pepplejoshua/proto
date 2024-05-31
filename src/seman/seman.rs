@@ -2,7 +2,10 @@
 
 use std::collections::HashMap;
 
-use crate::types::signature::{Sig, Type};
+use crate::{
+    parser::ast::{BinOpType, Expr},
+    types::signature::{Sig, Type},
+};
 
 #[derive(Debug, Clone)]
 struct TypeEnv {
@@ -73,7 +76,7 @@ impl Substitution {
     // extend the current substitution with a new mapping
     fn extend(&self, var: String, ty: Type) -> Self {
         let mut new_subs = self.subs.clone();
-        new_subs.insert(var, ty);
+        new_subs.insert(var, self.apply(&ty));
         Substitution { subs: new_subs }
     }
 
@@ -115,7 +118,24 @@ fn unify(t1: &Type, t2: &Type, subst: &Substitution) -> Result<Substitution, Str
 }
 
 fn unify_var(var: &Type, ty: &Type, subst: &Substitution) -> Result<Substitution, String> {
-    todo!()
+    if var == ty {
+        return Ok(subst.clone());
+    }
+
+    if let Sig::Infer = var.tag {
+        if let Some(name) = &var.name {
+            if occurs_check(name, ty, subst) {
+                return Err(format!("Occurs check failed for {:?} in {:?}", var, ty));
+            }
+            let new_sub = subst.extend(name.clone(), ty.clone());
+            return Ok(new_sub);
+        }
+    }
+
+    Err(format!(
+        "Cannot unify variable {:?} with type {:?}",
+        var, ty
+    ))
 }
 
 fn occurs_check(var_name: &String, ty: &Type, subst: &Substitution) -> bool {
@@ -125,12 +145,112 @@ fn occurs_check(var_name: &String, ty: &Type, subst: &Substitution) -> bool {
                 if name == var_name {
                     return true;
                 }
-                if let Some(sub_ty) = subst.get(name) {
+                if let Some(sub_ty) = subst.subs.get(name) {
                     return occurs_check(var_name, sub_ty, subst);
                 }
             }
             false
         }
         _ => false,
+    }
+}
+
+fn infer_expr(
+    expr: &Expr,
+    env: &TypeEnv,
+    subst: &Substitution,
+) -> Result<(Type, Substitution), String> {
+    match expr {
+        Expr::Number { val, loc } => Ok((
+            Type {
+                tag: Sig::Int,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            },
+            subst.clone(),
+        )),
+        Expr::Str { val, loc } => Ok((
+            Type {
+                tag: Sig::Str,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            },
+            subst.clone(),
+        )),
+        Expr::Char { val, loc } => Ok((
+            Type {
+                tag: Sig::Char,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            },
+            subst.clone(),
+        )),
+        Expr::Bool { val, loc } => Ok((
+            Type {
+                tag: Sig::Bool,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            },
+            subst.clone(),
+        )),
+        Expr::Void { loc } => Ok((
+            Type {
+                tag: Sig::Void,
+                name: None,
+                sub_types: vec![],
+                aux_type: None,
+                loc: loc.clone(),
+            },
+            subst.clone(),
+        )),
+        Expr::Ident { name, loc } => {
+            if let Some(var_type) = env.lookup(name) {
+                Ok((var_type.clone(), subst.clone()))
+            } else {
+                Err(format!("Unbound variable: {}", name))
+            }
+        }
+        Expr::BinOp {
+            op,
+            left,
+            right,
+            loc,
+        } => {
+            let (left_ty, subst1) = infer_expr(left, env, subst)?;
+            let res = match op {
+                BinOpType::Add => todo!(),
+                BinOpType::Sub => todo!(),
+                BinOpType::Mult => todo!(),
+                BinOpType::Div => todo!(),
+                BinOpType::Mod => todo!(),
+                BinOpType::And => todo!(),
+                BinOpType::Or => todo!(),
+                BinOpType::Eq => todo!(),
+                BinOpType::Neq => todo!(),
+                BinOpType::Gt => todo!(),
+                BinOpType::Lt => todo!(),
+                BinOpType::GtEq => todo!(),
+                BinOpType::LtEq => todo!(),
+                BinOpType::AccessMember => todo!(),
+                BinOpType::IndexArray => todo!(),
+            };
+            Ok(res)
+        }
+        Expr::InitStruct {
+            struct_name,
+            fields,
+            loc,
+        } => todo!(),
+        Expr::CallFn { func, args, loc } => todo!(),
+        Expr::UnaryOp { op, expr, loc } => todo!(),
+        Expr::ErrorExpr { msg, loc } => todo!(),
     }
 }
