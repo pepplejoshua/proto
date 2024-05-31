@@ -55,20 +55,6 @@ impl Substitution {
                 }
                 ty.clone()
             }
-            Sig::Function => {
-                // apply substitution to function types recursively
-                let sub_types = ty
-                    .sub_types
-                    .iter()
-                    .map(|t| self.apply(t))
-                    .collect::<Vec<Type>>();
-                let aux_type = ty.aux_type.as_ref().map(|t| Box::new(self.apply(t)));
-                Type {
-                    sub_types,
-                    aux_type,
-                    ..ty.clone()
-                }
-            }
             _ => ty.clone(),
         }
     }

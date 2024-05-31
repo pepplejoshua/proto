@@ -1,12 +1,37 @@
-fn rets() bool {    // "return": bool
-  a : i32 : 11;     // "a": i32 |> T_11 = i32
-  b :: 31;          // "b": T_b |> T_b = T_31
-  c :: a + b;       // "c": T_c |> T_c = i32, T_c = T_b
-  d :: c * 2;       // "d": T_d |> T_d = T_c, T_d = T_2
-  e :: d > 10;      // "e": T_e |> T_e = bool, T_d = T_10
-  return e;         // |> T_e = bool
+fn rets() bool {    // T_return: bool
+  a :: 11;          // a: T_11 |> T_11 = int
+  b : i8 : 31;      // b: i8  |> T_31 = i8(b)
+  c :: a + b;       // c: T_+ |> T_11 = i8(b), T_+ = T_11
+                    //
+                    // now we have conflicting bindings (int, i8) for T_11 which would mean we have
+                    // to unify them based on the more specific type (i8).
+                    // the substitution { T_11 => i8 } is applied to both constraints and type environment
+                    // a, b: i8, c: T_+ |> T_31 = i8, T_+ = i8
+                    //
+  d :: c * 2;       // d: T_* |> T_+ = T_2, T_* = T_+
+                    //
+                    // now we have conflicting bindings (i8, T_2) for T_+ which would mean we have
+                    // to unify them based on the more concrete type (i8).
+                    // the substitution { T_11 => i8, T_+ => i8 } is applied to both constraints and type environment
+                    // a, b, c: i8, d: T_* |> T_31 = i8, T_+ = i8, T_2 = i8, T_* = i8
+                    //
+  e :: d > 10;      // e: bool |> T_* = T_10, T_10 = int
+                    //
+                    // now we have conflicting bindings (i8, T_10) for T_* which would mean we have
+                    // to unify them based on the more concrete type (i8).
+                    // the substitution { T_11 => i8, T_+ => i8, T_* => i8 } is applied to both
+                    // constraints and type environment
+                    // a, b, c, d: i8, e: bool |> T_31 = i8, T_+ = i8, T_2 = i8, T_* = i8, T_10 = i8, T_10 = int
+                    //
+                    // now we have conflicting bindings (i8, int) for T_10 which would mean we have
+                    // to unify them based on the more specific type (i8).
+                    // the substitution { T_11 => i8, T_+ => i8, T_* => i8, T_10 => i8 } is applied to both
+                    // constraints and type environment
+                    // a, b, c, d: i8, e: bool |> T_31 = i8, T_+ = i8, T_2 = i8, T_* = i8, T_10 = i8
+                    //
+  return e;         // |> T_return = bool
 }
 
-fn main() void {    // "return": void
-    res :: rets();  // "res": T_res |> T_res = bool
+fn main() void {    // T_return: void
+    res :: rets();  // res: bool
 }
