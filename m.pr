@@ -1,0 +1,12 @@
+fn rets() bool {
+  a :: 11;
+  b : i8 : 31;
+  c :: a + b;
+  d :: c * 2;
+  e :: d > 10;
+  return e;
+}
+
+fn main() void {
+    res :: rets();
+}
