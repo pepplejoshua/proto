@@ -31,14 +31,20 @@ impl TypeEnv {
 }
 
 #[derive(Debug, Clone)]
+pub struct Side {
+    ty: Type,
+    is_inferred: bool,
+}
+
+#[derive(Debug, Clone)]
 pub struct Constraint {
-    left: Type,
-    right: Type,
+    left: Side,
+    right: Side,
 }
 
 impl Constraint {
     pub fn as_str(&self) -> String {
-        format!("{} = {}", self.left.as_str(), self.right.as_str())
+        format!("{} = {}", self.left.ty.as_str(), self.right.ty.as_str())
     }
 }
 
@@ -58,9 +64,58 @@ impl State {
 }
 
 pub fn collect_constraints_from_ins(ins: &Ins, state: &mut State) -> Result<(), String> {
-    todo!()
+    match &ins {
+        Ins::DeclConst {
+            name,
+            ty,
+            init_val,
+            loc,
+        } => todo!(),
+        Ins::DeclVar {
+            name,
+            ty,
+            init_val,
+            loc,
+        } => todo!(),
+        Ins::DeclFunc {
+            name,
+            params,
+            ret_type,
+            body,
+            loc,
+        } => todo!(),
+        Ins::DeclStruct { name, body, loc } => todo!(),
+        Ins::DeclModule { name, body, loc } => todo!(),
+        Ins::Block { code, loc } => todo!(),
+        Ins::AssignTo { target, value, loc } => todo!(),
+        Ins::ExprIns { expr, loc } => todo!(),
+        Ins::Return { expr, loc } => todo!(),
+        Ins::SingleLineComment { comment, loc } => todo!(),
+        Ins::ErrorIns { msg, loc } => todo!(),
+    }
 }
 
 pub fn collect_constraints_from_expr(expr: &Expr, state: &mut State) -> Result<Type, String> {
-    todo!()
+    match &expr {
+        Expr::Number { val, loc } => todo!(),
+        Expr::Str { val, loc } => todo!(),
+        Expr::Char { val, loc } => todo!(),
+        Expr::Bool { val, loc } => todo!(),
+        Expr::Void { loc } => todo!(),
+        Expr::Ident { name, loc } => todo!(),
+        Expr::BinOp {
+            op,
+            left,
+            right,
+            loc,
+        } => todo!(),
+        Expr::InitStruct {
+            struct_name,
+            fields,
+            loc,
+        } => todo!(),
+        Expr::CallFn { func, args, loc } => todo!(),
+        Expr::UnaryOp { op, expr, loc } => todo!(),
+        Expr::ErrorExpr { msg, loc } => todo!(),
+    }
 }
