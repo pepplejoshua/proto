@@ -114,7 +114,13 @@ impl Type {
                     panic!("Identifier type has no name");
                 }
             }
-            Sig::Infer => "<infer>".to_string(),
+            Sig::Infer => {
+                if let Some(infer_name) = &self.name {
+                    format!("<infer:={infer_name}>")
+                } else {
+                    format!("<infer>")
+                }
+            }
             Sig::Bool => "bool".to_string(),
             Sig::Char => "char".to_string(),
             Sig::Void => "void".to_string(),
