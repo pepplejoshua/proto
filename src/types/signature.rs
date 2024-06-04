@@ -91,6 +91,16 @@ pub struct Type {
 }
 
 impl Type {
+    pub fn new(sig: Sig, loc: SourceRef) -> Type {
+        Type {
+            tag: sig,
+            name: None,
+            sub_types: vec![],
+            aux_type: None,
+            loc,
+        }
+    }
+
     pub fn new_infer_type(loc: SourceRef) -> Type {
         Type {
             tag: Sig::Infer,

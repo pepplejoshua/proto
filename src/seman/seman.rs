@@ -1,9 +1,9 @@
 #![allow(unused)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, pin::Pin};
 
 use crate::{
-    parser::ast::{Expr, Ins, UnaryOpType},
+    parser::ast::{BinOpType, Expr, Ins, UnaryOpType},
     source::source::SourceRef,
     types::signature::{Sig, Type},
 };
@@ -67,14 +67,26 @@ impl GenTypeVar {
 }
 
 #[derive(Debug, Clone)]
-pub struct Constraint {
-    left: Type,
-    right: Type,
+pub enum Constraint {
+    Eq(Type, Type),
+    OneOf(Type, Vec<Type>),
 }
 
 impl Constraint {
     pub fn as_str(&self) -> String {
-        format!("{} = {}", self.left.as_str(), self.right.as_str())
+        match self {
+            Constraint::Eq(lhs, rhs) => format!("{} = {}", lhs.as_str(), rhs.as_str()),
+            Constraint::OneOf(lhs, opts) => {
+                format!(
+                    "{} in [{}]",
+                    lhs.as_str(),
+                    opts.iter()
+                        .map(|t| { t.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
+        }
     }
 }
 
@@ -100,11 +112,12 @@ impl State {
         }
     }
 
-    pub fn add_constraint(&mut self, lhs: Type, rhs: Type) {
-        self.constraints.push(Constraint {
-            left: lhs,
-            right: rhs,
-        })
+    pub fn add_eq_constraint(&mut self, lhs: Type, rhs: Type) {
+        self.constraints.push(Constraint::Eq(lhs, rhs));
+    }
+
+    pub fn add_one_of_constraint(&mut self, lhs: Type, opts: Vec<Type>) {
+        self.constraints.push(Constraint::OneOf(lhs, opts));
     }
 }
 
@@ -184,25 +197,29 @@ pub fn collect_constraints_from_expr(
                     // we will generate the following constraints:
                     // Expr_Ty = Bool
                     // Unary_Expr_Ty = Bool
-                    let bool_ty = Type {
-                        tag: Sig::Bool,
-                        name: None,
-                        sub_types: vec![],
-                        aux_type: None,
-                        loc: expr_ty.loc.clone(),
-                    };
-                    state.add_constraint(expr_ty.clone(), bool_ty.clone());
+                    let bool_ty = Type::new(Sig::Bool, expr_ty.loc.clone());
+                    state.add_eq_constraint(expr_ty.clone(), bool_ty.clone());
                     let unary_ty = state.gen.next_with_tag(&op.as_str(), loc.clone());
-                    state.add_constraint(unary_ty.clone(), bool_ty.clone());
+                    state.add_eq_constraint(unary_ty.clone(), bool_ty.clone());
                     Ok(bool_ty)
                 }
                 UnaryOpType::Negate => {
                     // we will generate the following constraints since negation is
                     // only allowed on i8-i64 and int types:
-                    // Expr_Ty = Unary_Expr_Ty
-                    // Unary_Expr_Ty = Int
+                    // Expr_Ty = Int
+                    // Unary_Expr_Ty = Expr_Ty
                     // Int = i8 | i16 | i32 | i64 | int
-                    todo!()
+                    let int_types = vec![
+                        Type::new(Sig::I8, loc.clone()),
+                        Type::new(Sig::I16, loc.clone()),
+                        Type::new(Sig::I32, loc.clone()),
+                        Type::new(Sig::I64, loc.clone()),
+                        Type::new(Sig::Int, loc.clone()),
+                    ];
+                    let unary_ty = state.gen.next_with_tag(&op.as_str(), loc.clone());
+                    state.add_one_of_constraint(expr_ty.clone(), int_types);
+                    state.add_eq_constraint(unary_ty.clone(), expr_ty);
+                    Ok(unary_ty)
                 }
             }
         }
@@ -211,7 +228,42 @@ pub fn collect_constraints_from_expr(
             left,
             right,
             loc,
-        } => todo!(),
+        } => {
+            let lhs_ty = collect_constraints_from_expr(left, context_ty, state);
+            let rhs_ty = collect_constraints_from_expr(right, context_ty, state);
+
+            match op {
+                // Op(Int, Int)
+                // Op(Str, Char)
+                // Op(Char, Char)
+                BinOpType::Add => {
+                    // Int = i8 | i16 | i32 | i64 | int
+                    let int_types = vec![
+                        Type::new(Sig::I8, loc.clone()),
+                        Type::new(Sig::I16, loc.clone()),
+                        Type::new(Sig::I32, loc.clone()),
+                        Type::new(Sig::I64, loc.clone()),
+                        Type::new(Sig::Int, loc.clone()),
+                    ];
+                    todo!()
+                }
+                BinOpType::Sub => todo!(),
+                BinOpType::Mult => todo!(),
+                BinOpType::Div => todo!(),
+                BinOpType::Mod => todo!(),
+                BinOpType::And
+                | BinOpType::Or
+                | BinOpType::Eq
+                | BinOpType::Neq
+                | BinOpType::Gt
+                | BinOpType::Lt
+                | BinOpType::GtEq
+                | BinOpType::LtEq => todo!(),
+                BinOpType::AccessMember => todo!(),
+                BinOpType::IndexArray => todo!(),
+            }
+            todo!()
+        }
         Expr::InitStruct {
             struct_name,
             fields,
