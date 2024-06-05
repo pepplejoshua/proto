@@ -159,7 +159,12 @@ pub fn collect_constraints_from_expr(
     state: &mut State,
 ) -> Result<Type, String> {
     match &expr {
-        Expr::Number { val, loc } => todo!(),
+        Expr::Number { val, loc } => {
+            // if the context_ty is provided, try to convert the number to the
+            // type if it is numerical. Fail if it is non-numerical.
+            // If no context_ty, infer int
+            todo!()
+        }
         Expr::Str { loc, .. } => Ok(Type {
             tag: Sig::Str,
             name: None,
@@ -233,24 +238,15 @@ pub fn collect_constraints_from_expr(
             let rhs_ty = collect_constraints_from_expr(right, context_ty, state);
 
             match op {
-                // Op(Int, Int)
-                // Op(Str, Char)
-                // Op(Char, Char)
+                // Infer + _ | _ + Infer = Int + Int = Int
+                // Str, _ = Str + Char | Str = Str
+                // Char + Char = Char + Char = Str
                 BinOpType::Add => {
-                    // Int = i8 | i16 | i32 | i64 | int
-                    let int_types = vec![
-                        Type::new(Sig::I8, loc.clone()),
-                        Type::new(Sig::I16, loc.clone()),
-                        Type::new(Sig::I32, loc.clone()),
-                        Type::new(Sig::I64, loc.clone()),
-                        Type::new(Sig::Int, loc.clone()),
-                    ];
                     todo!()
                 }
-                BinOpType::Sub => todo!(),
-                BinOpType::Mult => todo!(),
-                BinOpType::Div => todo!(),
-                BinOpType::Mod => todo!(),
+                BinOpType::Sub | BinOpType::Mult | BinOpType::Div | BinOpType::Mod => {
+                    todo!()
+                }
                 BinOpType::And
                 | BinOpType::Or
                 | BinOpType::Eq
