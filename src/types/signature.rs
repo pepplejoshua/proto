@@ -101,16 +101,6 @@ impl Type {
         }
     }
 
-    pub fn new_infer_type(loc: SourceRef) -> Type {
-        Type {
-            tag: Sig::Infer,
-            name: None,
-            sub_types: vec![],
-            aux_type: None,
-            loc,
-        }
-    }
-
     pub fn is_infer_type(&self) -> bool {
         self.tag == Sig::Infer
     }

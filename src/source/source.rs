@@ -380,7 +380,7 @@ impl SourceReporter {
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!("{pass} => Failed to convert Number<'{}'> to int.", number);
+                let msg = format!("{pass} => Failed to convert Number<'{}'> to i32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeInferenceFailed {

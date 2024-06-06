@@ -1,83 +1,14 @@
 fn rets() bool {
-  // a: T_11_1
-  // |> T_11_1 = int
   a :: 11;
-
-  // a: T_11_1, b: i8
-  // |> T_11_1 = int
-  //    T_31_2 = i8
-  b : i8 : 31;
-
-  // a: T_11_1, b: i8, c: T_+_3
-  // |> T_11_1 = int, i8(*)
-  //    T_31_2 = i8
-  //    T_+_3 = T_11_1
+  b :: 31;
   c :: a + b;
-
-  // a: T_11_1, b: i8, c: T_+_3, d: T_*_5
-  // |> T_11_1 = int, i8(*)
-  //    T_31_2 = i8
-  //    T_2_4 = int
-  //    T_+_3 = T_11_1, T_2_4
-  //    T_*_5 = T_+_3
   d :: c * 2;
-
-  // a: T_11_1, b: i8, c: T_+_3, d: T_*_5, e: bool
-  // |> T_11_1 = int, i8(*)
-  //    T_31_2 = i8
-  //    T_2_4 = int
-  //    T_+_3 = T_11_1, T_2_4
-  //    T_10_6 = int
-  //    T_*_5 = T_+_3, T_10_6
   e :: d > 10;
-
-  // a: T_11_1, b: i8, c: T_+_3, d: T_*_5, e: bool, f: T_-_7
-  // |> T_11_1 = int, i8(*), Int (i8 | .. | int)
-  //    T_31_2 = i8
-  //    T_2_4 = int
-  //    T_+_3 = T_11_1, T_2_4
-  //    T_10_6 = int
-  //    T_*_5 = T_+_3, T_10_6
-  //    T_-_7 = T_11_1
   f :: -a;
-
-  // a: T_11_1, b: i8, c: T_+_3, d: T_*_5, e: bool, f: T_-_7, g: bool
-  // |> T_11_1 = int, i8(*), Int (i8 | .. | int)
-  //    T_31_2 = i8
-  //    T_2_4 = int
-  //    T_+_3 = T_11_1, T_2_4
-  //    T_10_6 = int
-  //    T_*_5 = T_+_3, T_10_6
-  //    T_-_7 = T_11_1
   g :: !e;
   return e;
 }
 
-// a: T_11_1, b: i8, c: T_+_3, d: T_*_5, e: bool, f: T_-_7, g: bool
-// |> T_11_1 = int, i8(*), Int (i8 | .. | int)
-//    T_31_2 = i8
-//    T_2_4 = int
-//    T_+_3 = T_11_1, T_2_4
-//    T_10_6 = int
-//    T_*_5 = T_+_3, T_10_6
-//    T_-_7 = T_11_1
-
-// process T_11_1 = int, i8(*), Int (i8 | .. | int)
-// first, unify all concrete types: int, i8.
-// Since i8 is more specific (from use) than int (inferred):
-// T_11_1 = i8, Int(i8 | .. | int)
-// Now we are left with a type class we have to make sure i8 is part of.
-// T_11_1 = i8 is left and we can substitute this in other Types that
-// refer to T_11_1 if the originating expression passes the i8 type check:
-// |> T_31_2 = i8(*)
-//    T_2_4 = int
-//    T_+_3 = i8(*), T_2_4
-//    T_10_6 = int
-//    T_*_5 = T_+_3, T_10_6
-//    T_-_7 = i8
-// We can make sure T_31_2 passes the i8 typecheck and substitute it:
-// |> T_2_4 = int
-//    T_+_3 = i8(*), T_2_4
-//    T_10_6 = int
-//    T_*_5 = T_+_3, T_10_6
-//    T_-_7 = i8
+fn main() void {
+  res :: rets();
+}
