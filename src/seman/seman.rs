@@ -227,7 +227,74 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
             left,
             right,
             loc,
-        } => todo!(),
+        } => {
+            let l_ty = check_expr(left, context_ty, state);
+            let r_ty = check_expr(right, context_ty, state);
+
+            match op {
+                BinOpType::Add
+                | BinOpType::Sub
+                | BinOpType::Mult
+                | BinOpType::Div
+                | BinOpType::Mod => {
+                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
+                        return Type::new(Sig::ErrorType, loc.clone());
+                    }
+
+                    match (l_ty.tag, r_ty.tag) {
+                        (a, b) if a.is_signed_type() && b.is_signed_type() && a == b => {
+                            todo!()
+                        }
+                        (a, b) if a.is_unsigned_type() && b.is_unsigned_type() && a == b => {
+                            todo!()
+                        }
+                        (Sig::Char, Sig::Char) => todo!(),
+                        _ => {
+                            todo!()
+                        }
+                    }
+                }
+                BinOpType::And | BinOpType::Or => {
+                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
+                        return Type::new(Sig::Bool, loc.clone());
+                    }
+
+                    match (l_ty.tag, r_ty.tag) {
+                        (Sig::Bool, Sig::Bool) => {
+                            todo!()
+                        }
+                        _ => {
+                            todo!()
+                        }
+                    }
+                }
+                BinOpType::Eq
+                | BinOpType::Neq
+                | BinOpType::Gt
+                | BinOpType::Lt
+                | BinOpType::GtEq
+                | BinOpType::LtEq => {
+                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
+                        return Type::new(Sig::Bool, loc.clone());
+                    }
+
+                    match (l_ty.tag, r_ty.tag) {
+                        (a, b) if a.is_signed_type() && b.is_signed_type() && a == b => {
+                            todo!()
+                        }
+                        (a, b) if a.is_unsigned_type() && b.is_unsigned_type() && a == b => {
+                            todo!()
+                        }
+                        (Sig::Char, Sig::Char) => todo!(),
+                        _ => {
+                            todo!()
+                        }
+                    }
+                }
+                BinOpType::AccessMember => todo!(),
+                BinOpType::IndexArray => todo!(),
+            }
+        }
         Expr::InitStruct {
             struct_name,
             fields,
@@ -271,8 +338,39 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                 }
             }
         }
-        Expr::ErrorExpr { msg, loc } => todo!(),
+        Expr::ErrorExpr { msg, loc } => Type::new(Sig::ErrorType, loc.clone()),
     }
 }
 
-pub fn check_ins(i: &Ins, state: &mut State) {}
+pub fn check_ins(i: &Ins, state: &mut State) {
+    match i {
+        Ins::DeclConst {
+            name,
+            ty,
+            init_val,
+            loc,
+        } => todo!(),
+        Ins::DeclVar {
+            name,
+            ty,
+            init_val,
+            loc,
+        } => todo!(),
+        Ins::DeclFunc {
+            name,
+            params,
+            ret_type,
+            body,
+            loc,
+        } => todo!(),
+        Ins::DeclStruct { name, body, loc } => todo!(),
+        Ins::DeclModule { name, body, loc } => todo!(),
+        Ins::Block { code, loc } => todo!(),
+        Ins::AssignTo { target, value, loc } => todo!(),
+        Ins::ExprIns { expr, loc } => todo!(),
+        Ins::Return { expr, loc } => todo!(),
+        Ins::SingleLineComment { .. } | Ins::ErrorIns { .. } => {
+            // do nothing
+        }
+    }
+}
