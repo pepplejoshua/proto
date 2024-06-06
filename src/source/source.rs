@@ -362,10 +362,10 @@ impl SourceReporter {
         }
     }
 
-    pub fn report_checker_error(&self, ce: CheckerError, pass: String) {
+    pub fn report_checker_error(&self, ce: CheckerError) {
         match ce {
             CheckerError::InvalidType { loc, type_name } => {
-                let msg = format!("{pass} => Invalid type: '{}'.", type_name);
+                let msg = format!("Invalid type: '{}'.", type_name);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::TypeMismatch {
@@ -374,13 +374,13 @@ impl SourceReporter {
                 found,
             } => {
                 let msg = format!(
-                    "{pass} => Type mismatch. Expected a value of type: `{}` but found a value of type: `{}`",
+                    "Type mismatch. Expected a value of type: `{}` but found a value of type: `{}`",
                     expected, found
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!("{pass} => Failed to convert Number<'{}'> to i32.", number);
+                let msg = format!("Failed to convert Number<'{}'> to i32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeInferenceFailed {
@@ -389,13 +389,13 @@ impl SourceReporter {
                 given_type,
             } => {
                 let msg = format!(
-                    "{pass} => Number '{}' is not compatible with the given type '{}'.",
+                    "Number '{}' is not compatible with the given type '{}'.",
                     number, given_type
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::ReferenceToUndefinedName { loc, var_name } => {
-                let msg = format!("{pass} => Reference to an undefined name: '{}'.", var_name);
+                let msg = format!("Reference to an undefined name: '{}'.", var_name);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::InvalidUseOfBinaryOperator {
@@ -405,7 +405,7 @@ impl SourceReporter {
                 right,
             } => {
                 let msg = format!(
-                    "{pass} => Invalid use of binary operator '{}'. It cannot be applied to values of types '{}' and '{}'.",
+                    "Invalid use of binary operator '{}'. It cannot be applied to values of types '{}' and '{}'.",
                     op, left, right
                 );
                 self.report_with_ref(&loc, msg, None, false);
@@ -417,23 +417,23 @@ impl SourceReporter {
                 tip,
             } => {
                 let msg = format!(
-                    "{pass} => Invalid use of unary operator '{}'. It cannot be applied to a value of type '{}'.",
+                    "Invalid use of unary operator '{}'. It cannot be applied to a value of type '{}'.",
                     op, operand
                 );
                 self.report_with_ref(&loc, msg, tip, false);
             }
             CheckerError::TooManyErrors => {
-                let msg = format!("{pass} => Too many errors during semantic analysis. Stopping.");
+                let msg = format!("Too many errors during semantic analysis. Stopping.");
                 let tip =
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
             }
             CheckerError::NameAlreadyDefined { loc, name } => {
-                let msg = format!("{pass} => '{name}' is already defined.");
+                let msg = format!("'{name}' is already defined.");
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::UseOfUninitializedVariable { loc, name } => {
-                let msg = format!("{pass} => Use of uninitialized variable: '{}'.", name);
+                let msg = format!("Use of uninitialized variable: '{}'.", name);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::UseOfErroredVariableOrConstant {
@@ -442,7 +442,7 @@ impl SourceReporter {
                 name,
             } => {
                 let msg = format!(
-                    "{pass} => Use of errored {} '{}'.",
+                    "Use of errored {} '{}'.",
                     if is_const { "constant" } else { "variable" },
                     name
                 );

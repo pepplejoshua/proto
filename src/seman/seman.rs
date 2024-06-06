@@ -1,10 +1,13 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, pin::Pin};
+use std::{collections::HashMap, pin::Pin, process::exit};
 
 use crate::{
     parser::ast::{BinOpType, Expr, Ins, UnaryOpType},
-    source::{errors::CheckerError, source::SourceRef},
+    source::{
+        errors::CheckerError,
+        source::{SourceFile, SourceRef, SourceReporter},
+    },
     types::signature::{Sig, Type},
 };
 
@@ -31,9 +34,25 @@ impl TypeEnv {
     }
 }
 
+#[derive(Debug, Clone)]
 pub struct State {
+    src: SourceFile,
     env: TypeEnv,
     errs: Vec<CheckerError>,
+}
+
+impl State {
+    pub fn push_err(&mut self, err: CheckerError) {
+        self.errs.push(err);
+
+        if self.errs.len() >= 10 {
+            let reporter = SourceReporter::new(self.src.clone());
+            for ce in self.errs.iter() {
+                reporter.report_checker_error(ce.clone());
+            }
+            exit(1);
+        }
+    }
 }
 
 pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Type {
@@ -47,7 +66,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_i8 {
                                 Ok(_) => Type::new(Sig::I8, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -61,7 +80,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_i16 {
                                 Ok(_) => Type::new(Sig::I16, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -75,7 +94,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_i32 {
                                 Ok(_) => Type::new(ty.tag, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -89,7 +108,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_i64 {
                                 Ok(_) => Type::new(Sig::I64, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -103,7 +122,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_u8 {
                                 Ok(_) => Type::new(Sig::U8, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -117,7 +136,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_u16 {
                                 Ok(_) => Type::new(Sig::U16, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -131,7 +150,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_u32 {
                                 Ok(_) => Type::new(ty.tag, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -145,7 +164,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                             match val_u64 {
                                 Ok(_) => Type::new(Sig::U64, loc.clone()),
                                 Err(_) => {
-                                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                                         loc: loc.clone(),
                                         number: val.clone(),
                                         given_type: ty.as_str(),
@@ -160,7 +179,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                         ),
                     }
                 } else {
-                    state.errs.push(CheckerError::NumberTypeInferenceFailed {
+                    state.push_err(CheckerError::NumberTypeInferenceFailed {
                         loc: loc.clone(),
                         number: val.clone(),
                         given_type: ty.as_str(),
@@ -191,7 +210,17 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
         Expr::Bool { loc, .. } => Type::new(Sig::Bool, loc.clone()),
         Expr::Void { loc } => Type::new(Sig::Void, loc.clone()),
         Expr::Ident { name, loc } => {
-            todo!()
+            let i_ty = state.env.lookup(name);
+            match i_ty {
+                Some(ty) => ty.clone(),
+                None => {
+                    state.push_err(CheckerError::ReferenceToUndefinedName {
+                        loc: loc.clone(),
+                        var_name: name.clone(),
+                    });
+                    Type::new(Sig::ErrorType, loc.clone())
+                }
+            }
         }
         Expr::BinOp {
             op,
@@ -205,7 +234,43 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
             loc,
         } => todo!(),
         Expr::CallFn { func, args, loc } => todo!(),
-        Expr::UnaryOp { op, expr, loc } => todo!(),
+        Expr::UnaryOp { op, expr, loc } => {
+            let expr_ty = check_expr(expr, context_ty, state);
+
+            match op {
+                UnaryOpType::Not => {
+                    if expr_ty.tag.is_error_type() || matches!(expr_ty.tag, Sig::Bool) {
+                        // we can just return an error type
+                        return Type::new(Sig::Bool, loc.clone());
+                    }
+                    state.push_err(CheckerError::InvalidUseOfUnaryOperator {
+                        loc: loc.clone(),
+                        op: op.as_str(),
+                        operand: expr.as_str(),
+                        tip: None,
+                    });
+                    Type::new(Sig::ErrorType, loc.clone())
+                }
+                UnaryOpType::Negate => {
+                    if expr_ty.tag.is_error_type() {
+                        // we can just return an error type
+                        return Type::new(Sig::ErrorType, loc.clone());
+                    }
+
+                    if !expr_ty.tag.is_signed_type() {
+                        state.push_err(CheckerError::InvalidUseOfUnaryOperator {
+                            loc: loc.clone(),
+                            op: op.as_str(),
+                            operand: expr.as_str(),
+                            tip: None,
+                        });
+                        return Type::new(Sig::ErrorType, loc.clone());
+                    }
+
+                    Type::new(expr_ty.tag, loc.clone())
+                }
+            }
+        }
         Expr::ErrorExpr { msg, loc } => todo!(),
     }
 }
