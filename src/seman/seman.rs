@@ -31,9 +31,8 @@ impl TypeEnv {
         }
     }
 
-    fn extend(&self, var: String, info: NameInfo) -> Self {
+    fn extend(&self) -> Self {
         let mut new_env = self.clone();
-        new_env.vars.insert(var, info);
         new_env
     }
 
@@ -46,14 +45,42 @@ impl TypeEnv {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum Scope {
+    TopLevel,
+    Func,
+    Struct,
+    Mod,
+    Method,
+}
+
 #[derive(Debug, Clone)]
 pub struct State {
     src: SourceFile,
     env: TypeEnv,
     errs: Vec<CheckerError>,
+    scope_stack: Vec<Scope>,
 }
 
 impl State {
+    pub fn new(src: SourceFile) -> Self {
+        State {
+            src,
+            env: TypeEnv::new(),
+            errs: vec![],
+            scope_stack: vec![Scope::TopLevel],
+        }
+    }
+
+    pub fn is_in_x_scope(&self, x: &Scope) -> bool {
+        for scope in self.scope_stack.iter().rev() {
+            if scope == x {
+                return true;
+            }
+        }
+        return false;
+    }
+
     pub fn push_err(&mut self, err: CheckerError) {
         self.errs.push(err);
 
@@ -483,14 +510,54 @@ pub fn check_ins(i: &Ins, state: &mut State) {
                 return;
             }
 
-            // check the parameters and add them to the environment
-            for param in params.into_iter() {}
-
             // construct the function type and add it to the environment
+            let mut fn_type = Type::new(Sig::Function, loc.clone());
+            let mut pairs_to_register = vec![];
+            for param in params.into_iter() {
+                let p_ty = if !type_is_known(&param.given_ty) {
+                    state.push_err(CheckerError::InvalidType {
+                        loc: param.given_ty.loc.clone(),
+                        type_name: param.given_ty.as_str(),
+                    });
+                    Type::new(Sig::ErrorType, param.given_ty.loc.clone())
+                } else {
+                    param.given_ty.clone()
+                };
+                fn_type.sub_types.push(p_ty.clone());
+                pairs_to_register.push((
+                    param.name.as_str(),
+                    NameInfo {
+                        ty: p_ty,
+                        refs: vec![param.loc.clone()],
+                        is_const: true,
+                        is_initialized: true,
+                    },
+                ));
+            }
+            fn_type.aux_type = Some(Box::new(ret_type.clone()));
+            let fn_info = NameInfo {
+                ty: fn_type,
+                refs: vec![loc.clone()],
+                is_const: todo!(),
+                is_initialized: todo!(),
+            };
+            state.env.add(name.as_str(), fn_info);
+            // copy the current environment and preserve it so we can keep
+            // reset it back to it later
+            let old_env = state.env.extend();
+            state.scope_stack.push(Scope::Func);
+
+            // add the pairs to the environment
+            for (param_name, param_info) in pairs_to_register {
+                state.env.add(param_name, param_info);
+            }
 
             // check the body
+            check_ins(body, state);
 
-            todo!()
+            // reset the scope info
+            state.scope_stack.pop();
+            state.env = old_env;
         }
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
