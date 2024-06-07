@@ -12,8 +12,16 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+pub struct NameInfo {
+    ty: Type,
+    refs: Vec<SourceRef>,
+    is_const: bool,
+    is_initialized: bool,
+}
+
+#[derive(Debug, Clone)]
 struct TypeEnv {
-    vars: HashMap<String, Type>,
+    vars: HashMap<String, NameInfo>,
 }
 
 impl TypeEnv {
@@ -23,14 +31,18 @@ impl TypeEnv {
         }
     }
 
-    fn extend(&self, var: String, ty: Type) -> Self {
+    fn extend(&self, var: String, info: NameInfo) -> Self {
         let mut new_env = self.clone();
-        new_env.vars.insert(var, ty);
+        new_env.vars.insert(var, info);
         new_env
     }
 
-    fn lookup(&self, var: &str) -> Option<&Type> {
-        self.vars.get(var)
+    fn add(&mut self, var: String, info: NameInfo) {
+        self.vars.insert(var, info);
+    }
+
+    fn lookup(&mut self, var: &str) -> Option<&mut NameInfo> {
+        self.vars.get_mut(var)
     }
 }
 
@@ -55,7 +67,7 @@ impl State {
     }
 }
 
-pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Type {
+pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Type {
     match e {
         Expr::Number { val, loc } => match context_ty {
             Some(ty) => {
@@ -212,7 +224,10 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
         Expr::Ident { name, loc } => {
             let i_ty = state.env.lookup(name);
             match i_ty {
-                Some(ty) => ty.clone(),
+                Some(info) => {
+                    info.refs.push(loc.clone());
+                    info.ty.clone()
+                }
                 None => {
                     state.push_err(CheckerError::ReferenceToUndefinedName {
                         loc: loc.clone(),
@@ -368,13 +383,86 @@ pub fn check_ins(i: &Ins, state: &mut State) {
             ty,
             init_val,
             loc,
-        } => todo!(),
+        } => {
+            let name_info = state.env.lookup(&name.as_str());
+            match name_info {
+                Some(_) => {
+                    state.push_err(CheckerError::NameAlreadyDefined {
+                        loc: loc.clone(),
+                        name: name.as_str(),
+                    });
+                    return;
+                }
+                None => {
+                    let expr_ty = check_expr(init_val, ty, state);
+                    let info = NameInfo {
+                        ty: expr_ty,
+                        refs: vec![loc.clone()],
+                        is_const: true,
+                        is_initialized: true,
+                    };
+                    state.env.add(name.as_str(), info);
+                }
+            }
+        }
         Ins::DeclVar {
             name,
             ty,
             init_val,
             loc,
-        } => todo!(),
+        } => {
+            let name_info = state.env.lookup(&name.as_str());
+
+            match name_info {
+                Some(_) => {
+                    state.push_err(CheckerError::NameAlreadyDefined {
+                        loc: loc.clone(),
+                        name: name.as_str(),
+                    });
+                    return;
+                }
+                None => match (ty, init_val) {
+                    (Some(_), Some(expr)) => {
+                        // TODO: verify that ty is an actual known type (builtin)
+                        // or user defined
+                        let expr_ty = check_expr(expr, ty, state);
+                        let info = NameInfo {
+                            ty: expr_ty,
+                            refs: vec![loc.clone()],
+                            is_const: false,
+                            is_initialized: true,
+                        };
+                        state.env.add(name.as_str(), info);
+                    }
+                    (Some(ty), None) => {
+                        // TODO: verify that ty is an actual known type (builtin)
+                        // or user defined
+                        let info = NameInfo {
+                            ty: ty.clone(),
+                            refs: vec![loc.clone()],
+                            is_const: false,
+                            is_initialized: false,
+                        };
+                        state.env.add(name.as_str(), info);
+                    }
+                    (None, Some(expr)) => {
+                        let expr_ty = check_expr(expr, &None, state);
+                        let info = NameInfo {
+                            ty: expr_ty,
+                            refs: vec![loc.clone()],
+                            is_const: false,
+                            is_initialized: true,
+                        };
+                        state.env.add(name.as_str(), info);
+                    }
+                    (None, None) => {
+                        unreachable!(
+                            "seman::check_ins(): variable declaration with no type or init value."
+                        )
+                    }
+                },
+            }
+        }
         Ins::DeclFunc {
             name,
             params,
