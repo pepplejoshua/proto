@@ -67,6 +67,15 @@ impl State {
     }
 }
 
+pub fn type_is_known(ty: &Type) -> bool {
+    match ty.tag {
+        Sig::Identifier => {
+            unimplemented!("seman::type_is_known(): identified types are not implemented yet.")
+        }
+        _ => true,
+    }
+}
+
 pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Type {
     match e {
         Expr::Number { val, loc } => match context_ty {
@@ -385,25 +394,21 @@ pub fn check_ins(i: &Ins, state: &mut State) {
             loc,
         } => {
             let name_info = state.env.lookup(&name.as_str());
-            match name_info {
-                Some(_) => {
-                    state.push_err(CheckerError::NameAlreadyDefined {
-                        loc: loc.clone(),
-                        name: name.as_str(),
-                    });
-                    return;
-                }
-                None => {
-                    let expr_ty = check_expr(init_val, ty, state);
-                    let info = NameInfo {
-                        ty: expr_ty,
-                        refs: vec![loc.clone()],
-                        is_const: true,
-                        is_initialized: true,
-                    };
-                    state.env.add(name.as_str(), info);
-                }
+            if name_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: loc.clone(),
+                    name: name.as_str(),
+                });
+                return;
             }
+            let expr_ty = check_expr(init_val, ty, state);
+            let info = NameInfo {
+                ty: expr_ty,
+                refs: vec![loc.clone()],
+                is_const: true,
+                is_initialized: true,
+            };
+            state.env.add(name.as_str(), info);
         }
         Ins::DeclVar {
             name,
@@ -412,55 +417,53 @@ pub fn check_ins(i: &Ins, state: &mut State) {
             loc,
         } => {
             let name_info = state.env.lookup(&name.as_str());
+            if name_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: loc.clone(),
+                    name: name.as_str(),
+                });
+                return;
+            }
 
-            match name_info {
-                Some(_) => {
-                    state.push_err(CheckerError::NameAlreadyDefined {
-                        loc: loc.clone(),
-                        name: name.as_str(),
-                    });
-                    return;
+            match (ty, init_val) {
+                (Some(_), Some(expr)) => {
+                    // TODO: verify that ty is an actual known type (builtin)
+                    // or user defined
+                    let expr_ty = check_expr(expr, ty, state);
+                    let info = NameInfo {
+                        ty: expr_ty,
+                        refs: vec![loc.clone()],
+                        is_const: false,
+                        is_initialized: true,
+                    };
+                    state.env.add(name.as_str(), info);
                 }
-                None => match (ty, init_val) {
-                    (Some(_), Some(expr)) => {
-                        // TODO: verify that ty is an actual known type (builtin)
-                        // or user defined
-                        let expr_ty = check_expr(expr, ty, state);
-                        let info = NameInfo {
-                            ty: expr_ty,
-                            refs: vec![loc.clone()],
-                            is_const: false,
-                            is_initialized: true,
-                        };
-                        state.env.add(name.as_str(), info);
-                    }
-                    (Some(ty), None) => {
-                        // TODO: verify that ty is an actual known type (builtin)
-                        // or user defined
-                        let info = NameInfo {
-                            ty: ty.clone(),
-                            refs: vec![loc.clone()],
-                            is_const: false,
-                            is_initialized: false,
-                        };
-                        state.env.add(name.as_str(), info);
-                    }
-                    (None, Some(expr)) => {
-                        let expr_ty = check_expr(expr, &None, state);
-                        let info = NameInfo {
-                            ty: expr_ty,
-                            refs: vec![loc.clone()],
-                            is_const: false,
-                            is_initialized: true,
-                        };
-                        state.env.add(name.as_str(), info);
-                    }
-                    (None, None) => {
-                        unreachable!(
-                            "seman::check_ins(): variable declaration with no type or init value."
-                        )
-                    }
-                },
+                (Some(ty), None) => {
+                    // TODO: verify that ty is an actual known type (builtin)
+                    // or user defined
+                    let info = NameInfo {
+                        ty: ty.clone(),
+                        refs: vec![loc.clone()],
+                        is_const: false,
+                        is_initialized: false,
+                    };
+                    state.env.add(name.as_str(), info);
+                }
+                (None, Some(expr)) => {
+                    let expr_ty = check_expr(expr, &None, state);
+                    let info = NameInfo {
+                        ty: expr_ty,
+                        refs: vec![loc.clone()],
+                        is_const: false,
+                        is_initialized: true,
+                    };
+                    state.env.add(name.as_str(), info);
+                }
+                (None, None) => {
+                    unreachable!(
+                        "seman::check_ins(): variable declaration with no type or init value."
+                    )
+                }
             }
         }
         Ins::DeclFunc {
@@ -469,12 +472,33 @@ pub fn check_ins(i: &Ins, state: &mut State) {
             ret_type,
             body,
             loc,
-        } => todo!(),
+        } => {
+            // make sure name is not taken
+            let fn_info = state.env.lookup(&name.as_str());
+            if fn_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: name.get_source_ref(),
+                    name: name.as_str(),
+                });
+                return;
+            }
+
+            // check the parameters and add them to the environment
+            for param in params.into_iter() {}
+
+            // construct the function type and add it to the environment
+
+            // check the body
+
+            todo!()
+        }
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
         Ins::Block { code, loc } => todo!(),
         Ins::AssignTo { target, value, loc } => todo!(),
-        Ins::ExprIns { expr, loc } => todo!(),
+        Ins::ExprIns { expr, loc } => {
+            check_expr(expr, &None, state);
+        }
         Ins::Return { expr, loc } => todo!(),
         Ins::SingleLineComment { .. } | Ins::ErrorIns { .. } => {
             // do nothing
