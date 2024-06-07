@@ -59,7 +59,7 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
     match e {
         Expr::Number { val, loc } => match context_ty {
             Some(ty) => {
-                if ty.tag.is_signed_type() || ty.tag.is_unsigned_type() {
+                if ty.tag.is_numerical_type() {
                     match ty.tag {
                         Sig::I8 => {
                             let val_i8 = val.parse::<i8>();
@@ -242,15 +242,24 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                     }
 
                     match (l_ty.tag, r_ty.tag) {
-                        (a, b) if a.is_signed_type() && b.is_signed_type() && a == b => {
-                            todo!()
+                        // covers the case where both a and b are numerical types
+                        // and are the same type
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() && a == b => {
+                            Type::new(a, loc.clone())
                         }
-                        (a, b) if a.is_unsigned_type() && b.is_unsigned_type() && a == b => {
-                            todo!()
+                        (Sig::Char, Sig::Char) | (Sig::Str, Sig::Char) | (Sig::Str, Sig::Str)
+                            if matches!(op, BinOpType::Add) =>
+                        {
+                            Type::new(Sig::Str, loc.clone())
                         }
-                        (Sig::Char, Sig::Char) => todo!(),
                         _ => {
-                            todo!()
+                            state.push_err(CheckerError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: l_ty.as_str(),
+                                right: r_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, loc.clone())
                         }
                     }
                 }
@@ -260,11 +269,15 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                     }
 
                     match (l_ty.tag, r_ty.tag) {
-                        (Sig::Bool, Sig::Bool) => {
-                            todo!()
-                        }
+                        (Sig::Bool, Sig::Bool) => Type::new(Sig::Bool, loc.clone()),
                         _ => {
-                            todo!()
+                            state.push_err(CheckerError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: l_ty.as_str(),
+                                right: r_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, loc.clone())
                         }
                     }
                 }
@@ -279,15 +292,21 @@ pub fn check_expr(e: &Expr, context_ty: Option<&Type>, state: &mut State) -> Typ
                     }
 
                     match (l_ty.tag, r_ty.tag) {
-                        (a, b) if a.is_signed_type() && b.is_signed_type() && a == b => {
-                            todo!()
+                        (a, b) if a.is_numerical_type() && b.is_numerical_type() && a == b => {
+                            Type::new(Sig::Bool, loc.clone())
                         }
-                        (a, b) if a.is_unsigned_type() && b.is_unsigned_type() && a == b => {
-                            todo!()
+                        (Sig::Char, Sig::Char) => Type::new(Sig::Bool, loc.clone()),
+                        (Sig::Bool, Sig::Bool) if matches!(op, BinOpType::Eq | BinOpType::Neq) => {
+                            Type::new(Sig::Bool, loc.clone())
                         }
-                        (Sig::Char, Sig::Char) => todo!(),
                         _ => {
-                            todo!()
+                            state.push_err(CheckerError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: l_ty.as_str(),
+                                right: r_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, loc.clone())
                         }
                     }
                 }

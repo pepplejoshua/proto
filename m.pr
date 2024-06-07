@@ -10,5 +10,5 @@ fn rets() bool {
 }
 
 fn main() void {
-  res :: rets();
+  res :: 1;
 }
