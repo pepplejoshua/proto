@@ -118,5 +118,11 @@ pub enum CheckerError {
         given: String,
         loc_given: SourceRef,
     },
+    IncorrectFunctionArity {
+        func: String,
+        exp: usize,
+        given: usize,
+        loc_given: SourceRef,
+    },
     TooManyErrors,
 }

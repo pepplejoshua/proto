@@ -456,6 +456,15 @@ impl SourceReporter {
                 let msg = format!("Function expects a return type of '{exp}' but a value of type '{given}' was returned.");
                 self.report_with_ref(&loc_given, msg, None, false);
             }
+            CheckerError::IncorrectFunctionArity {
+                exp,
+                given,
+                loc_given,
+                func,
+            } => {
+                let msg = format!("The function '{func}' expects {exp} arguments but was called with {given} arguments.");
+                self.report_with_ref(&loc_given, msg, None, false);
+            }
         }
     }
 

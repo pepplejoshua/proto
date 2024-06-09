@@ -392,7 +392,47 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
             fields,
             loc,
         } => todo!(),
-        Expr::CallFn { func, args, loc } => todo!(),
+        Expr::CallFn { func, args, loc } => {
+            let info = state.env.lookup(&func.as_str());
+            match info {
+                Some(info) => {
+                    info.refs.push(loc.clone());
+                    // make sure they have the same arity
+                    let fn_arity = info.ty.sub_types.len();
+                    let fn_ret_ty = info.ty.aux_type.clone().unwrap();
+                    if fn_arity != args.len() {
+                        state.push_err(CheckerError::IncorrectFunctionArity {
+                            func: func.as_str(),
+                            exp: fn_arity,
+                            given: args.len(),
+                            loc_given: loc.clone(),
+                        });
+                        return Type::new(Sig::ErrorType, loc.clone());
+                    }
+
+                    let fn_param_tys = info.ty.sub_types.clone();
+                    for (param_ty, arg) in fn_param_tys.iter().zip(args.iter()) {
+                        let arg_ty = check_expr(arg, &Some(param_ty.clone()), state);
+
+                        if !arg_ty.tag.is_error_type() && !types_are_eq(param_ty, &arg_ty) {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: arg.get_source_ref(),
+                                expected: param_ty.as_str(),
+                                found: arg_ty.as_str(),
+                            });
+                        }
+                    }
+                    *fn_ret_ty
+                }
+                None => {
+                    state.push_err(CheckerError::ReferenceToUndefinedName {
+                        loc: loc.clone(),
+                        var_name: func.as_str(),
+                    });
+                    Type::new(Sig::ErrorType, loc.clone())
+                }
+            }
+        }
         Expr::UnaryOp { op, expr, loc } => {
             let expr_ty = check_expr(expr, &None, state);
 
@@ -618,7 +658,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) {
             };
 
             for s_ins in code.iter() {
-                check_ins(s_ins, &None, state)
+                check_ins(s_ins, &context_ty, state)
             }
 
             if let Some(old_env) = old_env {
@@ -637,6 +677,15 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) {
                     if !expr_ty.tag.is_error_type() && context_ty.tag == Sig::Void {
                         state.push_err(CheckerError::MismatchingReturnType {
                             exp: "void".to_string(),
+                            given: expr_ty.as_str(),
+                            loc_given: loc.clone(),
+                        });
+                        return;
+                    }
+
+                    if !expr_ty.tag.is_error_type() && !types_are_eq(&expr_ty, context_ty) {
+                        state.push_err(CheckerError::MismatchingReturnType {
+                            exp: context_ty.as_str(),
                             given: expr_ty.as_str(),
                             loc_given: loc.clone(),
                         })
