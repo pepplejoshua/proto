@@ -3,6 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::pparser::Parser,
+    seman::seman::check_top_level,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -10,6 +11,7 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
+    Checker,
 }
 
 #[allow(dead_code)]
@@ -19,8 +21,8 @@ pub enum Command {
 
 #[allow(dead_code)]
 pub enum Backend {
-    BC,  // will go to BC
-    CPP, // will go to C++
+    WASM, // will go to WASM
+    CPP,  // will go to C++
 }
 
 #[allow(dead_code)]
@@ -79,10 +81,11 @@ impl PipelineConfig {
                 let mut use_pfmt = false;
                 for arg in args {
                     match arg.as_str() {
-                        "pir" => backend = Backend::BC,
+                        "wasm" => backend = Backend::WASM,
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
+                        "check" => max_stage = Stage::Checker,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -227,8 +230,20 @@ impl Workspace {
             println!("{file_mod_s}");
         }
 
-        // if let Stage::Parser = self.config.max_stage {
-        //     return;
-        // }
+        if let Stage::Parser = self.config.max_stage {
+            return;
+        }
+
+        let file_mod = parser.file_mod;
+        let src_file = parser.lexer.src;
+        let state = check_top_level(&file_mod, src_file.clone());
+        let reporter = SourceReporter::new(src_file);
+        for ce in state.errs.iter() {
+            reporter.report_checker_error(ce.clone());
+        }
+
+        if self.config.dbg_info {
+            reporter.show_info("checking complete.".to_string());
+        }
     }
 }

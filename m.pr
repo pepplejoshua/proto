@@ -3,7 +3,7 @@ fn rets() bool {
   b :: 31;
   c :: a + b;
   d :: c * 2;
-  e :: d > 10;
+  e : bool : d > 10;
   f :: -a;
   g :: !e;
   return e;

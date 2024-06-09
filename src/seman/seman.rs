@@ -3,7 +3,7 @@
 use std::{collections::HashMap, pin::Pin, process::exit};
 
 use crate::{
-    parser::ast::{BinOpType, Expr, Ins, UnaryOpType},
+    parser::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType},
     source::{
         errors::CheckerError,
         source::{SourceFile, SourceRef, SourceReporter},
@@ -49,6 +49,7 @@ impl TypeEnv {
 pub enum Scope {
     TopLevel,
     Func,
+    Block,
     Struct,
     Mod,
     Method,
@@ -58,8 +59,9 @@ pub enum Scope {
 pub struct State {
     src: SourceFile,
     env: TypeEnv,
-    errs: Vec<CheckerError>,
+    pub errs: Vec<CheckerError>,
     scope_stack: Vec<Scope>,
+    enter_new_scope: bool,
 }
 
 impl State {
@@ -69,6 +71,7 @@ impl State {
             env: TypeEnv::new(),
             errs: vec![],
             scope_stack: vec![Scope::TopLevel],
+            enter_new_scope: true,
         }
     }
 
@@ -298,8 +301,8 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
             right,
             loc,
         } => {
-            let l_ty = check_expr(left, context_ty, state);
-            let r_ty = check_expr(right, context_ty, state);
+            let l_ty = check_expr(left, &None, state);
+            let r_ty = check_expr(right, &None, state);
 
             match op {
                 BinOpType::Add
@@ -391,7 +394,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
         } => todo!(),
         Expr::CallFn { func, args, loc } => todo!(),
         Expr::UnaryOp { op, expr, loc } => {
-            let expr_ty = check_expr(expr, context_ty, state);
+            let expr_ty = check_expr(expr, &None, state);
 
             match op {
                 UnaryOpType::Not => {
@@ -431,7 +434,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
     }
 }
 
-pub fn check_ins(i: &Ins, context_ty: &Type, state: &mut State) {
+pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) {
     match i {
         Ins::DeclConst {
             name,
@@ -580,8 +583,8 @@ pub fn check_ins(i: &Ins, context_ty: &Type, state: &mut State) {
             let fn_info = NameInfo {
                 ty: fn_type,
                 refs: vec![loc.clone()],
-                is_const: todo!(),
-                is_initialized: todo!(),
+                is_const: true,
+                is_initialized: true,
             };
             state.env.add(name.as_str(), fn_info);
             // copy the current environment and preserve it so we can keep
@@ -595,37 +598,59 @@ pub fn check_ins(i: &Ins, context_ty: &Type, state: &mut State) {
             }
 
             // check the body
-            check_ins(body, ret_type, state);
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+            check_ins(body, &Some(ret_type.clone()), state);
 
             // reset the scope info
+            state.enter_new_scope = old_enter_new_scope;
             state.scope_stack.pop();
             state.env = old_env;
         }
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
-        Ins::Block { code, loc } => todo!(),
+        Ins::Block { code, loc } => {
+            let old_env = if state.enter_new_scope {
+                state.scope_stack.push(Scope::Block);
+                Some(state.env.extend())
+            } else {
+                None
+            };
+
+            for s_ins in code.iter() {
+                check_ins(s_ins, &None, state)
+            }
+
+            if let Some(old_env) = old_env {
+                state.scope_stack.pop();
+                state.env = old_env;
+            }
+        }
         Ins::AssignTo { target, value, loc } => todo!(),
         Ins::ExprIns { expr, loc } => {
             check_expr(expr, &None, state);
         }
         Ins::Return { expr, loc } => {
             if let Some(e) = expr {
-                let expr_ty = check_expr(e, &Some(context_ty.clone()), state);
-                if !expr_ty.tag.is_error_type() && context_ty.tag == Sig::Void {
-                    state.push_err(CheckerError::MismatchingReturnType {
-                        exp: "void".to_string(),
-                        given: expr_ty.as_str(),
-                        loc_given: loc.clone(),
-                    })
+                let expr_ty = check_expr(e, context_ty, state);
+                if let Some(context_ty) = context_ty {
+                    if !expr_ty.tag.is_error_type() && context_ty.tag == Sig::Void {
+                        state.push_err(CheckerError::MismatchingReturnType {
+                            exp: "void".to_string(),
+                            given: expr_ty.as_str(),
+                            loc_given: loc.clone(),
+                        })
+                    }
                 }
-                // DO TYPECHECKING
             } else {
-                if context_ty.tag != Sig::Void {
-                    state.push_err(CheckerError::MismatchingReturnType {
-                        exp: context_ty.as_str(),
-                        given: "void".to_string(),
-                        loc_given: loc.clone(),
-                    })
+                if let Some(context_ty) = context_ty {
+                    if context_ty.tag != Sig::Void {
+                        state.push_err(CheckerError::MismatchingReturnType {
+                            exp: context_ty.as_str(),
+                            given: "void".to_string(),
+                            loc_given: loc.clone(),
+                        })
+                    }
                 }
             }
         }
@@ -633,4 +658,12 @@ pub fn check_ins(i: &Ins, context_ty: &Type, state: &mut State) {
             // do nothing
         }
     }
+}
+
+pub fn check_top_level(file_mod: &FileModule, src_file: SourceFile) -> State {
+    let mut state = State::new(src_file);
+    for tl_ins in file_mod.top_level.iter() {
+        check_ins(tl_ins, &None, &mut state);
+    }
+    state
 }
