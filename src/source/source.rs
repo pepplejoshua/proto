@@ -448,6 +448,14 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::MismatchingReturnType {
+                exp,
+                given,
+                loc_given,
+            } => {
+                let msg = format!("Function expects a return type of '{exp}' but a value of type '{given}' was returned.");
+                self.report_with_ref(&loc_given, msg, None, false);
+            }
         }
     }
 

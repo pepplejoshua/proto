@@ -23,7 +23,6 @@ pub enum Sig {
     U64,
     UInt,
     Function,
-    Infer,
     ErrorType,
 }
 
@@ -66,13 +65,6 @@ impl Sig {
         }
     }
 
-    pub fn is_infer_type(&self) -> bool {
-        match self {
-            Sig::Infer => true,
-            _ => false,
-        }
-    }
-
     pub fn is_error_type(&self) -> bool {
         match self {
             Sig::ErrorType => true,
@@ -101,10 +93,6 @@ impl Type {
         }
     }
 
-    pub fn is_infer_type(&self) -> bool {
-        self.tag == Sig::Infer
-    }
-
     pub fn as_str(&self) -> String {
         match self.tag {
             Sig::Identifier => {
@@ -112,13 +100,6 @@ impl Type {
                     name.clone()
                 } else {
                     panic!("Identifier type has no name");
-                }
-            }
-            Sig::Infer => {
-                if let Some(infer_name) = &self.name {
-                    format!("<infer:={infer_name}>")
-                } else {
-                    format!("<infer>")
                 }
             }
             Sig::Bool => "bool".to_string(),

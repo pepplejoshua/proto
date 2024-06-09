@@ -103,6 +103,25 @@ pub fn type_is_known(ty: &Type) -> bool {
     }
 }
 
+pub fn types_are_eq(a: &Type, b: &Type) -> bool {
+    match (a.tag, b.tag) {
+        (int_a, int_b) if int_a.is_signed_type() && int_b.is_signed_type() && int_a == int_b => {
+            true
+        }
+        (uint_a, uint_b)
+            if uint_a.is_unsigned_type() && uint_b.is_unsigned_type() && uint_a == uint_b =>
+        {
+            true
+        }
+        (Sig::Bool, Sig::Bool) => true,
+        (Sig::Char, Sig::Char) => true,
+        (Sig::Str, Sig::Str) => true,
+        (Sig::Void, Sig::Void) => true,
+        (Sig::Identifier, Sig::Identifier) => todo!(),
+        (Sig::ErrorType, _) | (_, Sig::ErrorType) | _ => false,
+    }
+}
+
 pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Type {
     match e {
         Expr::Number { val, loc } => match context_ty {
@@ -412,7 +431,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
     }
 }
 
-pub fn check_ins(i: &Ins, state: &mut State) {
+pub fn check_ins(i: &Ins, context_ty: &Type, state: &mut State) {
     match i {
         Ins::DeclConst {
             name,
@@ -429,6 +448,15 @@ pub fn check_ins(i: &Ins, state: &mut State) {
                 return;
             }
             let expr_ty = check_expr(init_val, ty, state);
+            if let Some(ty) = ty {
+                if !expr_ty.tag.is_error_type() && !types_are_eq(ty, &expr_ty) {
+                    state.push_err(CheckerError::TypeMismatch {
+                        loc: loc.clone(),
+                        expected: ty.as_str(),
+                        found: expr_ty.as_str(),
+                    });
+                }
+            }
             let info = NameInfo {
                 ty: expr_ty,
                 refs: vec![loc.clone()],
@@ -457,6 +485,15 @@ pub fn check_ins(i: &Ins, state: &mut State) {
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
                     let expr_ty = check_expr(expr, ty, state);
+                    if let Some(ty) = ty {
+                        if !expr_ty.tag.is_error_type() && !types_are_eq(ty, &expr_ty) {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: loc.clone(),
+                                expected: ty.as_str(),
+                                found: expr_ty.as_str(),
+                            });
+                        }
+                    }
                     let info = NameInfo {
                         ty: expr_ty,
                         refs: vec![loc.clone()],
@@ -466,10 +503,15 @@ pub fn check_ins(i: &Ins, state: &mut State) {
                     state.env.add(name.as_str(), info);
                 }
                 (Some(ty), None) => {
+                    let var_ty = if !type_is_known(ty) {
+                        Type::new(Sig::ErrorType, loc.clone())
+                    } else {
+                        ty.clone()
+                    };
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
                     let info = NameInfo {
-                        ty: ty.clone(),
+                        ty: var_ty,
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: false,
@@ -553,7 +595,7 @@ pub fn check_ins(i: &Ins, state: &mut State) {
             }
 
             // check the body
-            check_ins(body, state);
+            check_ins(body, ret_type, state);
 
             // reset the scope info
             state.scope_stack.pop();
@@ -566,7 +608,27 @@ pub fn check_ins(i: &Ins, state: &mut State) {
         Ins::ExprIns { expr, loc } => {
             check_expr(expr, &None, state);
         }
-        Ins::Return { expr, loc } => todo!(),
+        Ins::Return { expr, loc } => {
+            if let Some(e) = expr {
+                let expr_ty = check_expr(e, &Some(context_ty.clone()), state);
+                if !expr_ty.tag.is_error_type() && context_ty.tag == Sig::Void {
+                    state.push_err(CheckerError::MismatchingReturnType {
+                        exp: "void".to_string(),
+                        given: expr_ty.as_str(),
+                        loc_given: loc.clone(),
+                    })
+                }
+                // DO TYPECHECKING
+            } else {
+                if context_ty.tag != Sig::Void {
+                    state.push_err(CheckerError::MismatchingReturnType {
+                        exp: context_ty.as_str(),
+                        given: "void".to_string(),
+                        loc_given: loc.clone(),
+                    })
+                }
+            }
+        }
         Ins::SingleLineComment { .. } | Ins::ErrorIns { .. } => {
             // do nothing
         }

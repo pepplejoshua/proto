@@ -113,5 +113,10 @@ pub enum CheckerError {
         loc: SourceRef,
         name: String,
     },
+    MismatchingReturnType {
+        exp: String,
+        given: String,
+        loc_given: SourceRef,
+    },
     TooManyErrors,
 }
