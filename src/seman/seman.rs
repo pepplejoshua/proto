@@ -278,7 +278,6 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Type>, state: &mut State) -> Typ
         Expr::Str { loc, .. } => Type::new(Sig::Str, loc.clone()),
         Expr::Char { loc, .. } => Type::new(Sig::Char, loc.clone()),
         Expr::Bool { loc, .. } => Type::new(Sig::Bool, loc.clone()),
-        Expr::Void { loc } => Type::new(Sig::Void, loc.clone()),
         Expr::Ident { name, loc } => {
             let i_ty = state.env.lookup(name);
             match i_ty {

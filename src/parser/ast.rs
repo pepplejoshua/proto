@@ -77,9 +77,6 @@ pub enum Expr {
         val: bool,
         loc: SourceRef,
     },
-    Void {
-        loc: SourceRef,
-    },
     Ident {
         name: String,
         loc: SourceRef,
@@ -118,7 +115,6 @@ impl Expr {
             | Expr::Str { loc, .. }
             | Expr::Char { loc, .. }
             | Expr::Bool { loc, .. }
-            | Expr::Void { loc }
             | Expr::Ident { loc, .. }
             | Expr::BinOp { loc, .. }
             | Expr::InitStruct { loc, .. }
@@ -132,7 +128,7 @@ impl Expr {
         match self {
             Expr::Number { val, .. } => val.clone(),
             Expr::Str { val, .. } => format!("\"{val}\""),
-            Expr::Char { val, .. } => val.to_string(),
+            Expr::Char { val, .. } => format!("'{val}'"),
             Expr::Bool { val, .. } => {
                 if *val {
                     "true".to_string()
@@ -140,7 +136,6 @@ impl Expr {
                     "false".to_string()
                 }
             }
-            Expr::Void { .. } => "void".to_string(),
             Expr::Ident { name, .. } => name.clone(),
             Expr::BinOp {
                 op,
