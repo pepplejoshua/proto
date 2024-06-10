@@ -1,7 +1,7 @@
 #![allow(unused)]
 use crate::{source::source::SourceRef, types::signature::Type};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum BinOpType {
     Add,
     Sub,
@@ -43,7 +43,7 @@ impl BinOpType {
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 pub enum UnaryOpType {
     Not,
     Negate,

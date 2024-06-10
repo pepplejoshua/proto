@@ -113,6 +113,11 @@ pub enum CheckerError {
         loc: SourceRef,
         name: String,
     },
+    NameIsNotCallable {
+        name: String,
+        name_ty: String,
+        loc: SourceRef,
+    },
     MismatchingReturnType {
         exp: String,
         given: String,

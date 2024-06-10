@@ -465,6 +465,11 @@ impl SourceReporter {
                 let msg = format!("The function '{func}' expects {exp} arguments but was called with {given} arguments.");
                 self.report_with_ref(&loc_given, msg, None, false);
             }
+            CheckerError::NameIsNotCallable { name, name_ty, loc } => {
+                let msg =
+                    format!("'{name}' of type '{name_ty}' is not a function and cannot be called.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

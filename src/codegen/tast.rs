@@ -32,7 +32,7 @@ pub enum TyExpr {
         expr: Box<TyExpr>,
     },
     CallFn {
-        func: String,
+        func: Box<TyExpr>,
         args: Vec<TyExpr>,
     },
 }
@@ -98,4 +98,70 @@ pub enum TyIns {
     Return {
         expr: Option<TyExpr>,
     },
+}
+
+impl TyIns {
+    pub fn as_str(&self) -> String {
+        match self {
+            TyIns::Constant { name, ty, init } => {
+                format!("{name} : {} : {}", ty.as_str(), init.as_str())
+            }
+            TyIns::Var { name, ty, init } => {
+                if let Some(init) = init {
+                    format!("{name} : {} : {};", ty.as_str(), init.as_str())
+                } else {
+                    format!("{name} : {};", ty.as_str())
+                }
+            }
+            TyIns::Func {
+                name,
+                params,
+                ret_ty,
+                body,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|fn_param| format!("{} {}", fn_param.name, fn_param.given_ty.as_str()))
+                    .collect::<Vec<String>>();
+                let params_str = params_str.join(", ");
+                format!(
+                    "fn {name}({params_str}) {}\n{}",
+                    ret_ty.as_str(),
+                    body.as_str()
+                )
+            }
+            TyIns::Block { code } => {
+                let mut buf = String::new();
+                for ins in code {
+                    buf.push_str(&(ins.as_str() + "\n"))
+                }
+                buf
+            }
+            TyIns::ExprIns { expr } => {
+                format!("{};", expr.as_str())
+            }
+            TyIns::Return { expr } => {
+                if let Some(expr) = expr {
+                    format!("return {}", expr.as_str())
+                } else {
+                    "return;".to_string()
+                }
+            }
+        }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct TyFileModule {
+    pub top_level: Vec<TyIns>,
+    pub src_file: String,
+}
+
+impl TyFileModule {
+    pub fn new(src_file: String) -> Self {
+        TyFileModule {
+            top_level: vec![],
+            src_file,
+        }
+    }
 }
