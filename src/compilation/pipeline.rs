@@ -1,6 +1,7 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::{
+    codegen::cpp::cpp_gen_top_level,
     lexer::{lexer::Lexer, token::Token},
     parser::pparser::Parser,
     seman::seman::check_top_level,
@@ -11,7 +12,8 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
-    Checker,
+    Sema,
+    CodeGen,
 }
 
 #[allow(dead_code)]
@@ -46,7 +48,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Parser,
+                max_stage: Stage::Sema,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -67,7 +69,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::CPP,
                         target_file: "".to_string(),
-                        max_stage: Stage::Parser,
+                        max_stage: Stage::Sema,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -85,7 +87,8 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "check" => max_stage = Stage::Checker,
+                        "sema" => max_stage = Stage::Sema,
+                        "gen" => max_stage = Stage::CodeGen,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
                         "help" => show_help = true,
@@ -236,7 +239,7 @@ impl Workspace {
 
         let file_mod = parser.file_mod;
         let src_file = parser.lexer.src;
-        let state = check_top_level(&file_mod, src_file.clone());
+        let (state, _ty_file_mod) = check_top_level(&file_mod, src_file.clone());
         let reporter = SourceReporter::new(src_file);
         for ce in state.errs.iter() {
             reporter.report_checker_error(ce.clone());
@@ -245,5 +248,11 @@ impl Workspace {
         if self.config.dbg_info {
             reporter.show_info("checking complete.".to_string());
         }
+
+        if let Stage::Sema = self.config.max_stage {
+            return;
+        }
+
+        cpp_gen_top_level(&_ty_file_mod);
     }
 }

@@ -3,7 +3,7 @@
 use std::{collections::HashMap, pin::Pin, process::exit};
 
 use crate::{
-    codegen::tast::{TyExpr, TyFileModule, TyIns},
+    codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
     parser::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType},
     source::{
         errors::CheckerError,
@@ -638,12 +638,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             } else {
                 Some(TyIns::Constant {
                     name: name.as_str(),
-                    ty: expr_ty,
+                    ty: expr_ty.clone(),
                     init: expr_ty_expr.unwrap(),
                 })
             };
             let info = NameInfo {
-                ty: expr_ty,
+                ty: expr_ty.clone(),
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
@@ -685,12 +685,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     } else {
                         Some(TyIns::Var {
                             name: name.as_str(),
-                            ty: expr_ty,
+                            ty: expr_ty.clone(),
                             init: expr_ty_expr,
                         })
                     };
                     let info = NameInfo {
-                        ty: expr_ty,
+                        ty: expr_ty.clone(),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
@@ -707,7 +707,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
                     let info = NameInfo {
-                        ty: var_ty,
+                        ty: var_ty.clone(),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: false,
@@ -715,14 +715,14 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     state.env.add(name.as_str(), info);
                     Some(TyIns::Var {
                         name: name.as_str(),
-                        ty: var_ty,
+                        ty: var_ty.clone(),
                         init: None,
                     })
                 }
                 (None, Some(expr)) => {
                     let (expr_ty, expr_ty_expr) = check_expr(expr, &None, state);
                     let info = NameInfo {
-                        ty: expr_ty,
+                        ty: expr_ty.clone(),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
@@ -762,7 +762,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     loc: name.get_source_ref(),
                     name: name.as_str(),
                 });
-                return;
+                return None;
             }
 
             // construct the function type and add it to the environment
@@ -803,19 +803,30 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             state.scope_stack.push(Scope::Func);
 
             // add the pairs to the environment
+            let mut ty_params = vec![];
             for (param_name, param_info) in pairs_to_register {
-                state.env.add(param_name, param_info);
+                state.env.add(param_name.clone(), param_info.clone());
+                ty_params.push(TyFnParam {
+                    name: param_name,
+                    given_ty: param_info.ty,
+                });
             }
 
             // check the body
             let old_enter_new_scope = state.enter_new_scope;
             state.enter_new_scope = false;
-            check_ins(body, &Some(ret_type.clone()), state);
+            let new_body = check_ins(body, &Some(ret_type.clone()), state);
 
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
             state.scope_stack.pop();
             state.env = old_env;
+            Some(TyIns::Func {
+                name: name.as_str(),
+                params: ty_params,
+                ret_ty: ret_type.clone(),
+                body: Box::new(new_body.unwrap()),
+            })
         }
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
@@ -898,10 +909,18 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
     }
 }
 
-pub fn check_top_level(file_mod: &FileModule, src_file: SourceFile) -> State {
-    let mut state = State::new(src_file);
+pub fn check_top_level(file_mod: &FileModule, src_file: SourceFile) -> (State, TyFileModule) {
+    let mut state = State::new(src_file.clone());
+    let mut tl_ty_ins = vec![];
     for tl_ins in file_mod.top_level.iter() {
-        check_ins(tl_ins, &None, &mut state);
+        let n_tl_ins = check_ins(tl_ins, &None, &mut state);
+        if n_tl_ins.is_some() {
+            tl_ty_ins.push(n_tl_ins.unwrap());
+        }
     }
-    state
+    let ty_file_mod = TyFileModule {
+        top_level: tl_ty_ins,
+        src_file: src_file.path,
+    };
+    (state, ty_file_mod)
 }

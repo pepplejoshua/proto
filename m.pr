@@ -8,5 +8,5 @@ fn rets() str {
 }
 
 fn main() void {
-  res : str : rets();
+  res :: rets();
 }
