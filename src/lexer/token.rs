@@ -85,6 +85,7 @@ pub enum Token {
     Struct(SourceRef),
 
     // misc
+    Underscore(SourceRef),
     Eof(SourceRef),
 }
 
@@ -155,6 +156,7 @@ impl Token {
             | Token::Str(src)
             | Token::Type(src)
             | Token::Colon(src)
+            | Token::Underscore(src)
             | Token::Newline(src) => src.clone(),
         }
     }
@@ -248,6 +250,7 @@ impl Token {
             Token::SingleLineStringLiteral(_, content) => content.clone(),
             Token::MultiLineStringFragment(_, mls) => mls.clone(),
             Token::Newline(_) => '\n'.to_string(),
+            Token::Underscore(_) => '_'.to_string(),
         }
     }
 }

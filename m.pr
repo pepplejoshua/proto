@@ -1,16 +1,18 @@
-fn rets() str {
-  a : i8 : 11;
-  b :: "hello";
-  c :: ' ';
-  d :: "world";
-  e :: b + c + d;
-  {
-    a := 2;
-  }
-  return e;
-}
-
 fn main() int {
-  res :: rets();
+  // type annotated with size
+  a : [3, bool] : [false, false, true];
+  // infer size with type annotation
+  b : [_, i8] : [1, 2, 3];
+  // infer size and type
+  c : [_, _] : ["abc", "def", "ghi"];
+  // no type at all
+  d :: ['a'. 'e', 'i', 'o', 'u'];
+
+  // static array type can have:
+  // - size usize or underscore identifier to infer from number of items.
+  // - type or underscore identifier to infer from type of first item or suffix type of array init
+  // static array expression can have:
+  // - array section with the expected number of items (cannot be changed).
+
   return 0;
 }

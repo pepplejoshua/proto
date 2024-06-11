@@ -214,6 +214,7 @@ impl Lexer {
             "void" => Ok(Token::Void(combined_ref)),
             "struct" => Ok(Token::Struct(combined_ref)),
             "mod" => Ok(Token::Mod(combined_ref)),
+            "_" => Ok(Token::Underscore(combined_ref)),
             _ => Ok(Token::Identifier(id, combined_ref)),
         }
     }

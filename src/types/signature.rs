@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use crate::source::source::SourceRef;
+use crate::{parser::ast::Expr, source::source::SourceRef};
 
 // this is parsed from user source code and is used to inform the
 // generation of the above and the type checking as well
@@ -23,6 +23,7 @@ pub enum Sig {
     U64,
     UInt,
     Function,
+    StaticArray,
     ErrorType,
 }
 
@@ -73,12 +74,13 @@ impl Sig {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct Type {
     pub tag: Sig,
     pub name: Option<String>,
     pub sub_types: Vec<Type>,
     pub aux_type: Option<Box<Type>>,
+    pub sub_expr: Option<Expr>,
     pub loc: SourceRef,
 }
 
@@ -89,6 +91,7 @@ impl Type {
             name: None,
             sub_types: vec![],
             aux_type: None,
+            sub_expr: None,
             loc,
         }
     }
@@ -127,6 +130,9 @@ impl Type {
                 s.push_str(") ");
                 s.push_str(&self.aux_type.as_ref().unwrap().as_str());
                 s
+            }
+            Sig::StaticArray => {
+                todo!()
             }
             Sig::ErrorType => "<error>".to_string(),
         }

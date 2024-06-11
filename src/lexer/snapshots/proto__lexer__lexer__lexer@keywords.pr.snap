@@ -26,7 +26,8 @@ stringified_tokens:
   - "uint at [start_line:3 start_col:15 end_line:3 end_col:19 flat_start:80 flat_end:84]"
   - "bool at [start_line:4 start_col:0 end_line:4 end_col:4 flat_start:85 flat_end:89]"
   - "char at [start_line:4 start_col:5 end_line:4 end_col:9 flat_start:90 flat_end:94]"
-  - "return at [start_line:5 start_col:0 end_line:5 end_col:6 flat_start:96 flat_end:102]"
-  - "mod at [start_line:5 start_col:7 end_line:5 end_col:10 flat_start:103 flat_end:106]"
-  - "struct at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:107 flat_end:113]"
+  - "return at [start_line:5 start_col:0 end_line:5 end_col:6 flat_start:95 flat_end:101]"
+  - "mod at [start_line:5 start_col:7 end_line:5 end_col:10 flat_start:102 flat_end:105]"
+  - "struct at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:106 flat_end:112]"
+  - "_ at [start_line:6 start_col:7 end_line:6 end_col:8 flat_start:113 flat_end:114]"
 

@@ -520,6 +520,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 loc,
+                sub_expr: None,
                 aux_type: None,
             },
             Token::I16(loc) => Type {
@@ -527,6 +528,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::I32(loc) => Type {
@@ -534,6 +536,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::I64(loc) => Type {
@@ -541,6 +544,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Int(loc) => Type {
@@ -548,6 +552,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::U8(loc) => Type {
@@ -555,6 +560,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::U16(loc) => Type {
@@ -562,6 +568,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::U32(loc) => Type {
@@ -569,6 +576,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::U64(loc) => Type {
@@ -576,6 +584,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::UInt(loc) => Type {
@@ -583,6 +592,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Char(loc) => Type {
@@ -590,6 +600,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Bool(loc) => Type {
@@ -597,6 +608,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Str(loc) => Type {
@@ -604,6 +616,7 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Identifier(name, loc) => Type {
@@ -611,6 +624,7 @@ impl Parser {
                 name: Some(name),
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
             Token::Void(loc) => Type {
@@ -618,10 +632,49 @@ impl Parser {
                 name: None,
                 sub_types: vec![],
                 aux_type: None,
+                sub_expr: None,
                 loc,
             },
-            Token::LBracket(loc) => {
-                todo!("Parser::parse_type: array types")
+            Token::LBracket(_) => {
+                let mut span = self.cur_token().get_source_ref();
+                self.advance();
+
+                // check for an underscore or parse an expr for the size of the
+                // array.
+                let static_size = match self.cur_token() {
+                    Token::Underscore(_) => {
+                        self.advance();
+                        None
+                    }
+                    _ => Some(self.parse_expr()),
+                };
+
+                if !matches!(self.cur_token(), Token::Comma(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a comma to separate the size and type of the static array.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance()
+                }
+
+                let static_arr_ty = match self.cur_token() {
+                    Token::Underscore(_) => None,
+                    _ => Some(self.parse_type()),
+                };
+
+                if !matches!(self.cur_token(), Token::RBracket(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a right bracket (]) to terminate the static array type.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    span = span.combine(self.cur_token().get_source_ref());
+                    self.advance()
+                }
+                todo!()
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
@@ -631,6 +684,7 @@ impl Parser {
                     name: None,
                     sub_types: vec![],
                     aux_type: None,
+                    sub_expr: None,
                     loc: cur.get_source_ref(),
                 }
             }

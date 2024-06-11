@@ -83,10 +83,13 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
             _ => unreachable!(),
         };
     }
-    let mut header = includes.into_iter().collect::<Vec<String>>().join("\n");
-    header.push('\n');
-    header.push_str(&buf);
-    header.push('\n');
+    let mut header = String::new();
+    if !includes.is_empty() {
+        header = includes.into_iter().collect::<Vec<String>>().join("\n");
+        header.push('\n');
+        header.push_str(&buf);
+        header.push('\n');
+    }
     header
 }
 
@@ -107,6 +110,7 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             state.gen_typedefs_for.insert(ty.tag);
             ty.as_str()
         }
+        Sig::StaticArray => todo!(),
         Sig::Function | Sig::ErrorType => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into a {:?} which should not occur.",
@@ -223,7 +227,9 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
 
     let header = cpp_gen_typedefs(&mut state);
     let cpp_code = cpp_top_level_code.join("");
-    let cpp_code = format!("{header}\n{cpp_code}");
+    if !header.is_empty() {
+        let cpp_code = format!("{header}\n{cpp_code}");
+    }
     // println!("{cpp_code}");
 
     let og_file_path = Path::new(&file_mod.src_file);
