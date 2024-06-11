@@ -18,31 +18,43 @@ pub struct NameInfo {
     refs: Vec<SourceRef>,
     is_const: bool,
     is_initialized: bool,
+    depth: usize,
 }
 
 #[derive(Debug, Clone)]
 struct TypeEnv {
-    vars: HashMap<String, NameInfo>,
+    vars: Vec<HashMap<String, NameInfo>>,
+    depth: usize,
 }
 
 impl TypeEnv {
     fn new() -> Self {
         TypeEnv {
-            vars: HashMap::new(),
+            vars: vec![HashMap::new()],
+            depth: 0,
         }
     }
 
-    fn extend(&self) -> Self {
-        let mut new_env = self.clone();
-        new_env
+    fn extend(&mut self) {
+        self.depth += 1;
+        self.vars.push(HashMap::new());
     }
 
     fn add(&mut self, var: String, info: NameInfo) {
-        self.vars.insert(var, info);
+        self.vars.last_mut().unwrap().insert(var, info);
     }
 
     fn lookup(&mut self, var: &str) -> Option<&mut NameInfo> {
-        self.vars.get_mut(var)
+        for group in self.vars.iter_mut().rev() {
+            if group.contains_key(var) {
+                return group.get_mut(var);
+            }
+        }
+        return None;
+    }
+
+    fn shallow_lookup(&mut self, var: &str) -> Option<&mut NameInfo> {
+        self.vars.last_mut().unwrap().get_mut(var)
     }
 }
 
@@ -588,7 +600,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             init_val,
             loc,
         } => {
-            let name_info = state.env.lookup(&name.as_str());
+            let name_info = state.env.shallow_lookup(&name.as_str());
             if name_info.is_some() {
                 state.push_err(CheckerError::NameAlreadyDefined {
                     loc: loc.clone(),
@@ -621,12 +633,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     init: expr_ty_expr.unwrap(),
                 })
             };
-            println!("{ty_ins:?}");
             let info = NameInfo {
                 ty: expr_ty.clone(),
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
+                depth: state.env.depth,
             };
             state.env.add(name.as_str(), info);
             ty_ins
@@ -637,7 +649,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             init_val,
             loc,
         } => {
-            let name_info = state.env.lookup(&name.as_str());
+            let name_info = state.env.shallow_lookup(&name.as_str());
             if name_info.is_some() {
                 state.push_err(CheckerError::NameAlreadyDefined {
                     loc: loc.clone(),
@@ -680,6 +692,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
+                        depth: state.env.depth,
                     };
                     state.env.add(name.as_str(), info);
                     ty_ins
@@ -697,6 +710,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: false,
+                        depth: state.env.depth,
                     };
                     state.env.add(name.as_str(), info);
                     Some(TyIns::Var {
@@ -712,6 +726,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
+                        depth: state.env.depth,
                     };
 
                     let ty_ins = if expr_ty.tag.is_error_type() {
@@ -772,6 +787,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         refs: vec![param.loc.clone()],
                         is_const: true,
                         is_initialized: true,
+                        depth: state.env.depth + 1,
                     },
                 ));
             }
@@ -781,11 +797,13 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
+                depth: state.env.depth,
             };
             state.env.add(name.as_str(), fn_info);
             // copy the current environment and preserve it so we can keep
             // reset it back to it later
-            let old_env = state.env.extend();
+            let old_env = state.env.clone();
+            state.env.extend();
             state.scope_stack.push(Scope::Func);
 
             // add the pairs to the environment
@@ -819,12 +837,16 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
         Ins::Block { code, loc } => {
             let old_env = if state.enter_new_scope {
                 state.scope_stack.push(Scope::Block);
-                Some(state.env.extend())
+                let old_env = state.env.clone();
+                state.env.extend();
+                Some(old_env)
             } else {
                 None
             };
 
             let mut new_code = vec![];
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = true;
             for s_ins in code.iter() {
                 let new_ins = check_ins(s_ins, &context_ty, state);
                 if new_ins.is_some() {
@@ -836,6 +858,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 state.scope_stack.pop();
                 state.env = old_env;
             }
+
+            state.enter_new_scope = old_enter_new_scope;
 
             Some(TyIns::Block { code: new_code })
         }

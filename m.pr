@@ -4,6 +4,9 @@ fn rets() str {
   c :: ' ';
   d :: "world";
   e :: b + c + d;
+  {
+    a := 2;
+  }
   return e;
 }
 

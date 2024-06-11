@@ -224,14 +224,14 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     let header = cpp_gen_typedefs(&mut state);
     let cpp_code = cpp_top_level_code.join("");
     let cpp_code = format!("{header}\n{cpp_code}");
-    println!("{cpp_code}");
+    // println!("{cpp_code}");
 
     let og_file_path = Path::new(&file_mod.src_file);
-    println!("{og_file_path:?}");
+    // println!("{og_file_path:?}");
     let file_path = og_file_path.with_extension("cpp");
-    println!("{file_path:?}");
+    // println!("{file_path:?}");
     let exe_path = og_file_path.with_extension("");
-    println!("{exe_path:?}");
+    // println!("{exe_path:?}");
     std::fs::write(file_path.clone(), cpp_code).expect("Unable to write file");
 
     let mut clang_compile = Command::new("clang++")
