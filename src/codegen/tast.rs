@@ -7,7 +7,6 @@ use crate::{
 #[derive(Debug, Clone)]
 pub enum TyExpr {
     Integer {
-        variant: Sig,
         val: String,
     },
     Str {
@@ -40,7 +39,7 @@ pub enum TyExpr {
 impl TyExpr {
     pub fn as_str(&self) -> String {
         match self {
-            TyExpr::Integer { variant, val } => format!("{val}#({:?})", variant),
+            TyExpr::Integer { val } => val.clone(),
             TyExpr::Str { val } => format!("\"{val}\""),
             TyExpr::Char { val } => format!("'{val}'"),
             TyExpr::Bool { val } => format!(

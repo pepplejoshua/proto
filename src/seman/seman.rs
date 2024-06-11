@@ -143,10 +143,7 @@ pub fn check_expr(
                             match val_i8 {
                                 Ok(_) => (
                                     Type::new(Sig::I8, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -163,10 +160,7 @@ pub fn check_expr(
                             match val_i16 {
                                 Ok(_) => (
                                     Type::new(Sig::I16, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -183,10 +177,7 @@ pub fn check_expr(
                             match val_i32 {
                                 Ok(_) => (
                                     Type::new(ty.tag, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -203,10 +194,7 @@ pub fn check_expr(
                             match val_i64 {
                                 Ok(_) => (
                                     Type::new(Sig::I64, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -223,10 +211,7 @@ pub fn check_expr(
                             match val_u8 {
                                 Ok(_) => (
                                     Type::new(Sig::U8, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -243,10 +228,7 @@ pub fn check_expr(
                             match val_u16 {
                                 Ok(_) => (
                                     Type::new(Sig::U16, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -263,10 +245,7 @@ pub fn check_expr(
                             match val_u32 {
                                 Ok(_) => (
                                     Type::new(ty.tag, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -283,10 +262,7 @@ pub fn check_expr(
                             match val_u64 {
                                 Ok(_) => (
                                     Type::new(Sig::U64, loc.clone()),
-                                    Some(TyExpr::Integer {
-                                        variant: ty.tag,
-                                        val: val.clone(),
-                                    }),
+                                    Some(TyExpr::Integer { val: val.clone() }),
                                 ),
                                 Err(_) => {
                                     state.push_err(CheckerError::NumberTypeInferenceFailed {
@@ -319,10 +295,7 @@ pub fn check_expr(
                 match val_i32 {
                     Ok(_) => (
                         Type::new(Sig::Int, loc.clone()),
-                        Some(TyExpr::Integer {
-                            variant: Sig::Int,
-                            val: val.clone(),
-                        }),
+                        Some(TyExpr::Integer { val: val.clone() }),
                     ),
                     Err(_) => {
                         state

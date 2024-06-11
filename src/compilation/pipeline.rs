@@ -213,17 +213,20 @@ impl Workspace {
             reporter.show_info("lexing complete.".to_string());
         }
 
+        let mut early_return = false;
         if !parser.parse_errs.is_empty() {
             for pe in parser.parse_errs {
                 reporter.report_parser_error(pe);
             }
-            return;
+            early_return = true
         }
-
         if !parser.parse_warns.is_empty() {
             for pw in parser.parse_warns {
                 reporter.report_parser_warning(pw);
             }
+        }
+        if early_return {
+            return;
         }
 
         if self.config.dbg_info {
@@ -232,7 +235,6 @@ impl Workspace {
             let file_mod_s = file_mod.as_str();
             println!("{file_mod_s}");
         }
-
         if let Stage::Parser = self.config.max_stage {
             return;
         }
@@ -241,18 +243,22 @@ impl Workspace {
         let src_file = parser.lexer.src;
         let (state, _ty_file_mod) = check_top_level(&file_mod, src_file.clone());
         let reporter = SourceReporter::new(src_file);
-        for ce in state.errs.iter() {
-            reporter.report_checker_error(ce.clone());
+        if !state.errs.is_empty() {
+            for ce in state.errs.iter() {
+                reporter.report_checker_error(ce.clone());
+            }
+            return;
         }
-
         if self.config.dbg_info {
             reporter.show_info("checking complete.".to_string());
         }
-
         if let Stage::Sema = self.config.max_stage {
             return;
         }
 
         cpp_gen_top_level(&_ty_file_mod);
+        if self.config.dbg_info {
+            reporter.show_info("codegen complete.".to_string());
+        }
     }
 }
