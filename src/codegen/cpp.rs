@@ -1,8 +1,11 @@
 #![allow(unused)]
 
-use std::collections::HashSet;
+use std::{collections::HashSet, path::Path, process::Command};
 
-use crate::types::signature::{Sig, Type};
+use crate::{
+    source::source::SourceReporter,
+    types::signature::{Sig, Type},
+};
 
 use super::tast::{TyExpr, TyFileModule, TyIns};
 
@@ -38,43 +41,43 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     for sig in state.gen_typedefs_for.iter() {
         match sig {
             Sig::I8 => {
-                buf.push_str("typedef int8_t i8;");
+                buf.push_str("\ntypedef int8_t i8;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I16 => {
-                buf.push_str("typedef int16_t i16;");
+                buf.push_str("\ntypedef int16_t i16;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I32 => {
-                buf.push_str("typedef int32_t i32;");
+                buf.push_str("\ntypedef int32_t i32;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I64 => {
-                buf.push_str("typedef int64_t i64;");
+                buf.push_str("\ntypedef int64_t i64;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U8 => {
-                buf.push_str("typedef uint8_t u8;");
+                buf.push_str("\ntypedef uint8_t u8;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U16 => {
-                buf.push_str("typedef uint16_t u16;");
+                buf.push_str("\ntypedef uint16_t u16;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U32 => {
-                buf.push_str("typedef uint32_t u32;");
+                buf.push_str("\ntypedef uint32_t u32;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U64 => {
-                buf.push_str("typedef uint64_t u64;");
+                buf.push_str("\ntypedef uint64_t u64;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::UInt => {
-                buf.push_str("typedef uint32_t uint;");
+                buf.push_str("\ntypedef uint32_t uint;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::Str => {
-                buf.push_str("typedef string str;");
+                buf.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
             _ => unreachable!(),
@@ -83,6 +86,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     let mut header = includes.into_iter().collect::<Vec<String>>().join("\n");
     header.push('\n');
     header.push_str(&buf);
+    header.push('\n');
     header
 }
 
@@ -208,7 +212,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
     buf
 }
 
-pub fn cpp_gen_top_level(file_mod: &TyFileModule) {
+pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     let mut state = State::new();
     let mut cpp_top_level_code = vec![];
     for tl_ins in file_mod.top_level.iter() {
@@ -219,5 +223,32 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) {
 
     let header = cpp_gen_typedefs(&mut state);
     let cpp_code = cpp_top_level_code.join("");
-    println!("{header}\n{cpp_code}")
+    let cpp_code = format!("{header}\n{cpp_code}");
+    println!("{cpp_code}");
+
+    let og_file_path = Path::new(&file_mod.src_file);
+    println!("{og_file_path:?}");
+    let file_path = og_file_path.with_extension("cpp");
+    println!("{file_path:?}");
+    let exe_path = og_file_path.with_extension("");
+    println!("{exe_path:?}");
+    std::fs::write(file_path.clone(), cpp_code).expect("Unable to write file");
+
+    let mut clang_compile = Command::new("clang++")
+        .args([
+            file_path.to_str().unwrap(),
+            "-o",
+            exe_path.to_str().unwrap(),
+            "-std=c++11",
+        ])
+        .output();
+    if let Err(err) = clang_compile {
+        return Err(err.to_string());
+    }
+
+    // let mut rm_cpp_file = Command::new("rm").arg(file_path.to_str().unwrap()).output();
+    // if let Err(err) = rm_cpp_file {
+    //     return Err(err.to_string());
+    // }
+    Ok(exe_path.to_str().unwrap().to_string())
 }

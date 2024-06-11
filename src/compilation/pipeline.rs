@@ -178,7 +178,7 @@ impl Workspace {
         let src = SourceFile::new(file_path.clone());
         let reporter = SourceReporter::new(src.clone());
         let msg = format!("processing {}", self.truncate_path(file_path.clone()));
-        reporter.show_info(msg);
+        SourceReporter::show_info(msg);
         let mut lexer = Lexer::new(src.clone());
 
         if let Stage::Lexer = self.config.max_stage {
@@ -195,7 +195,7 @@ impl Workspace {
                 }
             }
             if self.config.dbg_info {
-                reporter.show_info("lexing complete.".to_string());
+                SourceReporter::show_info("lexing complete.".to_string());
             }
             return;
         }
@@ -210,7 +210,7 @@ impl Workspace {
             return;
         }
         if self.config.dbg_info {
-            reporter.show_info("lexing complete.".to_string());
+            SourceReporter::show_info("lexing complete.".to_string());
         }
 
         let mut early_return = false;
@@ -230,7 +230,7 @@ impl Workspace {
         }
 
         if self.config.dbg_info {
-            reporter.show_info("parsing complete.".to_string());
+            SourceReporter::show_info("parsing complete.".to_string());
             let file_mod = parser.file_mod.clone();
             let file_mod_s = file_mod.as_str();
             println!("{file_mod_s}");
@@ -250,15 +250,22 @@ impl Workspace {
             return;
         }
         if self.config.dbg_info {
-            reporter.show_info("checking complete.".to_string());
+            SourceReporter::show_info("checking complete.".to_string());
         }
         if let Stage::Sema = self.config.max_stage {
             return;
         }
 
-        cpp_gen_top_level(&_ty_file_mod);
-        if self.config.dbg_info {
-            reporter.show_info("codegen complete.".to_string());
+        let code_gen_res = cpp_gen_top_level(&_ty_file_mod);
+
+        match code_gen_res {
+            Ok(exe_path) => {
+                if self.config.dbg_info {
+                    SourceReporter::show_info("codegen complete.".to_string());
+                    SourceReporter::show_info(format!("{exe_path}"));
+                }
+            }
+            Err(err) => SourceReporter::show_error(err),
         }
     }
 }

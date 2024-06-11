@@ -604,8 +604,14 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         expected: ty.as_str(),
                         found: expr_ty.as_str(),
                     });
+                    None
+                } else {
+                    Some(TyIns::Constant {
+                        name: name.as_str(),
+                        ty: expr_ty.clone(),
+                        init: expr_ty_expr.unwrap(),
+                    })
                 }
-                None
             } else if expr_ty.tag.is_error_type() {
                 None
             } else {
@@ -615,6 +621,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     init: expr_ty_expr.unwrap(),
                 })
             };
+            println!("{ty_ins:?}");
             let info = NameInfo {
                 ty: expr_ty.clone(),
                 refs: vec![loc.clone()],
@@ -651,8 +658,14 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                                 expected: ty.as_str(),
                                 found: expr_ty.as_str(),
                             });
+                            None
+                        } else {
+                            Some(TyIns::Var {
+                                name: name.as_str(),
+                                ty: expr_ty.clone(),
+                                init: expr_ty_expr,
+                            })
                         }
-                        None
                     } else if expr_ty.tag.is_error_type() {
                         None
                     } else {

@@ -1,5 +1,5 @@
 fn rets() str {
-  a :: 11;
+  a : i8 : 11;
   b :: "hello";
   c :: ' ';
   d :: "world";
@@ -7,6 +7,7 @@ fn rets() str {
   return e;
 }
 
-fn main() void {
+fn main() int {
   res :: rets();
+  return 0;
 }

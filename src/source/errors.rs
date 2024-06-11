@@ -131,3 +131,8 @@ pub enum CheckerError {
     },
     TooManyErrors,
 }
+
+#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+pub enum CodeGenError {
+    CompileErr(),
+}

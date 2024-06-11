@@ -1,5 +1,9 @@
 use serde::{Deserialize, Serialize};
-use std::{fs::File, io::Read};
+use std::{
+    fs::{self, File},
+    io::Read,
+    path::Path,
+};
 
 #[allow(dead_code)]
 #[derive(Debug, Serialize, Deserialize, Default, Clone)]
@@ -17,8 +21,10 @@ pub struct SourceFile {
 impl SourceFile {
     // new source file from a path
     pub fn new(path: String) -> SourceFile {
+        let path = Path::new(&path);
+        let full_path = fs::canonicalize(&path).unwrap();
         let mut src_file = SourceFile {
-            path,
+            path: full_path.to_str().unwrap().to_string(),
             text: String::new(),
             flat_index: 0,
             col: 0,
@@ -473,12 +479,12 @@ impl SourceReporter {
         }
     }
 
-    pub fn show_info(&self, msg: String) {
+    pub fn show_info(msg: String) {
         let output = format!("*[_, *, l_green:d_black]info:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
     }
 
-    pub fn show_error(&self, msg: String) {
+    pub fn show_error(msg: String) {
         let output = format!("*[_, *, l_red:d_black]Error:[/] *[*, l_white:d_black]{msg}[/]");
         println!("{}", pastel(&output));
     }
