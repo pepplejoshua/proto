@@ -40,6 +40,11 @@ impl TypeEnv {
         self.vars.push(HashMap::new());
     }
 
+    fn pop(&mut self) {
+        self.depth -= 1;
+        self.vars.pop();
+    }
+
     fn add(&mut self, var: String, info: NameInfo) {
         self.vars.last_mut().unwrap().insert(var, info);
     }
@@ -802,7 +807,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             state.env.add(name.as_str(), fn_info);
             // copy the current environment and preserve it so we can keep
             // reset it back to it later
-            let old_env = state.env.clone();
             state.env.extend();
             state.scope_stack.push(Scope::Func);
 
@@ -824,7 +828,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
             state.scope_stack.pop();
-            state.env = old_env;
+            state.env.pop();
             Some(TyIns::Func {
                 name: name.as_str(),
                 params: ty_params,
@@ -835,14 +839,10 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
         Ins::Block { code, loc } => {
-            let old_env = if state.enter_new_scope {
+            if state.enter_new_scope {
                 state.scope_stack.push(Scope::Block);
-                let old_env = state.env.clone();
                 state.env.extend();
-                Some(old_env)
-            } else {
-                None
-            };
+            }
 
             let mut new_code = vec![];
             let old_enter_new_scope = state.enter_new_scope;
@@ -854,9 +854,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 }
             }
 
-            if let Some(old_env) = old_env {
+            if old_enter_new_scope {
                 state.scope_stack.pop();
-                state.env = old_env;
+                state.env.pop();
             }
 
             state.enter_new_scope = old_enter_new_scope;
