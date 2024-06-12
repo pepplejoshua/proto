@@ -6,13 +6,10 @@ fn main() int {
   // infer size and type
   c : [_, _] : ["abc", "def", "ghi"];
   // no type at all
-  d :: ['a'. 'e', 'i', 'o', 'u'];
+  d :: ['a', 'e', 'i', 'o', 'u'];
 
-  // static array type can have:
-  // - size usize or underscore identifier to infer from number of items.
-  // - type or underscore identifier to infer from type of first item or suffix type of array init
-  // static array expression can have:
-  // - array section with the expected number of items (cannot be changed).
+  // error
+  e :: [true, false, 'c', "str"];
 
   return 0;
 }

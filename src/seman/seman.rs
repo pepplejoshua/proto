@@ -338,6 +338,14 @@ pub fn check_expr(
             Type::new(Sig::Bool, loc.clone()),
             Some(TyExpr::Bool { val: *val }),
         ),
+        Expr::StaticArray { vals, loc } => {
+            // static array type can have:
+            // - size usize or underscore identifier to infer from number of items.
+            // - type or underscore identifier to infer from type of first item or suffix type of array init
+            // static array expression can have:
+            // - array section with the expected number of items (cannot be changed).
+            todo!()
+        }
         Expr::Ident { name, loc } => {
             let i_ty = state.env.lookup(name);
             match i_ty {

@@ -635,10 +635,7 @@ impl Parser {
                 sub_expr: None,
                 loc,
             },
-            Token::LBracket(_) => {
-                let mut span = self.cur_token().get_source_ref();
-                self.advance();
-
+            Token::LBracket(loc) => {
                 // check for an underscore or parse an expr for the size of the
                 // array.
                 let static_size = match self.cur_token() {
@@ -660,9 +657,14 @@ impl Parser {
                 }
 
                 let static_arr_ty = match self.cur_token() {
-                    Token::Underscore(_) => None,
-                    _ => Some(self.parse_type()),
+                    Token::Underscore(_) => {
+                        self.advance();
+                        None
+                    }
+                    _ => Some(Box::new(self.parse_type())),
                 };
+
+                let mut span = loc;
 
                 if !matches!(self.cur_token(), Token::RBracket(_)) {
                     self.report_error(ParseError::Expected(
@@ -674,7 +676,10 @@ impl Parser {
                     span = span.combine(self.cur_token().get_source_ref());
                     self.advance()
                 }
-                todo!()
+                let mut arr_ty = Type::new(Sig::StaticArray, span);
+                arr_ty.aux_type = static_arr_ty;
+                arr_ty.sub_expr = static_size;
+                arr_ty
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
@@ -1125,6 +1130,53 @@ impl Parser {
                     self.advance();
                 }
                 inner_expr
+            }
+            Token::LBracket(loc) => {
+                self.advance();
+
+                let mut items = vec![];
+                let mut saw_rbracket = false;
+                while !self.is_at_eof() {
+                    let mut cur = self.cur_token();
+                    // if we are not already at the end of the argument list,
+                    // parse an expression
+                    if !matches!(cur, Token::RBracket(_)) {
+                        let item = self.parse_expr();
+                        items.push(item);
+                        cur = self.cur_token();
+                    }
+
+                    // check to see if we have reached the end of the argument
+                    // list
+                    if matches!(cur, Token::RBracket(_)) {
+                        saw_rbracket = true;
+                        break;
+                    }
+
+                    // arguments are to be comma separated
+                    if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected("a comma to separate array items or a right bracket (]) to terminate the static array.".to_string(), cur.get_source_ref(), None));
+                        break;
+                    }
+                    self.advance();
+                }
+
+                let mut span = loc;
+                if saw_rbracket {
+                    span = span.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                } else {
+                    self.report_error(ParseError::Expected(
+                        "a right bracket (]) to terminate the static array.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                }
+
+                Expr::StaticArray {
+                    vals: items,
+                    loc: span,
+                }
             }
             _ => {
                 let span = cur.get_source_ref();

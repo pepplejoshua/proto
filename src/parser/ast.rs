@@ -102,6 +102,10 @@ pub enum Expr {
         expr: Box<Expr>,
         loc: SourceRef,
     },
+    StaticArray {
+        vals: Vec<Expr>,
+        loc: SourceRef,
+    },
     ErrorExpr {
         msg: String,
         loc: SourceRef,
@@ -120,6 +124,7 @@ impl Expr {
             | Expr::InitStruct { loc, .. }
             | Expr::CallFn { loc, .. }
             | Expr::UnaryOp { loc, .. }
+            | Expr::StaticArray { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -161,6 +166,14 @@ impl Expr {
                 format!("{}({args_str})", func.as_str())
             }
             Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str()),
+            Expr::StaticArray { vals, .. } => format!(
+                "[{items}]",
+                items = vals
+                    .iter()
+                    .map(|item| { item.as_str() })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            ),
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }
     }
