@@ -1,0 +1,5 @@
+void panic(int line, const str sourcefile, const str msg) {
+    // should unwind the call stack and then show the error message
+    std::cout << sourcefile << ":" << line << ":" << " " << msg << std::endl;
+    std::exit(EXIT_FAILURE);
+}

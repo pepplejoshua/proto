@@ -5,6 +5,7 @@
 typedef std::string str;
 
 void panic(int line, const str sourcefile, const str msg) {
+    // should unwind the call stack and then show the error message
     std::cout << sourcefile << ":" << line << ":" << " " << msg << std::endl;
     std::exit(EXIT_FAILURE);
 }
@@ -97,6 +98,10 @@ public:
     const T* end() const noexcept { return data + N; }
 };
 
+void test(Array<int, 2> a) {
+    std::cout << a[0] << std::endl;
+}
+
 int main() {
     Array<Array<int, 2>, 3> a = {{1, 2}, {3, 4}, {5, 6}};
 
@@ -119,5 +124,6 @@ int main() {
     std::cout << "sizeof option<int>.tag:" << sizeof(i.tag) << std::endl;
     std::cout << "sizeof int            :" << sizeof(int) << std::endl;
 
+    test({2, 1});
     return 0;
 }

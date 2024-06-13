@@ -485,7 +485,7 @@ impl SourceReporter {
                 given_ty,
                 loc,
             } => {
-                let msg = format!("Static array has an inferred type of '{expected_ty}' and the item has a type of '{given_ty}'.");
+                let msg = format!("Static array has an inferred type of '{expected_ty}' and this item has a type of '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::StaticArrayTypeInferenceFailed { given_ty, arr_loc } => {
@@ -498,6 +498,15 @@ impl SourceReporter {
                     "Static Arrays require a constant usize number as its size or _ to infer the size."
                         .to_string();
                 self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::MismismatchStaticArrayLength {
+                exp,
+                given,
+                arr_loc,
+            } => {
+                let msg =
+                    format!("Static array was expected to have {exp} items but had {given} items.");
+                self.report_with_ref(&arr_loc, msg, None, false);
             }
         }
     }

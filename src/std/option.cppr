@@ -1,0 +1,51 @@
+template<typename T>
+class Option {
+    T data;
+
+    public:
+    enum {
+        Some,
+        None
+    } tag;
+
+    Option(T item) {
+        data = item;
+        tag = Some;
+    }
+
+    Option() {
+        tag = None;
+    }
+
+    const bool is_some() const {
+        return tag == Some;
+    }
+
+    bool is_some() {
+        return tag == Some;
+    }
+
+    const bool is_none() const {
+        return tag == None;
+    }
+
+    bool is_none() {
+        return tag == None;
+    }
+
+    inline T& unwrap() {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+
+    inline const T& unwrap() const {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+};

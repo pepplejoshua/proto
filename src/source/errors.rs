@@ -144,6 +144,11 @@ pub enum CheckerError {
     NonConstantNumberSizeForStaticArray {
         loc: SourceRef,
     },
+    MismismatchStaticArrayLength {
+        exp: usize,
+        given: usize,
+        arr_loc: SourceRef,
+    },
     TooManyErrors,
 }
 

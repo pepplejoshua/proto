@@ -35,9 +35,21 @@ impl State {
     }
 }
 
+const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
+const OPTION_CLASS: &str = include_str!("../std/option.cppr");
+const ARRAY_CLASS: &str = include_str!("../std/array.cppr");
+
+pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
+    todo!()
+}
+
 pub fn cpp_gen_typedefs(state: &mut State) -> String {
     let mut buf = String::new();
     let mut includes: HashSet<String> = HashSet::new();
+    let mut has_option_class = false;
+    let mut has_panic_fn = false;
+    let mut has_array_class = false;
+
     for sig in state.gen_typedefs_for.iter() {
         match sig {
             Sig::I8 => {
@@ -80,6 +92,20 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 buf.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
+            // Sig::StaticArray => {
+            //     if !has_panic_fn {
+            //         if !state.gen_typedefs_for.contains(&Sig::Str) {
+            //             buf.push_str("\ntypedef std::string str;");
+            //             includes.insert("#include <string>".to_string());
+            //         }
+            //         println!("{PANIC_FUNCTION}");
+            //     }
+            //     if !has_array_class {
+            //         includes.insert("#include <cstdlib>".to_string());
+            //         includes.insert("#include <iostream>".to_string());
+            //     }
+            //     todo!()
+            // }
             _ => unreachable!(),
         };
     }
@@ -110,7 +136,10 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             state.gen_typedefs_for.insert(ty.tag);
             ty.as_str()
         }
-        Sig::StaticArray => todo!(),
+        Sig::StaticArray => {
+            // state.gen_typedefs_for.insert(ty.tag);
+            todo!()
+        }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into a {:?} which should not occur.",
