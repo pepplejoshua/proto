@@ -193,6 +193,9 @@ pub fn check_expr(
                             }
                         }
                         Sig::I32 | Sig::Int => {
+                            // TODO: make int be either i32 or i64 based on platform
+                            // mem::size_of::<usize>() == 8
+                            // mem::size_of::<usize>() == 4
                             let val_i32 = val.parse::<i32>();
                             match val_i32 {
                                 Ok(_) => (
@@ -261,6 +264,9 @@ pub fn check_expr(
                             }
                         }
                         Sig::U32 | Sig::UInt => {
+                            // TODO: make uint be either u32 or u64 based on platform
+                            // mem::size_of::<usize>() == 8
+                            // mem::size_of::<usize>() == 4
                             let val_u32 = val.parse::<u32>();
                             match val_u32 {
                                 Ok(_) => (
@@ -353,16 +359,107 @@ pub fn check_expr(
                     // will be used as the context_ty to process the items in the array.
                     // assuming all goes well, we can take the type of the context ty,
                     // and the count of the array to create the new type to be returned
+                    if !matches!(ty.tag, Sig::StaticArray) {
+                        state.push_err(CheckerError::StaticArrayTypeInferenceFailed {
+                            given_ty: ty.as_str(),
+                            arr_loc: loc.clone(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+
+                    // we get the aux_type and sub_expr (if any) in the array type and use it
+                    // to perform our checks
+                    let expected_item_ty = ty.aux_type.as_ref().unwrap();
+                    let arr_size = ty.sub_expr.as_ref();
+
+                    // if there is an array size provided, make sure it is an Expr::Number
+                    // and it passes a uint check. Then we can make sure vals.len() is the
+                    // same number.
+                    let arr_size = match arr_size {
+                        Some(expr) => match expr {
+                            Expr::Number { val, loc } => {
+                                // TODO: make this be either u32 or u64 based on platform
+                                // mem::size_of::<usize>() == 8
+                                // mem::size_of::<usize>() == 4
+                                let size_usize = val.parse::<usize>();
+                                if let Ok(size_usize) = size_usize {
+                                    Some(size_usize)
+                                } else {
+                                    state.push_err(
+                                        CheckerError::NonConstantNumberSizeForStaticArray {
+                                            loc: loc.clone(),
+                                        },
+                                    );
+                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                }
+                            }
+                            _ => {
+                                state.push_err(CheckerError::NonConstantNumberSizeForStaticArray {
+                                    loc: expr.get_source_ref(),
+                                });
+                                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                            }
+                        },
+                        None => Some(vals.len()),
+                    };
+
+                    // we can now go about checking each item in the static array against
+                    // the expected item type.
                     todo!()
                 }
                 None => {
                     // we can do a standard inference on each item in the array, taking the
                     // type of the first item as the type and making sure all the other
-                    // items are of the same type
-                    todo!()
+                    // items are of the same type. This means there has to be at least
+                    // 1 item in the array
+                    if vals.len() == 0 {
+                        state.push_err(CheckerError::CannotInferTypeOfEmptyArray {
+                            loc: loc.clone(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+
+                    let (expected_item_ty, first_ty_expr) = check_expr(&vals[0], context_ty, state);
+                    if expected_item_ty.tag.is_error_type() {
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+
+                    let mut had_item_error = false;
+                    let mut item_ty_exprs = vec![];
+                    for index in 1..vals.len() {
+                        let cur_item = &vals[index];
+                        let (cur_item_ty, cur_item_ty_expr) =
+                            check_expr(cur_item, context_ty, state);
+
+                        if !types_are_eq(&expected_item_ty, &cur_item_ty) {
+                            state.push_err(CheckerError::MismatchingStaticArrayItemTypes {
+                                expected_ty: expected_item_ty.as_str(),
+                                given_ty: cur_item_ty.as_str(),
+                                loc: cur_item.get_source_ref(),
+                            });
+                            had_item_error = true;
+                        } else {
+                            item_ty_exprs.push(cur_item_ty_expr.unwrap());
+                        }
+                    }
+
+                    if had_item_error {
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+                    let mut arr_ty = Type::new(Sig::StaticArray, loc.clone());
+                    arr_ty.aux_type = Some(Box::new(expected_item_ty));
+                    arr_ty.sub_expr = Some(Expr::Number {
+                        val: vals.len().to_string(),
+                        loc: loc.clone(),
+                    });
+                    (
+                        arr_ty,
+                        Some(TyExpr::StaticArray {
+                            vals: item_ty_exprs,
+                        }),
+                    )
                 }
             }
-            todo!()
         }
         Expr::Ident { name, loc } => {
             let i_ty = state.env.lookup(name);

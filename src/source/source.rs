@@ -476,6 +476,29 @@ impl SourceReporter {
                     format!("'{name}' of type '{name_ty}' is not a function and cannot be called.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::CannotInferTypeOfEmptyArray { loc } => {
+                let msg = "Unable to infer type of empty static array from context.".to_string();
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::MismatchingStaticArrayItemTypes {
+                expected_ty,
+                given_ty,
+                loc,
+            } => {
+                let msg = format!("Static array has an inferred type of '{expected_ty}' and the item has a type of '{given_ty}'.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::StaticArrayTypeInferenceFailed { given_ty, arr_loc } => {
+                let msg =
+                    format!("Static array's type is incompatible with the given type '{given_ty}'");
+                self.report_with_ref(&arr_loc, msg, None, false);
+            }
+            CheckerError::NonConstantNumberSizeForStaticArray { loc } => {
+                let msg =
+                    "Static Arrays require a constant usize number as its size or _ to infer the size."
+                        .to_string();
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

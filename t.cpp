@@ -11,13 +11,14 @@ void panic(int line, const str sourcefile, const str msg) {
 
 template<typename T>
 class Option {
+    T data;
+
+    public:
     enum {
         Some,
         None
     } tag;
-    T data;
 
-    public:
     Option(T item) {
         data = item;
         tag = Some;
@@ -112,8 +113,11 @@ int main() {
     Option<int> i = b->get(0);
     Option<int> j = c->get(4);
 
-    std::cout << i.unwrap() << std::endl;
-    std::cout << j.unwrap() << std::endl;
+    // std::cout << i.unwrap() << std::endl;
+    // std::cout << j.unwrap() << std::endl;
+    std::cout << "sizeof option<int>    :" << sizeof(i) << std::endl;
+    std::cout << "sizeof option<int>.tag:" << sizeof(i.tag) << std::endl;
+    std::cout << "sizeof int            :" << sizeof(int) << std::endl;
 
     return 0;
 }

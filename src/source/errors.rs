@@ -129,6 +129,21 @@ pub enum CheckerError {
         given: usize,
         loc_given: SourceRef,
     },
+    CannotInferTypeOfEmptyArray {
+        loc: SourceRef,
+    },
+    MismatchingStaticArrayItemTypes {
+        expected_ty: String,
+        given_ty: String,
+        loc: SourceRef,
+    },
+    StaticArrayTypeInferenceFailed {
+        given_ty: String,
+        arr_loc: SourceRef,
+    },
+    NonConstantNumberSizeForStaticArray {
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 
