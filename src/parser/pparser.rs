@@ -656,13 +656,7 @@ impl Parser {
                     self.advance()
                 }
 
-                let static_arr_ty = match self.cur_token() {
-                    Token::Underscore(_) => {
-                        self.advance();
-                        None
-                    }
-                    _ => Some(Box::new(self.parse_type())),
-                };
+                let static_arr_ty = Some(Box::new(self.parse_type()));
 
                 let mut span = loc;
 

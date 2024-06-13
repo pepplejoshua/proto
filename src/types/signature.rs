@@ -131,9 +131,17 @@ impl Type {
                 s.push_str(&self.aux_type.as_ref().unwrap().as_str());
                 s
             }
-            Sig::StaticArray => {
-                todo!()
-            }
+            Sig::StaticArray => match (&self.sub_expr, &self.aux_type) {
+                (None, Some(arr_ty)) => {
+                    format!("[_, {}]", arr_ty.as_str())
+                }
+                (Some(size), Some(arr_ty)) => {
+                    format!("[{}, {}]", size.as_str(), arr_ty.as_str())
+                }
+                (a, b) => unreachable!(
+                    "Type::as_str(): Static Array type not matching expected pattern: {a:#?}, {b:#?}"
+                ),
+            },
             Sig::ErrorType => "<error>".to_string(),
         }
     }

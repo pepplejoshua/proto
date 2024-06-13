@@ -34,6 +34,9 @@ pub enum TyExpr {
         func: Box<TyExpr>,
         args: Vec<TyExpr>,
     },
+    StaticArray {
+        vals: Vec<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -59,6 +62,14 @@ impl TyExpr {
                 let args_str = args.iter().map(|arg| arg.as_str()).collect::<Vec<String>>();
                 let args_str = args_str.join(", ");
                 format!("{}({args_str})", func.as_str())
+            }
+            TyExpr::StaticArray { vals } => {
+                let items_str = vals
+                    .iter()
+                    .map(|item| item.as_str())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("[{items_str}]")
             }
         }
     }

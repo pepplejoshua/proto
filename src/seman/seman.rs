@@ -141,6 +141,9 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
         (Sig::Str, Sig::Str) => true,
         (Sig::Void, Sig::Void) => true,
         (Sig::Identifier, Sig::Identifier) => todo!(),
+        (Sig::StaticArray, Sig::StaticArray) => {
+            types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
+        }
         (Sig::ErrorType, _) | (_, Sig::ErrorType) | _ => false,
     }
 }
@@ -344,6 +347,21 @@ pub fn check_expr(
             // - type or underscore identifier to infer from type of first item or suffix type of array init
             // static array expression can have:
             // - array section with the expected number of items (cannot be changed).
+            match context_ty {
+                Some(ty) => {
+                    // we expect an array type here where the aux_type
+                    // will be used as the context_ty to process the items in the array.
+                    // assuming all goes well, we can take the type of the context ty,
+                    // and the count of the array to create the new type to be returned
+                    todo!()
+                }
+                None => {
+                    // we can do a standard inference on each item in the array, taking the
+                    // type of the first item as the type and making sure all the other
+                    // items are of the same type
+                    todo!()
+                }
+            }
             todo!()
         }
         Expr::Ident { name, loc } => {
@@ -718,6 +736,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     };
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
+                    // For static arrays where the size and type are not specified
+                    // we will need to either enforce providing them or
                     let info = NameInfo {
                         ty: var_ty.clone(),
                         refs: vec![loc.clone()],

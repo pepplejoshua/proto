@@ -128,6 +128,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         | TyExpr::Bool { .. }
         | TyExpr::Ident { .. }
         | TyExpr::UnaryOp { .. } => expr.as_str(),
+        TyExpr::StaticArray { .. } => todo!(),
         TyExpr::BinOp { op, lhs, rhs } => {
             format!(
                 "{} {} {}",
@@ -226,9 +227,9 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     }
 
     let header = cpp_gen_typedefs(&mut state);
-    let cpp_code = cpp_top_level_code.join("");
+    let mut cpp_code = cpp_top_level_code.join("");
     if !header.is_empty() {
-        let cpp_code = format!("{header}\n{cpp_code}");
+        cpp_code = format!("{header}\n{cpp_code}");
     }
     // println!("{cpp_code}");
 

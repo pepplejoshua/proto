@@ -1,12 +1,13 @@
 fn main() int {
   // type annotated with size
   a : [3, bool] : [false, false, true];
-  // infer size with type annotation
-  b : [_, i8] : [1, 2, 3];
   // infer size and type
-  c : [_, _] : ["abc", "def", "ghi"];
+  b : [_, str] : ["abc", "def", "ghi"];
   // no type at all
-  d :: ['a', 'e', 'i', 'o', 'u'];
+  c :: ['a', 'e', 'i', 'o', 'u'];
+  // array of array
+  d : [3, [2, int]] = [[1, 2], [3, 4], [5, 6]];
+
 
   // error
   e :: [true, false, 'c', "str"];
