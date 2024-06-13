@@ -471,7 +471,7 @@ pub fn check_expr(
                     }
 
                     let mut had_item_error = false;
-                    let mut item_ty_exprs = vec![];
+                    let mut item_ty_exprs = vec![first_ty_expr.unwrap()];
                     for index in 1..vals.len() {
                         let cur_item = &vals[index];
                         let (cur_item_ty, cur_item_ty_expr) =

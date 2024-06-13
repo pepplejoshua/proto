@@ -45,6 +45,7 @@ pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
 
 pub fn cpp_gen_typedefs(state: &mut State) -> String {
     let mut buf = String::new();
+    let mut typedefs = String::new();
     let mut includes: HashSet<String> = HashSet::new();
     let mut has_option_class = false;
     let mut has_panic_fn = false;
@@ -53,65 +54,81 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     for sig in state.gen_typedefs_for.iter() {
         match sig {
             Sig::I8 => {
-                buf.push_str("\ntypedef int8_t i8;");
+                typedefs.push_str("\ntypedef int8_t i8;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I16 => {
-                buf.push_str("\ntypedef int16_t i16;");
+                typedefs.push_str("\ntypedef int16_t i16;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I32 => {
-                buf.push_str("\ntypedef int32_t i32;");
+                typedefs.push_str("\ntypedef int32_t i32;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::I64 => {
-                buf.push_str("\ntypedef int64_t i64;");
+                typedefs.push_str("\ntypedef int64_t i64;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U8 => {
-                buf.push_str("\ntypedef uint8_t u8;");
+                typedefs.push_str("\ntypedef uint8_t u8;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U16 => {
-                buf.push_str("\ntypedef uint16_t u16;");
+                typedefs.push_str("\ntypedef uint16_t u16;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U32 => {
-                buf.push_str("\ntypedef uint32_t u32;");
+                typedefs.push_str("\ntypedef uint32_t u32;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::U64 => {
-                buf.push_str("\ntypedef uint64_t u64;");
+                typedefs.push_str("\ntypedef uint64_t u64;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::UInt => {
-                buf.push_str("\ntypedef uint32_t uint;");
+                typedefs.push_str("\ntypedef uint32_t uint;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::Str => {
-                buf.push_str("\ntypedef std::string str;");
+                typedefs.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
-            // Sig::StaticArray => {
-            //     if !has_panic_fn {
-            //         if !state.gen_typedefs_for.contains(&Sig::Str) {
-            //             buf.push_str("\ntypedef std::string str;");
-            //             includes.insert("#include <string>".to_string());
-            //         }
-            //         println!("{PANIC_FUNCTION}");
-            //     }
-            //     if !has_array_class {
-            //         includes.insert("#include <cstdlib>".to_string());
-            //         includes.insert("#include <iostream>".to_string());
-            //     }
-            //     todo!()
-            // }
+            Sig::StaticArray => {
+                if !has_panic_fn {
+                    if !state.gen_typedefs_for.contains(&Sig::Str) {
+                        typedefs.push_str("\ntypedef std::string str;");
+                        includes.insert("#include <string>".to_string());
+                    }
+                    // provides cout, endl
+                    includes.insert("#include <iostream>".to_string());
+                    // provides exit, EXIT_FAILURE
+                    includes.insert("#include <cstdlib>".to_string());
+                    buf.push_str(PANIC_FUNCTION);
+                    has_panic_fn = true;
+                }
+
+                if !has_option_class {
+                    buf.push_str(OPTION_CLASS);
+                    has_option_class = true;
+                }
+
+                if !has_array_class {
+                    if !state.gen_typedefs_for.contains(&Sig::UInt) {
+                        typedefs.push_str("\ntypedef uint32_t uint;");
+                        includes.insert("#include <cstdint>".to_string());
+                    }
+                    buf.push_str(ARRAY_CLASS);
+                    has_array_class = true;
+                }
+            }
             _ => unreachable!(),
         };
     }
     let mut header = String::new();
     if !includes.is_empty() {
         header = includes.into_iter().collect::<Vec<String>>().join("\n");
+        header.push('\n');
+        header.push_str(&typedefs);
         header.push('\n');
         header.push_str(&buf);
         header.push('\n');
@@ -137,8 +154,11 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             ty.as_str()
         }
         Sig::StaticArray => {
-            // state.gen_typedefs_for.insert(ty.tag);
-            todo!()
+            state.gen_typedefs_for.insert(ty.tag);
+            let arr_ty = ty.aux_type.clone().unwrap();
+            let arr_ty = cpp_gen_ty(&arr_ty, state);
+            let arr_size = ty.sub_expr.clone().unwrap();
+            format!("Array<{arr_ty}, {}>", arr_size.as_str())
         }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
@@ -157,7 +177,16 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         | TyExpr::Bool { .. }
         | TyExpr::Ident { .. }
         | TyExpr::UnaryOp { .. } => expr.as_str(),
-        TyExpr::StaticArray { .. } => todo!(),
+        TyExpr::StaticArray { vals } => {
+            let mut item_expr_strs = vec![];
+            for item in vals.iter() {
+                item_expr_strs.push(cpp_gen_expr(item, state));
+            }
+            format!(
+                "{{{item_expr_strs}}}",
+                item_expr_strs = item_expr_strs.join(", ")
+            )
+        }
         TyExpr::BinOp { op, lhs, rhs } => {
             format!(
                 "{} {} {}",

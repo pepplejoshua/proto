@@ -1,4 +1,5 @@
-template<typename T, std::size_t N>
+
+template<typename T, uint N>
 class Array {
 public:
     T data[N] = {};
@@ -11,11 +12,11 @@ public:
         return data[index];
     }
 
-    const T& operator[](std::size_t index) const {
+    const T& operator[](uint index) const {
         return data[index];
     }
 
-    Option<T> get(std::size_t index) {
+    Option<T> get(uint index) {
         if (index > N-1) {
             return Option<T>();
         }
@@ -23,7 +24,7 @@ public:
         return Option<T>(data[index]);
     }
 
-    std::size_t len() const {
+    uint len() const {
         return N;
     }
 

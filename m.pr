@@ -1,3 +1,6 @@
+fn test(a [3, int]) void {
+}
+
 fn main() int {
   a : [3, bool] : [false, false, true];
   b : [_, str] : ["abc", "def", "ghi"];

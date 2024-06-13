@@ -1,3 +1,4 @@
+
 template<typename T>
 class Option {
     T data;
