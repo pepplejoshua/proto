@@ -230,6 +230,10 @@ pub enum Ins {
         expr: Expr,
         loc: SourceRef,
     },
+    IfConditional {
+        conds_and_code: Vec<(Option<Expr>, Ins)>,
+        loc: SourceRef,
+    },
     Return {
         expr: Option<Expr>,
         loc: SourceRef,
@@ -257,6 +261,7 @@ impl Ins {
             | Ins::ExprIns { loc, .. }
             | Ins::DeclStruct { loc, .. }
             | Ins::DeclModule { loc, .. }
+            | Ins::IfConditional { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -348,10 +353,32 @@ impl Ins {
             }
             Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
             Ins::DeclStruct { name, body, .. } => {
-                format!("struct {}\n{}", name.as_str(), body.as_str())
+                format!("struct {}\n{}\n", name.as_str(), body.as_str())
             }
             Ins::DeclModule { name, body, .. } => {
                 format!("mod {}\n{}\n", name.as_str(), body.as_str())
+            }
+            Ins::IfConditional { conds_and_code, .. } => {
+                let mut buf = String::new();
+                let mut seen_if = false;
+                for (cond, body) in conds_and_code.iter() {
+                    match cond {
+                        Some(cond) => {
+                            if !seen_if {
+                                buf.push_str(&format!("if {}:\n{}", cond.as_str(), body.as_str()));
+                                seen_if = true;
+                            } else {
+                                buf.push_str(&format!(
+                                    "else if {}:\n{}",
+                                    cond.as_str(),
+                                    body.as_str()
+                                ));
+                            }
+                        }
+                        None => buf.push_str(&format!("else:\n{}", body.as_str())),
+                    }
+                }
+                buf
             }
         }
     }

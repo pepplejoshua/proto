@@ -143,6 +143,7 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
         (Sig::Identifier, Sig::Identifier) => todo!(),
         (Sig::StaticArray, Sig::StaticArray) => {
             types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
+                && a.sub_expr.as_ref().unwrap().as_str() == b.sub_expr.as_ref().unwrap().as_str()
         }
         (Sig::ErrorType, _) | (_, Sig::ErrorType) | _ => false,
     }
@@ -1000,6 +1001,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             state.enter_new_scope = false;
             let new_body = check_ins(body, &Some(ret_type.clone()), state);
 
+            // make sure the last instruction in the body returns a valid value
+            // if we are not in a function that returns void. This specifically
+            // focuses on if conditional and code blocks. Any other
+            // instruction should raise an error since we cannot return from
+            // within them.
+
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
             state.scope_stack.pop();
@@ -1011,6 +1018,10 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 body: Box::new(new_body.unwrap()),
             })
         }
+        Ins::IfConditional {
+            conds_and_code,
+            loc,
+        } => todo!(),
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
         Ins::Block { code, loc } => {

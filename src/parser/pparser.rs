@@ -133,6 +133,7 @@ impl Parser {
                 Ins::SingleLineComment { comment, loc }
             }
             Token::Return(_) => self.parse_return(),
+            Token::If(_) => self.parse_if_conditional(),
             Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
         }
@@ -179,6 +180,46 @@ impl Parser {
                     loc: return_loc,
                 }
             }
+        }
+    }
+
+    fn parse_if_conditional(&mut self) -> Ins {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance();
+
+        let mut conds_and_code = vec![];
+        // get the first condition and body
+        let first_cond = self.parse_expr();
+        let first_body = self.next_ins(true);
+        conds_and_code.push((Some(first_cond), first_body));
+
+        // check for any else-if / else branches
+        let mut cur = self.cur_token();
+        while !self.is_at_eof() {
+            if !matches!(cur, Token::Else(_)) {
+                break;
+            }
+            self.advance();
+            // look for if token
+            cur = self.cur_token();
+            if matches!(cur, Token::If(_)) {
+                self.advance();
+                let else_if_cond = self.parse_expr();
+                let else_if_code = self.next_ins(true);
+                conds_and_code.push((Some(else_if_cond), else_if_code));
+                cur = self.cur_token();
+            } else {
+                let else_body = self.next_ins(true);
+                conds_and_code.push((None, else_body));
+                break;
+            }
+        }
+
+        span = span.combine(conds_and_code.last().unwrap().1.get_source_ref());
+
+        Ins::IfConditional {
+            conds_and_code,
+            loc: span,
         }
     }
 
