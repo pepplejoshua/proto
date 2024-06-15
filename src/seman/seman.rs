@@ -1021,7 +1021,42 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
         Ins::IfConditional {
             conds_and_code,
             loc,
-        } => todo!(),
+        } => {
+            // we will check each of the pairs types
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = true;
+            let mut new_conds_and_code = vec![];
+            for (i, (cond, code)) in conds_and_code.iter().enumerate() {
+                let cond_ty_expr = if let Some(cond) = cond {
+                    // we will type check the condition and then
+                    // make sure its type is bool
+                    let (cond_ty, cond_ty_expr) = check_expr(cond, context_ty, state);
+
+                    if !cond_ty.tag.is_error_type() && !(cond_ty.tag == Sig::Bool) {
+                        state.push_err(CheckerError::IfConditionShouldBeTypedBool {
+                            is_if: i == 0,
+                            given_ty: cond_ty.as_str(),
+                            loc: cond.get_source_ref(),
+                        });
+                        None
+                    } else {
+                        cond_ty_expr
+                    }
+                } else {
+                    None
+                };
+
+                let ty_body = check_ins(code, context_ty, state);
+                if let Some(ty_body) = ty_body {
+                    new_conds_and_code.push((cond_ty_expr, ty_body));
+                }
+            }
+            state.enter_new_scope = old_enter_new_scope;
+
+            Some(TyIns::IfConditional {
+                comb: new_conds_and_code,
+            })
+        }
         Ins::DeclStruct { name, body, loc } => todo!(),
         Ins::DeclModule { name, body, loc } => todo!(),
         Ins::Block { code, loc } => {

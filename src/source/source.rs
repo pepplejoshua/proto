@@ -508,6 +508,21 @@ impl SourceReporter {
                     format!("Static array was expected to have {exp} items but had {given} items.");
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
+            CheckerError::IfConditionShouldBeTypedBool {
+                given_ty,
+                loc,
+                is_if,
+            } => {
+                let msg = format!(
+                    "{} condition should be typed 'bool' but has type '{given_ty}'",
+                    if is_if {
+                        "If".to_string()
+                    } else {
+                        "Else If".to_string()
+                    },
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

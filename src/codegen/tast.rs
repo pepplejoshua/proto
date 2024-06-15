@@ -108,6 +108,9 @@ pub enum TyIns {
     Return {
         expr: Option<TyExpr>,
     },
+    IfConditional {
+        comb: Vec<(Option<TyExpr>, TyIns)>,
+    },
 }
 
 impl TyIns {
@@ -156,6 +159,28 @@ impl TyIns {
                 } else {
                     "return;".to_string()
                 }
+            }
+            TyIns::IfConditional { comb } => {
+                let mut buf = String::new();
+                let mut seen_if = false;
+                for (cond, body) in comb.iter() {
+                    match cond {
+                        Some(cond) => {
+                            if !seen_if {
+                                buf.push_str(&format!("if {}:\n{}", cond.as_str(), body.as_str()));
+                                seen_if = true;
+                            } else {
+                                buf.push_str(&format!(
+                                    "else if {}:\n{}",
+                                    cond.as_str(),
+                                    body.as_str()
+                                ));
+                            }
+                        }
+                        None => buf.push_str(&format!("else:\n{}", body.as_str())),
+                    }
+                }
+                buf
             }
         }
     }

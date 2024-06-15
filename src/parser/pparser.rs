@@ -190,7 +190,7 @@ impl Parser {
         let mut conds_and_code = vec![];
         // get the first condition and body
         let first_cond = self.parse_expr();
-        let first_body = self.next_ins(true);
+        let first_body = self.parse_block(true);
         conds_and_code.push((Some(first_cond), first_body));
 
         // check for any else-if / else branches
@@ -205,7 +205,7 @@ impl Parser {
             if matches!(cur, Token::If(_)) {
                 self.advance();
                 let else_if_cond = self.parse_expr();
-                let else_if_code = self.next_ins(true);
+                let else_if_code = self.parse_block(true);
                 conds_and_code.push((Some(else_if_cond), else_if_code));
                 cur = self.cur_token();
             } else {

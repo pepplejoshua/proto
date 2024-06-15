@@ -271,6 +271,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 format!("{}return;", state.get_pad())
             };
         }
+        TyIns::IfConditional { comb } => todo!(),
     }
     buf
 }

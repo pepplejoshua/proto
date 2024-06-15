@@ -1,9 +1,10 @@
 
 template<typename T>
 class Option {
+private:
     T data;
 
-    public:
+public:
     enum {
         Some,
         None
