@@ -14,8 +14,6 @@ code_str_repr:
   - ""
   - fn do_nothing_() void
   - return 1;
-  - fn prototype() i64
-  - ""
   - fn returns_nothing() void
   - return;
   - ""

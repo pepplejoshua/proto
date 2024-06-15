@@ -14,6 +14,7 @@ code_str_repr:
   - "return [self . age];"
   - ""
   - ""
+  - ""
   - "p :: Person.(name: \"John\", age: 32);"
   - ""
 lexer_errors: []

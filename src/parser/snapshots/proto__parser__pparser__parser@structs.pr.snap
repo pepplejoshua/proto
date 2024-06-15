@@ -17,8 +17,10 @@ code_str_repr:
   - "snippet : str"
   - "line : uint"
   - ""
+  - ""
   - fn new() SourceFile
   - "return SourceFile.(path: \"\", text: \"\");"
+  - ""
   - ""
   - ""
   - fn main() void

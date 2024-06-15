@@ -7,15 +7,22 @@ code_str_repr:
   - fn main() void
   - "a := 0;"
   - "b := \"windows\";"
-  - "// if b == \"windows\" {"
-  - //        a = 1;
-  - "// } else if b == \"linux\" {"
-  - //        a = 2;
-  - "// } else if b == \"mac\" {"
-  - //        a = 3;
-  - "// } else {"
-  - //        a = 4;
-  - "//}"
+  - "if [b == \"windows\"]:"
+  - a = 1;
+  - "else if [b == \"linux\"]:"
+  - a = 2;
+  - "else if [b == \"mac\"]:"
+  - a = 3;
+  - "else:"
+  - a = 4;
+  - ""
+  - "if false:"
+  - "else:"
+  - ""
+  - "if true:"
+  - "else if false:"
+  - "else:"
+  - ""
   - ""
   - ""
 lexer_errors: []
