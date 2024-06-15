@@ -29,7 +29,7 @@ pub struct Parser {
     pub parse_errs: Vec<ParseError>,
     pub parse_warns: Vec<ParseWarning>,
     pub file_mod: FileModule,
-    scope: ParseScope,
+    scope: Vec<ParseScope>,
     lexed_token: Option<Token>,
 }
 
@@ -41,7 +41,7 @@ impl Parser {
             parse_errs: Vec::new(),
             parse_warns: Vec::new(),
             file_mod: FileModule::new(),
-            scope: ParseScope::TopLevel,
+            scope: vec![ParseScope::TopLevel],
             lexed_token: None,
         };
 
@@ -140,45 +140,40 @@ impl Parser {
     }
 
     fn parse_return(&mut self) -> Ins {
-        if !matches!(self.scope, ParseScope::Function) {
+        if !self.scope.contains(&ParseScope::Function) {
             self.report_error(ParseError::ReturnInstructionOutsideFunction(
                 self.cur_token().get_source_ref(),
             ));
-            Ins::ErrorIns {
-                msg: "found a return statement outside a function body".to_string(),
-                loc: self.cur_token().get_source_ref(),
-            }
-        } else {
-            let start_loc = self.cur_token().get_source_ref();
+        }
+        let start_loc = self.cur_token().get_source_ref();
+        self.advance();
+        // check if there is semicolon, else we need a parse an expression
+        let cur = self.cur_token();
+        if matches!(cur, Token::Semicolon(_)) {
+            // skip past the semicolon
             self.advance();
-            // check if there is semicolon, else we need a parse an expression
-            let cur = self.cur_token();
-            if matches!(cur, Token::Semicolon(_)) {
-                // skip past the semicolon
-                self.advance();
-                let loc = start_loc.combine(cur.get_source_ref());
-                Ins::Return { expr: None, loc }
+            let loc = start_loc.combine(cur.get_source_ref());
+            Ins::Return { expr: None, loc }
+        } else {
+            let val = self.parse_expr();
+            // TODO: determine if this triggered an error and react appropriately
+            let mut return_loc = start_loc.combine(val.get_source_ref());
+            let semi = self.cur_token();
+            // then skip past the semicolon
+            if !matches!(semi, Token::Semicolon(_)) {
+                self.report_error(ParseError::Expected(
+                    "a semicolon to terminate the return statement.".to_string(),
+                    return_loc.clone(),
+                    None,
+                ));
             } else {
-                let val = self.parse_expr();
-                // TODO: determine if this triggered an error and react appropriately
-                let mut return_loc = start_loc.combine(val.get_source_ref());
-                let semi = self.cur_token();
-                // then skip past the semicolon
-                if !matches!(semi, Token::Semicolon(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a semicolon to terminate the return statement.".to_string(),
-                        return_loc.clone(),
-                        None,
-                    ));
-                } else {
-                    self.advance();
-                    return_loc = return_loc.combine(semi.get_source_ref());
-                }
+                self.advance();
+                return_loc = return_loc.combine(semi.get_source_ref());
+            }
 
-                Ins::Return {
-                    expr: Some(val),
-                    loc: return_loc,
-                }
+            Ins::Return {
+                expr: Some(val),
+                loc: return_loc,
             }
         }
     }
@@ -295,10 +290,9 @@ impl Parser {
         }
 
         let ret_type = self.parse_type();
-        let old_scope = self.scope;
-        self.scope = ParseScope::Function;
+        self.scope.push(ParseScope::Function);
         let body = self.next_ins(false);
-        self.scope = old_scope;
+        self.scope.pop();
         let fn_span = start.get_source_ref().combine(body.get_source_ref());
 
         Ins::DeclFunc {
@@ -316,10 +310,9 @@ impl Parser {
 
         let struct_name = self.parse_identifier();
 
-        let old_scope = self.scope;
-        self.scope = ParseScope::Struct;
+        self.scope.push(ParseScope::Struct);
         let body = self.parse_block(false);
-        self.scope = old_scope;
+        self.scope.pop();
         let struct_span = start.get_source_ref().combine(body.get_source_ref());
 
         Ins::DeclStruct {
@@ -335,10 +328,9 @@ impl Parser {
 
         let mod_name = self.parse_identifier();
 
-        let old_scope = self.scope;
-        self.scope = ParseScope::Mod;
+        self.scope.push(ParseScope::Mod);
         let body = self.parse_block(false);
-        self.scope = old_scope;
+        self.scope.pop();
         let struct_span = start.get_source_ref().combine(body.get_source_ref());
 
         Ins::DeclModule {
@@ -508,13 +500,9 @@ impl Parser {
 
         let mut code = vec![];
 
-        let old_scope = if use_new_scope {
-            let temp = self.scope;
-            self.scope = ParseScope::Block;
-            temp
-        } else {
-            self.scope
-        };
+        if use_new_scope {
+            self.scope.push(ParseScope::Block);
+        }
         let mut saw_rcurly = false;
         while !self.is_at_eof() {
             let cur = self.cur_token();
@@ -533,7 +521,7 @@ impl Parser {
         }
 
         if use_new_scope {
-            self.scope = old_scope;
+            self.scope.pop();
         }
 
         if !saw_rcurly {

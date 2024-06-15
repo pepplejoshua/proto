@@ -271,7 +271,32 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 format!("{}return;", state.get_pad())
             };
         }
-        TyIns::IfConditional { comb } => todo!(),
+        TyIns::IfConditional { comb } => {
+            for (i, (cond, code)) in comb.iter().enumerate() {
+                if i == 0 {
+                    buf.push_str(&format!(
+                        "{}if ({})\n{}",
+                        state.get_pad(),
+                        cpp_gen_expr(cond.as_ref().unwrap(), state),
+                        cpp_gen_ins(code, state)
+                    ));
+                    continue;
+                }
+
+                match cond {
+                    Some(else_if_cond) => {
+                        buf.push_str(&format!(
+                            " else if ({})\n{}",
+                            cpp_gen_expr(else_if_cond, state),
+                            cpp_gen_ins(code, state)
+                        ));
+                    }
+                    None => {
+                        buf.push_str(&format!(" else\n{}", cpp_gen_ins(code, state)));
+                    }
+                }
+            }
+        }
     }
     buf
 }
