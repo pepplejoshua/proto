@@ -789,7 +789,19 @@ pub fn check_expr(
             }
         }
         Expr::ErrorExpr { msg, loc } => (Type::new(Sig::ErrorType, loc.clone()), None),
-        Expr::GroupedExpr { inner, loc } => check_expr(inner, context_ty, state),
+        Expr::GroupedExpr { inner, loc } => {
+            let (inner_ty, inner_ty_expr) = check_expr(inner, context_ty, state);
+            if inner_ty.tag.is_error_type() {
+                (Type::new(Sig::ErrorType, loc.clone()), None)
+            } else {
+                (
+                    Type::new(inner_ty.tag, loc.clone()),
+                    Some(TyExpr::GroupedExpr {
+                        inner: Box::new(inner_ty_expr.unwrap()),
+                    }),
+                )
+            }
+        }
         Expr::TernaryConditional {
             cond,
             then,
@@ -812,7 +824,29 @@ pub fn check_expr(
             // expressions.
             let (then_ty, then_ty_expr) = check_expr(then, context_ty, state);
             let (other_ty, other_ty_expr) = check_expr(otherwise, context_ty, state);
-            todo!()
+
+            if then_ty.tag.is_error_type() || other_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            if !types_are_eq(&then_ty, &other_ty) {
+                state.push_err(CheckerError::TypeMismatch {
+                    loc: then.get_source_ref().combine(otherwise.get_source_ref()),
+                    expected: then_ty.as_str(),
+                    found: other_ty.as_str(),
+                });
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            let tern_ty = Type::new(then_ty.tag, loc.clone());
+            (
+                tern_ty,
+                Some(TyExpr::TernaryConditional {
+                    cond: Box::new(cond_ty_expr.unwrap()),
+                    then: Box::new(then_ty_expr.unwrap()),
+                    otherwise: Box::new(other_ty_expr.unwrap()),
+                }),
+            )
         }
     }
 }

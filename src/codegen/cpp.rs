@@ -129,8 +129,10 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
         header = includes.into_iter().collect::<Vec<String>>().join("\n");
         header.push('\n');
         header.push_str(&typedefs);
-        header.push('\n');
-        header.push_str(&buf);
+        if !buf.is_empty() {
+            header.push('\n');
+            header.push_str(&buf);
+        }
         header.push('\n');
     }
     header
@@ -346,10 +348,18 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
             "-std=c++11",
         ])
         .output();
-    if let Err(err) = clang_compile {
-        return Err(err.to_string());
-    }
 
+    match clang_compile {
+        Ok(clang_out) => {
+            if !clang_out.stderr.is_empty() {
+                println!(
+                    "clang++: {err}",
+                    err = String::from_utf8(clang_out.stderr).unwrap(),
+                )
+            }
+        }
+        Err(_) => return Err("fatal error trying to compile {og_file_path}".to_owned()),
+    }
     // let mut rm_cpp_file = Command::new("rm").arg(file_path.to_str().unwrap()).output();
     // if let Err(err) = rm_cpp_file {
     //     return Err(err.to_string());
