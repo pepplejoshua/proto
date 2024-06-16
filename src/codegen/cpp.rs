@@ -203,6 +203,19 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             let args_str = args_str.join(", ");
             format!("{}({args_str})", cpp_gen_expr(func, state))
         }
+        TyExpr::GroupedExpr { inner } => format!("({})", cpp_gen_expr(inner, state)),
+        TyExpr::TernaryConditional {
+            cond,
+            then,
+            otherwise,
+        } => {
+            format!(
+                "{} ? {} : {}",
+                cpp_gen_expr(cond, state),
+                cpp_gen_expr(then, state),
+                cpp_gen_expr(otherwise, state)
+            )
+        }
     }
 }
 

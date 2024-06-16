@@ -105,7 +105,7 @@ impl Lexer {
         let maybe_token = match c {
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' | '@' | '|' | '&' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '@' | '|' | '&' | '?' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
@@ -370,6 +370,10 @@ impl Lexer {
             ';' => {
                 self.src.next_char();
                 Ok(Token::Semicolon(cur_ref.combine(self.src.get_ref())))
+            }
+            '?' => {
+                self.src.next_char();
+                Ok(Token::QuestionMark(cur_ref.combine(self.src.get_ref())))
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
         }

@@ -1,7 +1,5 @@
 #![allow(unused)]
 
-use std::rc;
-
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::ast::FnParam,
@@ -720,7 +718,40 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Expr {
-        self.parse_or()
+        self.parse_ternary()
+    }
+
+    fn parse_ternary(&mut self) -> Expr {
+        let mut cond = self.parse_or();
+
+        // look for ?
+        if matches!(self.cur_token(), Token::QuestionMark(_)) {
+            self.advance();
+            let then = self.parse_expr();
+
+            // look for :
+            if !matches!(self.cur_token(), Token::Colon(_)) {
+                self.report_error(ParseError::Expected(
+                    "a colon to separate both branches of the ternary condition expression."
+                        .to_string(),
+                    self.cur_token().get_source_ref(),
+                    None,
+                ));
+            } else {
+                self.advance();
+            }
+
+            let otherwise = self.parse_expr();
+
+            cond = Expr::TernaryConditional {
+                loc: cond.get_source_ref().combine(otherwise.get_source_ref()),
+                cond: Box::new(cond),
+                then: Box::new(then),
+                otherwise: Box::new(otherwise),
+            };
+        }
+
+        cond
     }
 
     fn parse_or(&mut self) -> Expr {
@@ -950,7 +981,7 @@ impl Parser {
 
                         // arguments are to be comma separated
                         if !matches!(cur, Token::Comma(_)) {
-                            self.report_error(ParseError::Expected("a comma to separate argements or a right parenthesis to terminate function call.".to_string(), cur.get_source_ref(), None));
+                            self.report_error(ParseError::Expected("a comma to separate arguments or a right parenthesis to terminate function call.".to_string(), cur.get_source_ref(), None));
                             break;
                         }
                         self.advance();
@@ -1126,7 +1157,7 @@ impl Parser {
                 self.advance();
                 Expr::Str { val: str, loc }
             }
-            Token::MultiLineStringFragment(loc, fragment) => {
+            Token::MultiLineStringFragment(..) => {
                 // TODO
                 unreachable!("Parse::parse_primary: proto should not have multiline string support just yet.")
             }
@@ -1152,7 +1183,10 @@ impl Parser {
                     i_expr_span = self.cur_token().get_source_ref().combine(i_expr_span);
                     self.advance();
                 }
-                inner_expr
+                Expr::GroupedExpr {
+                    inner: Box::new(inner_expr),
+                    loc: i_expr_span,
+                }
             }
             Token::LBracket(loc) => {
                 self.advance();

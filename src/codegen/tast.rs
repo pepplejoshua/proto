@@ -30,9 +30,17 @@ pub enum TyExpr {
         op: UnaryOpType,
         expr: Box<TyExpr>,
     },
+    GroupedExpr {
+        inner: Box<TyExpr>,
+    },
     CallFn {
         func: Box<TyExpr>,
         args: Vec<TyExpr>,
+    },
+    TernaryConditional {
+        cond: Box<TyExpr>,
+        then: Box<TyExpr>,
+        otherwise: Box<TyExpr>,
     },
     StaticArray {
         vals: Vec<TyExpr>,
@@ -71,6 +79,17 @@ impl TyExpr {
                     .join(", ");
                 format!("[{items_str}]")
             }
+            TyExpr::GroupedExpr { inner } => format!("({})", inner.as_str()),
+            TyExpr::TernaryConditional {
+                cond,
+                then,
+                otherwise,
+            } => format!(
+                "{} ? {} : {}",
+                cond.as_str(),
+                then.as_str(),
+                otherwise.as_str()
+            ),
         }
     }
 }

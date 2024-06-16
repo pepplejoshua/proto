@@ -149,8 +149,7 @@ pub enum CheckerError {
         given: usize,
         arr_loc: SourceRef,
     },
-    IfConditionShouldBeTypedBool {
-        is_if: bool,
+    ConditionShouldBeTypedBool {
         given_ty: String,
         loc: SourceRef,
     },

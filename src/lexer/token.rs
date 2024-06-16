@@ -86,6 +86,7 @@ pub enum Token {
 
     // misc
     Underscore(SourceRef),
+    QuestionMark(SourceRef),
     Eof(SourceRef),
 }
 
@@ -157,6 +158,7 @@ impl Token {
             | Token::Type(src)
             | Token::Colon(src)
             | Token::Underscore(src)
+            | Token::QuestionMark(src)
             | Token::Newline(src) => src.clone(),
         }
     }
@@ -251,6 +253,7 @@ impl Token {
             Token::MultiLineStringFragment(_, mls) => mls.clone(),
             Token::Newline(_) => '\n'.to_string(),
             Token::Underscore(_) => '_'.to_string(),
+            Token::QuestionMark(_) => '?'.to_string(),
         }
     }
 }

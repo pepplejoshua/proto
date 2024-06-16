@@ -106,6 +106,16 @@ pub enum Expr {
         vals: Vec<Expr>,
         loc: SourceRef,
     },
+    GroupedExpr {
+        inner: Box<Expr>,
+        loc: SourceRef,
+    },
+    TernaryConditional {
+        cond: Box<Expr>,
+        then: Box<Expr>,
+        otherwise: Box<Expr>,
+        loc: SourceRef,
+    },
     ErrorExpr {
         msg: String,
         loc: SourceRef,
@@ -125,6 +135,8 @@ impl Expr {
             | Expr::CallFn { loc, .. }
             | Expr::UnaryOp { loc, .. }
             | Expr::StaticArray { loc, .. }
+            | Expr::GroupedExpr { loc, .. }
+            | Expr::TernaryConditional { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -173,6 +185,18 @@ impl Expr {
                     .map(|item| { item.as_str() })
                     .collect::<Vec<String>>()
                     .join(", ")
+            ),
+            Expr::GroupedExpr { inner, .. } => format!("({})", inner.as_str()),
+            Expr::TernaryConditional {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => format!(
+                "{} ? {} : {}",
+                cond.as_str(),
+                then.as_str(),
+                otherwise.as_str()
             ),
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }

@@ -534,6 +534,27 @@ pub fn check_expr(
             right,
             loc,
         } => {
+            // we might be able to decide an order in which to check these
+            // expressions. This will let us use other expressions to typecheck
+            // numerical literals. For example:
+            // ```
+            // a : i8 : 20;
+            // some_variable :: a + 1;
+            // ```
+            // Currently, this will throw an error since a is typed i8 and
+            // 1 will be inferred to be int. But we can provide context for checking
+            // 1 based on a. It will also apply and work if it is reversed and mixed into
+            // other expressions with literals:
+            // ```
+            // a : i8 : 20;
+            // some_variable :: 2 + (1 + a); // parsed into [2 + [1 + a]]
+            // ```
+            // Where we would have typechecked 2 to be int, we will typecheck the rhs
+            // of the expression first to see if we can gather context to typecheck 2.
+            // In [1 + a], we will also defer the checking of 1 since a is non-literal
+            // and can provide context for checking 1. Since a is typed i8, 1 can be
+            // checked to see if it can be typed i8. [1 + a] will be typed i8 and then
+            // 2 can be checked.
             let (l_ty, l_ty_expr) = check_expr(left, &None, state);
             let (r_ty, r_ty_expr) = check_expr(right, &None, state);
 
@@ -583,7 +604,7 @@ pub fn check_expr(
                 }
                 BinOpType::And | BinOpType::Or => {
                     if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
-                        return (Type::new(Sig::Bool, loc.clone()), None);
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
                     }
 
                     match (l_ty.tag, r_ty.tag) {
@@ -613,7 +634,7 @@ pub fn check_expr(
                 | BinOpType::GtEq
                 | BinOpType::LtEq => {
                     if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
-                        return (Type::new(Sig::Bool, loc.clone()), None);
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
                     }
 
                     match (l_ty.tag, r_ty.tag) {
@@ -768,6 +789,31 @@ pub fn check_expr(
             }
         }
         Expr::ErrorExpr { msg, loc } => (Type::new(Sig::ErrorType, loc.clone()), None),
+        Expr::GroupedExpr { inner, loc } => check_expr(inner, context_ty, state),
+        Expr::TernaryConditional {
+            cond,
+            then,
+            otherwise,
+            loc,
+        } => {
+            let (cond_ty, cond_ty_expr) = check_expr(cond, &None, state);
+
+            // we expect the condition to be typed bool
+            if !cond_ty.tag.is_error_type() && cond_ty.tag != Sig::Bool {
+                state.push_err(CheckerError::ConditionShouldBeTypedBool {
+                    given_ty: cond_ty.as_str(),
+                    loc: cond.get_source_ref(),
+                });
+            }
+
+            // typecheck then and otherwise expressions and make sure they have
+            // the same type. remember to prioritize then or otherwise if we need
+            // to extra context to typecheck the other expression, similar to binary
+            // expressions.
+            let (then_ty, then_ty_expr) = check_expr(then, context_ty, state);
+            let (other_ty, other_ty_expr) = check_expr(otherwise, context_ty, state);
+            todo!()
+        }
     }
 }
 
@@ -788,14 +834,25 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 return None;
             }
             let (expr_ty, expr_ty_expr) = check_expr(init_val, ty, state);
-            let ty_ins = if let Some(ty) = ty {
-                if !expr_ty.tag.is_error_type() && !types_are_eq(ty, &expr_ty) {
-                    state.push_err(CheckerError::TypeMismatch {
-                        loc: loc.clone(),
-                        expected: ty.as_str(),
-                        found: expr_ty.as_str(),
-                    });
-                    None
+            // println!("expr_ty_expr: {expr_ty_expr:#?}, \n{:#?}", state.errs);
+            let ty_ins = if expr_ty.tag.is_error_type() {
+                None
+            } else {
+                if let Some(ty) = ty {
+                    if !types_are_eq(ty, &expr_ty) {
+                        state.push_err(CheckerError::TypeMismatch {
+                            loc: loc.clone(),
+                            expected: ty.as_str(),
+                            found: expr_ty.as_str(),
+                        });
+                        None
+                    } else {
+                        Some(TyIns::Constant {
+                            name: name.as_str(),
+                            ty: expr_ty.clone(),
+                            init: expr_ty_expr.unwrap(),
+                        })
+                    }
                 } else {
                     Some(TyIns::Constant {
                         name: name.as_str(),
@@ -803,14 +860,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                         init: expr_ty_expr.unwrap(),
                     })
                 }
-            } else if expr_ty.tag.is_error_type() {
-                None
-            } else {
-                Some(TyIns::Constant {
-                    name: name.as_str(),
-                    ty: expr_ty.clone(),
-                    init: expr_ty_expr.unwrap(),
-                })
             };
             let info = NameInfo {
                 ty: expr_ty.clone(),
@@ -838,15 +887,17 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             }
 
             let ty_ins = match (ty, init_val) {
-                (Some(_), Some(expr)) => {
+                (Some(inner), Some(expr)) => {
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
                     let (expr_ty, expr_ty_expr) = check_expr(expr, ty, state);
-                    let ty_ins = if let Some(ty) = ty {
-                        if !expr_ty.tag.is_error_type() && !types_are_eq(ty, &expr_ty) {
+                    let ty_ins = if expr_ty.tag.is_error_type() {
+                        None
+                    } else {
+                        if !types_are_eq(inner, &expr_ty) {
                             state.push_err(CheckerError::TypeMismatch {
                                 loc: loc.clone(),
-                                expected: ty.as_str(),
+                                expected: inner.as_str(),
                                 found: expr_ty.as_str(),
                             });
                             None
@@ -857,14 +908,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                                 init: expr_ty_expr,
                             })
                         }
-                    } else if expr_ty.tag.is_error_type() {
-                        None
-                    } else {
-                        Some(TyIns::Var {
-                            name: name.as_str(),
-                            ty: expr_ty.clone(),
-                            init: expr_ty_expr,
-                        })
                     };
                     let info = NameInfo {
                         ty: expr_ty.clone(),
@@ -1033,8 +1076,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     let (cond_ty, cond_ty_expr) = check_expr(cond, context_ty, state);
 
                     if !cond_ty.tag.is_error_type() && !(cond_ty.tag == Sig::Bool) {
-                        state.push_err(CheckerError::IfConditionShouldBeTypedBool {
-                            is_if: i == 0,
+                        state.push_err(CheckerError::ConditionShouldBeTypedBool {
                             given_ty: cond_ty.as_str(),
                             loc: cond.get_source_ref(),
                         });

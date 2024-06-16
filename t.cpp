@@ -125,5 +125,12 @@ int main() {
     std::cout << "sizeof int            :" << sizeof(int) << std::endl;
 
     test({2, 1});
+
+    int r = 0;
+    auto res = r == 0 ? "equal" : "unequal";
+    auto res1 = r == 0 ? "equal" : (r == -1 ? "lhs is greater" : "rhs is greater");
+    auto res2 = r != 0 ? (r == -1 ? "lhs is greater" : "rhs is greater") : "equal";
+
+    auto num = (r > 0 ? true : false) ? "positive" : "negative";
     return 0;
 }
