@@ -22,5 +22,11 @@ fn main() int {
 
     num :: (r > 0 ? true : false) ? "positive" : "negative";
 
+    print("what is your name? ");
+    name :: readln();
+    s1 :: fmt("hello {}.", name);
+    s2 :: fmt("hello {{name}}.", name); // should error
+    println("res: {}, res1: {}, res2: {}, num: {}...", res, res1, res2, num);
+
     return 0;
 }

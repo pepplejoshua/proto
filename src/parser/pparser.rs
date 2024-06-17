@@ -5,12 +5,12 @@ use crate::{
     parser::ast::FnParam,
     source::{
         errors::{LexError, ParseError, ParseWarning},
-        source::SourceReporter,
+        source::{SourceRef, SourceReporter},
     },
     types::signature::{Sig, Type},
 };
 
-use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
+use super::ast::{BinOpType, Expr, FileModule, FmtSection, Ins, UnaryOpType};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     TopLevel,
@@ -126,6 +126,7 @@ impl Parser {
             Token::Fn(_) => self.parse_fn(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
+            Token::Print(_) | Token::Println(_) => self.parse_print(),
             Token::SingleLineComment(loc, comment) => {
                 self.advance();
                 Ins::SingleLineComment { comment, loc }
@@ -134,6 +135,96 @@ impl Parser {
             Token::If(_) => self.parse_if_conditional(),
             Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
+        }
+    }
+
+    fn split_fmt_str(&mut self, content: &String, loc: &SourceRef) -> Vec<FmtSection> {
+        let mut buf = String::new();
+        todo!()
+    }
+
+    fn parse_print(&mut self) -> Ins {
+        let is_println = matches!(self.cur_token(), Token::Println(_));
+        let mut span = self.cur_token().get_source_ref();
+        self.advance();
+
+        let mut cur = self.cur_token();
+
+        // look for (
+        if !matches!(cur, Token::LParen(_)) {
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a left parenthesis to begin argument section for {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                cur.get_source_ref(),
+                None,
+            ));
+            return Ins::ErrorIns {
+                msg: format!(
+                    "a left parenthesis to begin argument section for {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                loc: span.combine(cur.get_source_ref()),
+            };
+        }
+
+        self.advance();
+
+        cur = self.cur_token();
+        // look for string to be chunked up
+        let mut fmt_str = String::new();
+        let mut str_loc = SourceRef::dud();
+        if let Token::SingleLineStringLiteral(loc, content) = &cur {
+            fmt_str = content.clone();
+            str_loc = loc.clone();
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a string literal as the argument to {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                cur.get_source_ref(),
+                None,
+            ));
+            return Ins::ErrorIns {
+                msg: format!(
+                    "a string literal as the argument to {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                loc: span.combine(cur.get_source_ref()),
+            };
+        }
+
+        // look for )
+        cur = self.cur_token();
+
+        // look for (
+        if !matches!(cur, Token::RParen(_)) {
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a right parenthesis to end argument section for {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                cur.get_source_ref(),
+                None,
+            ));
+            return Ins::ErrorIns {
+                msg: format!(
+                    "a right parenthesis to end argument section for {}.",
+                    if is_println { "println" } else { "print" }
+                ),
+                loc: span.combine(cur.get_source_ref()),
+            };
+        }
+
+        // split the string literal into sections
+        let sections = self.split_fmt_str(&fmt_str, &str_loc);
+
+        // look for ;
+        Ins::PrintIns {
+            is_println,
+            sections,
+            loc: span,
         }
     }
 

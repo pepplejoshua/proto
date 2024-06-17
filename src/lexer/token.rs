@@ -52,7 +52,6 @@ pub enum Token {
     RCurly(SourceRef),
     LBracket(SourceRef),
     RBracket(SourceRef),
-    Newline(SourceRef),
     Semicolon(SourceRef),
     Colon(SourceRef),
     Comma(SourceRef),
@@ -83,6 +82,8 @@ pub enum Token {
     Str(SourceRef),
     Type(SourceRef),
     Struct(SourceRef),
+    Print(SourceRef),
+    Println(SourceRef),
 
     // misc
     Underscore(SourceRef),
@@ -159,7 +160,8 @@ impl Token {
             | Token::Colon(src)
             | Token::Underscore(src)
             | Token::QuestionMark(src)
-            | Token::Newline(src) => src.clone(),
+            | Token::Print(src)
+            | Token::Println(src) => src.clone(),
         }
     }
 
@@ -251,9 +253,10 @@ impl Token {
             Token::Colon(_) => ":".into(),
             Token::SingleLineStringLiteral(_, content) => content.clone(),
             Token::MultiLineStringFragment(_, mls) => mls.clone(),
-            Token::Newline(_) => '\n'.to_string(),
             Token::Underscore(_) => '_'.to_string(),
             Token::QuestionMark(_) => '?'.to_string(),
+            Token::Print(_) => "print".to_string(),
+            Token::Println(_) => "println".to_string(),
         }
     }
 }

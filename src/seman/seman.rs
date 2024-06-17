@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, pin::Pin, process::exit};
+use std::{collections::HashMap, pin::Pin, process::exit, sync::Once};
 
 use crate::{
     codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
@@ -114,6 +114,35 @@ impl State {
             }
             exit(1);
         }
+    }
+}
+
+static BUILTINS_INIT: Once = Once::new();
+static mut BUILTINS_HASHMAP: Option<HashMap<&'static str, Type>> = None;
+
+fn init_builtins() {
+    let mut m = HashMap::new();
+    // readln();
+    m.insert(
+        "readln",
+        Type {
+            tag: Sig::Function,
+            name: None,
+            sub_types: vec![],
+            aux_type: Some(Box::new(Type::new(Sig::Str, SourceRef::dud()))),
+            sub_expr: None,
+            loc: SourceRef::dud(),
+        },
+    );
+    unsafe {
+        BUILTINS_HASHMAP = Some(m);
+    }
+}
+
+fn get_builtins() -> &'static HashMap<&'static str, Type> {
+    unsafe {
+        BUILTINS_INIT.call_once(init_builtins);
+        BUILTINS_HASHMAP.as_ref().unwrap()
     }
 }
 
@@ -513,6 +542,7 @@ pub fn check_expr(
             }
         }
         Expr::Ident { name, loc } => {
+            // check to see if it is a builtin name
             let i_ty = state.env.lookup(name);
             match i_ty {
                 Some(info) => {
@@ -848,6 +878,7 @@ pub fn check_expr(
                 }),
             )
         }
+        Expr::Fmt { sections, loc } => todo!(),
     }
 }
 
@@ -1213,6 +1244,11 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             // do nothing
             None
         }
+        Ins::PrintIns {
+            is_println,
+            sections,
+            loc,
+        } => todo!(),
     }
 }
 
