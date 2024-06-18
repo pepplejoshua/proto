@@ -158,6 +158,51 @@ impl Lexer {
         Ok(Token::MultiLineStringFragment(span, content))
     }
 
+    fn lex_interpolation_string(&mut self) -> Result<Token, LexError> {
+        // an interpolation string is delimited by backticks(`)
+        // it allows interpolation of expressions into a string literal, which is
+        // essentially concatenation.
+        // when we run into a `, we will enter this function. instead of lexing the
+        // whole string and leaving it to the parser to struggle with generating sub
+        // expressions with valid `SourceRef`, we will do the complex stuff here.
+        // this will involve interleaving lexing string sections and lexing regular
+        // tokens which will be easy for the parser to fashion into an Expr ast node.
+        // For example:
+        // 1. `hello {name}, this is an important message from {company}.`
+        // this will be split into:
+        // * InterpStart
+        // * StrLiteral("hello ")
+        // * LParen
+        // * Identifier(name)
+        // * RParen
+        // * StrLiteral(", this is an important message from ")
+        // * LParen
+        // * Identifier(company)
+        // * RParen
+        // * StrLiteral(".")
+        // * InterpEnd
+        // 2. `Person {person.name} is {person.age} years old.`
+        // * InterpStart
+        // * StrLiteral("Person ")
+        // * LParen
+        // * Identifier(person)
+        // * Dot
+        // * Identifier(name)
+        // * RParen
+        // * StrLiteral(" is ")
+        // * LParen
+        // * Identifier(person)
+        // * Dot
+        // * Identifier(age)
+        // * RParen
+        // * StrLiteral(" years old.")
+        // * InterpEnd
+        // this will allow the parser properly build the interpolation string
+        // TODO: handle what occurs when u use an interpolation string inside the
+        // expression braces inside another interpolation string.
+        todo!()
+    }
+
     // lex a potential identifier
     // it might turn out to be either a:
     // - keyword

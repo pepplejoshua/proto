@@ -24,6 +24,7 @@ fn main() int {
 
     print("what is your name? ");
     name :: readln();
+    s :: fmt(`hello {name}.`);
     s1 :: fmt("hello {}.", name);
     s2 :: fmt("hello {{name}}.", name); // should error
     println("res: {}, res1: {}, res2: {}, num: {}...", res, res1, res2, num);
