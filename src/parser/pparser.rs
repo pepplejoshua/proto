@@ -10,7 +10,7 @@ use crate::{
     types::signature::{Sig, Type},
 };
 
-use super::ast::{BinOpType, Expr, FileModule, FmtSection, Ins, UnaryOpType};
+use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     TopLevel,
@@ -138,11 +138,6 @@ impl Parser {
         }
     }
 
-    fn split_fmt_str(&mut self, content: &String, loc: &SourceRef) -> Vec<FmtSection> {
-        let mut buf = String::new();
-        todo!()
-    }
-
     fn parse_print(&mut self) -> Ins {
         let is_println = matches!(self.cur_token(), Token::Println(_));
         let mut span = self.cur_token().get_source_ref();
@@ -172,28 +167,7 @@ impl Parser {
         self.advance();
 
         cur = self.cur_token();
-        // look for string to be chunked up
-        let mut fmt_str = String::new();
-        let mut str_loc = SourceRef::dud();
-        if let Token::SingleLineStringLiteral(loc, content) = &cur {
-            fmt_str = content.clone();
-            str_loc = loc.clone();
-            self.report_error(ParseError::Expected(
-                format!(
-                    "a string literal as the argument to {}.",
-                    if is_println { "println" } else { "print" }
-                ),
-                cur.get_source_ref(),
-                None,
-            ));
-            return Ins::ErrorIns {
-                msg: format!(
-                    "a string literal as the argument to {}.",
-                    if is_println { "println" } else { "print" }
-                ),
-                loc: span.combine(cur.get_source_ref()),
-            };
-        }
+        let output = self.parse_expr();
 
         // look for )
         cur = self.cur_token();
@@ -217,14 +191,11 @@ impl Parser {
             };
         }
 
-        // split the string literal into sections
-        let sections = self.split_fmt_str(&fmt_str, &str_loc);
-
         // look for ;
         Ins::PrintIns {
             is_println,
-            sections,
             loc: span,
+            output,
         }
     }
 
@@ -1325,6 +1296,44 @@ impl Parser {
                     vals: items,
                     loc: span,
                 }
+            }
+            Token::BackTick(loc) => {
+                // an interporlated string start and end with a backtick, can contain text
+                // or expression sections starting with { and ending with }
+                let mut span = loc.clone();
+                self.advance();
+
+                let mut parts = vec![];
+                while !self.is_at_eof() {
+                    match self.cur_token() {
+                        Token::BackTick(end_loc) => {
+                            span = span.combine(end_loc);
+                            self.advance();
+                            break;
+                        }
+                        Token::SingleLineStringLiteral(str_loc, content) => {
+                            self.advance();
+                            let str = Expr::Str { val: content, loc: str_loc };
+                            parts.push(str);
+                        }
+                        Token::LCurly(_) => {
+                            self.advance();
+                            let sub_expr = self.parse_expr();
+                            if !matches!(self.cur_token(), Token::RCurly(_)) {
+                                self.report_error(ParseError::Expected(
+                                    "a } to terminate expression section in interpolated string.".to_string(),
+                                    self.cur_token().get_source_ref(),
+                                    None
+                                ))
+                            } else {
+                                self.advance();
+                            }
+                            parts.push(sub_expr);
+                        }
+                        _ => unreachable!("pparserr::parse_primary(): for interpolated strings, unexpected token: {:#?}", self.cur_token())
+                    }
+                }
+                Expr::InterpolatedString { parts, loc: span }
             }
             _ => {
                 let span = cur.get_source_ref();

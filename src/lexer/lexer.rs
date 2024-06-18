@@ -5,6 +5,7 @@ use crate::source::{errors::LexError, source::SourceFile};
 pub struct Lexer {
     pub src: SourceFile,
     last_lexed: Option<Token>,
+    queue: Vec<Token>,
 }
 
 #[allow(dead_code)]
@@ -13,6 +14,7 @@ impl Lexer {
         Lexer {
             src,
             last_lexed: None,
+            queue: vec![],
         }
     }
 
@@ -78,6 +80,12 @@ impl Lexer {
 
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexError> {
+        if !self.queue.is_empty() {
+            let tok = self.queue.remove(0);
+            self.last_lexed = Some(tok.clone());
+            return Ok(tok);
+        }
+
         while self.src.cur_char().is_whitespace() {
             // TODO: understand the ramifications of using newlines instead of ;
             // we care about newline characters since they take the place
@@ -133,9 +141,11 @@ impl Lexer {
     }
 
     fn lex_interpolated_string(&mut self) -> Result<Token, LexError> {
-        let mut parts = vec![];
         let mut span = self.src.get_ref();
         self.src.next_char(); // consume initial backtick
+        span = span.combine(self.src.get_ref());
+        let bt = Token::BackTick(span.clone());
+        let mut parts = vec![];
 
         let mut buf = String::new();
         let mut buf_span = self.src.get_ref();
@@ -144,6 +154,7 @@ impl Lexer {
 
             match c {
                 '`' => {
+                    span = self.src.get_ref();
                     self.src.next_char();
                     span = span.combine(self.src.get_ref());
                     if !buf.is_empty() {
@@ -152,6 +163,7 @@ impl Lexer {
                             buf.clone(),
                         ))
                     }
+                    parts.push(Token::BackTick(span.clone()));
                     break;
                 }
                 '{' => {
@@ -214,7 +226,9 @@ impl Lexer {
             return Err(LexError::UnterminatedStringLiteral(span));
         }
 
-        Ok(Token::InterpolatedString { parts, src: span })
+        // let span =
+        self.queue = parts;
+        Ok(bt)
     }
 
     // a multi line string fragment is a string fragment that is

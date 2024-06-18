@@ -878,7 +878,7 @@ pub fn check_expr(
                 }),
             )
         }
-        Expr::Fmt { sections, loc } => todo!(),
+        Expr::InterpolatedString { parts, loc } => todo!(),
     }
 }
 
@@ -1246,7 +1246,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
         }
         Ins::PrintIns {
             is_println,
-            sections,
+            output,
             loc,
         } => todo!(),
     }

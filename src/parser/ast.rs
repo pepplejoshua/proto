@@ -1,20 +1,6 @@
 #![allow(unused)]
 use crate::{source::source::SourceRef, types::signature::Type};
 
-#[derive(Debug, Clone)]
-pub enum FmtSection {
-    StrLiteral(String),
-    SubExpr(Expr),
-}
-
-impl FmtSection {
-    pub fn as_str(&self) -> String {
-        match self {
-            FmtSection::StrLiteral(s) => s.clone(),
-            FmtSection::SubExpr(e) => e.as_str(),
-        }
-    }
-}
 #[derive(Debug, Clone, Copy)]
 pub enum BinOpType {
     Add,
@@ -130,8 +116,8 @@ pub enum Expr {
         otherwise: Box<Expr>,
         loc: SourceRef,
     },
-    Fmt {
-        sections: Vec<FmtSection>,
+    InterpolatedString {
+        parts: Vec<Expr>,
         loc: SourceRef,
     },
     ErrorExpr {
@@ -155,7 +141,7 @@ impl Expr {
             | Expr::StaticArray { loc, .. }
             | Expr::GroupedExpr { loc, .. }
             | Expr::TernaryConditional { loc, .. }
-            | Expr::Fmt { loc, .. }
+            | Expr::InterpolatedString { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -217,12 +203,17 @@ impl Expr {
                 then.as_str(),
                 otherwise.as_str()
             ),
-            Expr::Fmt { sections, .. } => {
+            Expr::InterpolatedString { parts, .. } => {
                 format!(
-                    "fmt(\"{sect_strs}\")",
-                    sect_strs = sections
+                    "`{}`",
+                    parts
                         .iter()
-                        .map(|sect| { sect.as_str() })
+                        .map(|part| {
+                            match part {
+                                Expr::Str { val, .. } => val.clone(),
+                                _ => format!("{{{}}}", part.as_str()),
+                            }
+                        })
                         .collect::<Vec<String>>()
                         .join("")
                 )
@@ -297,7 +288,7 @@ pub enum Ins {
     },
     PrintIns {
         is_println: bool,
-        sections: Vec<FmtSection>,
+        output: Expr,
         loc: SourceRef,
     },
     ErrorIns {
@@ -441,17 +432,13 @@ impl Ins {
             }
             Ins::PrintIns {
                 is_println,
-                sections,
                 loc,
+                output,
             } => {
                 format!(
-                    "{}({sect_strs});",
+                    "{}({});",
                     if *is_println { "println" } else { "print" },
-                    sect_strs = sections
-                        .iter()
-                        .map(|sect| { sect.as_str() })
-                        .collect::<Vec<String>>()
-                        .join("")
+                    output.as_str()
                 )
             }
         }

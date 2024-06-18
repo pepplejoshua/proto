@@ -218,6 +218,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 cpp_gen_expr(otherwise, state)
             )
         }
+        TyExpr::InterpolatedString { parts } => todo!(),
     }
 }
 

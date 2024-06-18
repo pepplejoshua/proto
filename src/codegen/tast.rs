@@ -45,6 +45,9 @@ pub enum TyExpr {
     StaticArray {
         vals: Vec<TyExpr>,
     },
+    InterpolatedString {
+        parts: Vec<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -90,6 +93,21 @@ impl TyExpr {
                 then.as_str(),
                 otherwise.as_str()
             ),
+            TyExpr::InterpolatedString { parts } => {
+                format!(
+                    "{}",
+                    parts
+                        .iter()
+                        .map(|part| {
+                            match part {
+                                TyExpr::Str { val } => val.clone(),
+                                _ => part.as_str(),
+                            }
+                        })
+                        .collect::<Vec<String>>()
+                        .join("")
+                )
+            }
         }
     }
 }

@@ -56,6 +56,7 @@ pub enum Token {
     Colon(SourceRef),
     Comma(SourceRef),
     Dot(SourceRef),
+    BackTick(SourceRef),
 
     // literals
     NumberLiteral(String, SourceRef),
@@ -64,7 +65,6 @@ pub enum Token {
     SingleLineStringLiteral(SourceRef, String),
     MultiLineStringFragment(SourceRef, String),
     SingleLineComment(SourceRef, String),
-    InterpolatedString { parts: Vec<Token>, src: SourceRef },
 
     // type tags
     I8(SourceRef),
@@ -162,7 +162,7 @@ impl Token {
             | Token::Underscore(src)
             | Token::QuestionMark(src)
             | Token::Print(src)
-            | Token::InterpolatedString { src, .. }
+            | Token::BackTick(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -259,21 +259,7 @@ impl Token {
             Token::QuestionMark(_) => '?'.to_string(),
             Token::Print(_) => "print".to_string(),
             Token::Println(_) => "println".to_string(),
-            Token::InterpolatedString { parts, .. } => {
-                format!(
-                    "{}",
-                    parts
-                        .iter()
-                        .map(|tok| {
-                            match tok {
-                                Token::SingleLineStringLiteral(_, content) => content.clone(),
-                                _ => tok.as_str(),
-                            }
-                        })
-                        .collect::<Vec<String>>()
-                        .join("")
-                )
-            }
+            Token::BackTick(_) => '`'.to_string(),
         }
     }
 }
