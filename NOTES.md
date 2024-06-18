@@ -1,107 +1,36 @@
-fn rets() bool {
-  // return: bool, a: T_11
-  // |> T_11 = int
-  a :: 11;
-
-  // return: bool, a: T_11, b: i8
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  b : i8 : 31;
-
-  // return: bool, a: T_11, b: i8, c: T_+
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  c :: a + b;
-
-  // return: bool, a: T_11, b: i8, c: T_+, d: T_*
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  d :: c * 2;
-
-  // return: bool, a: T_11, b: i8, c: T_+, d: T_*, e: bool
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  //    T_10 = int
-  //    T_* = T_10
-  e :: d > 10;
-
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  //    T_10 = int
-  //    T_* = T_10
-  //    bool = bool
-  return e;
+fn comp(a int, b int) int {
+    if a > b {
+        return -1;
+    } else if a == b{
+        return 0;
+    } else {
+        return 1;
+    }
 }
 
-fn main() void {    // T_return: void
-    res :: rets();  // res: bool
-}
+fn main() int {
+    // e : i8 = 1;
+    // f :: e + 1;
+    // g :: 2 + 1 + f;
+    // h :: 2 + (1 + g);
+    // i : i8 : e + 1;
 
-fn rets() bool {
-  // return: bool, a: T_11
-  // |> T_11 = int
-  a :: 11;
+    r := comp(1, 2);
+    res :: r == 0 ? "equal" : "unequal";
+    res1 :: r == 0 ? "equal" : (r == -1 ? "lhs is greater" : "rhs is greater");
+    res2 :: r != 0 ? (r == -1 ? "lhs is greater" : "rhs is greater") : "equal";
 
-  // return: bool, a: T_11, b: i8
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  b : i8 : 31;
+    num :: (r > 0 ? true : false) ? "positive" : "negative";
 
-  // return: bool, a: T_11, b: i8, c: T_+
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  c :: a + b;
+    s :: `hello {name}`;
+    s1 :: `hello {person.name}, who is {person.age} years old`;
 
-  // return: bool, a: T_11, b: i8, c: T_+, d: T_*
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  d :: c * 2;
+    print("what is your name? ");
+    name :: readln();
+    println("hello {}.", name);
+    s1 :: fmt("hello {}.", name);
+    s2 :: fmt("hello {{name}}.", name); // should error
+    println("res: {}, res1: {}, res2: {}, num: {}...", res, res1, res2, num);
 
-  // return: bool, a: T_11, b: i8, c: T_+, d: T_*, e: bool
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  //    T_10 = int
-  //    T_* = T_10
-  e :: d > 10;
-
-  // |> T_11 = int
-  //    T_31 = i8(b)
-  //    T_11 = i8(b)
-  //    T_+ = T_11
-  //    T_2 = int
-  //    T_+ = T_2
-  //    T_* = T_+
-  //    T_10 = int
-  //    T_* = T_10
-  //    bool = bool
-  return e;
+    return 0;
 }

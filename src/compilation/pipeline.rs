@@ -189,7 +189,7 @@ impl Workspace {
                         if let Token::Eof(_) = tok {
                             break;
                         }
-                        println!("{:?}", tok)
+                        println!("{:#?}", tok)
                     }
                     Err(le) => reporter.report_lexer_error(&le),
                 }

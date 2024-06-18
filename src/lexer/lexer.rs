@@ -103,6 +103,7 @@ impl Lexer {
             return Ok(Token::Eof(self.src.get_ref()));
         }
         let maybe_token = match c {
+            '`' => self.lex_interpolated_string(),
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
             | ']' | ',' | '.' | ':' | ';' | '@' | '|' | '&' | '?' => self.lex_operator(),
@@ -131,6 +132,91 @@ impl Lexer {
         maybe_token
     }
 
+    fn lex_interpolated_string(&mut self) -> Result<Token, LexError> {
+        let mut parts = vec![];
+        let mut span = self.src.get_ref();
+        self.src.next_char(); // consume initial backtick
+
+        let mut buf = String::new();
+        let mut buf_span = self.src.get_ref();
+        while !self.src.is_eof() {
+            let c = self.src.cur_char();
+
+            match c {
+                '`' => {
+                    self.src.next_char();
+                    span = span.combine(self.src.get_ref());
+                    if !buf.is_empty() {
+                        parts.push(Token::SingleLineStringLiteral(
+                            buf_span.clone(),
+                            buf.clone(),
+                        ))
+                    }
+                    break;
+                }
+                '{' => {
+                    if self.src.peek_char() == '{' {
+                        // we can escape the { character and add it to the buf
+                        self.src.next_char();
+                        self.src.next_char();
+                        buf.push('{');
+                        buf_span = buf_span.combine(self.src.get_ref());
+                        continue;
+                    }
+
+                    // store whatever we have in buf and reset it
+                    span = span.combine(self.src.get_ref());
+                    if !buf.is_empty() {
+                        parts.push(Token::SingleLineStringLiteral(
+                            buf_span.clone(),
+                            buf.clone(),
+                        ));
+                        buf.clear();
+                    }
+
+                    let mut lcurly_span = self.src.get_ref();
+                    self.src.next_char();
+                    lcurly_span = lcurly_span.combine(self.src.get_ref());
+                    let lcurly = Token::LCurly(lcurly_span);
+                    parts.push(lcurly);
+
+                    // from this point till we see a }, we will call next_token() to read
+                    // regular token to us, instead of a string
+                    let mut saw_rcurly = false;
+                    while !self.src.is_eof() {
+                        if let Ok(tok) = self.next_token() {
+                            span = span.combine(tok.get_source_ref());
+                            saw_rcurly = matches!(tok, Token::RCurly(_));
+                            parts.push(tok);
+                            if saw_rcurly {
+                                break;
+                            }
+                        } else {
+                            break;
+                        }
+                    }
+
+                    if !saw_rcurly {
+                        return Err(LexError::UnterminatedStringLiteral(span));
+                    }
+
+                    buf_span = self.src.get_ref();
+                }
+                _ => {
+                    buf.push(c);
+                    self.src.next_char();
+                    buf_span = buf_span.combine(self.src.get_ref());
+                }
+            }
+        }
+
+        if self.src.is_eof() {
+            return Err(LexError::UnterminatedStringLiteral(span));
+        }
+
+        Ok(Token::InterpolatedString { parts, src: span })
+    }
+
     // a multi line string fragment is a string fragment that is
     // preceded by "---". It goes till the end of the line
     fn lex_multi_line_string_fragment(&mut self) -> Result<Token, LexError> {
@@ -156,51 +242,6 @@ impl Lexer {
             }
         }
         Ok(Token::MultiLineStringFragment(span, content))
-    }
-
-    fn lex_interpolation_string(&mut self) -> Result<Token, LexError> {
-        // an interpolation string is delimited by backticks(`)
-        // it allows interpolation of expressions into a string literal, which is
-        // essentially concatenation.
-        // when we run into a `, we will enter this function. instead of lexing the
-        // whole string and leaving it to the parser to struggle with generating sub
-        // expressions with valid `SourceRef`, we will do the complex stuff here.
-        // this will involve interleaving lexing string sections and lexing regular
-        // tokens which will be easy for the parser to fashion into an Expr ast node.
-        // For example:
-        // 1. `hello {name}, this is an important message from {company}.`
-        // this will be split into:
-        // * InterpStart
-        // * StrLiteral("hello ")
-        // * LParen
-        // * Identifier(name)
-        // * RParen
-        // * StrLiteral(", this is an important message from ")
-        // * LParen
-        // * Identifier(company)
-        // * RParen
-        // * StrLiteral(".")
-        // * InterpEnd
-        // 2. `Person {person.name} is {person.age} years old.`
-        // * InterpStart
-        // * StrLiteral("Person ")
-        // * LParen
-        // * Identifier(person)
-        // * Dot
-        // * Identifier(name)
-        // * RParen
-        // * StrLiteral(" is ")
-        // * LParen
-        // * Identifier(person)
-        // * Dot
-        // * Identifier(age)
-        // * RParen
-        // * StrLiteral(" years old.")
-        // * InterpEnd
-        // this will allow the parser properly build the interpolation string
-        // TODO: handle what occurs when u use an interpolation string inside the
-        // expression braces inside another interpolation string.
-        todo!()
     }
 
     // lex a potential identifier
@@ -447,8 +488,6 @@ impl Lexer {
                     content.push('\\');
                     content.push(c);
                 }
-            } else if c == '\n' {
-                return Err(LexError::UnterminatedStringLiteral(span));
             } else {
                 content.push(c);
             }
