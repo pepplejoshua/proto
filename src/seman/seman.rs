@@ -878,7 +878,24 @@ pub fn check_expr(
                 }),
             )
         }
-        Expr::InterpolatedString { parts, loc } => todo!(),
+        Expr::InterpolatedString { parts, loc } => {
+            // check each expression in parts and create a TyExpr from it with a
+            // string type
+            let mut new_ty_exprs = vec![];
+            for part in parts.iter() {
+                let (new_ty, new_ty_expr) = check_expr(part, &None, state);
+                if !new_ty.tag.is_error_type() {
+                    new_ty_exprs.push(new_ty_expr.unwrap());
+                }
+            }
+
+            (
+                Type::new(Sig::Str, loc.clone()),
+                Some(TyExpr::InterpolatedString {
+                    parts: new_ty_exprs,
+                }),
+            )
+        }
     }
 }
 

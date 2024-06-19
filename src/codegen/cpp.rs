@@ -12,6 +12,7 @@ use super::tast::{TyExpr, TyFileModule, TyIns};
 pub struct State {
     in_count: usize,
     gen_typedefs_for: HashSet<Sig>,
+    uses_str_interpolation: bool,
 }
 
 impl State {
@@ -19,6 +20,7 @@ impl State {
         State {
             in_count: 0,
             gen_typedefs_for: HashSet::new(),
+            uses_str_interpolation: false,
         }
     }
 
@@ -218,7 +220,32 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 cpp_gen_expr(otherwise, state)
             )
         }
-        TyExpr::InterpolatedString { parts } => todo!(),
+        TyExpr::InterpolatedString { parts } => {
+            let mut buf = String::from("");
+            for part in parts.iter() {
+                // determine what way to generate the string for the current part
+                let part_str: String = match part {
+                    TyExpr::Integer { val } => todo!(),
+                    TyExpr::Str { val } => todo!(),
+                    TyExpr::Char { val } => todo!(),
+                    TyExpr::Bool { val } => todo!(),
+                    TyExpr::Ident { name } => todo!(),
+                    TyExpr::BinOp { op, lhs, rhs } => todo!(),
+                    TyExpr::UnaryOp { op, expr } => todo!(),
+                    TyExpr::GroupedExpr { inner } => todo!(),
+                    TyExpr::CallFn { func, args } => todo!(),
+                    TyExpr::TernaryConditional {
+                        cond,
+                        then,
+                        otherwise,
+                    } => todo!(),
+                    TyExpr::StaticArray { vals } => todo!(),
+                    TyExpr::InterpolatedString { parts } => todo!(),
+                };
+                buf.push_str(&part_str);
+            }
+            buf
+        }
     }
 }
 

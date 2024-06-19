@@ -1,136 +1,70 @@
-#include <cstdlib>
 #include <iostream>
+#include <algorithm>
+#include <initializer_list>
+#include <cstdint>
+#include <cstdlib>
 #include <string>
-
-typedef std::string str;
-
-void panic(int line, const str sourcefile, const str msg) {
-    // should unwind the call stack and then show the error message
-    std::cout << sourcefile << ":" << line << ":" << " " << msg << std::endl;
-    std::exit(EXIT_FAILURE);
-}
+typedef uint32_t uint;
 
 template<typename T>
-class Option {
-    T data;
-
-    public:
-    enum {
-        Some,
-        None
-    } tag;
-
-    Option(T item) {
-        data = item;
-        tag = Some;
-    }
-
-    Option() {
-        tag = None;
-    }
-
-    const bool is_some() const {
-        return tag == Some;
-    }
-
-    bool is_some() {
-        return tag == Some;
-    }
-
-    const bool is_none() const {
-        return tag == None;
-    }
-
-    bool is_none() {
-        return tag == None;
-    }
-
-    inline T& unwrap() {
-        // should use a panic() function to fail if Option.is_none() is true
-        if (this->is_none()) {
-            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
-        }
-        return data;
-    }
-
-    inline const T& unwrap() const {
-        // should use a panic() function to fail if Option.is_none() is true
-        if (this->is_none()) {
-            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
-        }
-        return data;
-    }
-};
-
-template<typename T, std::size_t N>
 class Array {
 public:
-    T data[N] = {};
 
     Array(std::initializer_list<T> init) {
+        for (T item : init) {
+            std::cout << item << std::endl;
+        }
         std::copy(init.begin(), init.end(), data);
+        size = init.size();
     }
 
     T& operator[](std::size_t index) {
         return data[index];
     }
 
-    const T& operator[](std::size_t index) const {
+    const T& operator[](uint index) const {
         return data[index];
     }
 
-    Option<T> get(std::size_t index) {
-        if (index > N-1) {
-            return Option<T>();
-        }
-
-        return Option<T>(data[index]);
+    constexpr uint len() const noexcept {
+        return size;
     }
 
-    std::size_t len() const {
-        return N;
+    std::string to_string() {
+
     }
 
     // Begin and end methods for range-based for loops
     T* begin() noexcept { return data; }
-    T* end() noexcept { return data + N; }
+    T* end() noexcept { return data + size; }
     const T* begin() const noexcept { return data; }
-    const T* end() const noexcept { return data + N; }
+    const T* end() const noexcept { return data + size; }
+private:
+    uint size;
+    T data[];
 };
 
-void test(Array<int, 2> a) {
-    std::cout << a[0] << std::endl;
+void show_array(Array<int> arr) {
+    int count = 0;
+    std::cout << "[";
+    for (int a : arr) {
+        std::cout << a;
+        count++;
+        if (!(count == arr.len())) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]\n";
 }
 
 int main() {
-    Array<Array<int, 2>, 3> a = {{1, 2}, {3, 4}, {5, 6}};
+    Array<int> a = {1, 3, 4, 6, 7};
+    Array<int> b = {1, 3, 5};
+    Array<int> c = {1 };
 
-    for (auto x : a) {
-        for (auto y : x) {
-            std::cout << y << " ";
-        }
-        std::cout << std::endl;
-    }
+    show_array(a);
+    show_array(b);
+    show_array(c);
 
-    Array<int, 2> *b = &a[0];
-    Array<int, 4> *c = new Array<int, 4>({1, 2, 3, 4});
-    std::cout << "size of array of 2 ints is " << sizeof(Array<int, 2>) << std::endl;
-    Option<int> i = b->get(0);
-    Option<int> j = c->get(4);
-
-    // std::cout << i.unwrap() << std::endl;
-    // std::cout << j.unwrap() << std::endl;
-    std::cout << "sizeof option<int>    :" << sizeof(i) << std::endl;
-    std::cout << "sizeof option<int>.tag:" << sizeof(i.tag) << std::endl;
-    std::cout << "sizeof int            :" << sizeof(int) << std::endl;
-
-    test({2, 1});
-
-    int r = 0;
-    auto res = r == 0 ? "equal" : "unequal";
-    auto res1 = r == 0 ? "equal" : (r == -1 ? "lhs is greater" : "rhs is greater");
-    auto res2 = r != 0 ? (r == -1 ? "lhs is greater" : "rhs is greater") : "equal";
-
-    auto num = (r > 0 ? true : false) ? "positive" : "negative";
     return 0;
 }
