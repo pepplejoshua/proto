@@ -52,7 +52,7 @@ public:
     inline T& unwrap() {
         // should use a panic() function to fail if Option.is_none() is true
         if (this->is_none()) {
-            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+            panic(__LINE__, __FILE__, "attempted to unwrap an Option::None.");
         }
         return data;
     }
@@ -60,7 +60,7 @@ public:
     inline const T& unwrap() const {
         // should use a panic() function to fail if Option.is_none() is true
         if (this->is_none()) {
-            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+            panic(__LINE__, __FILE__, "attempted to unwrap an Option::None.");
         }
         return data;
     }
@@ -70,11 +70,20 @@ template<typename T>
 class Slice {
 private:
     T* start;
+    const T* const_start;
     uint length;
     uint arr_capacity;
 
 public:
-    Slice(T* s, uint len, uint cap) : start(s), length(len), arr_capacity(cap) {}
+    Slice(T* s, uint len, uint cap) : start(s), const_start(s), length(len), arr_capacity(cap) {}
+    Slice(const T* s, uint len, uint cap) : start(nullptr), const_start(s), length(len), arr_capacity(cap) {}
+    Slice(const Slice<T>& other) :
+                const_start(other.const_start ? other.const_start : other.start),
+                length(other.length), arr_capacity(other.arr_capacity) {}
+    Slice(Slice<T>& other) :
+                start(other.start),
+                const_start(nullptr),
+                length(other.length), arr_capacity(other.arr_capacity) {}
 
     constexpr uint len() const noexcept {
         return length;
@@ -85,11 +94,19 @@ public:
     }
 
     const T& operator[](uint index) const {
-        return start + index;
+        return *((start ? start : const_start) + index);
     }
 
     Option<T> get(uint index) {
-        if (index > length-1) {
+        if (index >= length) {
+            return Option<T>();
+        }
+
+        return Option<T>(this[index]);
+    }
+
+    const Option<T> get(uint index) const {
+        if (index >= length) {
             return Option<T>();
         }
 
@@ -97,18 +114,38 @@ public:
     }
 
     Slice<T> make_slice(uint start, uint end_exclusive) {
-        return Slice<T>(this->begin() + start, end_exclusive-start, len());
+        if (start >= length || end_exclusive > length || start >= end_exclusive) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
+    }
+
+    const Slice<T> make_slice(uint start, uint end_exclusive) const {
+        if (start >= length || end_exclusive > length || start >= end_exclusive) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>((this->start ? this->start : this->const_start) + start, end_exclusive - start, arr_capacity);
     }
 
     Slice<T> make_slice_from(uint start) {
-        return Slice<T>(this->begin() + start, len()-start, len());
+        if (start >= length) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->start + start, length - start, arr_capacity);
+    }
+
+    const Slice<T> make_slice_from(uint start) const {
+        if (start >= length) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>((this->start ? this->start : this->const_start) + start, length - start, arr_capacity);
     }
 
     // Begin and end methods for range-based for loops
     T* begin() noexcept { return start; }
     T* end() noexcept { return start + length; }
-    const T* begin() const noexcept { return start; }
-    const T* end() const noexcept { return start + length; }
+    const T* begin() const noexcept { return (start ? start : const_start); }
+    const T* end() const noexcept { return (start ? start : const_start) + length; }
 };
 
 
@@ -131,19 +168,47 @@ public:
     }
 
     Option<T> get(uint index) {
-        if (index > N-1) {
+        if (index >= N) {
             return Option<T>();
         }
 
         return Option<T>(data[index]);
     }
 
+    const Option<T> get(uint index) const {
+        if (index >= N) {
+            return Option<T>();
+        }
+
+        return Option<T>(this[index]);
+    }
+
     Slice<T> make_slice(uint start, uint end_exclusive) {
-        return Slice<T>(this->begin() + start, end_exclusive-start, len());
+        if (start >= N || end_exclusive > N || start >= end_exclusive) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->begin() + start, end_exclusive - start, len());
+    }
+
+    const Slice<T> make_slice(uint start, uint end_exclusive) const {
+        if (start >= N || end_exclusive > N || start >= end_exclusive) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->begin() + start, end_exclusive - start, len());
     }
 
     Slice<T> make_slice_from(uint start) {
-        return Slice<T>(this->begin() + start, len()-start, len());
+        if (start >= N) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->begin() + start, len() - start, len());
+    }
+
+    const Slice<T> make_slice_from(uint start) const {
+        if (start >= N) {
+            panic(__LINE__, __FILE__, "Invalid slice bounds");
+        }
+        return Slice<T>(this->begin() + start, len() - start, len());
     }
 
     constexpr uint len() const noexcept {
@@ -182,9 +247,11 @@ int main() {
     Array<int, 5> a = {1, 3, 4, 6, 7};
     Array<int, 3> b = {1, 3, 5};
 
+    // todo: prevent assigning a constant to a non-constant
+    // reeiver will stop the bug where:
+    // Slice<int> sl = a.make_slice_from(2);
+    // this will segfault because
     Slice<int> sl = a.make_slice_from(2);
     show_slice(sl);
-    // mod_slice1(sl);
-    // show_slice(sl);
     return 0;
 }

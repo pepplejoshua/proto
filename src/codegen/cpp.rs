@@ -38,8 +38,8 @@ impl State {
 }
 
 const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
-const OPTION_CLASS: &str = include_str!("../std/option.cppr");
-const ARRAY_CLASS: &str = include_str!("../std/slice_and_array.cppr");
+const OPTION_CODE: &str = include_str!("../std/option.cppr");
+const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()
@@ -95,7 +95,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 typedefs.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
-            Sig::StaticArray => {
+            Sig::StaticArray | Sig::Slice => {
                 if !has_panic_fn {
                     if !state.gen_typedefs_for.contains(&Sig::Str) {
                         typedefs.push_str("\ntypedef std::string str;");
@@ -110,7 +110,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 }
 
                 if !has_option_class {
-                    buf.push_str(OPTION_CLASS);
+                    buf.push_str(OPTION_CODE);
                     has_option_class = true;
                 }
 
@@ -119,7 +119,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                         typedefs.push_str("\ntypedef uint32_t uint;");
                         includes.insert("#include <cstdint>".to_string());
                     }
-                    buf.push_str(ARRAY_CLASS);
+                    buf.push_str(SLICE_AND_ARRAY_CODE);
                     has_array_class = true;
                 }
             }
@@ -165,7 +165,10 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             format!("Array<{arr_ty}, {}>", arr_size.as_str())
         }
         Sig::Slice => {
-            todo!()
+            state.gen_typedefs_for.insert(ty.tag);
+            let slice_ty = ty.aux_type.clone().unwrap();
+            let slice_ty = cpp_gen_ty(&slice_ty, state);
+            format!("Slice<{slice_ty}>")
         }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
@@ -231,12 +234,25 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             }
             buf
         }
-        TyExpr::MakeSliceFrom { target, start } => todo!(),
+        TyExpr::MakeSliceFrom { target, start } => {
+            format!(
+                "{}.make_slice_from({})",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(start, state)
+            )
+        }
         TyExpr::MakeSliceWithEnd {
             target,
             start,
             end_excl,
-        } => todo!(),
+        } => {
+            format!(
+                "{}.make_slice({}, {})",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(start, state),
+                cpp_gen_expr(end_excl, state)
+            )
+        }
     }
 }
 
