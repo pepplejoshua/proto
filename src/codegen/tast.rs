@@ -48,10 +48,14 @@ pub enum TyExpr {
     InterpolatedString {
         parts: Vec<TyExpr>,
     },
-    MakeSlice {
+    MakeSliceFrom {
         target: Box<TyExpr>,
-        start: Option<Box<TyExpr>>,
-        end_excl: Option<Box<TyExpr>>,
+        start: Box<TyExpr>,
+    },
+    MakeSliceWithEnd {
+        target: Box<TyExpr>,
+        start: Box<TyExpr>,
+        end_excl: Box<TyExpr>,
     },
 }
 
@@ -113,11 +117,21 @@ impl TyExpr {
                         .join("")
                 )
             }
-            TyExpr::MakeSlice {
+            TyExpr::MakeSliceFrom { target, start } => {
+                format!("{}[{}:]", target.as_str(), start.as_str())
+            }
+            TyExpr::MakeSliceWithEnd {
                 target,
                 start,
                 end_excl,
-            } => todo!(),
+            } => {
+                format!(
+                    "{}[{}:{}]",
+                    target.as_str(),
+                    start.as_str(),
+                    end_excl.as_str()
+                )
+            }
         }
     }
 }

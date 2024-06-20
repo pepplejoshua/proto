@@ -153,6 +153,10 @@ pub enum CheckerError {
         given_ty: String,
         loc: SourceRef,
     },
+    ExpectedArrayOrSlice {
+        given_ty: String,
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

@@ -514,6 +514,10 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::ExpectedArrayOrSlice { given_ty, loc } => {
+                let msg = format!("The target of a slice operation should be an array or another slice was expected. The target has type '{given_ty}'.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

@@ -174,6 +174,9 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
             types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
                 && a.sub_expr.as_ref().unwrap().as_str() == b.sub_expr.as_ref().unwrap().as_str()
         }
+        (Sig::Slice, Sig::Slice) => {
+            types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
+        }
         (Sig::ErrorType, _) | (_, Sig::ErrorType) | _ => false,
     }
 }
@@ -901,7 +904,74 @@ pub fn check_expr(
             start,
             end_excl,
             loc,
-        } => todo!(),
+        } => {
+            let (target_ty, target_ty_expr) = check_expr(target, &None, state);
+            if target_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            if !matches!(target_ty.tag, Sig::StaticArray | Sig::Slice) {
+                state.push_err(CheckerError::ExpectedArrayOrSlice {
+                    given_ty: target_ty.as_str(),
+                    loc: target_ty.loc,
+                });
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            // check both start and end_excl expressions, if they are provided
+            let (start_ty, start_ty_expr) = match start {
+                Some(start) => {
+                    let (a, b) = check_expr(start, &None, state);
+                    if a.tag.is_error_type() {
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+                    (a, b.unwrap())
+                }
+                None => (
+                    Type::new(Sig::UInt, target.get_source_ref()),
+                    TyExpr::Integer { val: "0".into() },
+                ),
+            };
+            match end_excl {
+                Some(end_excl) => {
+                    let (a, b) = check_expr(end_excl, &None, state);
+                    if a.tag.is_error_type() {
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+                    (Some(a), b)
+                }
+                None => {
+                    (match target_ty.tag {
+                        Sig::StaticArray => {
+                            let end_ty_expr = TyExpr::Integer {
+                                val: target_ty.sub_expr.as_ref().unwrap().as_str(),
+                            };
+
+                            let mut slice_ty = Type::new(Sig::Slice, loc.clone());
+                            slice_ty.aux_type = target_ty.aux_type.clone();
+
+                            if let Some(context_ty) = context_ty {
+                                if !types_are_eq(context_ty, &slice_ty) {
+                                    state.push_err(CheckerError::TypeMismatch {
+                                        loc: loc.clone(),
+                                        expected: context_ty.as_str(),
+                                        found: slice_ty.as_str()
+                                    });
+                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                }
+                            }
+                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                start: Box::new(start_ty_expr),
+                                end_excl: Box::new(end_ty_expr)
+                            }))
+                        },
+                        Sig::Slice => (None, None),
+                        _ => unreachable!("seman::check_expr(): while checking exclusive end of MakeSlice expr, {:#?} made it through", target_ty),
+                    })
+                }
+            }
+        }
     }
 }
 

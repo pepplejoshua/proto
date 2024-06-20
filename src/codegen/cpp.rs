@@ -231,7 +231,8 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             }
             buf
         }
-        TyExpr::MakeSlice {
+        TyExpr::MakeSliceFrom { target, start } => todo!(),
+        TyExpr::MakeSliceWithEnd {
             target,
             start,
             end_excl,

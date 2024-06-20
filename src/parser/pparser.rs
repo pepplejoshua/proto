@@ -1078,8 +1078,35 @@ impl Parser {
                 }
                 // Index Array
                 Token::LBracket(_) => {
+                    let mut span = lhs.get_source_ref();
+                    if matches!(self.cur_token(), Token::Colon(_)) {
+                        self.advance();
+                        let end_excl = match self.cur_token() {
+                            Token::RBracket(_) => None,
+                            _ => Some(Box::new(self.parse_expr())),
+                        };
+
+                        if !matches!(self.cur_token(), Token::RBracket(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a right bracket (]) to terminate the slice expression."
+                                    .to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance()
+                        }
+                        lhs = Expr::MakeSlice {
+                            target: Box::new(lhs),
+                            start: None,
+                            end_excl,
+                            loc: span,
+                        };
+                        continue;
+                    }
                     let index_expr = self.parse_expr();
-                    let mut span = lhs.get_source_ref().combine(index_expr.get_source_ref());
+                    span = span.combine(index_expr.get_source_ref());
 
                     match self.cur_token() {
                         Token::RBracket(_) => {

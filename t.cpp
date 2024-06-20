@@ -99,6 +99,10 @@ public:
         return Slice<T>(this->begin() + start, end_exclusive-start, len());
     }
 
+    Slice<T> make_slice_from(uint start) {
+        return Slice<T>(this->begin() + start, len()-start, len());
+    }
+
     constexpr uint len() const noexcept {
         return N;
     }
@@ -144,6 +148,10 @@ public:
         return Slice<T>(this->begin() + start, end_exclusive-start, len());
     }
 
+    Slice<T> make_slice_from(uint start) {
+        return Slice<T>(this->begin() + start, len()-start, len());
+    }
+
     // Begin and end methods for range-based for loops
     T* begin() noexcept { return start; }
     T* end() noexcept { return start + length; }
@@ -176,7 +184,7 @@ int main() {
     Array<int, 5> a = {1, 3, 4, 6, 7};
     Array<int, 3> b = {1, 3, 5};
 
-    Slice<int> sl = a.make_slice(0, 5);
+    Slice<int> sl = a.make_slice_from(2);
     show_slice(sl);
     // mod_slice1(sl);
     // show_slice(sl);
