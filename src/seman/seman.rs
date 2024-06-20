@@ -77,7 +77,6 @@ pub enum Scope {
 pub struct State {
     src: SourceFile,
     env: TypeEnv,
-    ty_file_mod: TyFileModule,
     pub errs: Vec<CheckerError>,
     scope_stack: Vec<Scope>,
     enter_new_scope: bool,
@@ -86,7 +85,6 @@ pub struct State {
 impl State {
     pub fn new(src: SourceFile) -> Self {
         State {
-            ty_file_mod: TyFileModule::new(src.path.clone()),
             src,
             env: TypeEnv::new(),
             errs: vec![],
@@ -171,8 +169,14 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
         (Sig::Void, Sig::Void) => true,
         (Sig::Identifier, Sig::Identifier) => todo!(),
         (Sig::StaticArray, Sig::StaticArray) => {
-            types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
-                && a.sub_expr.as_ref().unwrap().as_str() == b.sub_expr.as_ref().unwrap().as_str()
+            let types_eq = types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap());
+            if !types_eq {
+                return types_eq;
+            }
+            if a.sub_expr.is_none() || b.sub_expr.is_none() {
+                return types_eq;
+            }
+            a.sub_expr.as_ref().unwrap().as_str() == b.sub_expr.as_ref().unwrap().as_str()
         }
         (Sig::Slice, Sig::Slice) => {
             types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
@@ -932,13 +936,56 @@ pub fn check_expr(
                     TyExpr::Integer { val: "0".into() },
                 ),
             };
+
             match end_excl {
                 Some(end_excl) => {
-                    let (a, b) = check_expr(end_excl, &None, state);
-                    if a.tag.is_error_type() {
+                    let (end_ty, end_ty_expr) = check_expr(end_excl, &None, state);
+                    if end_ty.tag.is_error_type() {
                         return (Type::new(Sig::ErrorType, loc.clone()), None);
                     }
-                    (Some(a), b)
+                    match target_ty.tag {
+                        Sig::StaticArray => {
+                            let mut slice_ty = Type::new(Sig::Slice, loc.clone());
+                            slice_ty.aux_type = target_ty.aux_type.clone();
+
+                            if let Some(context_ty) = context_ty {
+                                if !types_are_eq(context_ty, &slice_ty) {
+                                    state.push_err(CheckerError::TypeMismatch {
+                                        loc: loc.clone(),
+                                        expected: context_ty.as_str(),
+                                        found: slice_ty.as_str()
+                                    });
+                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                }
+                            }
+                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                start: Box::new(start_ty_expr),
+                                end_excl: Box::new(end_ty_expr.unwrap())
+                            }))
+                        }
+                        Sig::Slice => {
+                            let mut slice_ty = Type::new(Sig::Slice, loc.clone());
+                            slice_ty.aux_type = target_ty.aux_type.clone();
+
+                            if let Some(context_ty) = context_ty {
+                                if !types_are_eq(context_ty, &slice_ty) {
+                                    state.push_err(CheckerError::TypeMismatch {
+                                        loc: loc.clone(),
+                                        expected: context_ty.as_str(),
+                                        found: slice_ty.as_str()
+                                    });
+                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                }
+                            }
+                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                start: Box::new(start_ty_expr),
+                                end_excl: Box::new(end_ty_expr.unwrap())
+                            }))
+                        }
+                        _ => unreachable!("seman::check_expr(): while checking exclusive end of MakeSlice expr, {:#?} made it through", target_ty)
+                    }
                 }
                 None => {
                     (match target_ty.tag {
@@ -966,7 +1013,25 @@ pub fn check_expr(
                                 end_excl: Box::new(end_ty_expr)
                             }))
                         },
-                        Sig::Slice => (None, None),
+                        Sig::Slice => {
+                            let mut slice_ty = Type::new(Sig::Slice, loc.clone());
+                            slice_ty.aux_type = target_ty.aux_type.clone();
+
+                            if let Some(context_ty) = context_ty {
+                                if !types_are_eq(context_ty, &slice_ty) {
+                                    state.push_err(CheckerError::TypeMismatch {
+                                        loc: loc.clone(),
+                                        expected: context_ty.as_str(),
+                                        found: slice_ty.as_str()
+                                    });
+                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                }
+                            }
+                            (slice_ty, Some(TyExpr::MakeSliceFrom {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                start: Box::new(start_ty_expr)
+                            }))
+                        }
                         _ => unreachable!("seman::check_expr(): while checking exclusive end of MakeSlice expr, {:#?} made it through", target_ty),
                     })
                 }

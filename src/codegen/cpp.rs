@@ -39,7 +39,7 @@ impl State {
 
 const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
 const OPTION_CLASS: &str = include_str!("../std/option.cppr");
-const ARRAY_CLASS: &str = include_str!("../std/array.cppr");
+const ARRAY_CLASS: &str = include_str!("../std/slice_and_array.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()

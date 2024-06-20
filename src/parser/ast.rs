@@ -494,7 +494,6 @@ impl FileModule {
         let mut buf = String::new();
         for tl_ins in self.top_level.iter() {
             buf.push_str(&tl_ins.as_str());
-            buf.push('\n');
         }
 
         buf

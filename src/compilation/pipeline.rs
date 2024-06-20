@@ -230,10 +230,10 @@ impl Workspace {
         }
 
         if self.config.dbg_info {
-            SourceReporter::show_info("parsing complete.".to_string());
             let file_mod = parser.file_mod.clone();
             let file_mod_s = file_mod.as_str();
             println!("{file_mod_s}");
+            SourceReporter::show_info("parsing complete.".to_string());
         }
         if let Stage::Parser = self.config.max_stage {
             return;
@@ -241,7 +241,7 @@ impl Workspace {
 
         let file_mod = parser.file_mod;
         let src_file = parser.lexer.src;
-        let (state, _ty_file_mod) = check_top_level(&file_mod, src_file.clone());
+        let (state, ty_file_mod) = check_top_level(&file_mod, src_file.clone());
         let reporter = SourceReporter::new(src_file);
         if !state.errs.is_empty() {
             for ce in state.errs.iter() {
@@ -249,14 +249,19 @@ impl Workspace {
             }
             return;
         }
+
         if self.config.dbg_info {
+            for ins in ty_file_mod.top_level.iter() {
+                println!("{}", ins.as_str());
+            }
             SourceReporter::show_info("checking complete.".to_string());
         }
+
         if let Stage::Sema = self.config.max_stage {
             return;
         }
 
-        let code_gen_res = cpp_gen_top_level(&_ty_file_mod);
+        let code_gen_res = cpp_gen_top_level(&ty_file_mod);
 
         match code_gen_res {
             Ok(exe_path) => {
