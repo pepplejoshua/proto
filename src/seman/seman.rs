@@ -896,6 +896,12 @@ pub fn check_expr(
                 }),
             )
         }
+        Expr::MakeSlice {
+            target,
+            start,
+            end_excl,
+            loc,
+        } => todo!(),
     }
 }
 

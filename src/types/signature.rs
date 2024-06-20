@@ -24,6 +24,7 @@ pub enum Sig {
     UInt,
     Function,
     StaticArray,
+    Slice,
     ErrorType,
 }
 
@@ -142,6 +143,7 @@ impl Type {
                     "Type::as_str(): Static Array type not matching expected pattern: {a:#?}, {b:#?}"
                 ),
             },
+            Sig::Slice => format!("[{}]", self.aux_type.as_ref().unwrap().as_str()),
             Sig::ErrorType => "<error>".to_string(),
         }
     }

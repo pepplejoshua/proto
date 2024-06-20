@@ -1,0 +1,9 @@
+fn main() int {
+    a :: [1, 2, 3];
+    b : [int, _] = a;
+    c : [int, 3] = b;
+    d : [[int, 3], 2] = [a, b];
+    e : [bool, 3] = [false, true, true];
+    f : bool = e[2];
+    g :: a[0];
+}

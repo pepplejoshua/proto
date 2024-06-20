@@ -725,44 +725,54 @@ impl Parser {
                 loc,
             },
             Token::LBracket(loc) => {
-                // check for an underscore or parse an expr for the size of the
-                // array.
-                let static_size = match self.cur_token() {
-                    Token::Underscore(_) => {
+                let sub_ty = Some(Box::new(self.parse_type()));
+
+                match self.cur_token() {
+                    Token::Comma(_) => {
                         self.advance();
-                        None
+                        // check for an underscore or parse an expr for the size of the
+                        // array.
+                        let static_size = match self.cur_token() {
+                            Token::Underscore(_) => {
+                                self.advance();
+                                None
+                            }
+                            _ => Some(self.parse_expr()),
+                        };
+                        let mut span = loc;
+
+                        if !matches!(self.cur_token(), Token::RBracket(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a right bracket (]) to terminate the static array type."
+                                    .to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance()
+                        }
+                        let mut arr_ty = Type::new(Sig::StaticArray, span);
+                        arr_ty.aux_type = sub_ty;
+                        arr_ty.sub_expr = static_size;
+                        arr_ty
                     }
-                    _ => Some(self.parse_expr()),
-                };
-
-                if !matches!(self.cur_token(), Token::Comma(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a comma to separate the size and type of the static array.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                } else {
-                    self.advance()
+                    Token::RBracket(rbrac_loc) => {
+                        self.advance();
+                        let span = loc.combine(rbrac_loc);
+                        let mut slice_ty = Type::new(Sig::Slice, span);
+                        slice_ty.aux_type = sub_ty;
+                        slice_ty
+                    }
+                    _ => {
+                        self.report_error(ParseError::Expected(
+                            "a right bracket (]) to terminate the slice type or a comma to separate the type and size of the static array type.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                        Type::new(Sig::ErrorType, self.cur_token().get_source_ref())
+                    }
                 }
-
-                let static_arr_ty = Some(Box::new(self.parse_type()));
-
-                let mut span = loc;
-
-                if !matches!(self.cur_token(), Token::RBracket(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a right bracket (]) to terminate the static array type.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                } else {
-                    span = span.combine(self.cur_token().get_source_ref());
-                    self.advance()
-                }
-                let mut arr_ty = Type::new(Sig::StaticArray, span);
-                arr_ty.aux_type = static_arr_ty;
-                arr_ty.sub_expr = static_size;
-                arr_ty
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
@@ -1069,22 +1079,53 @@ impl Parser {
                 // Index Array
                 Token::LBracket(_) => {
                     let index_expr = self.parse_expr();
-                    let mut index_span = lhs.get_source_ref().combine(index_expr.get_source_ref());
-                    if !matches!(self.cur_token(), Token::RBracket(_)) {
-                        self.report_error(ParseError::Expected(
-                            "a right bracket to terminate index expression.".to_string(),
+                    let mut span = lhs.get_source_ref().combine(index_expr.get_source_ref());
+
+                    match self.cur_token() {
+                        Token::RBracket(_) => {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance();
+                            lhs = Expr::BinOp {
+                                op: BinOpType::IndexArray,
+                                left: Box::new(lhs),
+                                right: Box::new(index_expr),
+                                loc: span,
+                            };
+                        }
+                        Token::Colon(_) => {
+                            self.advance();
+                            let end_excl = match self.cur_token() {
+                                Token::RBracket(_) => None,
+                                _ => Some(Box::new(self.parse_expr())),
+                            };
+
+                            if !matches!(self.cur_token(), Token::RBracket(_)) {
+                                self.report_error(ParseError::Expected(
+                                    "a right bracket (]) to terminate the slice expression."
+                                        .to_string(),
+                                    self.cur_token().get_source_ref(),
+                                    None,
+                                ));
+                            } else {
+                                span = span.combine(self.cur_token().get_source_ref());
+                                self.advance()
+                            }
+                            lhs = Expr::MakeSlice {
+                                target: Box::new(lhs),
+                                start: Some(Box::new(index_expr)),
+                                end_excl,
+                                loc: span,
+                            }
+                        }
+                        _ => self.report_error(ParseError::Expected(
+                            concat!(
+                                "a right bracket to terminate index expression or a colon to ",
+                                "separate start and exclusive end of the slice expression."
+                            )
+                            .to_string(),
                             self.cur_token().get_source_ref(),
                             None,
-                        ))
-                    } else {
-                        index_span = index_span.combine(self.cur_token().get_source_ref());
-                        self.advance();
-                    }
-                    lhs = Expr::BinOp {
-                        op: BinOpType::IndexArray,
-                        left: Box::new(lhs),
-                        right: Box::new(index_expr),
-                        loc: index_span,
+                        )),
                     }
                 }
                 // Struct Member Access or Initialization

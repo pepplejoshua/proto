@@ -1,5 +1,13 @@
+// takes a slice of integers
+fn takes_slice(a [int]) void {
+}
+
+// takes an array of 5 integers
+fn takes_array(a [int, 5]) void {
+}
+
 fn main() int {
-    a :: 1;
-    b :: 2;
-    println(`{a} + {b} = {a + b}`);
+    a : [int, _] : [1, 3, 5, 7, 9];
+    slice :: a[0:4]; // a slice containing [1, 3, 5, 7]
+    slice_2 : [int] : a[0:];
 }

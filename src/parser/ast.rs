@@ -120,6 +120,12 @@ pub enum Expr {
         parts: Vec<Expr>,
         loc: SourceRef,
     },
+    MakeSlice {
+        target: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end_excl: Option<Box<Expr>>,
+        loc: SourceRef,
+    },
     ErrorExpr {
         msg: String,
         loc: SourceRef,
@@ -142,6 +148,7 @@ impl Expr {
             | Expr::GroupedExpr { loc, .. }
             | Expr::TernaryConditional { loc, .. }
             | Expr::InterpolatedString { loc, .. }
+            | Expr::MakeSlice { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -218,6 +225,28 @@ impl Expr {
                         .join("")
                 )
             }
+            Expr::MakeSlice {
+                target,
+                start,
+                end_excl,
+                ..
+            } => match (start, end_excl) {
+                (Some(start), Some(end_excl)) => {
+                    format!(
+                        "{}[{}:{}]",
+                        target.as_str(),
+                        start.as_str(),
+                        end_excl.as_str()
+                    )
+                }
+                (Some(start), None) => {
+                    format!("{}[{}:]", target.as_str(), start.as_str(),)
+                }
+                (None, Some(end_excl)) => {
+                    format!("{}[:{}]", target.as_str(), end_excl.as_str(),)
+                }
+                (None, None) => format!("{}[:]", target.as_str()),
+            },
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }
     }

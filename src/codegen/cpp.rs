@@ -164,6 +164,9 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             let arr_size = ty.sub_expr.clone().unwrap();
             format!("Array<{arr_ty}, {}>", arr_size.as_str())
         }
+        Sig::Slice => {
+            todo!()
+        }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into a {:?} which should not occur.",
@@ -224,28 +227,15 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             let mut buf = String::from("");
             for part in parts.iter() {
                 // determine what way to generate the string for the current part
-                let part_str: String = match part {
-                    TyExpr::Integer { val } => todo!(),
-                    TyExpr::Str { val } => todo!(),
-                    TyExpr::Char { val } => todo!(),
-                    TyExpr::Bool { val } => todo!(),
-                    TyExpr::Ident { name } => todo!(),
-                    TyExpr::BinOp { op, lhs, rhs } => todo!(),
-                    TyExpr::UnaryOp { op, expr } => todo!(),
-                    TyExpr::GroupedExpr { inner } => todo!(),
-                    TyExpr::CallFn { func, args } => todo!(),
-                    TyExpr::TernaryConditional {
-                        cond,
-                        then,
-                        otherwise,
-                    } => todo!(),
-                    TyExpr::StaticArray { vals } => todo!(),
-                    TyExpr::InterpolatedString { parts } => todo!(),
-                };
-                buf.push_str(&part_str);
+                todo!()
             }
             buf
         }
+        TyExpr::MakeSlice {
+            target,
+            start,
+            end_excl,
+        } => todo!(),
     }
 }
 

@@ -125,7 +125,7 @@ public:
     }
 
     T& operator[](uint index) {
-        return start + index;
+        return *(start + index);
     }
 
     const T& operator[](uint index) const {
@@ -138,6 +138,10 @@ public:
         }
 
         return Option<T>(this[index]);
+    }
+
+    Slice<T> make_slice(uint start, uint end_exclusive) {
+        return Slice<T>(this->begin() + start, end_exclusive-start, len());
     }
 
     // Begin and end methods for range-based for loops
@@ -160,11 +164,21 @@ void show_slice(Slice<int> slice) {
     std::cout << "]\n";
 }
 
+void mod_slice(Slice<int> slice) {
+    slice[0] = 100;
+}
+
+void mod_slice1(Slice<int>& slice) {
+    slice[0] = 100;
+}
+
 int main() {
     Array<int, 5> a = {1, 3, 4, 6, 7};
     Array<int, 3> b = {1, 3, 5};
 
-    show_slice(b.make_slice(0, 3));
-
+    Slice<int> sl = a.make_slice(0, 5);
+    show_slice(sl);
+    // mod_slice1(sl);
+    // show_slice(sl);
     return 0;
 }
