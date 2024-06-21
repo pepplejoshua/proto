@@ -70,31 +70,23 @@ template<typename T>
 class Slice {
 private:
     T* start;
-    const T* const_start;
+    // const T* const_start;
     uint length;
     uint arr_capacity;
 
 public:
-    Slice(T* s, uint len, uint cap) : start(s), const_start(s), length(len), arr_capacity(cap) {}
-    Slice(const T* s, uint len, uint cap) : start(nullptr), const_start(s), length(len), arr_capacity(cap) {}
-    Slice(const Slice<T>& other) :
-                const_start(other.const_start ? other.const_start : other.start),
-                length(other.length), arr_capacity(other.arr_capacity) {}
-    Slice(Slice<T>& other) :
-                start(other.start),
-                const_start(nullptr),
-                length(other.length), arr_capacity(other.arr_capacity) {}
+    Slice(T* s, uint len, uint cap) : start(s), length(len), arr_capacity(cap) {}
 
     constexpr uint len() const noexcept {
         return length;
     }
 
     T& operator[](uint index) {
-        return *(start + index);
+        return start[index];
     }
 
     const T& operator[](uint index) const {
-        return *((start ? start : const_start) + index);
+        return start[index];
     }
 
     Option<T> get(uint index) {
@@ -113,39 +105,39 @@ public:
         return Option<T>(this[index]);
     }
 
-    Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(uint start, uint end_exclusive) {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>((this->start ? this->start : this->const_start) + start, end_exclusive - start, arr_capacity);
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(uint start) {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, length - start, arr_capacity);
     }
 
-    const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(uint start) const {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>((this->start ? this->start : this->const_start) + start, length - start, arr_capacity);
+        return Slice<T>(this->start + start, length - start, arr_capacity);
     }
 
     // Begin and end methods for range-based for loops
-    T* begin() noexcept { return start; }
-    T* end() noexcept { return start + length; }
-    const T* begin() const noexcept { return (start ? start : const_start); }
-    const T* end() const noexcept { return (start ? start : const_start) + length; }
+    inline T* begin() noexcept { return start; }
+    inline T* end() noexcept { return start + length; }
+    inline const T* begin() const noexcept { return start; }
+    inline const T* end() const noexcept { return start + length; }
 };
 
 
@@ -183,46 +175,59 @@ public:
         return Option<T>(this[index]);
     }
 
-    Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(uint start, uint end_exclusive) {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->begin() + start, end_exclusive - start, len());
+        return Slice<T>(data + start, end_exclusive - start, len());
     }
 
-    const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->begin() + start, end_exclusive - start, len());
+        // HACK:
+        // when you make a slice of a constant array, we make a copy of the array;
+        // std::copy(data, data + len(), start_copy);
+        // OR UNSAFE HACK:
+        // grab data and unsafe cast it to a T*. this is Sparta!
+        T* start_copy = (T*)data;
+        return Slice<T>(start_copy + start, end_exclusive - start, len());
     }
 
-    Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(uint start) {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->begin() + start, len() - start, len());
+        return Slice<T>(data + start, len() - start, len());
     }
 
-    const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(uint start) const {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->begin() + start, len() - start, len());
+        // HACK:
+        // when you make a slice of a constant array, we make a copy of the array;
+        // std::copy(data, data + len(), start_copy);
+        // OR UNSAFE HACK:
+        // grab data and unsafe cast it to a T*. this is Sparta!
+        T* start_copy = (T*)data;
+        return Slice<T>(start_copy, len() - start, len());
     }
 
-    constexpr uint len() const noexcept {
+    inline constexpr uint len() const noexcept {
         return N;
     }
 
     // Begin and end methods for range-based for loops
-    T* begin() noexcept { return data; }
-    T* end() noexcept { return data + N; }
-    const T* begin() const noexcept { return data; }
-    const T* end() const noexcept { return data + N; }
+    inline T* begin() noexcept { return data; }
+    inline T* end() noexcept { return data + N; }
+    inline const T* begin() const noexcept { return data; }
+    inline const T* end() const noexcept { return data + N; }
 };
 
-void show_slice(Slice<int> slice) {
+template<typename T>
+inline void proto_show(const Slice<T> slice) {
     int count = 0;
     std::cout << "[";
     for (int a : slice) {
@@ -235,23 +240,38 @@ void show_slice(Slice<int> slice) {
     std::cout << "]\n";
 }
 
-void mod_slice(Slice<int> slice) {
-    slice[0] = 100;
-}
-
-void mod_slice1(Slice<int>& slice) {
-    slice[0] = 100;
+template<typename T, uint N>
+inline void proto_show(const Array<T, N> arr) {
+    int count = 0;
+    std::cout << "[";
+    for (int a : arr) {
+        std::cout << a;
+        count++;
+        if (!(count == N)) {
+            std::cout << ", ";
+        }
+    }
+    std::cout << "]\n";
 }
 
 int main() {
-    Array<int, 5> a = {1, 3, 4, 6, 7};
+    const Array<int, 5> a = {1, 3, 4, 6, 7};
     Array<int, 3> b = {1, 3, 5};
 
-    // todo: prevent assigning a constant to a non-constant
-    // reeiver will stop the bug where:
-    // Slice<int> sl = a.make_slice_from(2);
-    // this will segfault because
-    Slice<int> sl = a.make_slice_from(2);
-    show_slice(sl);
+    const Slice<int> sl = a.make_slice_from(0);
+    const auto sl2 = sl.make_slice_from(0);
+    const auto sl3 = sl2.make_slice(0, 3);
+    auto sl4 = sl2.make_slice(0, 2);
+    const auto sl5 = b.make_slice(0, 2);
+    sl4[1] = 100;
+    proto_show(sl);
+    proto_show(sl2);
+    proto_show(sl3);
+    proto_show(sl4);
+    proto_show(sl5);
+    std::cout << std::endl;
+
+    proto_show(a);
+    proto_show(b);
     return 0;
 }
