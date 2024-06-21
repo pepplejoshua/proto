@@ -1,0 +1,8 @@
+
+inline void proto_println(const str s) {
+    std::cout << s << std::endl;
+}
+
+inline void proto_print(const str s) {
+    std::cout << s;
+}

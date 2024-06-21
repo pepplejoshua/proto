@@ -890,8 +890,45 @@ pub fn check_expr(
             // string type
             let mut new_ty_exprs = vec![];
             for part in parts.iter() {
-                let (new_ty, new_ty_expr) = check_expr(part, &None, state);
+                let (new_ty, mut new_ty_expr) = check_expr(part, &None, state);
                 if !new_ty.tag.is_error_type() {
+                    new_ty_expr = match new_ty.tag {
+                        Sig::Void => Some(TyExpr::MultiExpr {
+                            exprs: vec![
+                                new_ty_expr.unwrap(),
+                                TyExpr::Str {
+                                    val: "void".to_string(),
+                                },
+                            ],
+                        }),
+                        Sig::Str => new_ty_expr,
+                        Sig::Bool
+                        | Sig::Char
+                        | Sig::I8
+                        | Sig::I16
+                        | Sig::I32
+                        | Sig::I64
+                        | Sig::Int
+                        | Sig::U8
+                        | Sig::U16
+                        | Sig::U32
+                        | Sig::U64
+                        | Sig::UInt
+                        | Sig::StaticArray
+                        | Sig::Slice => Some(TyExpr::CallFn {
+                            func: Box::new(TyExpr::Ident {
+                                name: "proto_str".to_string(),
+                            }),
+                            args: vec![new_ty_expr.unwrap()],
+                        }),
+                        Sig::Identifier => todo!(),
+                        Sig::Function | Sig::ErrorType => {
+                            unreachable!(
+                                "seman::check_expr(): {:#?} in string interpolation.",
+                                new_ty.tag
+                            )
+                        }
+                    };
                     new_ty_exprs.push(new_ty_expr.unwrap());
                 }
             }

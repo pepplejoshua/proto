@@ -40,6 +40,7 @@ impl State {
 const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
 const OPTION_CODE: &str = include_str!("../std/option.cppr");
 const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
+const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()
@@ -88,7 +89,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::UInt => {
-                typedefs.push_str("\ntypedef uint32_t uint;");
+                typedefs.push_str("\ntypedef uint64_t pruint;");
                 includes.insert("#include <cstdint>".to_string());
             }
             Sig::Str => {
@@ -105,26 +106,30 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     includes.insert("#include <iostream>".to_string());
                     // provides exit, EXIT_FAILURE
                     includes.insert("#include <cstdlib>".to_string());
-                    buf.push_str(PANIC_FUNCTION);
+                    buf.push_str(PANIC_FUNCTION.trim_end());
                     has_panic_fn = true;
                 }
 
                 if !has_option_class {
-                    buf.push_str(OPTION_CODE);
+                    buf.push_str(OPTION_CODE.trim_end());
                     has_option_class = true;
                 }
 
                 if !has_array_class {
                     if !state.gen_typedefs_for.contains(&Sig::UInt) {
-                        typedefs.push_str("\ntypedef uint32_t uint;");
+                        typedefs.push_str("\ntypedef uint64_t pruint;");
                         includes.insert("#include <cstdint>".to_string());
                     }
-                    buf.push_str(SLICE_AND_ARRAY_CODE);
+                    buf.push_str(SLICE_AND_ARRAY_CODE.trim_end());
                     has_array_class = true;
                 }
             }
             _ => unreachable!(),
         };
+    }
+
+    if state.uses_str_interpolation {
+        buf.push_str(PROTO_STRINGIFY_CODE.trim_end());
     }
     let mut header = String::new();
     if !includes.is_empty() {
@@ -152,10 +157,13 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
         | Sig::U8
         | Sig::U16
         | Sig::U32
-        | Sig::U64
-        | Sig::UInt => {
+        | Sig::U64 => {
             state.gen_typedefs_for.insert(ty.tag);
             ty.as_str()
+        }
+        Sig::UInt => {
+            state.gen_typedefs_for.insert(ty.tag);
+            "pruint".to_string()
         }
         Sig::StaticArray => {
             state.gen_typedefs_for.insert(ty.tag);
@@ -227,11 +235,14 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             )
         }
         TyExpr::InterpolatedString { parts } => {
-            let mut buf = String::from("");
-            for part in parts.iter() {
-                // determine what way to generate the string for the current part
-                todo!()
-            }
+            // allows us use #include <string> and std::to_string()
+            state.gen_typedefs_for.insert(Sig::Str);
+            state.uses_str_interpolation = true;
+            let mut buf = parts
+                .iter()
+                .map(|p| cpp_gen_expr(p, state))
+                .collect::<Vec<String>>()
+                .join(" + ");
             buf
         }
         TyExpr::MakeSliceFrom { target, start } => {
@@ -251,6 +262,16 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 cpp_gen_expr(target, state),
                 cpp_gen_expr(start, state),
                 cpp_gen_expr(end_excl, state)
+            )
+        }
+        TyExpr::MultiExpr { exprs } => {
+            format!(
+                "({})",
+                exprs
+                    .iter()
+                    .map(|e| { cpp_gen_expr(e, state) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
             )
         }
     }

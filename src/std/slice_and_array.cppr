@@ -4,25 +4,25 @@ class Slice {
 private:
     T* start;
     // const T* const_start;
-    uint length;
-    uint arr_capacity;
+    pruint length;
+    pruint arr_capacity;
 
 public:
-    Slice(T* s, uint len, uint cap) : start(s), length(len), arr_capacity(cap) {}
+    Slice(T* s, pruint len, pruint cap) : start(s), length(len), arr_capacity(cap) {}
 
-    constexpr uint len() const noexcept {
+    constexpr pruint len() const noexcept {
         return length;
     }
 
-    T& operator[](uint index) {
+    T& operator[](pruint index) {
         return start[index];
     }
 
-    const T& operator[](uint index) const {
+    const T& operator[](pruint index) const {
         return start[index];
     }
 
-    Option<T> get(uint index) {
+    Option<T> get(pruint index) {
         if (index >= length) {
             return Option<T>();
         }
@@ -30,7 +30,7 @@ public:
         return Option<T>(this[index]);
     }
 
-    const Option<T> get(uint index) const {
+    const Option<T> get(pruint index) const {
         if (index >= length) {
             return Option<T>();
         }
@@ -38,28 +38,28 @@ public:
         return Option<T>(this[index]);
     }
 
-    inline Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(pruint start, pruint end_exclusive) const {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    inline Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(pruint start) {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, length - start, arr_capacity);
     }
 
-    inline const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(pruint start) const {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -73,8 +73,7 @@ public:
     inline const T* end() const noexcept { return start + length; }
 };
 
-
-template<typename T, uint N>
+template<typename T, pruint N>
 class Array {
 private:
     T data[N] = {};
@@ -88,11 +87,11 @@ public:
         return data[index];
     }
 
-    const T& operator[](uint index) const {
+    const T& operator[](pruint index) const {
         return data[index];
     }
 
-    Option<T> get(uint index) {
+    Option<T> get(pruint index) {
         if (index >= N) {
             return Option<T>();
         }
@@ -100,7 +99,7 @@ public:
         return Option<T>(data[index]);
     }
 
-    const Option<T> get(uint index) const {
+    const Option<T> get(pruint index) const {
         if (index >= N) {
             return Option<T>();
         }
@@ -108,14 +107,14 @@ public:
         return Option<T>(this[index]);
     }
 
-    inline Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(data + start, end_exclusive - start, len());
     }
 
-    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(pruint start, pruint end_exclusive) const {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -128,14 +127,14 @@ public:
         return Slice<T>(start_copy + start, end_exclusive - start, len());
     }
 
-    inline Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(pruint start) {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(data + start, len() - start, len());
     }
 
-    inline const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(pruint start) const {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -148,7 +147,7 @@ public:
         return Slice<T>(start_copy, len() - start, len());
     }
 
-    inline constexpr uint len() const noexcept {
+    inline constexpr pruint len() const noexcept {
         return N;
     }
 

@@ -1,3 +1,44 @@
-str to_string(int v) {
 
+template <typename T>
+inline typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type
+proto_str(T value) {
+    return std::to_string(value);
+}
+
+inline str proto_str(const char c) {
+    return str(1, c);
+}
+
+inline str proto_str(const bool b) {
+    return b ? "true" : "false";
+}
+
+template<typename T>
+inline str proto_str(const Slice<T> slice) {
+    int count = 0;
+    str s = "[";
+    for (T a : slice) {
+        s += proto_str(a);
+        count++;
+        if (!(count == slice.len())) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
+template<typename T, pruint N>
+inline str proto_str(const Array<T, N> arr) {
+    int count = 0;
+    str s = "[";
+    for (T a : arr) {
+        s += proto_str(a);
+        count++;
+        if (!(count == N)) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
 }

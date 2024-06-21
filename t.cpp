@@ -3,8 +3,18 @@
 #include <initializer_list>
 #include <cstdint>
 #include <cstdlib>
-#include <string>
-typedef uint32_t uint;
+// #include <string>
+
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
+typedef uint64_t pruint;
+typedef int8_t i8;
+typedef int16_t i16;
+typedef int32_t i32;
+typedef int64_t i64;
+
 typedef std::string str;
 
 void panic(int line, const str sourcefile, const str msg) {
@@ -71,25 +81,25 @@ class Slice {
 private:
     T* start;
     // const T* const_start;
-    uint length;
-    uint arr_capacity;
+    pruint length;
+    pruint arr_capacity;
 
 public:
-    Slice(T* s, uint len, uint cap) : start(s), length(len), arr_capacity(cap) {}
+    Slice(T* s, pruint len, pruint cap) : start(s), length(len), arr_capacity(cap) {}
 
-    constexpr uint len() const noexcept {
+    constexpr pruint len() const noexcept {
         return length;
     }
 
-    T& operator[](uint index) {
+    T& operator[](pruint index) {
         return start[index];
     }
 
-    const T& operator[](uint index) const {
+    const T& operator[](pruint index) const {
         return start[index];
     }
 
-    Option<T> get(uint index) {
+    Option<T> get(pruint index) {
         if (index >= length) {
             return Option<T>();
         }
@@ -97,7 +107,7 @@ public:
         return Option<T>(this[index]);
     }
 
-    const Option<T> get(uint index) const {
+    const Option<T> get(pruint index) const {
         if (index >= length) {
             return Option<T>();
         }
@@ -105,28 +115,28 @@ public:
         return Option<T>(this[index]);
     }
 
-    inline Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(pruint start, pruint end_exclusive) const {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
     }
 
-    inline Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(pruint start) {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(this->start + start, length - start, arr_capacity);
     }
 
-    inline const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(pruint start) const {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -140,8 +150,7 @@ public:
     inline const T* end() const noexcept { return start + length; }
 };
 
-
-template<typename T, uint N>
+template<typename T, pruint N>
 class Array {
 private:
     T data[N] = {};
@@ -155,11 +164,11 @@ public:
         return data[index];
     }
 
-    const T& operator[](uint index) const {
+    const T& operator[](pruint index) const {
         return data[index];
     }
 
-    Option<T> get(uint index) {
+    Option<T> get(pruint index) {
         if (index >= N) {
             return Option<T>();
         }
@@ -167,7 +176,7 @@ public:
         return Option<T>(data[index]);
     }
 
-    const Option<T> get(uint index) const {
+    const Option<T> get(pruint index) const {
         if (index >= N) {
             return Option<T>();
         }
@@ -175,14 +184,14 @@ public:
         return Option<T>(this[index]);
     }
 
-    inline Slice<T> make_slice(uint start, uint end_exclusive) {
+    inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(data + start, end_exclusive - start, len());
     }
 
-    inline const Slice<T> make_slice(uint start, uint end_exclusive) const {
+    inline const Slice<T> make_slice(pruint start, pruint end_exclusive) const {
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -195,14 +204,14 @@ public:
         return Slice<T>(start_copy + start, end_exclusive - start, len());
     }
 
-    inline Slice<T> make_slice_from(uint start) {
+    inline Slice<T> make_slice_from(pruint start) {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
         return Slice<T>(data + start, len() - start, len());
     }
 
-    inline const Slice<T> make_slice_from(uint start) const {
+    inline const Slice<T> make_slice_from(pruint start) const {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
@@ -215,7 +224,7 @@ public:
         return Slice<T>(start_copy, len() - start, len());
     }
 
-    inline constexpr uint len() const noexcept {
+    inline constexpr pruint len() const noexcept {
         return N;
     }
 
@@ -226,32 +235,56 @@ public:
     inline const T* end() const noexcept { return data + N; }
 };
 
-template<typename T>
-inline void proto_show(const Slice<T> slice) {
-    int count = 0;
-    std::cout << "[";
-    for (int a : slice) {
-        std::cout << a;
-        count++;
-        if (!(count == slice.len())) {
-            std::cout << ", ";
-        }
-    }
-    std::cout << "]\n";
+template <typename T>
+inline typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type
+proto_str(T value) {
+    return std::to_string(value);
 }
 
-template<typename T, uint N>
-inline void proto_show(const Array<T, N> arr) {
+inline str proto_str(const char c) {
+    return str(1, c);
+}
+
+inline str proto_str(const bool b) {
+    return b ? "true" : "false";
+}
+
+template<typename T>
+inline str proto_str(const Slice<T> slice) {
     int count = 0;
-    std::cout << "[";
-    for (int a : arr) {
-        std::cout << a;
+    str s = "[";
+    for (T a : slice) {
+        s += proto_str(a);
         count++;
-        if (!(count == N)) {
-            std::cout << ", ";
+        if (!(count == slice.len())) {
+            s += ", ";
         }
     }
-    std::cout << "]\n";
+    s += "]";
+    return s;
+}
+
+template<typename T, pruint N>
+inline str proto_str(const Array<T, N> arr) {
+    int count = 0;
+    str s = "[";
+    for (T a : arr) {
+        s += proto_str(a);
+        count++;
+        if (!(count == N)) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
+inline void proto_println(const str s) {
+    std::cout << s << std::endl;
+}
+
+inline void proto_print(const str s) {
+    std::cout << s;
 }
 
 int main() {
@@ -264,14 +297,27 @@ int main() {
     auto sl4 = sl2.make_slice(0, 2);
     const auto sl5 = b.make_slice(0, 2);
     sl4[1] = 100;
-    proto_show(sl);
-    proto_show(sl2);
-    proto_show(sl3);
-    proto_show(sl4);
-    proto_show(sl5);
-    std::cout << std::endl;
+    u8 u8_num = 69;
+    u64 u64_num = 100000;
+    i64 i64_num = 300000;
+    Array<str, 12> reprs = {
+        proto_str(sl),
+        proto_str(sl2),
+        proto_str(sl3),
+        proto_str(sl4),
+        proto_str(sl5),
+        "",
+        proto_str(a),
+        (b[0] = 200, "void"),
+        proto_str(b),
+        proto_str(u8_num),
+        proto_str(u64_num),
+        proto_str(i64_num),
+    };
 
-    proto_show(a);
-    proto_show(b);
+    for (str s : reprs) {
+        proto_println(s);
+    }
+
     return 0;
 }

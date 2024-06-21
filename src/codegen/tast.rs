@@ -33,6 +33,9 @@ pub enum TyExpr {
     GroupedExpr {
         inner: Box<TyExpr>,
     },
+    MultiExpr {
+        exprs: Vec<TyExpr>,
+    },
     CallFn {
         func: Box<TyExpr>,
         args: Vec<TyExpr>,
@@ -110,7 +113,7 @@ impl TyExpr {
                         .map(|part| {
                             match part {
                                 TyExpr::Str { val } => val.clone(),
-                                _ => part.as_str(),
+                                _ => format!("{{{}}}", part.as_str()),
                             }
                         })
                         .collect::<Vec<String>>()
@@ -130,6 +133,16 @@ impl TyExpr {
                     target.as_str(),
                     start.as_str(),
                     end_excl.as_str()
+                )
+            }
+            TyExpr::MultiExpr { exprs } => {
+                format!(
+                    "({})",
+                    exprs
+                        .iter()
+                        .map(|e| { e.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
                 )
             }
         }
