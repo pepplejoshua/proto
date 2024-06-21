@@ -10,12 +10,11 @@ public:
         None
     } tag;
 
-    Option(T item) {
-        data = item;
+    Option(T item) : data(item) {
         tag = Some;
     }
 
-    Option() {
+    Option() : data() {
         tag = None;
     }
 

@@ -12,33 +12,3 @@ inline str proto_str(const char c) {
 inline str proto_str(const bool b) {
     return b ? "true" : "false";
 }
-
-template<typename T>
-inline str proto_str(const Slice<T> slice) {
-    int count = 0;
-    str s = "[";
-    for (T a : slice) {
-        s += proto_str(a);
-        count++;
-        if (!(count == slice.len())) {
-            s += ", ";
-        }
-    }
-    s += "]";
-    return s;
-}
-
-template<typename T, pruint N>
-inline str proto_str(const Array<T, N> arr) {
-    int count = 0;
-    str s = "[";
-    for (T a : arr) {
-        s += proto_str(a);
-        count++;
-        if (!(count == N)) {
-            s += ", ";
-        }
-    }
-    s += "]";
-    return s;
-}

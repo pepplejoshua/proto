@@ -343,12 +343,24 @@ pub fn check_expr(
                         ),
                     }
                 } else {
-                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                        loc: loc.clone(),
-                        number: val.clone(),
-                        given_type: ty.as_str(),
-                    });
-                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                    // make sure val is valid isize and return the right type
+                    // else return error
+                    let val_i32 = val.parse::<i32>();
+                    match val_i32 {
+                        Ok(_) => (
+                            Type::new(Sig::Int, loc.clone()),
+                            Some(TyExpr::Integer { val: val.clone() }),
+                        ),
+                        Err(_) => {
+                            state
+                                .errs
+                                .push(CheckerError::NumberTypeDefaultInferenceFailed {
+                                    loc: loc.clone(),
+                                    number: val.clone(),
+                                });
+                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                        }
+                    }
                 }
             }
             None => {
@@ -592,8 +604,42 @@ pub fn check_expr(
             // and can provide context for checking 1. Since a is typed i8, 1 can be
             // checked to see if it can be typed i8. [1 + a] will be typed i8 and then
             // 2 can be checked.
-            let (l_ty, l_ty_expr) = check_expr(left, &None, state);
-            let (r_ty, r_ty_expr) = check_expr(right, &None, state);
+            let lhs_is_first = match (left.is_literal(), right.is_literal()) {
+                (true, true) | (false, true) => true,
+                (true, false) => false,
+                (false, false) => {
+                    if left.get_non_literal_ranking() > right.get_non_literal_ranking() {
+                        true
+                    } else {
+                        false
+                    }
+                }
+            };
+
+            let (mut l_ty, mut l_ty_expr) =
+                check_expr(if lhs_is_first { left } else { right }, context_ty, state);
+            if l_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+            let temp_l_ty = &Some(l_ty.clone());
+            let (mut r_ty, mut r_ty_expr) = check_expr(
+                if lhs_is_first { right } else { left },
+                if context_ty.is_none() {
+                    temp_l_ty
+                } else {
+                    context_ty
+                },
+                state,
+            );
+            if r_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            if !lhs_is_first {
+                let (temp_l_ty, temp_l_ty_expr) = (l_ty, l_ty_expr);
+                (l_ty, l_ty_expr) = (r_ty, r_ty_expr);
+                (r_ty, r_ty_expr) = (temp_l_ty, temp_l_ty_expr);
+            }
 
             match op {
                 BinOpType::Add
@@ -601,10 +647,6 @@ pub fn check_expr(
                 | BinOpType::Mult
                 | BinOpType::Div
                 | BinOpType::Mod => {
-                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
-                    }
-
                     match (l_ty.tag, r_ty.tag) {
                         // covers the case where both a and b are numerical types
                         // and are the same type
@@ -639,77 +681,65 @@ pub fn check_expr(
                         }
                     }
                 }
-                BinOpType::And | BinOpType::Or => {
-                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                BinOpType::And | BinOpType::Or => match (l_ty.tag, r_ty.tag) {
+                    (Sig::Bool, Sig::Bool) => (
+                        Type::new(Sig::Bool, loc.clone()),
+                        Some(TyExpr::BinOp {
+                            op: *op,
+                            lhs: Box::new(l_ty_expr.unwrap()),
+                            rhs: Box::new(r_ty_expr.unwrap()),
+                        }),
+                    ),
+                    _ => {
+                        state.push_err(CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: op.as_str(),
+                            left: l_ty.as_str(),
+                            right: r_ty.as_str(),
+                        });
+                        (Type::new(Sig::ErrorType, loc.clone()), None)
                     }
-
-                    match (l_ty.tag, r_ty.tag) {
-                        (Sig::Bool, Sig::Bool) => (
-                            Type::new(Sig::Bool, loc.clone()),
-                            Some(TyExpr::BinOp {
-                                op: *op,
-                                lhs: Box::new(l_ty_expr.unwrap()),
-                                rhs: Box::new(r_ty_expr.unwrap()),
-                            }),
-                        ),
-                        _ => {
-                            state.push_err(CheckerError::InvalidUseOfBinaryOperator {
-                                loc: loc.clone(),
-                                op: op.as_str(),
-                                left: l_ty.as_str(),
-                                right: r_ty.as_str(),
-                            });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
-                        }
-                    }
-                }
+                },
                 BinOpType::Eq
                 | BinOpType::Neq
                 | BinOpType::Gt
                 | BinOpType::Lt
                 | BinOpType::GtEq
-                | BinOpType::LtEq => {
-                    if l_ty.tag.is_error_type() || r_ty.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                | BinOpType::LtEq => match (l_ty.tag, r_ty.tag) {
+                    (a, b) if a.is_numerical_type() && b.is_numerical_type() && a == b => (
+                        Type::new(Sig::Bool, loc.clone()),
+                        Some(TyExpr::BinOp {
+                            op: *op,
+                            lhs: Box::new(l_ty_expr.unwrap()),
+                            rhs: Box::new(r_ty_expr.unwrap()),
+                        }),
+                    ),
+                    (Sig::Char, Sig::Char) => (
+                        Type::new(Sig::Bool, loc.clone()),
+                        Some(TyExpr::BinOp {
+                            op: *op,
+                            lhs: Box::new(l_ty_expr.unwrap()),
+                            rhs: Box::new(r_ty_expr.unwrap()),
+                        }),
+                    ),
+                    (Sig::Bool, Sig::Bool) if matches!(op, BinOpType::Eq | BinOpType::Neq) => (
+                        Type::new(Sig::Bool, loc.clone()),
+                        Some(TyExpr::BinOp {
+                            op: *op,
+                            lhs: Box::new(l_ty_expr.unwrap()),
+                            rhs: Box::new(r_ty_expr.unwrap()),
+                        }),
+                    ),
+                    _ => {
+                        state.push_err(CheckerError::InvalidUseOfBinaryOperator {
+                            loc: loc.clone(),
+                            op: op.as_str(),
+                            left: l_ty.as_str(),
+                            right: r_ty.as_str(),
+                        });
+                        (Type::new(Sig::ErrorType, loc.clone()), None)
                     }
-
-                    match (l_ty.tag, r_ty.tag) {
-                        (a, b) if a.is_numerical_type() && b.is_numerical_type() && a == b => (
-                            Type::new(Sig::Bool, loc.clone()),
-                            Some(TyExpr::BinOp {
-                                op: *op,
-                                lhs: Box::new(l_ty_expr.unwrap()),
-                                rhs: Box::new(r_ty_expr.unwrap()),
-                            }),
-                        ),
-                        (Sig::Char, Sig::Char) => (
-                            Type::new(Sig::Bool, loc.clone()),
-                            Some(TyExpr::BinOp {
-                                op: *op,
-                                lhs: Box::new(l_ty_expr.unwrap()),
-                                rhs: Box::new(r_ty_expr.unwrap()),
-                            }),
-                        ),
-                        (Sig::Bool, Sig::Bool) if matches!(op, BinOpType::Eq | BinOpType::Neq) => (
-                            Type::new(Sig::Bool, loc.clone()),
-                            Some(TyExpr::BinOp {
-                                op: *op,
-                                lhs: Box::new(l_ty_expr.unwrap()),
-                                rhs: Box::new(r_ty_expr.unwrap()),
-                            }),
-                        ),
-                        _ => {
-                            state.push_err(CheckerError::InvalidUseOfBinaryOperator {
-                                loc: loc.clone(),
-                                op: op.as_str(),
-                                left: l_ty.as_str(),
-                                right: r_ty.as_str(),
-                            });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
-                        }
-                    }
-                }
+                },
                 BinOpType::AccessMember => todo!(),
                 BinOpType::IndexArray => todo!(),
             }

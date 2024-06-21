@@ -57,58 +57,58 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     let mut has_panic_fn = false;
     let mut has_array_class = false;
 
+    if state.uses_str_interpolation {
+        buf.push_str(PROTO_STRINGIFY_CODE);
+    }
+
     for sig in state.gen_typedefs_for.iter() {
         match sig {
             Sig::I8 => {
                 typedefs.push_str("\ntypedef int8_t i8;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::I16 => {
                 typedefs.push_str("\ntypedef int16_t i16;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::I32 => {
                 typedefs.push_str("\ntypedef int32_t i32;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::I64 => {
                 typedefs.push_str("\ntypedef int64_t i64;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::U8 => {
                 typedefs.push_str("\ntypedef uint8_t u8;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::U16 => {
                 typedefs.push_str("\ntypedef uint16_t u16;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::U32 => {
                 typedefs.push_str("\ntypedef uint32_t u32;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::U64 => {
                 typedefs.push_str("\ntypedef uint64_t u64;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::UInt => {
                 typedefs.push_str("\ntypedef uint64_t pruint;");
-                includes.insert("#include <cstdint>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::Str => {
                 typedefs.push_str("\ntypedef std::string str;");
-                includes.insert("#include <string>".to_string());
+                includes.insert("#include <iostream>".to_string());
             }
             Sig::StaticArray | Sig::Slice => {
                 if !has_panic_fn {
                     if !state.gen_typedefs_for.contains(&Sig::Str) {
                         typedefs.push_str("\ntypedef std::string str;");
-                        includes.insert("#include <string>".to_string());
+                        includes.insert("#include <iostream>".to_string());
                     }
-                    // provides cout, endl
-                    includes.insert("#include <iostream>".to_string());
-                    // provides exit, EXIT_FAILURE
-                    includes.insert("#include <cstdlib>".to_string());
                     buf.push_str(PANIC_FUNCTION.trim_end());
                     has_panic_fn = true;
                 }
@@ -121,7 +121,6 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 if !has_array_class {
                     if !state.gen_typedefs_for.contains(&Sig::UInt) {
                         typedefs.push_str("\ntypedef uint64_t pruint;");
-                        includes.insert("#include <cstdint>".to_string());
                     }
                     buf.push_str(SLICE_AND_ARRAY_CODE.trim_end());
                     has_array_class = true;
@@ -129,10 +128,6 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
             }
             _ => unreachable!(),
         };
-    }
-
-    if state.uses_str_interpolation {
-        buf.push_str(PROTO_STRINGIFY_CODE.trim_end());
     }
 
     if state.uses_print_ins {
@@ -417,7 +412,7 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     // println!("{file_path:?}");
     let exe_path = og_file_path.with_extension("");
     // println!("{exe_path:?}");
-    std::fs::write(file_path.clone(), cpp_code).expect("Unable to write file");
+    std::fs::write(file_path.clone(), cpp_code.trim()).expect("Unable to write file");
 
     let mut clang_compile = Command::new("clang++")
         .args([

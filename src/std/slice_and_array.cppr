@@ -27,7 +27,7 @@ public:
             return Option<T>();
         }
 
-        return Option<T>(this[index]);
+        return Option<T>(start[index]);
     }
 
     const Option<T> get(pruint index) const {
@@ -35,7 +35,7 @@ public:
             return Option<T>();
         }
 
-        return Option<T>(this[index]);
+        return Option<T>(start[index]);
     }
 
     inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
@@ -104,7 +104,7 @@ public:
             return Option<T>();
         }
 
-        return Option<T>(this[index]);
+        return Option<T>(data[index]);
     }
 
     inline Slice<T> make_slice(pruint start, pruint end_exclusive) {
@@ -157,3 +157,46 @@ public:
     inline const T* begin() const noexcept { return data; }
     inline const T* end() const noexcept { return data + N; }
 };
+
+template<typename T>
+inline str proto_str(const Slice<T> slice) {
+    int count = 0;
+    str s = "[";
+    for (T a : slice) {
+        s += proto_str(a);
+        count++;
+        if (!(count == slice.len())) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
+template<typename T, pruint N>
+inline str proto_str(const Array<T, N> arr) {
+    int count = 0;
+    str s = "[";
+    for (T a : arr) {
+        s += proto_str(a);
+        count++;
+        if (!(count == N)) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
+template<typename T>
+inline str proto_str(const Option<T> op) {
+    str s = "";
+    if (op.is_some()) {
+        s += "Some(";
+        s += proto_str(op.unwrap());
+        s += ")";
+    } else {
+        s = "None";
+    }
+    return s;
+}

@@ -153,6 +153,42 @@ impl Expr {
         }
     }
 
+    pub fn is_literal(&self) -> bool {
+        match self {
+            Expr::Number { .. }
+            | Expr::InterpolatedString { .. }
+            | Expr::Str { .. }
+            | Expr::Char { .. }
+            | Expr::Bool { .. } => true,
+            Expr::Ident { .. }
+            | Expr::BinOp { .. }
+            | Expr::InitStruct { .. }
+            | Expr::CallFn { .. }
+            | Expr::UnaryOp { .. }
+            | Expr::StaticArray { .. }
+            | Expr::GroupedExpr { .. }
+            | Expr::TernaryConditional { .. }
+            | Expr::MakeSlice { .. }
+            | Expr::ErrorExpr { .. } => false,
+        }
+    }
+
+    pub fn get_non_literal_ranking(&self) -> usize {
+        match self {
+            Expr::Ident { .. } => 4,
+            Expr::CallFn { .. }
+            | Expr::StaticArray { .. }
+            | Expr::MakeSlice { .. }
+            | Expr::InitStruct { .. }
+            | Expr::GroupedExpr { .. } => 3,
+            Expr::BinOp { .. } | Expr::UnaryOp { .. } | Expr::TernaryConditional { .. } => 2,
+            Expr::ErrorExpr { .. } | _ => unreachable!(
+                "expr::get_non_literal_ranking(): literal found: {:#?}",
+                self
+            ),
+        }
+    }
+
     pub fn as_str(&self) -> String {
         match self {
             Expr::Number { val, .. } => val.clone(),
