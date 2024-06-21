@@ -157,6 +157,11 @@ pub enum CheckerError {
         given_ty: String,
         loc: SourceRef,
     },
+    PrintRequiresAStringArg {
+        is_println: bool,
+        given_ty: String,
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

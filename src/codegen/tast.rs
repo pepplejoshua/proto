@@ -182,6 +182,10 @@ pub enum TyIns {
     Return {
         expr: Option<TyExpr>,
     },
+    PrintIns {
+        is_println: bool,
+        output: TyExpr,
+    },
     IfConditional {
         comb: Vec<(Option<TyExpr>, TyIns)>,
     },
@@ -255,6 +259,13 @@ impl TyIns {
                     }
                 }
                 buf
+            }
+            TyIns::PrintIns { is_println, output } => {
+                format!(
+                    "{}({})",
+                    if *is_println { "println" } else { "print" },
+                    output.as_str()
+                )
             }
         }
     }

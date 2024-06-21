@@ -1443,7 +1443,28 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             is_println,
             output,
             loc,
-        } => todo!(),
+        } => {
+            // check the output to make sure it is a string
+            let (output_ty, output_ty_expr) = check_expr(output, &None, state);
+
+            if output_ty.tag.is_error_type() {
+                return None;
+            }
+
+            if output_ty.tag != Sig::Str {
+                state.push_err(CheckerError::PrintRequiresAStringArg {
+                    is_println: *is_println,
+                    given_ty: output_ty.as_str(),
+                    loc: loc.clone(),
+                });
+                return None;
+            }
+
+            Some(TyIns::PrintIns {
+                is_println: *is_println,
+                output: output_ty_expr.unwrap(),
+            })
+        }
     }
 }
 

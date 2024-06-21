@@ -13,6 +13,7 @@ pub struct State {
     in_count: usize,
     gen_typedefs_for: HashSet<Sig>,
     uses_str_interpolation: bool,
+    uses_print_ins: bool,
 }
 
 impl State {
@@ -21,6 +22,7 @@ impl State {
             in_count: 0,
             gen_typedefs_for: HashSet::new(),
             uses_str_interpolation: false,
+            uses_print_ins: false,
         }
     }
 
@@ -41,6 +43,7 @@ const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
 const OPTION_CODE: &str = include_str!("../std/option.cppr");
 const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
 const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
+const PROTO_PRINT_CODE: &str = include_str!("../std/print.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()
@@ -131,6 +134,13 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     if state.uses_str_interpolation {
         buf.push_str(PROTO_STRINGIFY_CODE.trim_end());
     }
+
+    if state.uses_print_ins {
+        // provides cout, endl
+        includes.insert("#include <iostream>".to_string());
+        buf.push_str(PROTO_PRINT_CODE.trim_end());
+    }
+
     let mut header = String::new();
     if !includes.is_empty() {
         header = includes.into_iter().collect::<Vec<String>>().join("\n");
@@ -367,6 +377,19 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                     }
                 }
             }
+        }
+        TyIns::PrintIns { is_println, output } => {
+            state.uses_print_ins = true;
+            buf = format!(
+                "{}{}({});",
+                state.get_pad(),
+                if *is_println {
+                    "proto_println"
+                } else {
+                    "proto_print"
+                },
+                cpp_gen_expr(output, state)
+            )
         }
     }
     buf

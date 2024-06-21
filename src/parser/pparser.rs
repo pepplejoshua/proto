@@ -171,12 +171,10 @@ impl Parser {
 
         // look for )
         cur = self.cur_token();
-
-        // look for (
         if !matches!(cur, Token::RParen(_)) {
             self.report_error(ParseError::Expected(
                 format!(
-                    "a right parenthesis to end argument section for {}.",
+                    "a right parenthesis to end argument section for {} instruction.",
                     if is_println { "println" } else { "print" }
                 ),
                 cur.get_source_ref(),
@@ -184,14 +182,37 @@ impl Parser {
             ));
             return Ins::ErrorIns {
                 msg: format!(
-                    "a right parenthesis to end argument section for {}.",
+                    "a right parenthesis to end argument section for {} instruction.",
                     if is_println { "println" } else { "print" }
                 ),
                 loc: span.combine(cur.get_source_ref()),
             };
         }
 
+        self.advance();
         // look for ;
+        cur = self.cur_token();
+        if !matches!(cur, Token::Semicolon(_)) {
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a semicolon to terminate {} instruction.",
+                    if is_println { "println" } else { "print" }
+                ),
+                cur.get_source_ref(),
+                None,
+            ));
+            return Ins::ErrorIns {
+                msg: format!(
+                    "a semicolon to terminate {} instruction.",
+                    if is_println { "println" } else { "print" }
+                ),
+                loc: span.combine(cur.get_source_ref()),
+            };
+        }
+
+        span = span.combine(self.cur_token().get_source_ref());
+        self.advance();
+
         Ins::PrintIns {
             is_println,
             loc: span,

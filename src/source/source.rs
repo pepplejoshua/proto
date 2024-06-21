@@ -518,6 +518,18 @@ impl SourceReporter {
                 let msg = format!("The target of a slice operation should be an array or another slice was expected. The target has type '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::PrintRequiresAStringArg {
+                is_println,
+                given_ty,
+                loc,
+            } => {
+                let msg = format!("{} takes an argument of type 'str' but was given an argument of type '{given_ty}'.", if is_println {
+                    "Println"
+                } else {
+                    "Print"
+                });
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 
