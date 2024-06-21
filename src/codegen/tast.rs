@@ -60,6 +60,14 @@ pub enum TyExpr {
         start: Box<TyExpr>,
         end_excl: Box<TyExpr>,
     },
+    IndexInto {
+        target: Box<TyExpr>,
+        index: Box<TyExpr>,
+    },
+    AccessMember {
+        target: Box<TyExpr>,
+        mem: Box<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -144,6 +152,12 @@ impl TyExpr {
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
+            }
+            TyExpr::IndexInto { target, index } => {
+                format!("{}[{}]", target.as_str(), index.as_str())
+            }
+            TyExpr::AccessMember { target, mem } => {
+                format!("{}.{}", target.as_str(), mem.as_str())
             }
         }
     }

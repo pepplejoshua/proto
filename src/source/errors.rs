@@ -162,6 +162,10 @@ pub enum CheckerError {
         given_ty: String,
         loc: SourceRef,
     },
+    IndexIntoOpRequiresArraySliceOrString {
+        given_ty: String,
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

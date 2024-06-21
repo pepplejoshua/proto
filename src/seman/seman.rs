@@ -740,8 +740,6 @@ pub fn check_expr(
                         (Type::new(Sig::ErrorType, loc.clone()), None)
                     }
                 },
-                BinOpType::AccessMember => todo!(),
-                BinOpType::IndexArray => todo!(),
             }
         }
         Expr::InitStruct {
@@ -992,10 +990,23 @@ pub fn check_expr(
             // check both start and end_excl expressions, if they are provided
             let (start_ty, start_ty_expr) = match start {
                 Some(start) => {
-                    let (a, b) = check_expr(start, &None, state);
+                    let (a, b) = check_expr(
+                        start,
+                        &Some(Type::new(Sig::UInt, start.get_source_ref())),
+                        state,
+                    );
                     if a.tag.is_error_type() {
                         return (Type::new(Sig::ErrorType, loc.clone()), None);
                     }
+
+                    if a.tag != Sig::UInt {
+                        state.push_err(CheckerError::TypeMismatch {
+                            loc: start.get_source_ref(),
+                            expected: "uint".into(),
+                            found: a.as_str(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    };
                     (a, b.unwrap())
                 }
                 None => (
@@ -1006,10 +1017,19 @@ pub fn check_expr(
 
             match end_excl {
                 Some(end_excl) => {
-                    let (end_ty, end_ty_expr) = check_expr(end_excl, &None, state);
+                    let (end_ty, end_ty_expr) = check_expr(end_excl,
+                        &Some(Type::new(Sig::UInt, end_excl.get_source_ref())), state);
                     if end_ty.tag.is_error_type() {
                         return (Type::new(Sig::ErrorType, loc.clone()), None);
                     }
+                    if end_ty.tag != Sig::UInt {
+                        state.push_err(CheckerError::TypeMismatch {
+                            loc: end_excl.get_source_ref(),
+                            expected: "uint".into(),
+                            found: end_ty.as_str(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    };
                     match target_ty.tag {
                         Sig::StaticArray => {
                             let mut slice_ty = Type::new(Sig::Slice, loc.clone());
@@ -1104,6 +1124,61 @@ pub fn check_expr(
                 }
             }
         }
+        Expr::IndexInto { target, index, loc } => {
+            // target has to be one of: array, slice, string
+            // index must be usize.
+            let (target_ty, target_ty_expr) = check_expr(target, &None, state);
+            if target_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            if !matches!(target_ty.tag, Sig::StaticArray | Sig::Str | Sig::Slice) {
+                state.push_err(CheckerError::IndexIntoOpRequiresArraySliceOrString {
+                    given_ty: target_ty.as_str(),
+                    loc: target.get_source_ref(),
+                });
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            let (index_ty, index_ty_expr) = check_expr(
+                index,
+                &Some(Type::new(Sig::UInt, index.get_source_ref())),
+                state,
+            );
+            if index_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+            if index_ty.tag != Sig::UInt {
+                state.push_err(CheckerError::TypeMismatch {
+                    loc: index.get_source_ref(),
+                    expected: "uint".into(),
+                    found: index_ty.as_str(),
+                });
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            };
+
+            let new_ty = match target_ty.tag {
+                Sig::Str => Type::new(Sig::Char, loc.clone()),
+                Sig::StaticArray | Sig::Slice => {
+                    let mut sub_ty = target_ty.aux_type.unwrap().clone();
+                    sub_ty.loc = loc.clone();
+                    *sub_ty
+                }
+                _ => unreachable!(
+                    "seman::check_expr(): Found unexpected type for index to expression: {:#?}",
+                    target_ty
+                ),
+            };
+
+            (
+                new_ty,
+                Some(TyExpr::IndexInto {
+                    target: Box::new(target_ty_expr.unwrap()),
+                    index: Box::new(index_ty_expr.unwrap()),
+                }),
+            )
+        }
+        Expr::AccessMember { target, mem, loc } => todo!(),
     }
 }
 

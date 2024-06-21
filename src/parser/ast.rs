@@ -16,8 +16,6 @@ pub enum BinOpType {
     Lt,
     GtEq,
     LtEq,
-    AccessMember,
-    IndexArray,
 }
 
 impl BinOpType {
@@ -36,8 +34,6 @@ impl BinOpType {
             BinOpType::Lt => "<",
             BinOpType::GtEq => ">=",
             BinOpType::LtEq => "<=",
-            BinOpType::AccessMember => ".",
-            BinOpType::IndexArray => "[]",
         };
         op_str.to_string()
     }
@@ -126,6 +122,16 @@ pub enum Expr {
         end_excl: Option<Box<Expr>>,
         loc: SourceRef,
     },
+    IndexInto {
+        target: Box<Expr>,
+        index: Box<Expr>,
+        loc: SourceRef,
+    },
+    AccessMember {
+        target: Box<Expr>,
+        mem: Box<Expr>,
+        loc: SourceRef,
+    },
     ErrorExpr {
         msg: String,
         loc: SourceRef,
@@ -149,6 +155,8 @@ impl Expr {
             | Expr::TernaryConditional { loc, .. }
             | Expr::InterpolatedString { loc, .. }
             | Expr::MakeSlice { loc, .. }
+            | Expr::IndexInto { loc, .. }
+            | Expr::AccessMember { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -160,16 +168,7 @@ impl Expr {
             | Expr::Str { .. }
             | Expr::Char { .. }
             | Expr::Bool { .. } => true,
-            Expr::Ident { .. }
-            | Expr::BinOp { .. }
-            | Expr::InitStruct { .. }
-            | Expr::CallFn { .. }
-            | Expr::UnaryOp { .. }
-            | Expr::StaticArray { .. }
-            | Expr::GroupedExpr { .. }
-            | Expr::TernaryConditional { .. }
-            | Expr::MakeSlice { .. }
-            | Expr::ErrorExpr { .. } => false,
+            _ => false,
         }
     }
 
@@ -180,7 +179,9 @@ impl Expr {
             | Expr::StaticArray { .. }
             | Expr::MakeSlice { .. }
             | Expr::InitStruct { .. }
-            | Expr::GroupedExpr { .. } => 3,
+            | Expr::GroupedExpr { .. }
+            | Expr::IndexInto { .. }
+            | Expr::AccessMember { .. } => 3,
             Expr::BinOp { .. } | Expr::UnaryOp { .. } | Expr::TernaryConditional { .. } => 2,
             Expr::ErrorExpr { .. } | _ => unreachable!(
                 "expr::get_non_literal_ranking(): literal found: {:#?}",
@@ -283,6 +284,12 @@ impl Expr {
                 }
                 (None, None) => format!("{}[:]", target.as_str()),
             },
+            Expr::IndexInto { target, index, .. } => {
+                format!("{}[{}]", target.as_str(), index.as_str())
+            }
+            Expr::AccessMember { target, mem, loc } => {
+                format!("{}.{}", target.as_str(), mem.as_str())
+            }
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }
     }

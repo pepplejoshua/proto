@@ -1133,10 +1133,9 @@ impl Parser {
                         Token::RBracket(_) => {
                             span = span.combine(self.cur_token().get_source_ref());
                             self.advance();
-                            lhs = Expr::BinOp {
-                                op: BinOpType::IndexArray,
-                                left: Box::new(lhs),
-                                right: Box::new(index_expr),
+                            lhs = Expr::IndexInto {
+                                target: Box::new(lhs),
+                                index: Box::new(index_expr),
                                 loc: span,
                             };
                         }
@@ -1254,12 +1253,11 @@ impl Parser {
                             let member = self.parse_identifier();
                             let mem_acc_span =
                                 lhs.get_source_ref().combine(member.get_source_ref());
-                            lhs = Expr::BinOp {
-                                op: BinOpType::AccessMember,
-                                left: Box::new(lhs),
-                                right: Box::new(member),
+                            lhs = Expr::AccessMember {
+                                target: Box::new(lhs),
+                                mem: Box::new(member),
                                 loc: mem_acc_span,
-                            }
+                            };
                         }
                     }
                 }

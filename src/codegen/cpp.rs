@@ -279,6 +279,20 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
+        TyExpr::IndexInto { target, index } => {
+            format!(
+                "{}[{}]",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(index, state)
+            )
+        }
+        TyExpr::AccessMember { target, mem } => {
+            format!(
+                "{}.{}",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(mem, state)
+            )
+        }
     }
 }
 

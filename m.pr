@@ -1,14 +1,17 @@
 fn main() int {
-    e : i8 = 1;
-    f :: e + 1;
-    g :: 2 + 1 + f;
-    h :: 2 + (1 + f);
-    i : i8 : e + 1;
-    j :: [1, 2, 3, 4];
-    k :: j[0:];
+    a :: [1, 2, 3, 4, 5];
+    b :: a[0:];
+    c :: a[2];
+    d :: b[3];
+    e :: "hello, world!";
+    f :: e[12];
 
-    println(`{j}`);
-    println(`{k}`);
+    println(`a = {a}`);
+    println(`b = {b}, a[0:]`);
+    println(`c = {c}, a[2]`);
+    println(`d = {d}, b[3]`);
+    println(`e = {e}`);
+    println(`f = {f}, e[12]`);
 
     return 0;
 }

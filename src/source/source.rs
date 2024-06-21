@@ -530,6 +530,10 @@ impl SourceReporter {
                 });
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::IndexIntoOpRequiresArraySliceOrString { given_ty, loc } => {
+                let msg = format!("Arrays, Slices and Strings are the only types that support the indexing into operation. The target has type '{given_ty}'");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 
