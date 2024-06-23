@@ -1,17 +1,8 @@
 fn main() int {
-    a :: [1, 2, 3, 4, 5];
-    b :: a[0:];
-    c :: a[2];
-    d :: b[3];
-    e :: "hello, world!";
-    f :: e[12];
-
-    println(`a = {a}`);
-    println(`b = {b}, a[0:]`);
-    println(`c = {c}, a[2]`);
-    println(`d = {d}, b[3]`);
-    println(`e = {e}`);
-    println(`f = {f}, e[12]`);
+    a : ?int : Some(1);
+    b : ?int : None;
+    c : ?str : Some("this is a string");
+    d :: *a + 3;
 
     return 0;
 }

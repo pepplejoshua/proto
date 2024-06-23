@@ -17,8 +17,72 @@ void panic(int line, const str sourcefile, const str msg) {
     std::exit(EXIT_FAILURE);
 }
 
-#include "./src/std/to_string.cppr"
-#include "./src/std/option.cppr"
+template <typename T>
+inline typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type
+proto_str(T value) {
+    return std::to_string(value);
+}
+
+inline str proto_str(const char c) {
+    return str(1, c);
+}
+
+inline str proto_str(const bool b) {
+    return b ? "true" : "false";
+}
+
+template<typename T>
+class Option {
+private:
+    T data;
+
+public:
+    enum {
+        Some,
+        None
+    } tag;
+
+    Option(T item) : data(item) {
+        tag = Some;
+    }
+
+    Option() : data() {
+        tag = None;
+    }
+
+    const bool is_some() const {
+        return tag == Some;
+    }
+
+    bool is_some() {
+        return tag == Some;
+    }
+
+    const bool is_none() const {
+        return tag == None;
+    }
+
+    bool is_none() {
+        return tag == None;
+    }
+
+    inline T& unwrap() {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+
+    inline const T& unwrap() const {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+};
+
 #include "./src/std/slice_and_array.cppr"
 #include "./src/std/print.cppr"
 
