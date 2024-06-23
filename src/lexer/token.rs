@@ -18,6 +18,11 @@ pub enum Token {
     Pub(SourceRef),
     Return(SourceRef),
     Mod(SourceRef),
+    Struct(SourceRef),
+    Print(SourceRef),
+    Println(SourceRef),
+    Some(SourceRef),
+    None(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -82,9 +87,6 @@ pub enum Token {
     Char(SourceRef),
     Str(SourceRef),
     Type(SourceRef),
-    Struct(SourceRef),
-    Print(SourceRef),
-    Println(SourceRef),
 
     // misc
     Underscore(SourceRef),
@@ -163,6 +165,8 @@ impl Token {
             | Token::QuestionMark(src)
             | Token::Print(src)
             | Token::BackTick(src)
+            | Token::Some(src)
+            | Token::None(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -260,6 +264,8 @@ impl Token {
             Token::Print(_) => "print".to_string(),
             Token::Println(_) => "println".to_string(),
             Token::BackTick(_) => '`'.to_string(),
+            Token::Some(_) => "some".to_string(),
+            Token::None(_) => "none".to_string(),
         }
     }
 }

@@ -68,6 +68,9 @@ pub enum TyExpr {
         target: Box<TyExpr>,
         mem: Box<TyExpr>,
     },
+    OptionalExpr {
+        val: Option<Box<TyExpr>>,
+    },
 }
 
 impl TyExpr {
@@ -159,6 +162,10 @@ impl TyExpr {
             TyExpr::AccessMember { target, mem } => {
                 format!("{}.{}", target.as_str(), mem.as_str())
             }
+            TyExpr::OptionalExpr { val } => match val {
+                Some(v) => format!("some({})", v.as_str()),
+                None => format!("none"),
+            },
         }
     }
 }

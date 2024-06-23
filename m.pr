@@ -1,8 +1,9 @@
 fn main() int {
-    a : ?int : Some(1);
-    b : ?int : None;
-    c : ?str : Some("this is a string");
-    d :: *a + 3;
+    a : ?int : some 1;
+    b : ?int : none;
+    c : ?str : some "this is a string";
+
+    println(`a = {a}, b = {b}, c = {c}.`);
 
     return 0;
 }

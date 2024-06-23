@@ -141,6 +141,10 @@ pub enum CheckerError {
         given_ty: String,
         arr_loc: SourceRef,
     },
+    OptionalTypeInferenceFailed {
+        given_ty: String,
+        opt_loc: SourceRef,
+    },
     NonConstantNumberSizeForStaticArray {
         loc: SourceRef,
     },

@@ -795,6 +795,13 @@ impl Parser {
                     }
                 }
             }
+            Token::QuestionMark(loc) => {
+                let inner_ty = self.parse_type();
+                let span = loc.combine(inner_ty.loc.clone());
+                let mut opt_ty = Type::new(Sig::Optional, span);
+                opt_ty.aux_type = Some(Box::new(inner_ty));
+                opt_ty
+            }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
@@ -811,7 +818,26 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Expr {
-        self.parse_ternary()
+        self.parse_optional_expr()
+    }
+
+    fn parse_optional_expr(&mut self) -> Expr {
+        let op = self.cur_token();
+        match op {
+            Token::Some(loc) => {
+                self.advance();
+                let val = self.parse_ternary();
+                Expr::OptionalExpr {
+                    loc: loc.combine(val.get_source_ref()),
+                    val: Some(Box::new(val)),
+                }
+            }
+            Token::None(loc) => {
+                self.advance();
+                Expr::OptionalExpr { val: None, loc }
+            }
+            _ => self.parse_ternary(),
+        }
     }
 
     fn parse_ternary(&mut self) -> Expr {

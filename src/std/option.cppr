@@ -50,3 +50,15 @@ public:
         return data;
     }
 };
+
+template<typename T>
+inline str proto_str(const Option<T> op) {
+    str s = "";
+    if (op.is_some()) {
+        s += "some ";
+        s += proto_str(op.unwrap());
+    } else {
+        s = "none";
+    }
+    return s;
+}

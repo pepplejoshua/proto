@@ -25,6 +25,7 @@ pub enum Sig {
     Function,
     StaticArray,
     Slice,
+    Optional,
     ErrorType,
 }
 
@@ -144,7 +145,9 @@ impl Type {
                 ),
             },
             Sig::Slice => format!("[{}]", self.aux_type.as_ref().unwrap().as_str()),
+            Sig::Optional => format!("?{}", self.aux_type.as_ref().unwrap().as_str()),
             Sig::ErrorType => "<error>".to_string(),
+
         }
     }
 }

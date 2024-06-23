@@ -181,6 +181,12 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
         (Sig::Slice, Sig::Slice) => {
             types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
         }
+        (Sig::Optional, Sig::Optional) => {
+            if a.aux_type.is_none() | b.aux_type.is_none() {
+                return false;
+            }
+            types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap())
+        }
         (Sig::ErrorType, _) | (_, Sig::ErrorType) | _ => false,
     }
 }
@@ -802,7 +808,7 @@ pub fn check_expr(
             }
         }
         Expr::UnaryOp { op, expr, loc } => {
-            let (expr_ty, expr_ty_expr) = check_expr(expr, &None, state);
+            let (expr_ty, expr_ty_expr) = check_expr(expr, context_ty, state);
 
             match op {
                 UnaryOpType::Not => {
@@ -943,7 +949,8 @@ pub fn check_expr(
                         | Sig::U64
                         | Sig::UInt
                         | Sig::StaticArray
-                        | Sig::Slice => Some(TyExpr::CallFn {
+                        | Sig::Slice
+                        | Sig::Optional => Some(TyExpr::CallFn {
                             func: Box::new(TyExpr::Ident {
                                 name: "proto_str".to_string(),
                             }),
@@ -1179,6 +1186,55 @@ pub fn check_expr(
             )
         }
         Expr::AccessMember { target, mem, loc } => todo!(),
+        Expr::OptionalExpr { val, loc } => {
+            let (v_ty, v_ty_expr) = match (context_ty, val) {
+                (Some(ty), Some(val)) => {
+                    if !matches!(ty.tag, Sig::Optional) {
+                        state.push_err(CheckerError::OptionalTypeInferenceFailed {
+                            given_ty: ty.as_str(),
+                            opt_loc: loc.clone(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+                    let expected_item_ty = ty.aux_type.clone().unwrap();
+                    check_expr(val, &Some(*expected_item_ty), state)
+                }
+                (None, Some(val)) => check_expr(val, context_ty, state),
+                (Some(ty), None) => {
+                    if !matches!(ty.tag, Sig::Optional) {
+                        state.push_err(CheckerError::OptionalTypeInferenceFailed {
+                            given_ty: ty.as_str(),
+                            opt_loc: loc.clone(),
+                        });
+                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    }
+                    let expected_item_ty = ty.aux_type.clone().unwrap();
+                    let mut opt_ty = Type::new(Sig::Optional, loc.clone());
+                    opt_ty.aux_type = Some(expected_item_ty);
+                    return (opt_ty, Some(TyExpr::OptionalExpr { val: None }));
+                }
+                (None, None) => {
+                    return (
+                        Type::new(Sig::Optional, loc.clone()),
+                        Some(TyExpr::OptionalExpr { val: None }),
+                    );
+                }
+            };
+
+            if v_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            let mut opt_ty = Type::new(Sig::Optional, loc.clone());
+            opt_ty.aux_type = Some(Box::new(v_ty));
+
+            (
+                opt_ty,
+                Some(TyExpr::OptionalExpr {
+                    val: Some(Box::new(v_ty_expr.unwrap())),
+                }),
+            )
+        }
     }
 }
 

@@ -534,6 +534,11 @@ impl SourceReporter {
                 let msg = format!("Arrays, Slices and Strings are the only types that support the indexing into operation. The target has type '{given_ty}'");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::OptionalTypeInferenceFailed { given_ty, opt_loc } => {
+                let msg =
+                    format!("Optional's type is incompatible with the given type '{given_ty}'");
+                self.report_with_ref(&opt_loc, msg, None, false);
+            }
         }
     }
 

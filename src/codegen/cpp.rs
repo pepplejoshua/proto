@@ -126,6 +126,21 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     has_array_class = true;
                 }
             }
+            Sig::Optional => {
+                if !has_panic_fn {
+                    if !state.gen_typedefs_for.contains(&Sig::Str) {
+                        typedefs.push_str("\ntypedef std::string str;");
+                        includes.insert("#include <iostream>".to_string());
+                    }
+                    buf.push_str(PANIC_FUNCTION.trim_end());
+                    has_panic_fn = true;
+                }
+
+                if !has_option_class {
+                    buf.push_str(OPTION_CODE.trim_end());
+                    has_option_class = true;
+                }
+            }
             _ => unreachable!(),
         };
     }
@@ -182,6 +197,12 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
             let slice_ty = ty.aux_type.clone().unwrap();
             let slice_ty = cpp_gen_ty(&slice_ty, state);
             format!("Slice<{slice_ty}>")
+        }
+        Sig::Optional => {
+            state.gen_typedefs_for.insert(ty.tag);
+            let opt_ty = ty.aux_type.clone().unwrap();
+            let opt_ty = cpp_gen_ty(&opt_ty, state);
+            format!("Option<{opt_ty}>")
         }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
@@ -292,6 +313,13 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 cpp_gen_expr(target, state),
                 cpp_gen_expr(mem, state)
             )
+        }
+        TyExpr::OptionalExpr { val } => {
+            if let Some(v) = val {
+                format!("{{{}}}", cpp_gen_expr(v, state))
+            } else {
+                format!("{{}}")
+            }
         }
     }
 }

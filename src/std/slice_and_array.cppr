@@ -82,6 +82,7 @@ public:
     Array(std::initializer_list<T> init) {
         std::copy(init.begin(), init.end(), data);
     }
+    Array() {}
 
     T& operator[](std::size_t index) {
         return data[index];
@@ -185,18 +186,5 @@ inline str proto_str(const Array<T, N> arr) {
         }
     }
     s += "]";
-    return s;
-}
-
-template<typename T>
-inline str proto_str(const Option<T> op) {
-    str s = "";
-    if (op.is_some()) {
-        s += "Some(";
-        s += proto_str(op.unwrap());
-        s += ")";
-    } else {
-        s = "None";
-    }
     return s;
 }

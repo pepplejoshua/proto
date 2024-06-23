@@ -1,8 +1,12 @@
 
 template <typename T>
-inline typename std::enable_if<std::is_arithmetic<T>::value, std::string>::type
+inline typename std::enable_if<std::is_arithmetic<T>::value, str>::type
 proto_str(T value) {
     return std::to_string(value);
+}
+
+inline str proto_str(const str s) {
+    return "\"" + s + "\"";
 }
 
 inline str proto_str(const char c) {

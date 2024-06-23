@@ -132,6 +132,10 @@ pub enum Expr {
         mem: Box<Expr>,
         loc: SourceRef,
     },
+    OptionalExpr {
+        val: Option<Box<Expr>>,
+        loc: SourceRef,
+    },
     ErrorExpr {
         msg: String,
         loc: SourceRef,
@@ -157,6 +161,7 @@ impl Expr {
             | Expr::MakeSlice { loc, .. }
             | Expr::IndexInto { loc, .. }
             | Expr::AccessMember { loc, .. }
+            | Expr::OptionalExpr { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -176,6 +181,7 @@ impl Expr {
         match self {
             Expr::Ident { .. } => 4,
             Expr::CallFn { .. }
+            | Expr::OptionalExpr { .. }
             | Expr::StaticArray { .. }
             | Expr::MakeSlice { .. }
             | Expr::InitStruct { .. }
@@ -290,6 +296,10 @@ impl Expr {
             Expr::AccessMember { target, mem, loc } => {
                 format!("{}.{}", target.as_str(), mem.as_str())
             }
+            Expr::OptionalExpr { val, .. } => match val {
+                Some(v) => format!("some({})", v.as_str()),
+                None => format!("none"),
+            },
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }
     }

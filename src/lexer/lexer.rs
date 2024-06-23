@@ -298,6 +298,8 @@ impl Lexer {
             "pub" => Ok(Token::Pub(combined_ref)),
             "print" => Ok(Token::Print(combined_ref)),
             "println" => Ok(Token::Println(combined_ref)),
+            "some" => Ok(Token::Some(combined_ref)),
+            "none" => Ok(Token::None(combined_ref)),
 
             "i8" => Ok(Token::I8(combined_ref)),
             "i16" => Ok(Token::I16(combined_ref)),
