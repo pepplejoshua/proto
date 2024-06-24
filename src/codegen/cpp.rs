@@ -96,7 +96,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 includes.insert("#include <iostream>".to_string());
             }
             Sig::UInt => {
-                typedefs.push_str("\ntypedef uint64_t pruint;");
+                typedefs.push_str("\ntypedef uint64_t uint_pr;");
                 includes.insert("#include <iostream>".to_string());
             }
             Sig::Str => {
@@ -120,7 +120,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
                 if !has_array_class {
                     if !state.gen_typedefs_for.contains(&Sig::UInt) {
-                        typedefs.push_str("\ntypedef uint64_t pruint;");
+                        typedefs.push_str("\ntypedef uint64_t uint_pr;");
                     }
                     buf.push_str(SLICE_AND_ARRAY_CODE.trim_end());
                     has_array_class = true;
@@ -183,7 +183,7 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
         }
         Sig::UInt => {
             state.gen_typedefs_for.insert(ty.tag);
-            "pruint".to_string()
+            "uint_pr".to_string()
         }
         Sig::StaticArray => {
             state.gen_typedefs_for.insert(ty.tag);

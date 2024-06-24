@@ -1,9 +1,12 @@
-fn opt() ?int {
+fn arr(a [int, _]) void {
+}
+
+fn opt() ?int  {
     return some 1;
 }
 
 fn main() int {
-    a : ?int : opt();
+    a :: opt();
     b : ?int : none;
     c : ?str : some "this is a string";
 

@@ -374,6 +374,13 @@ impl SourceReporter {
                 let msg = format!("Invalid type: '{}'.", type_name);
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::IncompleteType { loc, type_name } => {
+                let msg = format!("Incomplete type: '{}'.", type_name);
+                let tip = format!(
+                    "If it is an array, make sure to specify the size, or use a slice of the same type instead."
+                );
+                self.report_with_ref(&loc, msg, Some(tip), false);
+            }
             CheckerError::TypeMismatch {
                 loc,
                 expected,
@@ -538,6 +545,14 @@ impl SourceReporter {
                 let msg =
                     format!("Optional's type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&opt_loc, msg, None, false);
+            }
+            CheckerError::OptionalTypeInferenceFailedWithoutContextualTy { opt_loc } => {
+                let msg =
+                    format!("Inferring optional's type failed without contextual information.");
+                self.report_with_ref(&opt_loc, msg, None, false);
+            }
+            CheckerError::Expected(msg, loc, tip) => {
+                self.report_with_ref(&loc, msg, tip, false);
             }
         }
     }

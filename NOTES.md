@@ -1,7 +1,8 @@
-# Improvements
+# Improvements for 0.0.1
 - Prevent use of array types without size in some receiver contexts (function parameters, struct members).
 - Add support for method calls on builtin types (Option, Array, Slice, String).
 - Determine how exactly types propagate top down in expressions. Fix inconsistencies.
+- Mutable/const function parameters
 - Write something for blog about journey so far (lexer, parser, seman and codegen).
 - Work on some type of support for variadic functions (using slices?).
 - Work on recoverable errors in parser.
@@ -19,6 +20,7 @@
 - Look into comments and how they encapsulate code. To be used for doc strings
 - Std Lib?
 - Tests?
+- Modules?
 - proto testing framework built in language?
 - Notebook support? 👀
 - 0.0.1 release?

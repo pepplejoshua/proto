@@ -99,6 +99,10 @@ pub enum CheckerError {
         loc: SourceRef,
         type_name: String,
     },
+    IncompleteType {
+        loc: SourceRef,
+        type_name: String,
+    },
     // TODO: track the location of the previous definition
     NameAlreadyDefined {
         loc: SourceRef,
@@ -145,6 +149,9 @@ pub enum CheckerError {
         given_ty: String,
         opt_loc: SourceRef,
     },
+    OptionalTypeInferenceFailedWithoutContextualTy {
+        opt_loc: SourceRef,
+    },
     NonConstantNumberSizeForStaticArray {
         loc: SourceRef,
     },
@@ -170,6 +177,7 @@ pub enum CheckerError {
         given_ty: String,
         loc: SourceRef,
     },
+    Expected(String, SourceRef, Option<String>),
     TooManyErrors,
 }
 

@@ -144,12 +144,29 @@ fn get_builtins() -> &'static HashMap<&'static str, Type> {
     }
 }
 
-pub fn type_is_known(ty: &Type) -> bool {
+enum TypeValidErr {
+    Invalid,
+    Incomplete,
+}
+
+fn type_is_valid(ty: &Type) -> Result<(), (TypeValidErr, SourceRef)> {
     match ty.tag {
         Sig::Identifier => {
             unimplemented!("seman::type_is_known(): identified types are not implemented yet.")
         }
-        _ => true,
+        Sig::Function => {
+            for param_ty in ty.sub_types.iter() {
+                type_is_valid(param_ty)?;
+            }
+            type_is_valid(ty.aux_type.as_ref().unwrap())
+        }
+        Sig::StaticArray => match ty.sub_expr {
+            Some(_) => type_is_valid(ty.aux_type.as_ref().unwrap()),
+            None => Err((TypeValidErr::Incomplete, ty.loc.clone())),
+        },
+        Sig::Slice | Sig::Optional => type_is_valid(ty.aux_type.as_ref().unwrap()),
+        Sig::ErrorType => Err((TypeValidErr::Invalid, ty.loc.clone())),
+        _ => Ok(()),
     }
 }
 
@@ -1214,10 +1231,12 @@ pub fn check_expr(
                     return (opt_ty, Some(TyExpr::OptionalExpr { val: None }));
                 }
                 (None, None) => {
-                    return (
-                        Type::new(Sig::Optional, loc.clone()),
-                        Some(TyExpr::OptionalExpr { val: None }),
+                    state.push_err(
+                        CheckerError::OptionalTypeInferenceFailedWithoutContextualTy {
+                            opt_loc: loc.clone(),
+                        },
                     );
+                    return (Type::new(Sig::ErrorType, loc.clone()), None);
                 }
             };
 
@@ -1341,7 +1360,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     ty_ins
                 }
                 (Some(ty), None) => {
-                    let var_ty = if !type_is_known(ty) {
+                    let var_ty = if type_is_valid(ty).is_err() {
                         Type::new(Sig::ErrorType, loc.clone())
                     } else {
                         ty.clone()
@@ -1415,14 +1434,24 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             let mut fn_type = Type::new(Sig::Function, loc.clone());
             let mut pairs_to_register = vec![];
             for param in params.into_iter() {
-                let p_ty = if !type_is_known(&param.given_ty) {
-                    state.push_err(CheckerError::InvalidType {
-                        loc: param.given_ty.loc.clone(),
-                        type_name: param.given_ty.as_str(),
-                    });
-                    Type::new(Sig::ErrorType, param.given_ty.loc.clone())
-                } else {
-                    param.given_ty.clone()
+                let p_ty = match type_is_valid(&param.given_ty) {
+                    Ok(_) => param.given_ty.clone(),
+                    Err((e, e_loc)) => match e {
+                        TypeValidErr::Invalid => {
+                            state.push_err(CheckerError::InvalidType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, param.given_ty.loc.clone())
+                        }
+                        TypeValidErr::Incomplete => {
+                            state.push_err(CheckerError::IncompleteType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, param.given_ty.loc.clone())
+                        }
+                    },
                 };
                 fn_type.sub_types.push(p_ty.clone());
                 pairs_to_register.push((
@@ -1437,6 +1466,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 ));
             }
             fn_type.aux_type = Some(Box::new(ret_type.clone()));
+
             let fn_info = NameInfo {
                 ty: fn_type,
                 refs: vec![loc.clone()],
