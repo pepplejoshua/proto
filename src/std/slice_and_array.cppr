@@ -3,7 +3,6 @@ template<typename T>
 class Slice {
 private:
     T* start;
-    // const T* const_start;
     pruint length;
     pruint arr_capacity;
 

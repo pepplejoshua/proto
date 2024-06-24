@@ -83,6 +83,17 @@ public:
     }
 };
 
+template<typename T>
+inline str proto_str(const Option<T> op) {
+    str s = "";
+    if (op.is_some()) {
+        s += "some ";
+        s += proto_str(op.unwrap());
+    } else {
+        s = "none";
+    }
+    return s;
+}
 
 template<typename T>
 class Slice {
@@ -243,6 +254,37 @@ public:
     inline const T* begin() const noexcept { return data; }
     inline const T* end() const noexcept { return data + N; }
 };
+
+template<typename T>
+inline str proto_str(const Slice<T> slice) {
+    int count = 0;
+    str s = "[";
+    for (T a : slice) {
+        s += proto_str(a);
+        count++;
+        if (!(count == slice.len())) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
+template<typename T, pruint N>
+inline str proto_str(const Array<T, N> arr) {
+    int count = 0;
+    str s = "[";
+    for (T a : arr) {
+        s += proto_str(a);
+        count++;
+        if (!(count == N)) {
+            s += ", ";
+        }
+    }
+    s += "]";
+    return s;
+}
+
 
 #include "./src/std/print.cppr"
 

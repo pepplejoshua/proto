@@ -1,1 +1,24 @@
-
+# Improvements
+- Prevent use of array types without size in some receiver contexts (function parameters, struct members).
+- Add support for method calls on builtin types (Option, Array, Slice, String).
+- Determine how exactly types propagate top down in expressions. Fix inconsistencies.
+- Write something for blog about journey so far (lexer, parser, seman and codegen).
+- Work on some type of support for variadic functions (using slices?).
+- Work on recoverable errors in parser.
+- Work on some type of support for generic types and functions.
+- Function overloading?
+- Understand the implications of using smart pointers to deal with auto deallocation vs not.
+- Work on support for allocators (explicit or implicitly through context passing).
+- Can we avoid runtime pointer errors by combining lexical analysis with smart pointers, allocators and Option type.
+- Work on function call stack (maybe using context passing?)
+- Add panic(), and todo().
+- Support for enums.
+- Look into supporting functions as first call expressions/types.
+- LSP support in zed
+- LSP support in vscode
+- Look into comments and how they encapsulate code. To be used for doc strings
+- Std Lib?
+- Tests?
+- proto testing framework built in language?
+- Notebook support? 👀
+- 0.0.1 release?

@@ -1,5 +1,9 @@
+fn opt() ?int {
+    return some 1;
+}
+
 fn main() int {
-    a : ?int : some 1;
+    a : ?int : opt();
     b : ?int : none;
     c : ?str : some "this is a string";
 
