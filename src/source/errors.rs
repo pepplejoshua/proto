@@ -178,6 +178,15 @@ pub enum CheckerError {
         loc: SourceRef,
     },
     Expected(String, SourceRef, Option<String>),
+    AccessMemberOpCannotBePerformedOnType {
+        given_ty: String,
+        loc: SourceRef,
+    },
+    MemberDoesNotExist {
+        given_ty: String,
+        mem: String,
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

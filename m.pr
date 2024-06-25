@@ -1,16 +1,12 @@
-fn arr(a [int, _]) void {
-}
-
-fn opt() ?int  {
-    return some 1;
-}
+fn opt() ?int  return some 1;
 
 fn main() int {
     a :: opt();
     b : ?int : none;
     c : ?str : some "this is a string";
+    d : int : a.unwrap();
 
-    println(`a = {a}, b = {b}, c = {c}.`);
+    println(`a = {a}, b = {b}, c = {c}, d = {d}.`);
 
     return 0;
 }

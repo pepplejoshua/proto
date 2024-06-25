@@ -554,6 +554,14 @@ impl SourceReporter {
             CheckerError::Expected(msg, loc, tip) => {
                 self.report_with_ref(&loc, msg, tip, false);
             }
+            CheckerError::AccessMemberOpCannotBePerformedOnType { given_ty, loc } => {
+                let msg = format!("Accessing members is not valid for type '{given_ty}'.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::MemberDoesNotExist { given_ty, mem, loc } => {
+                let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

@@ -365,8 +365,12 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 })
                 .collect::<Vec<String>>();
             let params_s = params_s.join(", ");
-            let body_s = cpp_gen_ins(body, state);
-            buf = format!("{ret_ty_s} {name}({params_s})\n{body_s}\n");
+            let body_s = if !matches!(**body, TyIns::Block { code: _ }) {
+                format!(" {{ {} }}", cpp_gen_ins(body, state))
+            } else {
+                format!("\n{}", cpp_gen_ins(body, state))
+            };
+            buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
         }
         TyIns::Block { code } => {
             buf = format!("{}{{\n", state.get_pad());

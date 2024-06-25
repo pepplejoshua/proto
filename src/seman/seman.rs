@@ -1202,7 +1202,116 @@ pub fn check_expr(
                 }),
             )
         }
-        Expr::AccessMember { target, mem, loc } => todo!(),
+        Expr::AccessMember { target, mem, loc } => {
+            // support for Slice, Array, Option and String methods
+            let (target_ty, target_ty_expr) = check_expr(target, &None, state);
+            if target_ty.tag.is_error_type() {
+                return (Type::new(Sig::ErrorType, loc.clone()), None);
+            }
+
+            match type_is_valid(&target_ty) {
+                Ok(_) => {}
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: target_ty.as_str(),
+                        });
+                        return (Type::new(Sig::ErrorType, target_ty.loc.clone()), None);
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: target_ty.as_str(),
+                        });
+                        return (Type::new(Sig::ErrorType, target_ty.loc.clone()), None);
+                    }
+                },
+            }
+
+            match target_ty.tag {
+                Sig::Str => {
+                    todo!()
+                }
+                Sig::Slice => todo!(),
+                Sig::StaticArray => todo!(),
+                Sig::Optional => {
+                    let builtin_loc = SourceRef {
+                        file: "__proto_gen_builtins__".to_string(),
+                        start_line: 0,
+                        start_col: 0,
+                        end_line: 0,
+                        end_col: 0,
+                        flat_start: 0,
+                        flat_end: 0,
+                    };
+                    let mut methods = HashMap::from([
+                        (
+                            "is_some",
+                            Type {
+                                tag: Sig::Function,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: Some(Box::new(Type::new(Sig::Bool, builtin_loc.clone()))),
+                                sub_expr: None,
+                                loc: builtin_loc.clone(),
+                            },
+                        ),
+                        (
+                            "is_none",
+                            Type {
+                                tag: Sig::Function,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: Some(Box::new(Type::new(Sig::Bool, builtin_loc.clone()))),
+                                sub_expr: None,
+                                loc: builtin_loc.clone(),
+                            },
+                        ),
+                    ]);
+                    let mut sub_ty = *target_ty.aux_type.clone().unwrap();
+                    sub_ty.loc = builtin_loc.clone();
+                    methods.insert(
+                        "unwrap",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: Some(Box::new(sub_ty)),
+                            sub_expr: None,
+                            loc: builtin_loc,
+                        },
+                    );
+
+                    // check if it is one of the methods on the type
+                    let mem_str = mem.as_str();
+                    match methods.get(mem_str.as_str()) {
+                        Some(meth_ty) => (
+                            meth_ty.clone(),
+                            Some(TyExpr::AccessMember {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                mem: Box::new(TyExpr::Ident { name: mem_str }),
+                            }),
+                        ),
+                        None => {
+                            state.push_err(CheckerError::MemberDoesNotExist {
+                                given_ty: "Option".into(),
+                                mem: mem_str,
+                                loc: loc.clone(),
+                            });
+                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                        }
+                    }
+                }
+                _ => {
+                    state.push_err(CheckerError::AccessMemberOpCannotBePerformedOnType {
+                        given_ty: target_ty.as_str(),
+                        loc: target.get_source_ref(),
+                    });
+                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                }
+            }
+        }
         Expr::OptionalExpr { val, loc } => {
             let (v_ty, v_ty_expr) = match (context_ty, val) {
                 (Some(ty), Some(val)) => {
@@ -1465,7 +1574,32 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                     },
                 ));
             }
-            fn_type.aux_type = Some(Box::new(ret_type.clone()));
+
+            let ret_ty = match type_is_valid(ret_type) {
+                Ok(_) => ret_type.clone(),
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Type::new(Sig::ErrorType, ret_type.loc.clone())
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Type::new(Sig::ErrorType, ret_type.loc.clone())
+                    }
+                },
+            };
+
+            if ret_ty.tag.is_error_type() {
+                return None;
+            }
+
+            fn_type.aux_type = Some(Box::new(ret_ty));
 
             let fn_info = NameInfo {
                 ty: fn_type,

@@ -1123,7 +1123,7 @@ impl Parser {
                         loc: call_span,
                     };
                 }
-                // Index Array
+                // Index Array or Make Slice
                 Token::LBracket(_) => {
                     let mut span = lhs.get_source_ref();
                     if matches!(self.cur_token(), Token::Colon(_)) {

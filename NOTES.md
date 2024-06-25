@@ -1,5 +1,5 @@
 # Improvements for 0.0.1
-- Prevent use of array types without size in some receiver contexts (function parameters, struct members).
+- Prevent use of array types without size in some receiver contexts (function parameters, struct members) [DONE]
 - Add support for method calls on builtin types (Option, Array, Slice, String).
 - Determine how exactly types propagate top down in expressions. Fix inconsistencies.
 - Mutable/const function parameters
