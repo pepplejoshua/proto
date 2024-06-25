@@ -8,11 +8,12 @@
 - Work on recoverable errors in parser.
 - Work on some type of support for generic types and functions.
 - Function overloading?
+- Write something for blog about progress since last post.
 - Understand the implications of using smart pointers to deal with auto deallocation vs not.
 - Work on support for allocators (explicit or implicitly through context passing).
 - Can we avoid runtime pointer errors by combining lexical analysis with smart pointers, allocators and Option type.
 - Work on function call stack (maybe using context passing?)
-- Add panic(), and todo().
+- Add panic(), and todo() statements.
 - Support for enums.
 - Look into supporting functions as first call expressions/types.
 - LSP support in zed

@@ -2,11 +2,14 @@ fn opt() ?int  return some 1;
 
 fn main() int {
     a :: opt();
-    b : ?int : none;
-    c : ?str : some "this is a string";
-    d : int : a.unwrap();
+    b :: [1, 2, 3, 4];
+    c : int : a.unwrap();
+    d :: b.get(b.len());
+    _b :: b[0:3];
+    e :: _b.make_slice(0, _b.len() - 1);
+    f :: some "this is a string";
 
-    println(`a = {a}, b = {b}, c = {c}, d = {d}.`);
+    println(`a = {a}\nb = {b}\nc = {c}\nd = {d}\ne = {e}\nf = {f.unwrap().len()}.`);
 
     return 0;
 }

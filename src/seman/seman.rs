@@ -1229,22 +1229,147 @@ pub fn check_expr(
                 },
             }
 
+            let builtin_loc = SourceRef {
+                file: "__proto_gen_builtins__".to_string(),
+                start_line: 0,
+                start_col: 0,
+                end_line: 0,
+                end_col: 0,
+                flat_start: 0,
+                flat_end: 0,
+            };
+
             match target_ty.tag {
                 Sig::Str => {
-                    todo!()
+                    let mut methods: HashMap<&str, Type> = HashMap::from([(
+                        "len",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: Some(Box::new(Type::new(Sig::UInt, builtin_loc.clone()))),
+                            sub_expr: None,
+                            loc: builtin_loc.clone(),
+                        },
+                    )]);
+                    // check if it is one of the methods on the type
+                    let mem_str = mem.as_str();
+                    match methods.get(mem_str.as_str()) {
+                        Some(meth_ty) => (
+                            meth_ty.clone(),
+                            Some(TyExpr::AccessMember {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                mem: Box::new(TyExpr::Ident {
+                                    name: if mem_str == "len" {
+                                        "size".into()
+                                    } else {
+                                        mem_str
+                                    },
+                                }),
+                            }),
+                        ),
+                        None => {
+                            state.push_err(CheckerError::MemberDoesNotExist {
+                                given_ty: "Option".into(),
+                                mem: mem_str,
+                                loc: loc.clone(),
+                            });
+                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                        }
+                    }
                 }
-                Sig::Slice => todo!(),
-                Sig::StaticArray => todo!(),
+                Sig::StaticArray | Sig::Slice => {
+                    let mut methods: HashMap<&str, Type> = HashMap::from([(
+                        "len",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![],
+                            aux_type: Some(Box::new(Type::new(Sig::UInt, builtin_loc.clone()))),
+                            sub_expr: None,
+                            loc: builtin_loc.clone(),
+                        },
+                    )]);
+                    let mut sub_ty = *target_ty.aux_type.clone().unwrap();
+                    sub_ty.loc = builtin_loc.clone();
+                    methods.insert(
+                        "get",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![Type::new(Sig::UInt, builtin_loc.clone())],
+                            aux_type: Some(Box::new(Type {
+                                tag: Sig::Optional,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: Some(Box::new(sub_ty.clone())),
+                                sub_expr: None,
+                                loc: builtin_loc.clone(),
+                            })),
+                            sub_expr: None,
+                            loc: builtin_loc.clone(),
+                        },
+                    );
+                    methods.insert(
+                        "make_slice",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![
+                                Type::new(Sig::UInt, builtin_loc.clone()),
+                                Type::new(Sig::UInt, builtin_loc.clone()),
+                            ],
+                            aux_type: Some(Box::new(Type {
+                                tag: Sig::Slice,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: Some(Box::new(sub_ty.clone())),
+                                sub_expr: None,
+                                loc: builtin_loc.clone(),
+                            })),
+                            sub_expr: None,
+                            loc: builtin_loc.clone(),
+                        },
+                    );
+                    methods.insert(
+                        "make_slice_from",
+                        Type {
+                            tag: Sig::Function,
+                            name: None,
+                            sub_types: vec![Type::new(Sig::UInt, builtin_loc.clone())],
+                            aux_type: Some(Box::new(Type {
+                                tag: Sig::Slice,
+                                name: None,
+                                sub_types: vec![],
+                                aux_type: Some(Box::new(sub_ty)),
+                                sub_expr: None,
+                                loc: builtin_loc.clone(),
+                            })),
+                            sub_expr: None,
+                            loc: builtin_loc,
+                        },
+                    );
+                    // check if it is one of the methods on the type
+                    let mem_str = mem.as_str();
+                    match methods.get(mem_str.as_str()) {
+                        Some(meth_ty) => (
+                            meth_ty.clone(),
+                            Some(TyExpr::AccessMember {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                mem: Box::new(TyExpr::Ident { name: mem_str }),
+                            }),
+                        ),
+                        None => {
+                            state.push_err(CheckerError::MemberDoesNotExist {
+                                given_ty: "Option".into(),
+                                mem: mem_str,
+                                loc: loc.clone(),
+                            });
+                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                        }
+                    }
+                }
                 Sig::Optional => {
-                    let builtin_loc = SourceRef {
-                        file: "__proto_gen_builtins__".to_string(),
-                        start_line: 0,
-                        start_col: 0,
-                        end_line: 0,
-                        end_col: 0,
-                        flat_start: 0,
-                        flat_end: 0,
-                    };
                     let mut methods = HashMap::from([
                         (
                             "is_some",
