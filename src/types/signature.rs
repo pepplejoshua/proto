@@ -7,7 +7,7 @@ use crate::{parser::ast::Expr, source::source::SourceRef};
 // generation of the above and the type checking as well
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub enum Sig {
-    Identifier,
+    UserDefinedType,
     Bool,
     Char,
     Void,
@@ -100,7 +100,7 @@ impl Type {
 
     pub fn as_str(&self) -> String {
         match self.tag {
-            Sig::Identifier => {
+            Sig::UserDefinedType => {
                 if let Some(name) = &self.name {
                     name.clone()
                 } else {

@@ -1,10 +1,16 @@
 # Improvements for 0.0.1
 - Prevent use of array types without size in some receiver contexts (function parameters, struct members) [DONE]
-- Add support for method calls on builtin types (Option, Array, Slice, String).
-- Determine how exactly types propagate top down in expressions. Fix inconsistencies.
+- Add support for method calls on builtin types (Option, Array, Slice, String). [DONE]
+- Add support for structs.
+- Add support for traits.
+- Work on out of order declarations.
+- Fix string interpolation involving str literals (which are const char[SIZE]) in C++. Pass them through proto_str. Which would require differentiating between
+string expressions and the string parts of interpolated strings.
+- Determine how exactly types propagate top down in expr essions. Fix inconsistencies.
 - Mutable/const function parameters
+- Work on pointers and references.
 - Write something for blog about journey so far (lexer, parser, seman and codegen).
-- Work on some type of support for variadic functions (using slices?).
+- Work on some type of support for variadic functions (using slices?). Is it really needed?
 - Work on recoverable errors in parser.
 - Work on some type of support for generic types and functions.
 - Function overloading?

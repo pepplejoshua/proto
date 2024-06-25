@@ -151,7 +151,7 @@ enum TypeValidErr {
 
 fn type_is_valid(ty: &Type) -> Result<(), (TypeValidErr, SourceRef)> {
     match ty.tag {
-        Sig::Identifier => {
+        Sig::UserDefinedType => {
             unimplemented!("seman::type_is_known(): identified types are not implemented yet.")
         }
         Sig::Function => {
@@ -184,7 +184,7 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
         (Sig::Char, Sig::Char) => true,
         (Sig::Str, Sig::Str) => true,
         (Sig::Void, Sig::Void) => true,
-        (Sig::Identifier, Sig::Identifier) => todo!(),
+        (Sig::UserDefinedType, Sig::UserDefinedType) => todo!(),
         (Sig::StaticArray, Sig::StaticArray) => {
             let types_eq = types_are_eq(a.aux_type.as_ref().unwrap(), b.aux_type.as_ref().unwrap());
             if !types_eq {
@@ -973,7 +973,7 @@ pub fn check_expr(
                             }),
                             args: vec![new_ty_expr.unwrap()],
                         }),
-                        Sig::Identifier => todo!(),
+                        Sig::UserDefinedType => todo!(),
                         Sig::Function | Sig::ErrorType => {
                             unreachable!(
                                 "seman::check_expr(): {:#?} in string interpolation.",
@@ -1647,6 +1647,133 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
             };
             ty_ins
         }
+        Ins::DeclMethod {
+            inst_name,
+            name,
+            params,
+            ret_type,
+            body,
+            loc,
+        } => {
+            // make sure name is not taken
+            let fn_info = state.env.shallow_lookup(&name.as_str());
+            if fn_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: name.get_source_ref(),
+                    name: name.as_str(),
+                });
+                return None;
+            }
+
+            // construct the function type and add it to the environment
+            let mut fn_type = Type::new(Sig::Function, loc.clone());
+            let mut pairs_to_register = vec![];
+            for param in params.into_iter() {
+                let p_ty = match type_is_valid(&param.given_ty) {
+                    Ok(_) => param.given_ty.clone(),
+                    Err((e, e_loc)) => match e {
+                        TypeValidErr::Invalid => {
+                            state.push_err(CheckerError::InvalidType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, param.given_ty.loc.clone())
+                        }
+                        TypeValidErr::Incomplete => {
+                            state.push_err(CheckerError::IncompleteType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Type::new(Sig::ErrorType, param.given_ty.loc.clone())
+                        }
+                    },
+                };
+                fn_type.sub_types.push(p_ty.clone());
+                pairs_to_register.push((
+                    param.name.as_str(),
+                    NameInfo {
+                        ty: p_ty,
+                        refs: vec![param.loc.clone()],
+                        is_const: true,
+                        is_initialized: true,
+                        depth: state.env.depth + 1,
+                    },
+                ));
+            }
+
+            let ret_ty = match type_is_valid(ret_type) {
+                Ok(_) => ret_type.clone(),
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Type::new(Sig::ErrorType, ret_type.loc.clone())
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Type::new(Sig::ErrorType, ret_type.loc.clone())
+                    }
+                },
+            };
+
+            if ret_ty.tag.is_error_type() {
+                return None;
+            }
+
+            fn_type.aux_type = Some(Box::new(ret_ty));
+
+            let fn_info = NameInfo {
+                ty: fn_type,
+                refs: vec![loc.clone()],
+                is_const: true,
+                is_initialized: true,
+                depth: state.env.depth,
+            };
+            state.env.add(name.as_str(), fn_info);
+            // copy the current environment and preserve it so we can keep
+            // reset it back to it later
+            state.env.extend();
+            state.scope_stack.push(Scope::Func);
+
+            // add instance name and type to the environment
+
+            // add the pairs to the environment
+            let mut ty_params = vec![];
+            for (param_name, param_info) in pairs_to_register {
+                state.env.add(param_name.clone(), param_info.clone());
+                ty_params.push(TyFnParam {
+                    name: param_name,
+                    given_ty: param_info.ty,
+                });
+            }
+
+            // check the body
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+            let new_body = check_ins(body, &Some(ret_type.clone()), state);
+
+            // make sure the last instruction in the body returns a valid value
+            // if we are not in a function that returns void. This specifically
+            // focuses on if conditional and code blocks. Any other
+            // instruction should raise an error since we cannot return from
+            // within them.
+
+            // reset the scope info
+            state.enter_new_scope = old_enter_new_scope;
+            state.scope_stack.pop();
+            state.env.pop();
+            Some(TyIns::Func {
+                name: name.as_str(),
+                params: ty_params,
+                ret_ty: ret_type.clone(),
+                body: Box::new(new_body.unwrap()),
+            })
+        }
         Ins::DeclFunc {
             name,
             params,
@@ -1809,7 +1936,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 comb: new_conds_and_code,
             })
         }
-        Ins::DeclStruct { name, body, loc } => todo!(),
+        Ins::DeclStruct { name, body, loc } => {
+            todo!()
+        }
         Ins::DeclModule { name, body, loc } => todo!(),
         Ins::Block { code, loc } => {
             if state.enter_new_scope {

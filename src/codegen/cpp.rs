@@ -65,48 +65,52 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
         match sig {
             Sig::I8 => {
                 typedefs.push_str("\ntypedef int8_t i8;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::I16 => {
                 typedefs.push_str("\ntypedef int16_t i16;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::I32 => {
                 typedefs.push_str("\ntypedef int32_t i32;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::I64 => {
                 typedefs.push_str("\ntypedef int64_t i64;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::U8 => {
                 typedefs.push_str("\ntypedef uint8_t u8;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::U16 => {
                 typedefs.push_str("\ntypedef uint16_t u16;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::U32 => {
                 typedefs.push_str("\ntypedef uint32_t u32;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::U64 => {
                 typedefs.push_str("\ntypedef uint64_t u64;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::UInt => {
                 typedefs.push_str("\ntypedef uint64_t uint_pr;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <cstdint>".to_string());
             }
             Sig::Str => {
                 typedefs.push_str("\ntypedef std::string str;");
-                includes.insert("#include <iostream>".to_string());
+                includes.insert("#include <string>".to_string());
             }
             Sig::StaticArray | Sig::Slice => {
                 if !has_panic_fn {
                     if !state.gen_typedefs_for.contains(&Sig::Str) {
                         typedefs.push_str("\ntypedef std::string str;");
+                        includes.insert("#include <string>".to_string());
+                        // for exit and EXIT_FAILURE
+                        includes.insert("#include <cstdlib>".to_string());
+                        // for cout and endl
                         includes.insert("#include <iostream>".to_string());
                     }
                     buf.push_str(PANIC_FUNCTION.trim_end());
@@ -121,6 +125,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 if !has_array_class {
                     if !state.gen_typedefs_for.contains(&Sig::UInt) {
                         typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                        includes.insert("#include <cstdint>".to_string());
                     }
                     buf.push_str(SLICE_AND_ARRAY_CODE.trim_end());
                     has_array_class = true;
@@ -130,9 +135,13 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 if !has_panic_fn {
                     if !state.gen_typedefs_for.contains(&Sig::Str) {
                         typedefs.push_str("\ntypedef std::string str;");
+                        includes.insert("#include <string>".to_string());
+                        // for exit and EXIT_FAILURE
+                        includes.insert("#include <cstdlib>".to_string());
+                        // for cout and endl
                         includes.insert("#include <iostream>".to_string());
                     }
-                    buf.push_str(PANIC_FUNCTION.trim_end());
+                    buf.push_str(PANIC_FUNCTION);
                     has_panic_fn = true;
                 }
 
@@ -167,7 +176,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
 pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
     match ty.tag {
-        Sig::Identifier => todo!(),
+        Sig::UserDefinedType => todo!(),
         Sig::Bool | Sig::Char | Sig::Void | Sig::Int => ty.as_str(),
         Sig::Str
         | Sig::I8
