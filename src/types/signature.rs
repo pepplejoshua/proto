@@ -3,6 +3,53 @@
 
 use crate::{parser::ast::Expr, source::source::SourceRef};
 
+#[derive(Debug, Clone)]
+enum Ty {
+    Signed {
+        size: u8,
+        is_int: bool,
+        loc: SourceRef,
+    },
+    Unsigned {
+        size: u8,
+        is_uint: bool,
+        loc: SourceRef,
+    },
+    Str {
+        loc: SourceRef,
+    },
+    Char {
+        loc: SourceRef,
+    },
+    Void {
+        loc: SourceRef,
+    },
+    Bool {
+        loc: SourceRef,
+    },
+    Func {
+        params: Vec<Ty>,
+        ret: Box<Ty>,
+        loc: SourceRef,
+    },
+    StaticArray {
+        sub_ty: Box<Ty>,
+        size: Option<usize>,
+        loc: SourceRef,
+    },
+    Slice {
+        sub_ty: Box<Ty>,
+        loc: SourceRef,
+    },
+    Optional {
+        sub_ty: Box<Ty>,
+        loc: SourceRef,
+    },
+    ErrorType {
+        loc: SourceRef,
+    },
+}
+
 // this is parsed from user source code and is used to inform the
 // generation of the above and the type checking as well
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
@@ -27,6 +74,97 @@ pub enum Sig {
     Slice,
     Optional,
     ErrorType,
+}
+
+impl Ty {
+    pub fn is_num_ty(&self) -> bool {
+        match self {
+            Ty::Signed { .. } | Ty::Unsigned { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_signed_ty(&self) -> bool {
+        match self {
+            Ty::Signed { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_unsigned_ty(&self) -> bool {
+        match self {
+            Ty::Unsigned { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_error_ty(&self) -> bool {
+        match self {
+            Ty::ErrorType { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_loc(&self) -> SourceRef {
+        match self {
+            Ty::Signed { loc, .. }
+            | Ty::Unsigned { loc, .. }
+            | Ty::Str { loc }
+            | Ty::Char { loc }
+            | Ty::Void { loc }
+            | Ty::Bool { loc }
+            | Ty::Func { loc, .. }
+            | Ty::StaticArray { loc, .. }
+            | Ty::Slice { loc, .. }
+            | Ty::Optional { loc, .. }
+            | Ty::ErrorType { loc } => loc.clone(),
+        }
+    }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            Ty::Signed { size, is_int, .. } => {
+                if *is_int {
+                    "int".into()
+                } else {
+                    format!("i{size}")
+                }
+            }
+            Ty::Unsigned { size, is_uint, .. } => {
+                if *is_uint {
+                    "uint".into()
+                } else {
+                    format!("u{size}")
+                }
+            }
+            Ty::Str { .. } => "str".into(),
+            Ty::Char { .. } => "char".into(),
+            Ty::Void { .. } => "void".into(),
+            Ty::Bool { .. } => "bool".into(),
+            Ty::Func { params, ret, .. } => {
+                format!(
+                    "fn ({}) {}",
+                    params
+                        .iter()
+                        .map(|p| { p.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    ret.as_str()
+                )
+            }
+            Ty::StaticArray { sub_ty, size, .. } => {
+                let size_s = if let Some(s) = size {
+                    s.to_string()
+                } else {
+                    "_".into()
+                };
+                format!("[{}, {size_s}]", sub_ty.as_str())
+            }
+            Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
+            Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
+            Ty::ErrorType { .. } => "err!".into(),
+        }
+    }
 }
 
 impl Sig {
@@ -56,14 +194,6 @@ impl Sig {
     pub fn is_unsigned_type(&self) -> bool {
         match self {
             Sig::U8 | Sig::U16 | Sig::U32 | Sig::U64 | Sig::UInt => true,
-            _ => false,
-        }
-    }
-
-    pub fn is_simple_type(&self) -> bool {
-        match self {
-            Sig::Bool | Sig::Char | Sig::Void | Sig::Str => true,
-            ty if ty.is_numerical_type() => true,
             _ => false,
         }
     }

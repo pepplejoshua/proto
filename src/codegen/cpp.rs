@@ -215,7 +215,7 @@ pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
         }
         Sig::Function | Sig::ErrorType => {
             unreachable!(
-                "cpp::cpp_gen_ty(): ran into a {:?} which should not occur.",
+                "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
                 ty.tag
             )
         }
