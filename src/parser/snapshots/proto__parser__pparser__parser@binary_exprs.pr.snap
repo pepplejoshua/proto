@@ -9,7 +9,6 @@ code_str_repr:
   - "c :: [[a + [[b * a] / b]] - a];"
   - a = 3;
   - "a = [[[[c * b] / a] + b] - 1];"
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

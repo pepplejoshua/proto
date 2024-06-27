@@ -136,6 +136,7 @@ fn init_builtins() {
             params: vec![],
             ret: Box::new(Ty::Str {
                 loc: builtin_loc.clone(),
+                is_interp: false,
             }),
             loc: builtin_loc,
         },
@@ -355,7 +356,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             }
         },
         Expr::Str { loc, val } => (
-            Ty::Str { loc: loc.clone() },
+            Ty::Str {
+                loc: loc.clone(),
+                is_interp: false,
+            },
             Some(TyExpr::Str { val: val.clone() }),
         ),
         Expr::Char { loc, val } => (
@@ -641,7 +645,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         if matches!(op, BinOpType::Add) =>
                     {
                         (
-                            Ty::Str { loc: loc.clone() },
+                            Ty::Str {
+                                loc: loc.clone(),
+                                is_interp: false,
+                            },
                             Some(TyExpr::BinOp {
                                 op: *op,
                                 lhs: Box::new(l_ty_expr.unwrap()),
@@ -899,6 +906,13 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 }),
             )
         }
+        Expr::InterpStr { val, loc } => (
+            Ty::Str {
+                loc: loc.clone(),
+                is_interp: true,
+            },
+            Some(TyExpr::Str { val: val.clone() }),
+        ),
         Expr::InterpolatedString { parts, loc } => {
             // check each expression in parts and create a TyExpr from it with a
             // string type
@@ -915,7 +929,28 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 },
                             ],
                         }),
-                        Ty::Str { .. } => new_ty_expr,
+                        Ty::Str { is_interp, .. } => {
+                            if is_interp {
+                                Some(TyExpr::CallFn {
+                                    func: Box::new(TyExpr::Ident {
+                                        name: "str".to_string(),
+                                    }),
+                                    args: vec![new_ty_expr.unwrap()],
+                                })
+                            } else {
+                                Some(TyExpr::CallFn {
+                                    func: Box::new(TyExpr::Ident {
+                                        name: "proto_str".to_string(),
+                                    }),
+                                    args: vec![TyExpr::CallFn {
+                                        func: Box::new(TyExpr::Ident {
+                                            name: "str".to_string(),
+                                        }),
+                                        args: vec![new_ty_expr.unwrap()],
+                                    }],
+                                })
+                            }
+                        }
                         Ty::Bool { .. }
                         | Ty::Char { .. }
                         | Ty::Signed { .. }
@@ -942,7 +977,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             }
 
             (
-                Ty::Str { loc: loc.clone() },
+                Ty::Str {
+                    loc: loc.clone(),
+                    is_interp: false,
+                },
                 Some(TyExpr::InterpolatedString {
                     parts: new_ty_exprs,
                 }),

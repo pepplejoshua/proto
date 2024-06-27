@@ -10,7 +10,6 @@ code_str_repr:
   - ""
   - ""
   - ""
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

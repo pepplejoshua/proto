@@ -709,8 +709,11 @@ impl Parser {
             }
             Token::Char(loc) => Ty::Char { loc },
             Token::Bool(loc) => Ty::Bool { loc },
-            Token::Str(loc) => Ty::Str { loc },
-            Token::Identifier(name, loc) => todo!(),
+            Token::Str(loc) => Ty::Str {
+                loc,
+                is_interp: false,
+            },
+            Token::Identifier(name, loc) => Ty::UserDefined { name, loc },
             Token::Void(loc) => Ty::Void { loc },
             Token::LBracket(loc) => {
                 let sub_ty = Box::new(self.parse_type());
@@ -1385,9 +1388,9 @@ impl Parser {
                             self.advance();
                             break;
                         }
-                        Token::SingleLineStringLiteral(str_loc, content) => {
+                        Token::InterpStrLiteral(str_loc, content) => {
                             self.advance();
-                            let str = Expr::Str { val: content, loc: str_loc };
+                            let str = Expr::InterpStr { val: content, loc: str_loc };
                             parts.push(str);
                         }
                         Token::LCurly(_) => {

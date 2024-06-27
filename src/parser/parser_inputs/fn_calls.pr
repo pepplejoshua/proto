@@ -3,4 +3,4 @@ sub(420, 300);
 sub(add(1, 2), 3);
 println("this is a normal string");
 print("a is {a}\n");
-b := fmt("a is {a}\n);
+b := fmt("a is {a}\n");

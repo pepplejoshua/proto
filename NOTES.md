@@ -1,19 +1,20 @@
 # Improvements for 0.0.1
 - Prevent use of array types without size in some receiver contexts (function parameters, struct members) [DONE]
 - Add support for method calls on builtin types (Option, Array, Slice, String). [DONE]
-- Do type rewrite to stop using the same shape for every damn type. I thought I was cool but I was just an architecture astronaut. Note to self: just do the simple fucking thing until there is concrete proof that a more complex solution is required.
+- Do type rewrite to stop using the same shape for every damn type. I thought I was cool but I was just an architecture astronaut. Note to self: just do the simple fucking thing until there is concrete proof that a more complex solution is required. [DONE]
+- Fix string interpolation involving str literals (which are const char arrays) in C++. Pass them through proto_str. Which would require differentiating between string expressions and the string parts of interpolated strings. [DONE]
 - Make members of builtins (Optional, Array, Slice) static instead of per
 check instantiation.
 - For literals like Strings, Slices, Arrays and Optional, instead of just generating the literal in C++, wrap it with the actual type. This will mean these expression nodes will carry their type with them. So the literals can be used in any instance (like printing a `some a` where a is an array) without a complaint about knowing the type to use.
 - Add support for structs.
 - Add support for traits.
 - Work on out of order declarations.
-- Fix string interpolation involving str literals (which are const char[SIZE]) in C++. Pass them through proto_str. Which would require differentiating between
-string expressions and the string parts of interpolated strings.
 - Determine how exactly types propagate top down in expr essions. Fix inconsistencies.
 - Mutable/const function parameters
 - Work on pointers and references.
 - Write something for blog about journey so far (lexer, parser, seman and codegen).
+- Can SourceRef be made smaller, without importing error reporting?
+- Improve error reporting. Instead of current style, maybe allow combining multiple string sources from different sources to provide more information in errors.
 - Work on some type of support for variadic functions (using slices?). Is it really needed?
 - Work on recoverable errors in parser.
 - Work on some type of support for generic types and functions.

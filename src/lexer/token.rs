@@ -68,6 +68,7 @@ pub enum Token {
     Identifier(String, SourceRef),
     CharLiteral(SourceRef, char),
     SingleLineStringLiteral(SourceRef, String),
+    InterpStrLiteral(SourceRef, String),
     MultiLineStringFragment(SourceRef, String),
     SingleLineComment(SourceRef, String),
 
@@ -167,6 +168,7 @@ impl Token {
             | Token::BackTick(src)
             | Token::Some(src)
             | Token::None(src)
+            | Token::InterpStrLiteral(src, _)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -257,7 +259,8 @@ impl Token {
             Token::Type(_) => "type".into(),
             Token::Struct(_) => "struct".into(),
             Token::Colon(_) => ":".into(),
-            Token::SingleLineStringLiteral(_, content) => content.clone(),
+            Token::SingleLineStringLiteral(_, content) => format!("\"{content}\""),
+            Token::InterpStrLiteral(_, content) => content.clone(),
             Token::MultiLineStringFragment(_, mls) => mls.clone(),
             Token::Underscore(_) => '_'.to_string(),
             Token::QuestionMark(_) => '?'.to_string(),

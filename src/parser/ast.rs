@@ -65,6 +65,10 @@ pub enum Expr {
         val: String,
         loc: SourceRef,
     },
+    InterpStr {
+        val: String,
+        loc: SourceRef,
+    },
     Char {
         val: char,
         loc: SourceRef,
@@ -162,6 +166,7 @@ impl Expr {
             | Expr::IndexInto { loc, .. }
             | Expr::AccessMember { loc, .. }
             | Expr::OptionalExpr { loc, .. }
+            | Expr::InterpStr { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -190,7 +195,7 @@ impl Expr {
             | Expr::AccessMember { .. } => 3,
             Expr::BinOp { .. } | Expr::UnaryOp { .. } | Expr::TernaryConditional { .. } => 2,
             Expr::ErrorExpr { .. } | _ => unreachable!(
-                "expr::get_non_literal_ranking(): literal found: {:#?}",
+                "expr::get_non_literal_ranking(): unexpected literal found: {:#?}",
                 self
             ),
         }
@@ -300,6 +305,7 @@ impl Expr {
                 Some(v) => format!("some({})", v.as_str()),
                 None => format!("none"),
             },
+            Expr::InterpStr { val, .. } => val.clone(),
             Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
         }
     }
@@ -577,11 +583,11 @@ impl FileModule {
     }
 
     pub fn as_str(&self) -> String {
-        let mut buf = String::new();
+        let mut buf = Vec::new();
         for tl_ins in self.top_level.iter() {
-            buf.push_str(&tl_ins.as_str());
+            buf.push(tl_ins.as_str());
         }
 
-        buf
+        buf.join("\n")
     }
 }

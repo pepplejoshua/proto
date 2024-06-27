@@ -29,7 +29,6 @@ code_str_repr:
   - "res2 :: [r != 0] ? ([r == -1] ? \"lhs is greater\" : \"rhs is greater\") : \"equal\";"
   - "num :: ([r > 0] ? true : false) ? \"positive\" : \"negative\";"
   - ""
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

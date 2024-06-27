@@ -27,9 +27,8 @@ code_str_repr:
   - "// since we allow defaults, we can focus on the"
   - // members we care about initializing
   - "srcA := SourceFile.(path: \"srcA\", text: \"textA\");"
-  - "srcB := [SourceFile . new]();"
+  - "srcB := SourceFile.new();"
   - // alias DiagnosticInfo SourceFile.DiagInfo;
-  - ""
   - ""
 lexer_errors: []
 parser_errors: []

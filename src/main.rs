@@ -19,13 +19,13 @@ commands:
     - c | compile <file> [configurations]?
         - [configurations]:
             (*) backends:
-                - pir (default): use PIR backend.
                 - cpp: use C++ backend.
             (*) stages:
                 - lex: stop after lexing.
-                - parse (default): stop after parsing.
+                - parse: stop after parsing.
+                - sema (default): stop after semantic analysis.
+                - gen: stop after code generation, which is the final step.
             (*) flags:
-                - fmt: format the file. Default: false.
                 - dbg: show debug info. Default: false.
                 - help: show this help message. Default: false.
     - h | help: show this help message.

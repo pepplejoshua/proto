@@ -19,6 +19,7 @@ pub enum Ty {
     },
     Str {
         loc: SourceRef,
+        is_interp: bool,
     },
     Char {
         loc: SourceRef,
@@ -45,6 +46,10 @@ pub enum Ty {
     },
     Optional {
         sub_ty: Box<Ty>,
+        loc: SourceRef,
+    },
+    UserDefined {
+        name: String,
         loc: SourceRef,
     },
     ErrorType {
@@ -99,7 +104,7 @@ impl Ty {
         match self {
             Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
-            | Ty::Str { loc }
+            | Ty::Str { loc, .. }
             | Ty::Char { loc }
             | Ty::Void { loc }
             | Ty::Bool { loc }
@@ -107,6 +112,7 @@ impl Ty {
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
+            | Ty::UserDefined { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -115,13 +121,14 @@ impl Ty {
         match self {
             Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
-            | Ty::Str { loc }
+            | Ty::Str { loc, .. }
             | Ty::Char { loc }
             | Ty::Void { loc }
             | Ty::Bool { loc }
             | Ty::Func { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
+            | Ty::UserDefined { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
@@ -171,6 +178,7 @@ impl Ty {
             }
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
+            Ty::UserDefined { name, .. } => format!("{name}"),
             Ty::ErrorType { .. } => "err!".into(),
         }
     }

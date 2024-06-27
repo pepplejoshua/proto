@@ -17,7 +17,6 @@ code_str_repr:
   - fn returns_nothing() void
   - return;
   - ""
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

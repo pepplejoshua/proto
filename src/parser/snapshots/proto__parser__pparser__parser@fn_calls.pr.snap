@@ -7,7 +7,9 @@ code_str_repr:
   - "a := add(1, 2);"
   - "sub(420, 300);"
   - "sub(add(1, 2), 3);"
-  - ""
+  - "println(\"this is a normal string\");"
+  - "print(\"a is {a}\\n\");"
+  - "b := fmt(\"a is {a}\\n\");"
 lexer_errors: []
 parser_errors: []
 parse_warning: []

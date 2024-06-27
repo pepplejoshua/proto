@@ -11,7 +11,6 @@ code_str_repr:
   - "b := a;"
   - "d :: !c;"
   - ""
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

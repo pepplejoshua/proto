@@ -54,30 +54,6 @@ impl Lexer {
         Ok(Token::SingleLineComment(span, content))
     }
 
-    // process comments
-    fn process_comment(&mut self) {
-        let start = self.src.cur_char();
-        let peek = self.src.peek_char();
-
-        if start == '/' && peek == '/' {
-            // consume both "//" characters
-            self.src.next_char();
-            self.src.next_char();
-
-            // single line comment
-            // skip until we reach a newline
-            loop {
-                let cur = self.src.cur_char();
-                self.src.next_char();
-                if cur != '\n' {
-                    continue;
-                } else {
-                    break;
-                }
-            }
-        }
-    }
-
     // try to lex the next possible token
     pub fn next_token(&mut self) -> Result<Token, LexError> {
         if !self.queue.is_empty() {
@@ -119,9 +95,9 @@ impl Lexer {
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
             _ if c.is_alphabetic() || c == '_' => self.lex_potential_identifier(),
-            // ' which is used to start characters or strings
+            // ' is used to start characters
             '\'' => self.lex_char(),
-            // " which is used to start strings
+            // " is used to start strings
             '"' => self.lex_string(),
             // invalid character
             _ => {
@@ -158,10 +134,7 @@ impl Lexer {
                     self.src.next_char();
                     span = span.combine(self.src.get_ref());
                     if !buf.is_empty() {
-                        parts.push(Token::SingleLineStringLiteral(
-                            buf_span.clone(),
-                            buf.clone(),
-                        ))
+                        parts.push(Token::InterpStrLiteral(buf_span.clone(), buf.clone()))
                     }
                     parts.push(Token::BackTick(span.clone()));
                     break;
@@ -179,10 +152,7 @@ impl Lexer {
                     // store whatever we have in buf and reset it
                     span = span.combine(self.src.get_ref());
                     if !buf.is_empty() {
-                        parts.push(Token::SingleLineStringLiteral(
-                            buf_span.clone(),
-                            buf.clone(),
-                        ));
+                        parts.push(Token::InterpStrLiteral(buf_span.clone(), buf.clone()));
                         buf.clear();
                     }
 

@@ -28,7 +28,6 @@ code_str_repr:
   - //        sum = sum + counter;
   - "//    }"
   - "//}"
-  - ""
 lexer_errors: []
 parser_errors: []
 parse_warning: []

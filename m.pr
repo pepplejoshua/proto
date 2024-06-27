@@ -1,6 +1,13 @@
 fn main() int {
     a :: [1, 2, 3];
-    b :: a[0:1];
-    println(`{b}`);
+    b :: a[0:];
+    c :: b.get(1);
+
+    if c.is_some() {
+        val :: c.unwrap();
+        println(`val = {val}`);
+    }
+
+    println(`some string: {"this is a string literal"}`);
     return 0;
 }

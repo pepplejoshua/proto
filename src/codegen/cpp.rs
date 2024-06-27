@@ -222,7 +222,7 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             let sub_ty = cpp_gen_ty(sub_ty, state);
             format!("Option<{sub_ty}>")
         }
-        Ty::Func { .. } | Ty::ErrorType { .. } => {
+        Ty::Func { .. } | Ty::ErrorType { .. } | Ty::UserDefined { .. } => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
                 ty

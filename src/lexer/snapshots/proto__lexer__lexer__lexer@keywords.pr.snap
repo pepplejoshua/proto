@@ -30,4 +30,8 @@ stringified_tokens:
   - "mod at [start_line:5 start_col:7 end_line:5 end_col:10 flat_start:102 flat_end:105]"
   - "struct at [start_line:6 start_col:0 end_line:6 end_col:6 flat_start:106 flat_end:112]"
   - "_ at [start_line:6 start_col:7 end_line:6 end_col:8 flat_start:113 flat_end:114]"
+  - "print at [start_line:6 start_col:9 end_line:6 end_col:14 flat_start:115 flat_end:120]"
+  - "println at [start_line:6 start_col:15 end_line:6 end_col:22 flat_start:121 flat_end:128]"
+  - "some at [start_line:7 start_col:0 end_line:7 end_col:4 flat_start:129 flat_end:133]"
+  - "none at [start_line:7 start_col:5 end_line:7 end_col:9 flat_start:134 flat_end:138]"
 
