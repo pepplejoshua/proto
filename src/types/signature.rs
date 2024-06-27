@@ -199,6 +199,30 @@ impl Ty {
         ty.set_loc(loc);
         ty
     }
+
+    pub fn get_int_ty(loc: SourceRef) -> Ty {
+        Ty::Signed {
+            size: if std::mem::size_of::<usize>() == 8 {
+                64
+            } else {
+                32
+            },
+            is_int: true,
+            loc,
+        }
+    }
+
+    pub fn get_uint_ty(loc: SourceRef) -> Ty {
+        Ty::Unsigned {
+            size: if std::mem::size_of::<usize>() == 8 {
+                64
+            } else {
+                32
+            },
+            is_uint: true,
+            loc,
+        }
+    }
 }
 
 impl Sig {

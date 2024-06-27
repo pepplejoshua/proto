@@ -381,19 +381,9 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                         return (Ty::ErrorType { loc: loc.clone() }, None);
                                     }
 
-                                    let uint_size = if std::mem::size_of::<usize>() == 8 {
-                                        64
-                                    } else {
-                                        32
-                                    };
-
                                     let (e_ty, e_expr) = check_expr(
                                         e,
-                                        &Some(Ty::Unsigned {
-                                            size: uint_size,
-                                            is_uint: true,
-                                            loc: e.get_source_ref(),
-                                        }),
+                                        &Some(Ty::get_uint_ty(e.get_source_ref())),
                                         state,
                                     );
 
@@ -737,13 +727,13 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
         Expr::CallFn { func, args, loc } => {
             let (func_ty, func_ty_expr) = check_expr(func, &None, state);
 
-            if func_ty.tag.is_error_type() {
-                return (func_ty, None);
+            if func_ty.is_error_ty() {
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
-            match func_ty.tag {
-                Sig::Function => {
-                    let fn_arity = func_ty.sub_types.len();
+            match func_ty {
+                Ty::Func { params, ret, loc } => {
+                    let fn_arity = params.len();
                     if fn_arity != args.len() {
                         state.push_err(CheckerError::IncorrectFunctionArity {
                             func: func.as_str(),
@@ -753,13 +743,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         });
                         return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
-                    let fn_ret_ty = func_ty.aux_type.clone().unwrap();
-                    let fn_param_tys = func_ty.sub_types.clone();
+
                     let mut fn_ty_args = vec![];
-                    for (param_ty, arg) in fn_param_tys.iter().zip(args.iter()) {
+                    for (param_ty, arg) in params.iter().zip(args.iter()) {
                         let (arg_ty, arg_ty_expr) = check_expr(arg, &Some(param_ty.clone()), state);
 
-                        if !arg_ty.tag.is_error_type() && !types_are_eq(param_ty, &arg_ty) {
+                        if !arg_ty.is_error_ty() && !types_are_eq(param_ty, &arg_ty) {
                             state.push_err(CheckerError::TypeMismatch {
                                 loc: arg.get_source_ref(),
                                 expected: param_ty.as_str(),
@@ -771,7 +760,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         }
                     }
                     (
-                        *fn_ret_ty,
+                        ret.clone_loc(loc.clone()),
                         Some(TyExpr::CallFn {
                             func: Box::new(func_ty_expr.unwrap()),
                             args: fn_ty_args,
@@ -793,8 +782,8 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
 
             match op {
                 UnaryOpType::Not => {
-                    if expr_ty.is_error_type() {
-                        return (Type::new(Sig::Bool, loc.clone()), None);
+                    if expr_ty.is_error_ty() {
+                        return (Ty::Bool { loc: loc.clone() }, None);
                     }
 
                     if matches!(expr_ty, Ty::Bool { .. }) {
@@ -815,12 +804,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     (Ty::ErrorType { loc: loc.clone() }, None)
                 }
                 UnaryOpType::Negate => {
-                    if expr_ty.is_error_type() {
+                    if expr_ty.is_error_ty() {
                         // we can just return an error type
                         return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
-                    if !expr_ty.is_signed_type() {
+                    if !expr_ty.is_signed_ty() {
                         state.push_err(CheckerError::InvalidUseOfUnaryOperator {
                             loc: loc.clone(),
                             op: op.as_str(),
@@ -863,7 +852,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (cond_ty, cond_ty_expr) = check_expr(cond, &None, state);
 
             // we expect the condition to be typed bool
-            if !cond_ty.tag.is_error_type() && cond_ty.tag != Sig::Bool {
+            if !cond_ty.is_error_ty() && !matches!(cond_ty, Ty::Bool { .. }) {
                 state.push_err(CheckerError::ConditionShouldBeTypedBool {
                     given_ty: cond_ty.as_str(),
                     loc: cond.get_source_ref(),
@@ -878,7 +867,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (then_ty, then_ty_expr) = check_expr(then, context_ty, state);
             let (other_ty, other_ty_expr) = check_expr(otherwise, context_ty, state);
 
-            if then_ty.tag.is_error_type() || other_ty.tag.is_error_type() {
+            if then_ty.is_error_ty() || other_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
@@ -891,9 +880,8 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
-            let tern_ty = Type::new(then_ty.tag, loc.clone());
             (
-                tern_ty,
+                then_ty.clone_loc(loc.clone()),
                 Some(TyExpr::TernaryConditional {
                     cond: Box::new(cond_ty_expr.unwrap()),
                     then: Box::new(then_ty_expr.unwrap()),
@@ -907,9 +895,9 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let mut new_ty_exprs = vec![];
             for part in parts.iter() {
                 let (new_ty, mut new_ty_expr) = check_expr(part, &None, state);
-                if !new_ty.tag.is_error_type() {
-                    new_ty_expr = match new_ty.tag {
-                        Sig::Void => Some(TyExpr::MultiExpr {
+                if !new_ty.is_error_ty() {
+                    new_ty_expr = match new_ty {
+                        Ty::Void { .. } => Some(TyExpr::MultiExpr {
                             exprs: vec![
                                 new_ty_expr.unwrap(),
                                 TyExpr::Str {
@@ -917,41 +905,34 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 },
                             ],
                         }),
-                        Sig::Str => new_ty_expr,
-                        Sig::Bool
-                        | Sig::Char
-                        | Sig::I8
-                        | Sig::I16
-                        | Sig::I32
-                        | Sig::I64
-                        | Sig::Int
-                        | Sig::U8
-                        | Sig::U16
-                        | Sig::U32
-                        | Sig::U64
-                        | Sig::UInt
-                        | Sig::StaticArray
-                        | Sig::Slice
-                        | Sig::Optional => Some(TyExpr::CallFn {
+                        Ty::Str { .. } => new_ty_expr,
+                        Ty::Bool { .. }
+                        | Ty::Char { .. }
+                        | Ty::Signed { .. }
+                        | Ty::Unsigned { .. }
+                        | Ty::StaticArray { .. }
+                        | Ty::Slice { .. }
+                        | Ty::Optional { .. } => Some(TyExpr::CallFn {
                             func: Box::new(TyExpr::Ident {
                                 name: "proto_str".to_string(),
                             }),
                             args: vec![new_ty_expr.unwrap()],
                         }),
-                        Sig::UserDefinedType => todo!(),
-                        Sig::Function | Sig::ErrorType => {
+                        _ => {
                             unreachable!(
                                 "seman::check_expr(): {:#?} in string interpolation.",
-                                new_ty.tag
+                                new_ty
                             )
                         }
                     };
                     new_ty_exprs.push(new_ty_expr.unwrap());
+                } else {
+                    return (Ty::ErrorType { loc: loc.clone() }, None);
                 }
             }
 
             (
-                Type::new(Sig::Str, loc.clone()),
+                Ty::Str { loc: loc.clone() },
                 Some(TyExpr::InterpolatedString {
                     parts: new_ty_exprs,
                 }),
@@ -964,14 +945,14 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             loc,
         } => {
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
-            if target_ty.tag.is_error_type() {
+            if target_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
-            if !matches!(target_ty.tag, Sig::StaticArray | Sig::Slice) {
+            if !matches!(target_ty, Ty::StaticArray { .. } | Ty::Slice { .. }) {
                 state.push_err(CheckerError::ExpectedArrayOrSlice {
                     given_ty: target_ty.as_str(),
-                    loc: target_ty.loc,
+                    loc: target_ty.get_loc(),
                 });
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
@@ -979,27 +960,16 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             // check both start and end_excl expressions, if they are provided
             let (start_ty, start_ty_expr) = match start {
                 Some(start) => {
-                    let (a, b) = check_expr(
-                        start,
-                        &Some(Type::new(Sig::UInt, start.get_source_ref())),
-                        state,
-                    );
-                    if a.tag.is_error_type() {
+                    let (a, b) =
+                        check_expr(start, &Some(Ty::get_uint_ty(start.get_source_ref())), state);
+                    if a.is_error_ty() {
                         return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
-                    if a.tag != Sig::UInt {
-                        state.push_err(CheckerError::TypeMismatch {
-                            loc: start.get_source_ref(),
-                            expected: "uint".into(),
-                            found: a.as_str(),
-                        });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
-                    };
                     (a, b.unwrap())
                 }
                 None => (
-                    Type::new(Sig::UInt, target.get_source_ref()),
+                    Ty::get_uint_ty(target.get_source_ref()),
                     TyExpr::Integer { val: "0".into() },
                 ),
             };
@@ -1007,18 +977,11 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             match end_excl {
                 Some(end_excl) => {
                     let (end_ty, end_ty_expr) = check_expr(end_excl,
-                        &Some(Type::new(Sig::UInt, end_excl.get_source_ref())), state);
-                    if end_ty.tag.is_error_type() {
+                        &Some(Ty::get_uint_ty(end_excl.get_source_ref())), state);
+                    if end_ty.is_error_ty() {
                         return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
-                    if end_ty.tag != Sig::UInt {
-                        state.push_err(CheckerError::TypeMismatch {
-                            loc: end_excl.get_source_ref(),
-                            expected: "uint".into(),
-                            found: end_ty.as_str(),
-                        });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
-                    };
+
                     match target_ty.tag {
                         Sig::StaticArray => {
                             let mut slice_ty = Type::new(Sig::Slice, loc.clone());
@@ -1117,7 +1080,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             // target has to be one of: array, slice, string
             // index must be usize.
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
-            if target_ty.tag.is_error_type() {
+            if target_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
@@ -1134,7 +1097,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 &Some(Type::new(Sig::UInt, index.get_source_ref())),
                 state,
             );
-            if index_ty.tag.is_error_type() {
+            if index_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
             if index_ty.tag != Sig::UInt {
@@ -1170,7 +1133,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
         Expr::AccessMember { target, mem, loc } => {
             // support for Slice, Array, Option and String methods
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
-            if target_ty.tag.is_error_type() {
+            if target_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
@@ -1439,7 +1402,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 }
             };
 
-            if v_ty.tag.is_error_type() {
+            if v_ty.is_error_ty() {
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
@@ -1474,7 +1437,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             }
             let (expr_ty, expr_ty_expr) = check_expr(init_val, ty, state);
             // println!("expr_ty_expr: {expr_ty_expr:#?}, \n{:#?}", state.errs);
-            let ty_ins = if expr_ty.tag.is_error_type() {
+            let ty_ins = if expr_ty.is_error_ty() {
                 None
             } else {
                 if let Some(ty) = ty {
@@ -1530,7 +1493,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                     // TODO: verify that ty is an actual known type (builtin)
                     // or user defined
                     let (expr_ty, expr_ty_expr) = check_expr(expr, ty, state);
-                    let ty_ins = if expr_ty.tag.is_error_type() {
+                    let ty_ins = if expr_ty.is_error_ty() {
                         None
                     } else {
                         if !types_are_eq(inner, &expr_ty) {
@@ -1592,7 +1555,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         depth: state.env.depth,
                     };
 
-                    let ty_ins = if expr_ty.tag.is_error_type() {
+                    let ty_ins = if expr_ty.is_error_ty() {
                         None
                     } else {
                         Some(TyIns::Var {
@@ -1686,7 +1649,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 },
             };
 
-            if ret_ty.tag.is_error_type() {
+            if ret_ty.is_error_ty() {
                 return None;
             }
 
@@ -1812,7 +1775,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 },
             };
 
-            if ret_ty.tag.is_error_type() {
+            if ret_ty.is_error_ty() {
                 return None;
             }
 
@@ -1877,7 +1840,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                     // make sure its type is bool
                     let (cond_ty, cond_ty_expr) = check_expr(cond, context_ty, state);
 
-                    if !cond_ty.tag.is_error_type() && !(cond_ty.tag == Sig::Bool) {
+                    if !cond_ty.is_error_ty() && !(cond_ty.tag == Sig::Bool) {
                         state.push_err(CheckerError::ConditionShouldBeTypedBool {
                             given_ty: cond_ty.as_str(),
                             loc: cond.get_source_ref(),
@@ -1934,7 +1897,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
         Ins::ExprIns { expr, loc } => {
             let (expr_ty, expr_ty_expr) = check_expr(expr, &None, state);
 
-            if expr_ty.tag.is_error_type() {
+            if expr_ty.is_error_ty() {
                 return None;
             }
             Some(TyIns::ExprIns {
@@ -1945,7 +1908,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             if let Some(e) = expr {
                 let (expr_ty, ret_ty_expr) = check_expr(e, context_ty, state);
                 if let Some(context_ty) = context_ty {
-                    if !expr_ty.tag.is_error_type() && context_ty.tag == Sig::Void {
+                    if !expr_ty.is_error_ty() && context_ty.tag == Sig::Void {
                         state.push_err(CheckerError::MismatchingReturnType {
                             exp: "void".to_string(),
                             given: expr_ty.as_str(),
@@ -1954,7 +1917,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         return None;
                     }
 
-                    if !expr_ty.tag.is_error_type() && !types_are_eq(&expr_ty, context_ty) {
+                    if !expr_ty.is_error_ty() && !types_are_eq(&expr_ty, context_ty) {
                         state.push_err(CheckerError::MismatchingReturnType {
                             exp: context_ty.as_str(),
                             given: expr_ty.as_str(),
@@ -1991,7 +1954,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             // check the output to make sure it is a string
             let (output_ty, output_ty_expr) = check_expr(output, &None, state);
 
-            if output_ty.tag.is_error_type() {
+            if output_ty.is_error_ty() {
                 return None;
             }
 

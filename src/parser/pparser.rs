@@ -681,19 +681,7 @@ impl Parser {
             },
             Token::Int(loc) => {
                 // 64 bit platform
-                if std::mem::size_of::<usize>() == 8 {
-                    Ty::Signed {
-                        size: 64,
-                        is_int: true,
-                        loc,
-                    }
-                } else {
-                    Ty::Signed {
-                        size: 32,
-                        is_int: true,
-                        loc,
-                    }
-                }
+                Ty::get_int_ty(loc)
             }
             Token::U8(loc) => Ty::Unsigned {
                 size: 8,
@@ -717,19 +705,7 @@ impl Parser {
             },
             Token::UInt(loc) => {
                 // 64 bit platform
-                if std::mem::size_of::<usize>() == 8 {
-                    Ty::Unsigned {
-                        size: 64,
-                        is_uint: true,
-                        loc,
-                    }
-                } else {
-                    Ty::Unsigned {
-                        size: 32,
-                        is_uint: true,
-                        loc,
-                    }
-                }
+                Ty::get_uint_ty(loc)
             }
             Token::Char(loc) => Ty::Char { loc },
             Token::Bool(loc) => Ty::Bool { loc },
