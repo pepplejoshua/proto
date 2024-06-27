@@ -156,8 +156,8 @@ pub enum CheckerError {
         loc: SourceRef,
     },
     MismismatchStaticArrayLength {
-        exp: usize,
-        given: usize,
+        exp: String,
+        given: String,
         arr_loc: SourceRef,
     },
     ConditionShouldBeTypedBool {
