@@ -3,15 +3,15 @@
 use std::{collections::HashSet, path::Path, process::Command};
 
 use crate::{
-    source::source::SourceReporter,
-    types::signature::{Sig, Type},
+    source::source::{SourceRef, SourceReporter},
+    types::signature::{Sig, Ty, Type},
 };
 
 use super::tast::{TyExpr, TyFileModule, TyIns};
 
 pub struct State {
     in_count: usize,
-    gen_typedefs_for: HashSet<Sig>,
+    gen_typedefs_for: HashSet<String>,
     uses_str_interpolation: bool,
     uses_print_ins: bool,
 }
@@ -61,51 +61,60 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
         buf.push_str(PROTO_STRINGIFY_CODE);
     }
 
+    if state.uses_print_ins {
+        state.gen_typedefs_for.insert("str".into());
+    }
+
     for sig in state.gen_typedefs_for.iter() {
-        match sig {
-            Sig::I8 => {
+        match sig.as_str() {
+            "i8" => {
                 typedefs.push_str("\ntypedef int8_t i8;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::I16 => {
+            "i16" => {
                 typedefs.push_str("\ntypedef int16_t i16;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::I32 => {
+            "i32" => {
                 typedefs.push_str("\ntypedef int32_t i32;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::I64 => {
+            "i64" => {
                 typedefs.push_str("\ntypedef int64_t i64;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::U8 => {
+            "u8" => {
                 typedefs.push_str("\ntypedef uint8_t u8;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::U16 => {
+            "u16" => {
                 typedefs.push_str("\ntypedef uint16_t u16;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::U32 => {
+            "u32" => {
                 typedefs.push_str("\ntypedef uint32_t u32;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::U64 => {
+            "u64" => {
                 typedefs.push_str("\ntypedef uint64_t u64;");
                 includes.insert("#include <cstdint>".to_string());
             }
-            Sig::UInt => {
-                typedefs.push_str("\ntypedef uint64_t uint_pr;");
+            "uint" => {
+                let plat_size = Ty::get_platform_size();
                 includes.insert("#include <cstdint>".to_string());
+                if plat_size == 64 {
+                    typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                } else {
+                    typedefs.push_str("\ntypedef uint32_t uint_pr;");
+                }
             }
-            Sig::Str => {
+            "str" => {
                 typedefs.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
-            Sig::StaticArray | Sig::Slice => {
+            "array" | "slice" => {
                 if !has_panic_fn {
-                    if !state.gen_typedefs_for.contains(&Sig::Str) {
+                    if !state.gen_typedefs_for.contains("str") {
                         typedefs.push_str("\ntypedef std::string str;");
                         includes.insert("#include <string>".to_string());
                         // for exit and EXIT_FAILURE
@@ -123,7 +132,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 }
 
                 if !has_array_class {
-                    if !state.gen_typedefs_for.contains(&Sig::UInt) {
+                    if !state.gen_typedefs_for.contains("uint") {
                         typedefs.push_str("\ntypedef uint64_t uint_pr;");
                         includes.insert("#include <cstdint>".to_string());
                     }
@@ -131,9 +140,9 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     has_array_class = true;
                 }
             }
-            Sig::Optional => {
+            "opt" => {
                 if !has_panic_fn {
-                    if !state.gen_typedefs_for.contains(&Sig::Str) {
+                    if !state.gen_typedefs_for.contains("str") {
                         typedefs.push_str("\ntypedef std::string str;");
                         includes.insert("#include <string>".to_string());
                         // for exit and EXIT_FAILURE
@@ -163,8 +172,10 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     let mut header = String::new();
     if !includes.is_empty() {
         header = includes.into_iter().collect::<Vec<String>>().join("\n");
-        header.push('\n');
-        header.push_str(&typedefs);
+        if !typedefs.is_empty() {
+            header.push('\n');
+            header.push_str(&typedefs);
+        }
         if !buf.is_empty() {
             header.push('\n');
             header.push_str(&buf);
@@ -174,49 +185,43 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
     header
 }
 
-pub fn cpp_gen_ty(ty: &Type, state: &mut State) -> String {
-    match ty.tag {
-        Sig::UserDefinedType => todo!(),
-        Sig::Bool | Sig::Char | Sig::Void | Sig::Int => ty.as_str(),
-        Sig::Str
-        | Sig::I8
-        | Sig::I16
-        | Sig::I32
-        | Sig::I64
-        | Sig::U8
-        | Sig::U16
-        | Sig::U32
-        | Sig::U64 => {
-            state.gen_typedefs_for.insert(ty.tag);
+pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
+    match ty {
+        Ty::Char { .. } | Ty::Bool { .. } | Ty::Str { .. } | Ty::Void { .. } => ty.as_str(),
+        Ty::Str { .. } => {
+            state.gen_typedefs_for.insert("str".into());
             ty.as_str()
         }
-        Sig::UInt => {
-            state.gen_typedefs_for.insert(ty.tag);
-            "uint_pr".to_string()
+        Ty::Signed { size, is_int, .. } => {
+            if *is_int {
+                return "int".into();
+            }
+            state.gen_typedefs_for.insert(ty.as_str());
+            ty.as_str()
         }
-        Sig::StaticArray => {
-            state.gen_typedefs_for.insert(ty.tag);
-            let arr_ty = ty.aux_type.clone().unwrap();
-            let arr_ty = cpp_gen_ty(&arr_ty, state);
-            let arr_size = ty.sub_expr.clone().unwrap();
-            format!("Array<{arr_ty}, {}>", arr_size.as_str())
+        Ty::Unsigned { size, is_uint, .. } => {
+            if *is_uint {
+                return "uint_pr".into();
+            }
+            state.gen_typedefs_for.insert(ty.as_str());
+            ty.as_str()
         }
-        Sig::Slice => {
-            state.gen_typedefs_for.insert(ty.tag);
-            let slice_ty = ty.aux_type.clone().unwrap();
-            let slice_ty = cpp_gen_ty(&slice_ty, state);
-            format!("Slice<{slice_ty}>")
+        Ty::StaticArray { sub_ty, size, .. } => {
+            state.gen_typedefs_for.insert("array".into());
+            todo!()
         }
-        Sig::Optional => {
-            state.gen_typedefs_for.insert(ty.tag);
-            let opt_ty = ty.aux_type.clone().unwrap();
-            let opt_ty = cpp_gen_ty(&opt_ty, state);
-            format!("Option<{opt_ty}>")
+        Ty::Slice { sub_ty, .. } => {
+            state.gen_typedefs_for.insert("slice".into());
+            todo!()
         }
-        Sig::Function | Sig::ErrorType => {
+        Ty::Optional { sub_ty, .. } => {
+            state.gen_typedefs_for.insert("slice".into());
+            todo!()
+        }
+        Ty::Func { .. } | Ty::ErrorType { .. } => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
-                ty.tag
+                ty
             )
         }
     }
@@ -271,7 +276,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         }
         TyExpr::InterpolatedString { parts } => {
             // allows us use #include <string> and std::to_string()
-            state.gen_typedefs_for.insert(Sig::Str);
+            state.gen_typedefs_for.insert("str".into());
             state.uses_str_interpolation = true;
             let mut buf = parts
                 .iter()

@@ -1,7 +1,7 @@
 #![allow(unused)]
 use crate::{
     parser::ast::{BinOpType, UnaryOpType},
-    types::signature::{Sig, Type},
+    types::signature::{Sig, Ty, Type},
 };
 
 #[derive(Debug, Clone)]
@@ -173,25 +173,25 @@ impl TyExpr {
 #[derive(Debug, Clone)]
 pub struct TyFnParam {
     pub name: String,
-    pub given_ty: Type,
+    pub given_ty: Ty,
 }
 
 #[derive(Debug, Clone)]
 pub enum TyIns {
     Constant {
         name: String,
-        ty: Type,
+        ty: Ty,
         init: TyExpr,
     },
     Var {
         name: String,
-        ty: Type,
+        ty: Ty,
         init: Option<TyExpr>,
     },
     Func {
         name: String,
         params: Vec<TyFnParam>,
-        ret_ty: Type,
+        ret_ty: Ty,
         body: Box<TyIns>,
     },
     Block {

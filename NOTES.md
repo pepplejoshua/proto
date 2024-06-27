@@ -2,6 +2,8 @@
 - Prevent use of array types without size in some receiver contexts (function parameters, struct members) [DONE]
 - Add support for method calls on builtin types (Option, Array, Slice, String). [DONE]
 - Do type rewrite to stop using the same shape for every damn type. I thought I was cool but I was just an architecture astronaut. Note to self: just do the simple fucking thing until there is concrete proof that a more complex solution is required.
+- Make members of builtins (Optional, Array, Slice) static instead of per
+check instantiation.
 - Add support for structs.
 - Add support for traits.
 - Work on out of order declarations.

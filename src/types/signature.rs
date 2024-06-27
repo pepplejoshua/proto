@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::borrow::{Borrow, BorrowMut};
+use std::borrow::BorrowMut;
 
 use crate::{parser::ast::Expr, source::source::SourceRef};
 
@@ -114,6 +114,13 @@ impl Ty {
         }
     }
 
+    pub fn is_sliceable(&self) -> bool {
+        match self {
+            Ty::StaticArray { .. } | Ty::Slice { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn get_loc(&self) -> SourceRef {
         match self {
             Ty::Signed { loc, .. }
@@ -143,7 +150,7 @@ impl Ty {
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::ErrorType { loc } => {
-                let mut b_loc = loc.borrow_mut();
+                let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
             }
         }
@@ -202,11 +209,7 @@ impl Ty {
 
     pub fn get_int_ty(loc: SourceRef) -> Ty {
         Ty::Signed {
-            size: if std::mem::size_of::<usize>() == 8 {
-                64
-            } else {
-                32
-            },
+            size: Ty::get_platform_size(),
             is_int: true,
             loc,
         }
@@ -214,13 +217,17 @@ impl Ty {
 
     pub fn get_uint_ty(loc: SourceRef) -> Ty {
         Ty::Unsigned {
-            size: if std::mem::size_of::<usize>() == 8 {
-                64
-            } else {
-                32
-            },
+            size: Ty::get_platform_size(),
             is_uint: true,
             loc,
+        }
+    }
+
+    pub fn get_platform_size() -> u8 {
+        if std::mem::size_of::<usize>() == 8 {
+            64
+        } else {
+            32
         }
     }
 }
