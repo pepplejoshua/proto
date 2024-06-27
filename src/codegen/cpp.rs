@@ -502,5 +502,8 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     // if let Err(err) = rm_cpp_file {
     //     return Err(err.to_string());
     // }
-    Ok(exe_path.to_str().unwrap().to_string())
+    Ok(format!(
+        "compiled to {}",
+        exe_path.to_str().unwrap().to_string()
+    ))
 }

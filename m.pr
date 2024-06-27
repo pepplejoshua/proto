@@ -1,5 +1,6 @@
 fn main() int {
     a :: [1, 2, 3];
-    println(`{a}`);
+    b :: a[0:1];
+    println(`{b}`);
     return 0;
 }

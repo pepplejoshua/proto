@@ -1001,7 +1001,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
-                    if end_ty.is_unsigned_ty() {
+                    if !end_ty.is_unsigned_ty() {
                         state.push_err(CheckerError::TypeMismatch {
                             loc: end_excl.get_source_ref(),
                             expected: "uint".into(),

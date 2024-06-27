@@ -4,6 +4,7 @@
 - Do type rewrite to stop using the same shape for every damn type. I thought I was cool but I was just an architecture astronaut. Note to self: just do the simple fucking thing until there is concrete proof that a more complex solution is required.
 - Make members of builtins (Optional, Array, Slice) static instead of per
 check instantiation.
+- For literals like Strings, Slices, Arrays and Optional, instead of just generating the literal in C++, wrap it with the actual type. This will mean these expression nodes will carry their type with them. So the literals can be used in any instance (like printing a `some a` where a is an array) without a complaint about knowing the type to use.
 - Add support for structs.
 - Add support for traits.
 - Work on out of order declarations.
