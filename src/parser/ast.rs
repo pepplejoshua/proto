@@ -1,8 +1,5 @@
 #![allow(unused)]
-use crate::{
-    source::source::SourceRef,
-    types::signature::{Ty, Type},
-};
+use crate::{source::source::SourceRef, types::signature::Ty};
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinOpType {

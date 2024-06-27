@@ -4,7 +4,7 @@ use std::{collections::HashSet, path::Path, process::Command};
 
 use crate::{
     source::source::{SourceRef, SourceReporter},
-    types::signature::{Sig, Ty, Type},
+    types::signature::Ty,
 };
 
 use super::tast::{TyExpr, TyFileModule, TyIns};

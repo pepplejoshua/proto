@@ -1,7 +1,7 @@
 #![allow(unused)]
 use crate::{
     parser::ast::{BinOpType, UnaryOpType},
-    types::signature::{Sig, Ty, Type},
+    types::signature::Ty,
 };
 
 #[derive(Debug, Clone)]

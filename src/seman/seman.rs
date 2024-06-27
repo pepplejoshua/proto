@@ -9,7 +9,7 @@ use crate::{
         errors::CheckerError,
         source::{SourceFile, SourceRef, SourceReporter},
     },
-    types::signature::{Sig, Ty, Type},
+    types::signature::Ty,
 };
 
 #[derive(Debug, Clone)]
@@ -116,20 +116,28 @@ impl State {
 }
 
 static BUILTINS_INIT: Once = Once::new();
-static mut BUILTINS_HASHMAP: Option<HashMap<&'static str, Type>> = None;
+static mut BUILTINS_HASHMAP: Option<HashMap<&'static str, Ty>> = None;
 
 fn init_builtins() {
     let mut m = HashMap::new();
+    let builtin_loc = SourceRef {
+        file: "__proto_gen_builtins__".to_string(),
+        start_line: 0,
+        start_col: 0,
+        end_line: 0,
+        end_col: 0,
+        flat_start: 0,
+        flat_end: 0,
+    };
     // readln();
     m.insert(
         "readln",
-        Type {
-            tag: Sig::Function,
-            name: None,
-            sub_types: vec![],
-            aux_type: Some(Box::new(Type::new(Sig::Str, SourceRef::dud()))),
-            sub_expr: None,
-            loc: SourceRef::dud(),
+        Ty::Func {
+            params: vec![],
+            ret: Box::new(Ty::Str {
+                loc: builtin_loc.clone(),
+            }),
+            loc: builtin_loc,
         },
     );
     unsafe {
@@ -137,7 +145,7 @@ fn init_builtins() {
     }
 }
 
-fn get_builtins() -> &'static HashMap<&'static str, Type> {
+fn get_builtins() -> &'static HashMap<&'static str, Ty> {
     unsafe {
         BUILTINS_INIT.call_once(init_builtins);
         BUILTINS_HASHMAP.as_ref().unwrap()

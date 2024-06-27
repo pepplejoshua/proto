@@ -7,7 +7,7 @@ use crate::{
         errors::{LexError, ParseError, ParseWarning},
         source::{SourceRef, SourceReporter},
     },
-    types::signature::{Sig, Ty, Type},
+    types::signature::Ty,
 };
 
 use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
