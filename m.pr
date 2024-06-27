@@ -1,12 +1,3 @@
-struct TypeInfo {
-    name : str;
-    builtin : bool;
-
-    fn [t] as_str() str {
-        return `TypeInfo {{ name: {t.name}, builtin: {t.builtin} }.`;
-    }
-}
-
 fn main() int {
     return 0;
 }

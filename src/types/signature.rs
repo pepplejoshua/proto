@@ -1,10 +1,12 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use std::borrow::{Borrow, BorrowMut};
+
 use crate::{parser::ast::Expr, source::source::SourceRef};
 
 #[derive(Debug, Clone)]
-enum Ty {
+pub enum Ty {
     Signed {
         size: u8,
         is_int: bool,
@@ -34,7 +36,7 @@ enum Ty {
     },
     StaticArray {
         sub_ty: Box<Ty>,
-        size: Option<usize>,
+        size: Option<Expr>,
         loc: SourceRef,
     },
     Slice {
@@ -105,6 +107,13 @@ impl Ty {
         }
     }
 
+    pub fn is_indexable(&self) -> bool {
+        match self {
+            Ty::Str { .. } | Ty::StaticArray { .. } | Ty::Slice { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn get_loc(&self) -> SourceRef {
         match self {
             Ty::Signed { loc, .. }
@@ -118,6 +127,25 @@ impl Ty {
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
+        }
+    }
+
+    pub fn set_loc(&mut self, n_loc: SourceRef) {
+        match self {
+            Ty::Signed { loc, .. }
+            | Ty::Unsigned { loc, .. }
+            | Ty::Str { loc }
+            | Ty::Char { loc }
+            | Ty::Void { loc }
+            | Ty::Bool { loc }
+            | Ty::Func { loc, .. }
+            | Ty::StaticArray { loc, .. }
+            | Ty::Slice { loc, .. }
+            | Ty::Optional { loc, .. }
+            | Ty::ErrorType { loc } => {
+                let mut b_loc = loc.borrow_mut();
+                *b_loc = n_loc;
+            }
         }
     }
 
@@ -154,7 +182,7 @@ impl Ty {
             }
             Ty::StaticArray { sub_ty, size, .. } => {
                 let size_s = if let Some(s) = size {
-                    s.to_string()
+                    s.as_str()
                 } else {
                     "_".into()
                 };
@@ -164,6 +192,12 @@ impl Ty {
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
             Ty::ErrorType { .. } => "err!".into(),
         }
+    }
+
+    pub fn clone_loc(&self, loc: SourceRef) -> Ty {
+        let mut ty = self.clone();
+        ty.set_loc(loc);
+        ty
     }
 }
 

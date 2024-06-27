@@ -9,12 +9,12 @@ use crate::{
         errors::CheckerError,
         source::{SourceFile, SourceRef, SourceReporter},
     },
-    types::signature::{Sig, Type},
+    types::signature::{Sig, Ty, Type},
 };
 
 #[derive(Debug, Clone)]
 pub struct NameInfo {
-    ty: Type,
+    ty: Ty,
     refs: Vec<SourceRef>,
     is_const: bool,
     is_initialized: bool,
@@ -208,167 +208,81 @@ pub fn types_are_eq(a: &Type, b: &Type) -> bool {
     }
 }
 
-pub fn check_expr(
-    e: &Expr,
-    context_ty: &Option<Type>,
-    state: &mut State,
-) -> (Type, Option<TyExpr>) {
+pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, Option<TyExpr>) {
     match e {
         Expr::Number { val, loc } => match context_ty {
             Some(ty) => {
-                if ty.tag.is_numerical_type() {
-                    match ty.tag {
-                        Sig::I8 => {
-                            let val_i8 = val.parse::<i8>();
-                            match val_i8 {
-                                Ok(_) => (
-                                    Type::new(Sig::I8, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                if ty.is_numerical_type() {
+                    let val_p = match ty {
+                        Ty::Signed { size, is_int, loc } => {
+                            match size {
+                                8 => {
+                                    val.parse::<i8>()
                                 }
+                                16 => {
+                                    val.parse::<i16>()
+                                }
+                                32 => {
+                                    val.parse::<i32>()
+                                }
+                                64 => {
+                                    val.parse::<i64>()
+                                }
+                                _ => unreachable!(
+                                    "seman::check_expr(): unexpected signed size {} in number inference.",
+                                    size
+                                )
                             }
                         }
-                        Sig::I16 => {
-                            let val_i16 = val.parse::<i16>();
-                            match val_i16 {
-                                Ok(_) => (
-                                    Type::new(Sig::I16, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                        Ty::Unsigned { size, is_uint, loc } => {
+                            match size {
+                                8 => {
+                                    val.parse::<u8>()
                                 }
-                            }
-                        }
-                        Sig::I32 | Sig::Int => {
-                            // TODO: make int be either i32 or i64 based on platform
-                            // mem::size_of::<usize>() == 8
-                            // mem::size_of::<usize>() == 4
-                            let val_i32 = val.parse::<i32>();
-                            match val_i32 {
-                                Ok(_) => (
-                                    Type::new(ty.tag, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                                16 => {
+                                    val.parse::<u16>()
                                 }
-                            }
-                        }
-                        Sig::I64 => {
-                            let val_i64 = val.parse::<i64>();
-                            match val_i64 {
-                                Ok(_) => (
-                                    Type::new(Sig::I64, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                                32 => {
+                                    val.parse::<u32>()
                                 }
-                            }
-                        }
-                        Sig::U8 => {
-                            let val_u8 = val.parse::<u8>();
-                            match val_u8 {
-                                Ok(_) => (
-                                    Type::new(Sig::U8, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                                64 => {
+                                    val.parse::<u64>()
                                 }
-                            }
-                        }
-                        Sig::U16 => {
-                            let val_u16 = val.parse::<u16>();
-                            match val_u16 {
-                                Ok(_) => (
-                                    Type::new(Sig::U16, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
-                                }
-                            }
-                        }
-                        Sig::U32 | Sig::UInt => {
-                            // TODO: make uint be either u32 or u64 based on platform
-                            // mem::size_of::<usize>() == 8
-                            // mem::size_of::<usize>() == 4
-                            let val_u32 = val.parse::<u32>();
-                            match val_u32 {
-                                Ok(_) => (
-                                    Type::new(ty.tag, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
-                                }
-                            }
-                        }
-                        Sig::U64 => {
-                            let val_u64 = val.parse::<u64>();
-                            match val_u64 {
-                                Ok(_) => (
-                                    Type::new(Sig::U64, loc.clone()),
-                                    Some(TyExpr::Integer { val: val.clone() }),
-                                ),
-                                Err(_) => {
-                                    state.push_err(CheckerError::NumberTypeInferenceFailed {
-                                        loc: loc.clone(),
-                                        number: val.clone(),
-                                        given_type: ty.as_str(),
-                                    });
-                                    (Type::new(Sig::ErrorType, loc.clone()), None)
-                                }
+                                _ => unreachable!(
+                                    "seman::check_expr(): unexpected unsigned size {} in number inference.",
+                                    size
+                                )
                             }
                         }
                         _ => unreachable!(
                             "seman::check_expr(): unexpected type {} in number inference.",
                             ty.as_str()
                         ),
+                    };
+
+                    if val_p.is_err() {
+                        state.push_err(CheckerError::NumberTypeInferenceFailed {
+                            loc: loc.clone(),
+                            number: val.clone(),
+                            given_type: ty.as_str(),
+                        });
+                        (Ty::ErrorType { loc: loc.clone() }, None)
+                    } else {
+                        (
+                            ty.clone_loc(loc.clone()),
+                            TyExpr::Integer { val: val.clone() }.Some(TyExpr::Integer { val: val.clone() })
+                        )
                     }
                 } else {
                     // make sure val is valid isize and return the right type
                     // else return error
-                    let val_i32 = val.parse::<i32>();
+                    // 64 bit platform
+                    let val_p = if std::mem::size_of::<usize>() == 8 {
+                        val.parse::<i64>()
+                    } else {
+                        val.parse::<i32>()
+                    };
+                    let val_i32 =
                     match val_i32 {
                         Ok(_) => (
                             Type::new(Sig::Int, loc.clone()),
@@ -381,7 +295,7 @@ pub fn check_expr(
                                     loc: loc.clone(),
                                     number: val.clone(),
                                 });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                            (Ty::ErrorType { loc: loc.clone() }, None)
                         }
                     }
                 }
@@ -402,21 +316,21 @@ pub fn check_expr(
                                 loc: loc.clone(),
                                 number: val.clone(),
                             });
-                        (Type::new(Sig::ErrorType, loc.clone()), None)
+                        (Ty::ErrorType { loc: loc.clone() }, None)
                     }
                 }
             }
         },
         Expr::Str { loc, val } => (
-            Type::new(Sig::Str, loc.clone()),
+            Ty::Str { loc: loc.clone() },
             Some(TyExpr::Str { val: val.clone() }),
         ),
         Expr::Char { loc, val } => (
-            Type::new(Sig::Char, loc.clone()),
+            Ty::Char { loc: loc.clone() },
             Some(TyExpr::Char { val: val.clone() }),
         ),
         Expr::Bool { loc, val } => (
-            Type::new(Sig::Bool, loc.clone()),
+            Ty::Bool { loc: loc.clone() },
             Some(TyExpr::Bool { val: *val }),
         ),
         Expr::StaticArray { vals, loc } => {
@@ -436,7 +350,7 @@ pub fn check_expr(
                             given_ty: ty.as_str(),
                             arr_loc: loc.clone(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     // we get the aux_type and sub_expr (if any) in the array type and use it
@@ -462,7 +376,7 @@ pub fn check_expr(
                                                 arr_loc: loc.clone(),
                                             },
                                         );
-                                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                        return (Ty::ErrorType { loc: loc.clone() }, None);
                                     }
                                     val.clone()
                                 } else {
@@ -471,14 +385,14 @@ pub fn check_expr(
                                             loc: loc.clone(),
                                         },
                                     );
-                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                    return (Ty::ErrorType { loc: loc.clone() }, None);
                                 }
                             }
                             _ => {
                                 state.push_err(CheckerError::NonConstantNumberSizeForStaticArray {
                                     loc: expr.get_source_ref(),
                                 });
-                                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                return (Ty::ErrorType { loc: loc.clone() }, None);
                             }
                         },
                         None => vals.len().to_string(),
@@ -510,7 +424,7 @@ pub fn check_expr(
                     }
 
                     if had_item_error {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     let mut arr_ty = Type::new(Sig::StaticArray, loc.clone());
                     arr_ty.aux_type = Some(Box::new(*expected_item_ty));
@@ -534,12 +448,12 @@ pub fn check_expr(
                         state.push_err(CheckerError::CannotInferTypeOfEmptyArray {
                             loc: loc.clone(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     let (expected_item_ty, first_ty_expr) = check_expr(&vals[0], context_ty, state);
                     if expected_item_ty.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     let mut had_item_error = false;
@@ -566,7 +480,7 @@ pub fn check_expr(
                     }
 
                     if had_item_error {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     let mut arr_ty = Type::new(Sig::StaticArray, loc.clone());
                     arr_ty.aux_type = Some(Box::new(expected_item_ty));
@@ -596,7 +510,7 @@ pub fn check_expr(
                         loc: loc.clone(),
                         var_name: name.clone(),
                     });
-                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                    (Ty::ErrorType { loc: loc.clone() }, None)
                 }
             }
         }
@@ -642,7 +556,7 @@ pub fn check_expr(
             let (mut l_ty, mut l_ty_expr) =
                 check_expr(if lhs_is_first { left } else { right }, context_ty, state);
             if l_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
             let temp_l_ty = &Some(l_ty.clone());
             let (mut r_ty, mut r_ty_expr) = check_expr(
@@ -655,7 +569,7 @@ pub fn check_expr(
                 state,
             );
             if r_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             if !lhs_is_first {
@@ -700,7 +614,7 @@ pub fn check_expr(
                                 left: l_ty.as_str(),
                                 right: r_ty.as_str(),
                             });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                            (Ty::ErrorType { loc: loc.clone() }, None)
                         }
                     }
                 }
@@ -720,7 +634,7 @@ pub fn check_expr(
                             left: l_ty.as_str(),
                             right: r_ty.as_str(),
                         });
-                        (Type::new(Sig::ErrorType, loc.clone()), None)
+                        (Ty::ErrorType { loc: loc.clone() }, None)
                     }
                 },
                 BinOpType::Eq
@@ -760,7 +674,7 @@ pub fn check_expr(
                             left: l_ty.as_str(),
                             right: r_ty.as_str(),
                         });
-                        (Type::new(Sig::ErrorType, loc.clone()), None)
+                        (Ty::ErrorType { loc: loc.clone() }, None)
                     }
                 },
             }
@@ -787,7 +701,7 @@ pub fn check_expr(
                             given: args.len(),
                             loc_given: loc.clone(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     let fn_ret_ty = func_ty.aux_type.clone().unwrap();
                     let fn_param_tys = func_ty.sub_types.clone();
@@ -820,7 +734,7 @@ pub fn check_expr(
                         name_ty: func_ty.as_str(),
                         loc: func.get_source_ref(),
                     });
-                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    return (Ty::ErrorType { loc: loc.clone() }, None);
                 }
             }
         }
@@ -848,12 +762,12 @@ pub fn check_expr(
                         operand: expr.as_str(),
                         tip: None,
                     });
-                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                    (Ty::ErrorType { loc: loc.clone() }, None)
                 }
                 UnaryOpType::Negate => {
                     if expr_ty.tag.is_error_type() {
                         // we can just return an error type
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     if !expr_ty.tag.is_signed_type() {
@@ -863,7 +777,7 @@ pub fn check_expr(
                             operand: expr.as_str(),
                             tip: None,
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     (
@@ -876,11 +790,11 @@ pub fn check_expr(
                 }
             }
         }
-        Expr::ErrorExpr { msg, loc } => (Type::new(Sig::ErrorType, loc.clone()), None),
+        Expr::ErrorExpr { msg, loc } => (Ty::ErrorType { loc: loc.clone() }, None),
         Expr::GroupedExpr { inner, loc } => {
             let (inner_ty, inner_ty_expr) = check_expr(inner, context_ty, state);
             if inner_ty.tag.is_error_type() {
-                (Type::new(Sig::ErrorType, loc.clone()), None)
+                (Ty::ErrorType { loc: loc.clone() }, loc.clone()), None)
             } else {
                 (
                     Type::new(inner_ty.tag, loc.clone()),
@@ -904,6 +818,7 @@ pub fn check_expr(
                     given_ty: cond_ty.as_str(),
                     loc: cond.get_source_ref(),
                 });
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             // typecheck then and otherwise expressions and make sure they have
@@ -914,7 +829,7 @@ pub fn check_expr(
             let (other_ty, other_ty_expr) = check_expr(otherwise, context_ty, state);
 
             if then_ty.tag.is_error_type() || other_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             if !types_are_eq(&then_ty, &other_ty) {
@@ -923,7 +838,7 @@ pub fn check_expr(
                     expected: then_ty.as_str(),
                     found: other_ty.as_str(),
                 });
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             let tern_ty = Type::new(then_ty.tag, loc.clone());
@@ -1000,7 +915,7 @@ pub fn check_expr(
         } => {
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             if !matches!(target_ty.tag, Sig::StaticArray | Sig::Slice) {
@@ -1008,7 +923,7 @@ pub fn check_expr(
                     given_ty: target_ty.as_str(),
                     loc: target_ty.loc,
                 });
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             // check both start and end_excl expressions, if they are provided
@@ -1020,7 +935,7 @@ pub fn check_expr(
                         state,
                     );
                     if a.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
 
                     if a.tag != Sig::UInt {
@@ -1029,7 +944,7 @@ pub fn check_expr(
                             expected: "uint".into(),
                             found: a.as_str(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     };
                     (a, b.unwrap())
                 }
@@ -1044,7 +959,7 @@ pub fn check_expr(
                     let (end_ty, end_ty_expr) = check_expr(end_excl,
                         &Some(Type::new(Sig::UInt, end_excl.get_source_ref())), state);
                     if end_ty.tag.is_error_type() {
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     if end_ty.tag != Sig::UInt {
                         state.push_err(CheckerError::TypeMismatch {
@@ -1052,7 +967,7 @@ pub fn check_expr(
                             expected: "uint".into(),
                             found: end_ty.as_str(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     };
                     match target_ty.tag {
                         Sig::StaticArray => {
@@ -1066,7 +981,7 @@ pub fn check_expr(
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                    return (Ty::ErrorType { loc: loc.clone() }, None);
                                 }
                             }
                             (slice_ty, Some(TyExpr::MakeSliceWithEnd {
@@ -1086,7 +1001,7 @@ pub fn check_expr(
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                    return (Ty::ErrorType { loc: loc.clone() }, None);
                                 }
                             }
                             (slice_ty, Some(TyExpr::MakeSliceWithEnd {
@@ -1115,7 +1030,7 @@ pub fn check_expr(
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                    return (Ty::ErrorType { loc: loc.clone() }, None);
                                 }
                             }
                             (slice_ty, Some(TyExpr::MakeSliceWithEnd {
@@ -1135,7 +1050,7 @@ pub fn check_expr(
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                                    return (Ty::ErrorType { loc: loc.clone() }, None);
                                 }
                             }
                             (slice_ty, Some(TyExpr::MakeSliceFrom {
@@ -1153,7 +1068,7 @@ pub fn check_expr(
             // index must be usize.
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             if !matches!(target_ty.tag, Sig::StaticArray | Sig::Str | Sig::Slice) {
@@ -1161,7 +1076,7 @@ pub fn check_expr(
                     given_ty: target_ty.as_str(),
                     loc: target.get_source_ref(),
                 });
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             let (index_ty, index_ty_expr) = check_expr(
@@ -1170,7 +1085,7 @@ pub fn check_expr(
                 state,
             );
             if index_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
             if index_ty.tag != Sig::UInt {
                 state.push_err(CheckerError::TypeMismatch {
@@ -1178,7 +1093,7 @@ pub fn check_expr(
                     expected: "uint".into(),
                     found: index_ty.as_str(),
                 });
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             };
 
             let new_ty = match target_ty.tag {
@@ -1206,7 +1121,7 @@ pub fn check_expr(
             // support for Slice, Array, Option and String methods
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             match type_is_valid(&target_ty) {
@@ -1274,7 +1189,7 @@ pub fn check_expr(
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                            (Ty::ErrorType { loc: loc.clone() }, None)
                         }
                     }
                 }
@@ -1365,7 +1280,7 @@ pub fn check_expr(
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                            (Ty::ErrorType { loc: loc.clone() }, None)
                         }
                     }
                 }
@@ -1424,7 +1339,7 @@ pub fn check_expr(
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Type::new(Sig::ErrorType, loc.clone()), None)
+                            (Ty::ErrorType { loc: loc.clone() }, None)
                         }
                     }
                 }
@@ -1433,7 +1348,7 @@ pub fn check_expr(
                         given_ty: target_ty.as_str(),
                         loc: target.get_source_ref(),
                     });
-                    (Type::new(Sig::ErrorType, loc.clone()), None)
+                    (Ty::ErrorType { loc: loc.clone() }, None)
                 }
             }
         }
@@ -1445,7 +1360,7 @@ pub fn check_expr(
                             given_ty: ty.as_str(),
                             opt_loc: loc.clone(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     let expected_item_ty = ty.aux_type.clone().unwrap();
                     check_expr(val, &Some(*expected_item_ty), state)
@@ -1457,7 +1372,7 @@ pub fn check_expr(
                             given_ty: ty.as_str(),
                             opt_loc: loc.clone(),
                         });
-                        return (Type::new(Sig::ErrorType, loc.clone()), None);
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
                     }
                     let expected_item_ty = ty.aux_type.clone().unwrap();
                     let mut opt_ty = Type::new(Sig::Optional, loc.clone());
@@ -1470,12 +1385,12 @@ pub fn check_expr(
                             opt_loc: loc.clone(),
                         },
                     );
-                    return (Type::new(Sig::ErrorType, loc.clone()), None);
+                    return (Ty::ErrorType { loc: loc.clone() }, None);
                 }
             };
 
             if v_ty.tag.is_error_type() {
-                return (Type::new(Sig::ErrorType, loc.clone()), None);
+                return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
             let mut opt_ty = Type::new(Sig::Optional, loc.clone());
@@ -1491,7 +1406,7 @@ pub fn check_expr(
     }
 }
 
-pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Option<TyIns> {
+pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<TyIns> {
     match i {
         Ins::DeclConst {
             name,
@@ -1595,7 +1510,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Type>, state: &mut State) -> Optio
                 }
                 (Some(ty), None) => {
                     let var_ty = if type_is_valid(ty).is_err() {
-                        Type::new(Sig::ErrorType, loc.clone())
+                        Ty::ErrorType { loc: loc.clone() }
                     } else {
                         ty.clone()
                     };

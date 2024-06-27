@@ -7,7 +7,7 @@ use crate::{
         errors::{LexError, ParseError, ParseWarning},
         source::{SourceRef, SourceReporter},
     },
-    types::signature::{Sig, Type},
+    types::signature::{Sig, Ty, Type},
 };
 
 use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
@@ -371,7 +371,7 @@ impl Parser {
                 self.advance();
             }
 
-            let param_span = param_ty.loc.combine(param_name.get_source_ref());
+            let param_span = param_ty.get_loc().combine(param_name.get_source_ref());
             params.push(FnParam {
                 name: param_name,
                 given_ty: param_ty,
@@ -655,132 +655,89 @@ impl Parser {
         }
     }
 
-    fn parse_type(&mut self) -> Type {
+    fn parse_type(&mut self) -> Ty {
         let cur = self.cur_token();
         self.advance();
         match cur {
-            Token::I8(loc) => Type {
-                tag: Sig::I8,
-                name: None,
-                sub_types: vec![],
-                loc,
-                sub_expr: None,
-                aux_type: None,
-            },
-            Token::I16(loc) => Type {
-                tag: Sig::I16,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::I8(loc) => Ty::Signed {
+                size: 8,
+                is_int: false,
                 loc,
             },
-            Token::I32(loc) => Type {
-                tag: Sig::I32,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::I16(loc) => Ty::Signed {
+                size: 16,
+                is_int: false,
                 loc,
             },
-            Token::I64(loc) => Type {
-                tag: Sig::I64,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::I32(loc) => Ty::Signed {
+                size: 32,
+                is_int: false,
                 loc,
             },
-            Token::Int(loc) => Type {
-                tag: Sig::Int,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::I64(loc) => Ty::Signed {
+                size: 64,
+                is_int: false,
                 loc,
             },
-            Token::U8(loc) => Type {
-                tag: Sig::U8,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::Int(loc) => {
+                // 64 bit platform
+                if std::mem::size_of::<usize>() == 8 {
+                    Ty::Signed {
+                        size: 64,
+                        is_int: true,
+                        loc,
+                    }
+                } else {
+                    Ty::Signed {
+                        size: 32,
+                        is_int: true,
+                        loc,
+                    }
+                }
+            }
+            Token::U8(loc) => Ty::Unsigned {
+                size: 8,
+                is_uint: false,
                 loc,
             },
-            Token::U16(loc) => Type {
-                tag: Sig::U16,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::U16(loc) => Ty::Unsigned {
+                size: 16,
+                is_uint: false,
                 loc,
             },
-            Token::U32(loc) => Type {
-                tag: Sig::U32,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::U32(loc) => Ty::Unsigned {
+                size: 32,
+                is_uint: false,
                 loc,
             },
-            Token::U64(loc) => Type {
-                tag: Sig::U64,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
+            Token::U64(loc) => Ty::Unsigned {
+                size: 64,
+                is_uint: false,
                 loc,
             },
-            Token::UInt(loc) => Type {
-                tag: Sig::UInt,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
-            Token::Char(loc) => Type {
-                tag: Sig::Char,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
-            Token::Bool(loc) => Type {
-                tag: Sig::Bool,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
-            Token::Str(loc) => Type {
-                tag: Sig::Str,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
-            Token::Identifier(name, loc) => Type {
-                tag: Sig::UserDefinedType,
-                name: Some(name),
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
-            Token::Void(loc) => Type {
-                tag: Sig::Void,
-                name: None,
-                sub_types: vec![],
-                aux_type: None,
-                sub_expr: None,
-                loc,
-            },
+            Token::UInt(loc) => {
+                // 64 bit platform
+                if std::mem::size_of::<usize>() == 8 {
+                    Ty::Unsigned {
+                        size: 64,
+                        is_uint: true,
+                        loc,
+                    }
+                } else {
+                    Ty::Unsigned {
+                        size: 32,
+                        is_uint: true,
+                        loc,
+                    }
+                }
+            }
+            Token::Char(loc) => Ty::Char { loc },
+            Token::Bool(loc) => Ty::Bool { loc },
+            Token::Str(loc) => Ty::Str { loc },
+            Token::Identifier(name, loc) => todo!(),
+            Token::Void(loc) => Ty::Void { loc },
             Token::LBracket(loc) => {
-                let sub_ty = Some(Box::new(self.parse_type()));
+                let sub_ty = Box::new(self.parse_type());
 
                 match self.cur_token() {
                     Token::Comma(_) => {
@@ -807,17 +764,16 @@ impl Parser {
                             span = span.combine(self.cur_token().get_source_ref());
                             self.advance()
                         }
-                        let mut arr_ty = Type::new(Sig::StaticArray, span);
-                        arr_ty.aux_type = sub_ty;
-                        arr_ty.sub_expr = static_size;
-                        arr_ty
+                        Ty::StaticArray {
+                            sub_ty,
+                            size: static_size,
+                            loc: span,
+                        }
                     }
                     Token::RBracket(rbrac_loc) => {
                         self.advance();
                         let span = loc.combine(rbrac_loc);
-                        let mut slice_ty = Type::new(Sig::Slice, span);
-                        slice_ty.aux_type = sub_ty;
-                        slice_ty
+                        Ty::Slice { sub_ty, loc: span }
                     }
                     _ => {
                         self.report_error(ParseError::Expected(
@@ -825,26 +781,21 @@ impl Parser {
                             self.cur_token().get_source_ref(),
                             None,
                         ));
-                        Type::new(Sig::ErrorType, self.cur_token().get_source_ref())
+                        Ty::ErrorType {
+                            loc: self.cur_token().get_source_ref(),
+                        }
                     }
                 }
             }
             Token::QuestionMark(loc) => {
-                let inner_ty = self.parse_type();
-                let span = loc.combine(inner_ty.loc.clone());
-                let mut opt_ty = Type::new(Sig::Optional, span);
-                opt_ty.aux_type = Some(Box::new(inner_ty));
-                opt_ty
+                let sub_ty = Box::new(self.parse_type());
+                let span = loc.combine(sub_ty.get_loc().clone());
+                Ty::Optional { sub_ty, loc: span }
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
-                Type {
-                    tag: Sig::ErrorType,
-                    name: None,
-                    sub_types: vec![],
-                    aux_type: None,
-                    sub_expr: None,
+                Ty::ErrorType {
                     loc: cur.get_source_ref(),
                 }
             }

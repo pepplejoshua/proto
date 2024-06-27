@@ -1,5 +1,8 @@
 #![allow(unused)]
-use crate::{source::source::SourceRef, types::signature::Type};
+use crate::{
+    source::source::SourceRef,
+    types::signature::{Ty, Type},
+};
 
 #[derive(Debug, Clone, Copy)]
 pub enum BinOpType {
@@ -308,7 +311,7 @@ impl Expr {
 #[derive(Debug, Clone)]
 pub struct FnParam {
     pub name: Expr,
-    pub given_ty: Type,
+    pub given_ty: Ty,
     pub loc: SourceRef,
 }
 
@@ -316,13 +319,13 @@ pub struct FnParam {
 pub enum Ins {
     DeclConst {
         name: Expr,
-        ty: Option<Type>, // might be provided, or not
+        ty: Option<Ty>, // might be provided, or not
         init_val: Expr,
         loc: SourceRef,
     },
     DeclVar {
         name: Expr,
-        ty: Option<Type>,
+        ty: Option<Ty>,
         init_val: Option<Expr>,
         loc: SourceRef,
     },
@@ -330,14 +333,14 @@ pub enum Ins {
         inst_name: Expr,
         name: Expr,
         params: Vec<FnParam>,
-        ret_type: Type,
+        ret_type: Ty,
         body: Box<Ins>,
         loc: SourceRef,
     },
     DeclFunc {
         name: Expr,
         params: Vec<FnParam>,
-        ret_type: Type,
+        ret_type: Ty,
         body: Box<Ins>,
         loc: SourceRef,
     },
