@@ -208,15 +208,19 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
         }
         Ty::StaticArray { sub_ty, size, .. } => {
             state.gen_typedefs_for.insert("array".into());
-            todo!()
+            let sub_ty = cpp_gen_ty(sub_ty, state);
+            let size = size.as_ref().unwrap().as_str();
+            format!("Array<{sub_ty}, {size}>")
         }
         Ty::Slice { sub_ty, .. } => {
             state.gen_typedefs_for.insert("slice".into());
-            todo!()
+            let sub_ty = cpp_gen_ty(sub_ty, state);
+            format!("Slice<{sub_ty}>")
         }
         Ty::Optional { sub_ty, .. } => {
             state.gen_typedefs_for.insert("slice".into());
-            todo!()
+            let sub_ty = cpp_gen_ty(sub_ty, state);
+            format!("Option<{sub_ty}>")
         }
         Ty::Func { .. } | Ty::ErrorType { .. } => {
             unreachable!(
