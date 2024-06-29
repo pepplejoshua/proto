@@ -65,6 +65,13 @@ impl Ty {
         }
     }
 
+    pub fn is_void(&self) -> bool {
+        match self {
+            Ty::Void { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn is_signed_ty(&self) -> bool {
         match self {
             Ty::Signed { .. } => true,

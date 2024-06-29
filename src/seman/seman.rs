@@ -115,8 +115,11 @@ impl State {
     }
 }
 
-static BUILTINS_INIT: Once = Once::new();
-static mut BUILTINS_HASHMAP: Option<HashMap<&'static str, Ty>> = None;
+static BUILTIN_METHODS_INIT: Once = Once::new();
+// It will be a [str: [str: Ty]]
+// The main hashmap will be keyed by the type. The sub hashmap will be keyed by
+// the method
+static mut BUILTIN_METHODS_HASHMAP: Option<HashMap<&'static str, HashMap<&'static str, Ty>>> = None;
 
 fn init_builtins() {
     let mut m = HashMap::new();
@@ -129,27 +132,27 @@ fn init_builtins() {
         flat_start: 0,
         flat_end: 0,
     };
-    // readln();
-    m.insert(
-        "readln",
-        Ty::Func {
-            params: vec![],
-            ret: Box::new(Ty::Str {
-                loc: builtin_loc.clone(),
-                is_interp: false,
-            }),
-            loc: builtin_loc,
-        },
-    );
+    // m.insert(
+    //     "str",
+    //     HashMap::from([(
+    //         "len",
+    //         Ty::Func {
+    //             params: vec![],
+    //             ret: Box::new(Ty::get_uint_ty(builtin_loc.clone())),
+    //             loc: builtin_loc.clone(),
+    //         },
+    //     )]),
+    // );
+
     unsafe {
-        BUILTINS_HASHMAP = Some(m);
+        BUILTIN_METHODS_HASHMAP = Some(m);
     }
 }
 
-fn get_builtins() -> &'static HashMap<&'static str, Ty> {
+fn get_builtin_methods() -> &'static HashMap<&'static str, HashMap<&'static str, Ty>> {
     unsafe {
-        BUILTINS_INIT.call_once(init_builtins);
-        BUILTINS_HASHMAP.as_ref().unwrap()
+        BUILTIN_METHODS_INIT.call_once(init_builtins);
+        BUILTIN_METHODS_HASHMAP.as_ref().unwrap()
     }
 }
 
@@ -1220,7 +1223,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 flat_end: 0,
             };
 
-            match target_ty {
+            match &target_ty {
                 Ty::Str { .. } => {
                     let mut methods: HashMap<&str, Ty> = HashMap::from([(
                         "len",
@@ -1248,7 +1251,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         ),
                         None => {
                             state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: "Option".into(),
+                                given_ty: "str".into(),
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
@@ -1313,7 +1316,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         ),
                         None => {
                             state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: "Option".into(),
+                                given_ty: target_ty.as_str(),
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
@@ -1365,7 +1368,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         ),
                         None => {
                             state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: "Option".into(),
+                                given_ty: target_ty.as_str(),
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
@@ -1686,7 +1689,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
 
             let fn_type = Ty::Func {
                 params: fn_type_params,
-                ret: Box::new(ret_ty),
+                ret: Box::new(ret_ty.clone()),
                 loc: loc.clone(),
             };
 
@@ -1723,6 +1726,33 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             // focuses on if conditional and code blocks. Any other
             // instruction should raise an error since we cannot return from
             // within them.
+
+            if new_body.is_none() {
+                return None;
+            }
+
+            // we have to perform a check on the last instruction of the body or the
+            // only instruction to make sure it is returning if the return type of the
+            // function is non-void
+            if !ret_ty.is_void() {
+                match new_body {
+                    Ins::Return { .. } => {
+                        // do nothing
+                    }
+                    Ins::Block { .. } | Ins::IfConditional { .. } => todo!(),
+                    _ => {
+                        // this instruction does not return anything so we can raise an error
+                        state.push_err(CheckerError::Expected(
+                            format!(
+                                "a return statement with a value of type '{}'.",
+                                ret_ty.as_str()
+                            ),
+                            body.get_source_ref(),
+                            None,
+                        ));
+                    }
+                }
+            }
 
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
