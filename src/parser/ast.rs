@@ -413,6 +413,13 @@ impl Ins {
         }
     }
 
+    pub fn contains_sub_instructions(&self) -> bool {
+        match self {
+            Ins::Block { .. } | Ins::IfConditional { .. } | Ins::Return { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn as_str(&self) -> String {
         match self {
             Ins::DeclConst {

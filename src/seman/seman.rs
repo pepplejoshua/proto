@@ -80,6 +80,7 @@ pub struct State {
     pub errs: Vec<CheckerError>,
     scope_stack: Vec<Scope>,
     enter_new_scope: bool,
+    check_for_return: bool,
 }
 
 impl State {
@@ -90,6 +91,7 @@ impl State {
             errs: vec![],
             scope_stack: vec![Scope::TopLevel],
             enter_new_scope: true,
+            check_for_return: false,
         }
     }
 
@@ -1719,50 +1721,38 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             // check the body
             let old_enter_new_scope = state.enter_new_scope;
             state.enter_new_scope = false;
-            let new_body = check_ins(body, &Some(ret_type.clone()), state);
-
-            // make sure the last instruction in the body returns a valid value
-            // if we are not in a function that returns void. This specifically
-            // focuses on if conditional and code blocks. Any other
-            // instruction should raise an error since we cannot return from
-            // within them.
+            let old_check_for_return = state.check_for_return;
+            state.check_for_return = true;
+            let new_body = if i.contains_sub_instructions() {
+                check_ins(body, &Some(ret_type.clone()), state)
+            } else {
+                let ty_i = check_ins(body, &Some(ret_type.clone()), state);
+                if !ret_ty.is_void() {
+                    state.push_err(CheckerError::Expected(
+                        "1. a return statement with a value of type '{}'.".into(),
+                        loc.clone(),
+                        None,
+                    ));
+                }
+                ty_i
+            };
 
             if new_body.is_none() {
                 return None;
             }
 
-            // we have to perform a check on the last instruction of the body or the
-            // only instruction to make sure it is returning if the return type of the
-            // function is non-void
-            if !ret_ty.is_void() {
-                match new_body {
-                    Ins::Return { .. } => {
-                        // do nothing
-                    }
-                    Ins::Block { .. } | Ins::IfConditional { .. } => todo!(),
-                    _ => {
-                        // this instruction does not return anything so we can raise an error
-                        state.push_err(CheckerError::Expected(
-                            format!(
-                                "a return statement with a value of type '{}'.",
-                                ret_ty.as_str()
-                            ),
-                            body.get_source_ref(),
-                            None,
-                        ));
-                    }
-                }
-            }
+            let new_body = new_body.unwrap();
 
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
+            state.check_for_return = old_check_for_return;
             state.scope_stack.pop();
             state.env.pop();
             Some(TyIns::Func {
                 name: name.as_str(),
                 params: ty_params,
                 ret_ty: ret_type.clone(),
-                body: Box::new(new_body.unwrap()),
+                body: Box::new(new_body),
             })
         }
         Ins::DeclFunc {
@@ -1852,7 +1842,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
 
             let fn_type = Ty::Func {
                 params: fn_type_params,
-                ret: Box::new(ret_ty),
+                ret: Box::new(ret_ty.clone()),
                 loc: loc.clone(),
             };
 
@@ -1882,23 +1872,41 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             // check the body
             let old_enter_new_scope = state.enter_new_scope;
             state.enter_new_scope = false;
-            let new_body = check_ins(body, &Some(ret_type.clone()), state);
+            let old_check_for_return = state.check_for_return;
+            state.check_for_return = true;
+            let new_body = if body.contains_sub_instructions() {
+                check_ins(body, &Some(ret_type.clone()), state)
+            } else {
+                let ty_i = check_ins(body, &Some(ret_type.clone()), state);
+                if !ret_ty.is_void() {
+                    state.push_err(CheckerError::Expected(
+                        format!(
+                            "2. a return statement with a value of type '{}'.",
+                            ret_ty.as_str()
+                        ),
+                        loc.clone(),
+                        None,
+                    ));
+                }
+                ty_i
+            };
 
-            // make sure the last instruction in the body returns a valid value
-            // if we are not in a function that returns void. This specifically
-            // focuses on if conditional and code blocks. Any other
-            // instruction should raise an error since we cannot return from
-            // within them.
+            if new_body.is_none() {
+                return None;
+            }
+
+            let new_body = new_body.unwrap();
 
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
+            state.check_for_return = old_check_for_return;
             state.scope_stack.pop();
             state.env.pop();
             Some(TyIns::Func {
                 name: name.as_str(),
                 params: ty_params,
                 ret_ty: ret_type.clone(),
-                body: Box::new(new_body.unwrap()),
+                body: Box::new(new_body),
             })
         }
         Ins::IfConditional {
@@ -1949,11 +1957,51 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 state.env.extend();
             }
 
+            if state.check_for_return && code.len() == 0 && !context_ty.as_ref().unwrap().is_void()
+            {
+                state.push_err(CheckerError::Expected(
+                    format!(
+                        "3. a return statement with a value of type '{}'.",
+                        context_ty.as_ref().unwrap().as_str()
+                    ),
+                    loc.clone(),
+                    None,
+                ));
+            }
+            let old_check_for_return = state.check_for_return;
+            state.check_for_return = false;
             let mut new_code = vec![];
             let old_enter_new_scope = state.enter_new_scope;
             state.enter_new_scope = true;
-            for s_ins in code.iter() {
-                let new_ins = check_ins(s_ins, &context_ty, state);
+            for (i, s_ins) in code.iter().enumerate() {
+                let new_ins = if i == code.len() - 1 && old_check_for_return {
+                    let ret_ty = context_ty.as_ref().unwrap();
+                    if !ret_ty.is_void() {
+                        if s_ins.contains_sub_instructions() {
+                            // we will leave the checking to the sub instruction
+                            state.check_for_return = true;
+                            check_ins(s_ins, context_ty, state)
+                        } else {
+                            // we will check the instruction and then record an error
+                            // since we expect a return here
+                            let ty_ins = check_ins(s_ins, context_ty, state);
+                            state.push_err(CheckerError::Expected(
+                                format!(
+                                    "4. a return statement with a value of type '{}'.",
+                                    ret_ty.as_str()
+                                ),
+                                s_ins.get_source_ref(),
+                                None,
+                            ));
+                            ty_ins
+                        }
+                    } else {
+                        check_ins(s_ins, context_ty, state)
+                    }
+                } else {
+                    check_ins(s_ins, context_ty, state)
+                };
+
                 if new_ins.is_some() {
                     new_code.push(new_ins.unwrap())
                 }
@@ -1965,6 +2013,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             }
 
             state.enter_new_scope = old_enter_new_scope;
+            state.check_for_return = old_check_for_return;
 
             Some(TyIns::Block { code: new_code })
         }
