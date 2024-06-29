@@ -117,11 +117,11 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     if !state.gen_typedefs_for.contains("str") {
                         typedefs.push_str("\ntypedef std::string str;");
                         includes.insert("#include <string>".to_string());
-                        // for exit and EXIT_FAILURE
-                        includes.insert("#include <cstdlib>".to_string());
-                        // for cout and endl
-                        includes.insert("#include <iostream>".to_string());
                     }
+                    // for exit and EXIT_FAILURE
+                    includes.insert("#include <cstdlib>".to_string());
+                    // for cout and endl
+                    includes.insert("#include <iostream>".to_string());
                     buf.push_str(PANIC_FUNCTION.trim_end());
                     has_panic_fn = true;
                 }
@@ -145,11 +145,11 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     if !state.gen_typedefs_for.contains("str") {
                         typedefs.push_str("\ntypedef std::string str;");
                         includes.insert("#include <string>".to_string());
-                        // for exit and EXIT_FAILURE
-                        includes.insert("#include <cstdlib>".to_string());
-                        // for cout and endl
-                        includes.insert("#include <iostream>".to_string());
                     }
+                    // for exit and EXIT_FAILURE
+                    includes.insert("#include <cstdlib>".to_string());
+                    // for cout and endl
+                    includes.insert("#include <iostream>".to_string());
                     buf.push_str(PANIC_FUNCTION);
                     has_panic_fn = true;
                 }
@@ -187,9 +187,9 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
 pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
     match ty {
-        Ty::Char { .. } | Ty::Bool { .. } | Ty::Str { .. } | Ty::Void { .. } => ty.as_str(),
+        Ty::Char { .. } | Ty::Bool { .. } | Ty::Void { .. } => ty.as_str(),
         Ty::Str { .. } => {
-            state.gen_typedefs_for.insert("str".into());
+            state.gen_typedefs_for.insert("str".to_string());
             ty.as_str()
         }
         Ty::Signed { size, is_int, .. } => {
