@@ -719,6 +719,14 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             rhs: Box::new(r_ty_expr.unwrap()),
                         }),
                     ),
+                    (Ty::Str { .. }, Ty::Str { .. }) => (
+                        Ty::Bool { loc: loc.clone() },
+                        Some(TyExpr::BinOp {
+                            op: *op,
+                            lhs: Box::new(l_ty_expr.unwrap()),
+                            rhs: Box::new(r_ty_expr.unwrap()),
+                        }),
+                    ),
                     (Ty::Bool { .. }, Ty::Bool { .. })
                         if matches!(op, BinOpType::Eq | BinOpType::Neq) =>
                     {

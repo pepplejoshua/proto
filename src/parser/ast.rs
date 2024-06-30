@@ -531,10 +531,10 @@ impl Ins {
             }
             Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
             Ins::DeclStruct { name, body, .. } => {
-                format!("struct {}\n{}\n", name.as_str(), body.as_str())
+                format!("struct {}\n{}", name.as_str(), body.as_str())
             }
             Ins::DeclModule { name, body, .. } => {
-                format!("mod {}\n{}\n", name.as_str(), body.as_str())
+                format!("mod {}\n{}", name.as_str(), body.as_str())
             }
             Ins::IfConditional { conds_and_code, .. } => {
                 let mut buf = String::new();

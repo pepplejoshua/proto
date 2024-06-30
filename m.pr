@@ -1,19 +1,6 @@
-fn get_value() int {
-    if true {
-        a :: 0;
-        println("true!");
-        return a;
-    } else if false {
-        println("false!");
-        return 1;
-    } else {
-        println("inbetween!");
-        return 2;
-    }
-}
-
 fn main() int {
-    val :: get_value();
-
-    return val;
+    a :: "hello";
+    b :: "world";
+    println(`{a != b}`);
+    return 0;
 }
