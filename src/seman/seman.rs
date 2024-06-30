@@ -2,6 +2,8 @@
 
 use std::{collections::HashMap, pin::Pin, process::exit, sync::Once};
 
+use serde::de::Expected;
+
 use crate::{
     codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
     parser::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType},
@@ -1447,6 +1449,32 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
     }
 }
 
+pub fn check_ins_for_return(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<TyIns> {
+    let ret_ty = context_ty.as_ref().unwrap();
+    if !ret_ty.is_void() {
+        if i.contains_sub_instructions() {
+            // we will leave the checking to the sub instruction
+            state.check_for_return = true;
+            check_ins(i, context_ty, state)
+        } else {
+            // we will check the instruction and then record an error
+            // since we expect a return here
+            let ty_ins = check_ins(i, context_ty, state);
+            state.push_err(CheckerError::Expected(
+                format!(
+                    "1. a return statement with a value of type '{}'.",
+                    ret_ty.as_str()
+                ),
+                i.get_source_ref(),
+                None,
+            ));
+            ty_ins
+        }
+    } else {
+        check_ins(i, context_ty, state)
+    }
+}
+
 pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<TyIns> {
     match i {
         Ins::DeclConst {
@@ -1729,7 +1757,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 let ty_i = check_ins(body, &Some(ret_type.clone()), state);
                 if !ret_ty.is_void() {
                     state.push_err(CheckerError::Expected(
-                        "1. a return statement with a value of type '{}'.".into(),
+                        "2. a return statement with a value of type '{}'.".into(),
                         loc.clone(),
                         None,
                     ));
@@ -1881,7 +1909,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 if !ret_ty.is_void() {
                     state.push_err(CheckerError::Expected(
                         format!(
-                            "2. a return statement with a value of type '{}'.",
+                            "3. a return statement with a value of type '{}'.",
                             ret_ty.as_str()
                         ),
                         loc.clone(),
@@ -1922,8 +1950,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                     // we will type check the condition and then
                     // make sure its type is bool
                     let (cond_ty, cond_ty_expr) = check_expr(cond, context_ty, state);
-
-                    if !cond_ty.is_error_ty() && !matches!(cond_ty, Ty::Bool { .. }) {
+                    if cond_ty.is_error_ty() {
+                        None
+                    } else if !matches!(cond_ty, Ty::Bool { .. }) {
                         state.push_err(CheckerError::ConditionShouldBeTypedBool {
                             given_ty: cond_ty.as_str(),
                             loc: cond.get_source_ref(),
@@ -1939,6 +1968,21 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 let ty_body = check_ins(code, context_ty, state);
                 if let Some(ty_body) = ty_body {
                     new_conds_and_code.push((cond_ty_expr, ty_body));
+                }
+
+                if state.check_for_return && i == conds_and_code.len() - 1 {
+                    // if we are required to check for a return type, we have to
+                    // make sure a default case (an else) is provided
+                    if cond.is_some() {
+                        state.push_err(CheckerError::Expected(
+                            format!(
+                                "a following else branch that returns a value of type '{}'.",
+                                context_ty.as_ref().unwrap().as_str()
+                            ),
+                            code.get_source_ref(),
+                            None,
+                        ));
+                    }
                 }
             }
             state.enter_new_scope = old_enter_new_scope;
@@ -1961,7 +2005,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             {
                 state.push_err(CheckerError::Expected(
                     format!(
-                        "3. a return statement with a value of type '{}'.",
+                        "4. a return statement with a value of type '{}'.",
                         context_ty.as_ref().unwrap().as_str()
                     ),
                     loc.clone(),
@@ -1975,29 +2019,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             state.enter_new_scope = true;
             for (i, s_ins) in code.iter().enumerate() {
                 let new_ins = if i == code.len() - 1 && old_check_for_return {
-                    let ret_ty = context_ty.as_ref().unwrap();
-                    if !ret_ty.is_void() {
-                        if s_ins.contains_sub_instructions() {
-                            // we will leave the checking to the sub instruction
-                            state.check_for_return = true;
-                            check_ins(s_ins, context_ty, state)
-                        } else {
-                            // we will check the instruction and then record an error
-                            // since we expect a return here
-                            let ty_ins = check_ins(s_ins, context_ty, state);
-                            state.push_err(CheckerError::Expected(
-                                format!(
-                                    "4. a return statement with a value of type '{}'.",
-                                    ret_ty.as_str()
-                                ),
-                                s_ins.get_source_ref(),
-                                None,
-                            ));
-                            ty_ins
-                        }
-                    } else {
-                        check_ins(s_ins, context_ty, state)
-                    }
+                    check_ins_for_return(s_ins, context_ty, state)
                 } else {
                     check_ins(s_ins, context_ty, state)
                 };
