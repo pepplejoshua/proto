@@ -349,7 +349,8 @@ pub enum Ins {
     },
     DeclStruct {
         name: Expr,
-        body: Box<Ins>,
+        fields: Vec<Ins>,
+        funcs: Vec<Ins>,
         loc: SourceRef,
     },
     DeclModule {
@@ -549,8 +550,35 @@ impl Ins {
                 format!("{};", expr.as_str())
             }
             Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
-            Ins::DeclStruct { name, body, .. } => {
-                format!("struct {}\n{}", name.as_str(), body.as_str())
+            Ins::DeclStruct {
+                name,
+                fields,
+                funcs,
+                ..
+            } => {
+                let mut buf = vec![format!("struct {}", name.as_str())];
+
+                if !fields.is_empty() {
+                    buf.push(format!(
+                        "{}",
+                        fields
+                            .iter()
+                            .map(|f| f.as_str())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    ))
+                }
+                if !funcs.is_empty() {
+                    buf.push(format!(
+                        "\n{}",
+                        funcs
+                            .iter()
+                            .map(|f| f.as_str())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    ))
+                }
+                buf.join("\n")
             }
             Ins::DeclModule { name, body, .. } => {
                 format!("mod {}\n{}", name.as_str(), body.as_str())

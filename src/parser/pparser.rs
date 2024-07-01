@@ -132,35 +132,48 @@ impl Parser {
 
     pub fn parse_file(&mut self) {
         let mut ood = HashMap::new();
-        let mut ins_count = 0;
         let mut instructions = vec![];
         while !self.is_at_eof() {
             let ins = self.next_ins(true);
-            let ins_id = ins.get_id();
-            if ins_id.is_some() {
-                ood.insert(ins_id.unwrap(), self.cur_deps.clone());
+            if !self.cur_deps.is_empty() {
+                let ins_id = ins.get_id();
+
+                if ins_id.is_some() {
+                    ood.insert(ins_id.unwrap(), self.cur_deps.clone());
+                }
+                self.cur_deps.clear();
             }
-            ins_count += 1;
-            self.cur_deps.clear();
             instructions.push(ins);
+        }
+
+        for (ins_s, deps) in ood.iter() {
+            println!("{ins_s}");
+            for dep in deps.iter() {
+                println!("  - {}", dep.to);
+            }
+            println!()
         }
 
         // topological sort will be done here. It will detect cycles and report them
         let mut ood = self.topological_sort(&mut ood);
 
-        // sort the instructions based on the topological sort
-        let mut sorted_ins = vec![];
-        for node in ood.iter() {
-            let node = node.as_str();
-            let ins = instructions
-                .iter()
-                .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
-            if let Some(ins) = ins {
-                sorted_ins.push(ins.clone());
+        if !ood.is_empty() {
+            // sort the instructions based on the topological sort
+            let mut sorted_ins = vec![];
+            for node in ood.iter() {
+                let node = node.as_str();
+                let ins = instructions
+                    .iter()
+                    .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
+                if let Some(ins) = ins {
+                    sorted_ins.push(ins.clone());
+                }
             }
-        }
 
-        self.file_mod.top_level = sorted_ins;
+            self.file_mod.top_level = sorted_ins;
+        } else {
+            self.file_mod.top_level = instructions;
+        }
     }
 
     fn topological_sort(&mut self, ood: &mut HashMap<String, Vec<Dep>>) -> Vec<String> {
@@ -546,6 +559,94 @@ impl Parser {
         }
     }
 
+    fn parse_struct_block(&mut self) -> (Vec<Ins>, Vec<Ins>, SourceRef) {
+        let mut block_loc = self.cur_token().get_source_ref();
+        self.advance();
+
+        let mut fields = vec![];
+        let mut funcs = vec![];
+        let mut struct_deps = vec![];
+        let mut ood = HashMap::new();
+        let mut saw_rcurly = false;
+        while !self.is_at_eof() {
+            let cur = self.cur_token();
+            if matches!(cur, Token::RCurly(_)) {
+                block_loc = block_loc.combine(cur.get_source_ref());
+                saw_rcurly = true;
+                break;
+            }
+
+            let ins = self.next_ins(true);
+            block_loc = block_loc.combine(ins.get_source_ref());
+            match ins {
+                Ins::DeclConst { .. } | Ins::DeclVar { .. } => {
+                    if !self.cur_deps.is_empty() {
+                        struct_deps.extend(self.cur_deps.clone());
+                        self.cur_deps.clear();
+                    }
+                    fields.push(ins);
+                }
+                Ins::DeclMethod { .. } | Ins::DeclFunc { .. } => {
+                    if !self.cur_deps.is_empty() {
+                        let ins_id = ins.get_id().unwrap();
+                        ood.insert(ins_id, self.cur_deps.clone());
+                        self.cur_deps.clear();
+                    }
+                    funcs.push(ins);
+                }
+                Ins::DeclStruct {
+                    name,
+                    fields,
+                    funcs,
+                    loc,
+                } => todo!(),
+                _ => {
+                    // report error for unexpected Ins at this level
+                    todo!()
+                }
+                Ins::ErrorIns { msg, loc } => continue,
+            }
+        }
+
+        if !saw_rcurly {
+            self.report_error(ParseError::UnterminatedCodeBlock(
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            block_loc = block_loc.combine(self.cur_token().get_source_ref());
+            self.advance();
+        }
+
+        for (ins_s, deps) in ood.iter() {
+            println!("{ins_s}");
+            for dep in deps.iter() {
+                println!("  - {}", dep.to);
+            }
+            println!()
+        }
+
+        let mut ood = self.topological_sort(&mut ood);
+        let mut ood_funcs = vec![];
+        for node in ood.iter() {
+            let node = node.as_str();
+            let ins = funcs
+                .iter()
+                .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
+            if let Some(ins) = ins {
+                ood_funcs.push(ins.clone());
+            }
+        }
+
+        if ood_funcs.is_empty() {
+            ood_funcs = funcs;
+        }
+
+        self.cur_deps = struct_deps;
+
+        (fields, ood_funcs, block_loc)
+    }
+
     fn parse_struct(&mut self) -> Ins {
         let start = self.cur_token();
         self.advance();
@@ -553,22 +654,14 @@ impl Parser {
         let struct_name = self.parse_identifier();
 
         self.scope.push(ParseScope::Struct);
-        let body = self.parse_block(false);
-
-        // let mut fields = vec![];
-        // let mut methods = vec![];
-        // let mut assoc_fields = vec![];
-        // if let Ins::Block { code, .. } = body {
-        //     todo!()
-        // }
-
+        let (fields, ood_funcs, struct_span) = self.parse_struct_block();
         self.scope.pop();
-        let struct_span = start.get_source_ref().combine(body.get_source_ref());
 
         Ins::DeclStruct {
             name: struct_name,
-            body: Box::new(body),
             loc: struct_span,
+            fields,
+            funcs: ood_funcs,
         }
     }
 
@@ -1224,6 +1317,14 @@ impl Parser {
                         self.cur_deps.push(Dep {
                             ty: DepTy::Func,
                             to: name.clone(),
+                            loc: loc.clone(),
+                        });
+                    }
+
+                    if let Expr::AccessMember { mem, loc, .. } = &lhs {
+                        self.cur_deps.push(Dep {
+                            ty: DepTy::Func,
+                            to: mem.as_str(),
                             loc: loc.clone(),
                         });
                     }

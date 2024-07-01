@@ -1993,7 +1993,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 comb: new_conds_and_code,
             })
         }
-        Ins::DeclStruct { name, body, loc } => {
+        Ins::DeclStruct {
+            name,
+            fields,
+            funcs,
+            loc,
+        } => {
             // we will need to check the body and update the struct type under the name
             // as we get new information (fields, associated functions and methods)
             todo!()
