@@ -484,6 +484,13 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_expr(output, state)
             )
         }
+        TyIns::AssignTo { target, val } => {
+            buf = format!(
+                "{} = {};",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(val, state)
+            );
+        }
     }
     buf
 }

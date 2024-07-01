@@ -87,11 +87,6 @@ pub enum Expr {
         right: Box<Expr>,
         loc: SourceRef,
     },
-    InitStruct {
-        struct_name: Box<Expr>,
-        fields: Vec<(Expr, Expr)>,
-        loc: SourceRef,
-    },
     CallFn {
         func: Box<Expr>,
         args: Vec<Expr>,
@@ -155,7 +150,6 @@ impl Expr {
             | Expr::Bool { loc, .. }
             | Expr::Ident { loc, .. }
             | Expr::BinOp { loc, .. }
-            | Expr::InitStruct { loc, .. }
             | Expr::CallFn { loc, .. }
             | Expr::UnaryOp { loc, .. }
             | Expr::StaticArray { loc, .. }
@@ -189,7 +183,6 @@ impl Expr {
             | Expr::OptionalExpr { .. }
             | Expr::StaticArray { .. }
             | Expr::MakeSlice { .. }
-            | Expr::InitStruct { .. }
             | Expr::GroupedExpr { .. }
             | Expr::IndexInto { .. }
             | Expr::AccessMember { .. } => 3,
@@ -220,18 +213,6 @@ impl Expr {
                 right,
                 loc,
             } => format!("[{} {} {}]", left.as_str(), op.as_str(), right.as_str()),
-            Expr::InitStruct {
-                struct_name,
-                fields,
-                loc,
-            } => {
-                let fields_str: Vec<String> = fields
-                    .iter()
-                    .map(|(name, init_expr)| format!("{}: {}", name.as_str(), init_expr.as_str()))
-                    .collect();
-                let fields_str = fields_str.join(", ");
-                format!("{}.({fields_str})", struct_name.as_str())
-            }
             Expr::CallFn { func, args, .. } => {
                 let args_str: Vec<String> = args.iter().map(|arg| arg.as_str()).collect();
                 let args_str = args_str.join(", ");
@@ -341,6 +322,7 @@ pub enum Ins {
     },
     DeclStruct {
         name: Expr,
+        init_func: Option<usize>,
         fields: Vec<Ins>,
         funcs: Vec<Ins>,
         loc: SourceRef,

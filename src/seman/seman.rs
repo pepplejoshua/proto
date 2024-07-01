@@ -236,6 +236,9 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
                 sub_ty: b_sub_ty, ..
             },
         ) => types_are_eq(sub_ty, b_sub_ty),
+        (Ty::Struct { name, .. }, Ty::Struct { name: b_name, .. }) => name == b_name,
+        (Ty::NamedType { name, .. }, Ty::Struct { name: s_name, .. })
+        | (Ty::Struct { name: s_name, .. }, Ty::NamedType { name, .. }) => name == s_name,
         (_, Ty::ErrorType { .. }) | (Ty::ErrorType { .. }, _) | _ => false,
     }
 }
@@ -753,81 +756,6 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 },
             }
         }
-        Expr::InitStruct {
-            struct_name,
-            fields,
-            loc,
-        } => {
-            // we will look for the struct type
-            let name_info = state.env.lookup(&struct_name.as_str());
-            if name_info.is_none() {
-                state.push_err(CheckerError::ReferenceToUndefinedName {
-                    loc: loc.clone(),
-                    var_name: struct_name.as_str(),
-                });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
-            }
-
-            let name_info = name_info.unwrap().clone();
-            if let Ty::Struct {
-                name,
-                fields: struct_fields,
-                funcs,
-                loc,
-            } = &name_info.ty
-            {
-                // we need to make sure the fields in the initialization are fields
-                // on the type
-                let mut found_error = false;
-                let mut ty_field_exprs = vec![];
-                for (field_name, field_expr) in fields {
-                    if !struct_fields.contains_key(&field_name.as_str()) {
-                        state.push_err(CheckerError::MemberDoesNotExist {
-                            given_ty: name.clone(),
-                            mem: field_name.as_str(),
-                            loc: field_name.get_source_ref(),
-                        });
-                        found_error = true;
-                        continue;
-                    }
-
-                    let struct_field_ty = struct_fields[&field_name.as_str()].clone();
-                    let (ty_field, ty_field_expr) =
-                        check_expr(field_expr, &Some(struct_field_ty), state);
-
-                    if ty_field.is_error_ty() {
-                        found_error = true;
-                        continue;
-                    }
-
-                    let ty_field_expr = ty_field_expr.unwrap();
-                    ty_field_exprs.push((field_name.as_str(), ty_field_expr));
-                }
-
-                if found_error {
-                    return (Ty::ErrorType { loc: loc.clone() }, None);
-                }
-
-                return (
-                    Ty::Struct {
-                        loc: loc.clone(),
-                        name: todo!(),
-                        fields: todo!(),
-                        funcs: todo!(),
-                    },
-                    Some(TyExpr::InitStruct {
-                        struct_name: struct_name.as_str(),
-                        fields: ty_field_exprs,
-                    }),
-                );
-            } else {
-                state.push_err(CheckerError::StructInitSyntaxOnNonStructType {
-                    given_ty: name_info.ty.as_str(),
-                    loc: struct_name.get_source_ref(),
-                });
-                (Ty::ErrorType { loc: loc.clone() }, None)
-            }
-        }
         Expr::CallFn { func, args, loc } => {
             let (func_ty, func_ty_expr) = check_expr(func, &None, state);
 
@@ -835,7 +763,74 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 return (Ty::ErrorType { loc: loc.clone() }, None);
             }
 
-            match func_ty {
+            match &func_ty {
+                Ty::Struct {
+                    name,
+                    funcs,
+                    init_func,
+                    ..
+                } => {
+                    // look for init() func
+                    if init_func.is_none() {
+                        state.push_err(CheckerError::StructHasNoInitFunction {
+                            given_ty: name.clone(),
+                            loc: func.get_source_ref(),
+                        });
+                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                    }
+
+                    let init_fn = &funcs[&"init".to_string()];
+
+                    if let Ty::Func { params, ret, .. } = init_fn {
+                        // make sure ret equals the struct ty
+                        if !ret.is_void() {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: func.get_source_ref(),
+                                expected: "void".into(),
+                                found: ret.as_str(),
+                            });
+                            return (Ty::ErrorType { loc: loc.clone() }, None);
+                        }
+
+                        // check parameters
+                        let fn_arity = params.len();
+                        if fn_arity != args.len() {
+                            state.push_err(CheckerError::IncorrectFunctionArity {
+                                func: func.as_str(),
+                                exp: fn_arity,
+                                given: args.len(),
+                                loc_given: loc.clone(),
+                            });
+                            return (Ty::ErrorType { loc: loc.clone() }, None);
+                        }
+
+                        let mut fn_ty_args = vec![];
+                        for (param_ty, arg) in params.iter().zip(args.iter()) {
+                            let (arg_ty, arg_ty_expr) =
+                                check_expr(arg, &Some(param_ty.clone()), state);
+
+                            if !arg_ty.is_error_ty() && !types_are_eq(param_ty, &arg_ty) {
+                                state.push_err(CheckerError::TypeMismatch {
+                                    loc: arg.get_source_ref(),
+                                    expected: param_ty.as_str(),
+                                    found: arg_ty.as_str(),
+                                });
+                            }
+                            if let Some(arg_ty_expr) = arg_ty_expr {
+                                fn_ty_args.push(arg_ty_expr);
+                            }
+                        }
+                        (
+                            func_ty.clone_loc(loc.clone()),
+                            Some(TyExpr::CallFn {
+                                func: Box::new(func_ty_expr.unwrap()),
+                                args: fn_ty_args,
+                            }),
+                        )
+                    } else {
+                        unreachable!("seman::check_expr(): found init with a non-function type.");
+                    }
+                }
                 Ty::Func { params, ret, loc } => {
                     let fn_arity = params.len();
                     if fn_arity != args.len() {
@@ -1949,6 +1944,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             fields,
             funcs,
             loc,
+            init_func,
         } => {
             // we will need to check the body and update the struct type under the name
             // as we get new information (fields, associated functions and methods)
@@ -1966,6 +1962,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 fields: HashMap::new(),
                 funcs: HashMap::new(),
                 loc: loc.clone(),
+                init_func: init_func.clone(),
             };
 
             let mut info = NameInfo {
@@ -1983,7 +1980,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 ty: struct_ty.clone(),
                 refs: vec![name.get_source_ref()],
                 is_const: false,
-                is_initialized: false,
+                is_initialized: true,
             };
             state.env.add("self".into(), self_info.clone());
 
@@ -2045,6 +2042,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
 
             state.scope_stack.pop();
             state.env.pop();
+            state.env.add(name.as_str(), info.clone());
             Some(TyIns::Struct {
                 name: name.as_str(),
                 fields: ty_fs,
@@ -2096,7 +2094,71 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
 
             Some(TyIns::Block { code: new_code })
         }
-        Ins::AssignTo { target, value, loc } => todo!(),
+        Ins::AssignTo { target, value, loc } => {
+            // determine if the target can be assigned to then do the assignment
+            let (ty_targ, ty_targ_expr) = check_expr(target, &None, state);
+
+            if ty_targ.is_error_ty() {
+                return None;
+            }
+
+            let mut cur = target;
+            let mut depth = 0;
+
+            loop {
+                match cur {
+                    Expr::Ident { name, loc } => {
+                        // check the environment to see if it is modifiable
+                        // we will need to check the body and update the struct type under the name
+                        // as we get new information (fields, associated functions and methods)
+                        let name_info = state.env.lookup(&name).unwrap();
+                        if name_info.is_const {
+                            state.push_err(CheckerError::CannotAssignToImmutableTarget {
+                                target: name.clone(),
+                                loc: loc.clone(),
+                            });
+                            return None;
+                        }
+
+                        if depth == 0 {
+                            name_info.is_initialized = true;
+                        }
+                        break;
+                    }
+                    Expr::IndexInto { target, index, loc } => {
+                        cur = target;
+                        depth += 1;
+                    }
+                    Expr::AccessMember { target, mem, loc } => {
+                        cur = target;
+                        depth += 1;
+                    }
+                    _ => state.push_err(CheckerError::CannotAssignToTarget {
+                        target: target.as_str(),
+                        loc: cur.get_source_ref(),
+                    }),
+                }
+            }
+
+            let (ty_val, ty_val_expr) = check_expr(value, &Some(ty_targ.clone()), state);
+            if ty_val.is_error_ty() {
+                return None;
+            }
+
+            if !types_are_eq(&ty_targ, &ty_val) {
+                state.push_err(CheckerError::TypeMismatch {
+                    loc: loc.clone(),
+                    expected: ty_targ.as_str(),
+                    found: ty_val.as_str(),
+                });
+                return None;
+            }
+
+            Some(TyIns::AssignTo {
+                target: ty_targ_expr.unwrap(),
+                val: ty_val_expr.unwrap(),
+            })
+        }
         Ins::ExprIns { expr, loc } => {
             let (expr_ty, expr_ty_expr) = check_expr(expr, &None, state);
 

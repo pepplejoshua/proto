@@ -135,14 +135,12 @@ impl Parser {
         let mut instructions = vec![];
         while !self.is_at_eof() {
             let ins = self.next_ins(true);
-            if !self.cur_deps.is_empty() {
-                let ins_id = ins.get_id();
+            let ins_id = ins.get_id();
 
-                if ins_id.is_some() {
-                    ood.insert(ins_id.unwrap(), self.cur_deps.clone());
-                }
-                self.cur_deps.clear();
+            if ins_id.is_some() {
+                ood.insert(ins_id.unwrap(), self.cur_deps.clone());
             }
+            self.cur_deps.clear();
             instructions.push(ins);
         }
 
@@ -525,7 +523,7 @@ impl Parser {
         }
     }
 
-    fn parse_struct_block(&mut self) -> (Vec<Ins>, Vec<Ins>, SourceRef) {
+    fn parse_struct_block(&mut self) -> (Option<usize>, Vec<Ins>, Vec<Ins>, SourceRef) {
         let mut block_loc = self.cur_token().get_source_ref();
         self.advance();
 
@@ -544,7 +542,7 @@ impl Parser {
 
             let ins = self.next_ins(true);
             block_loc = block_loc.combine(ins.get_source_ref());
-            match ins {
+            match &ins {
                 Ins::DeclConst { .. } | Ins::DeclVar { .. } => {
                     if !self.cur_deps.is_empty() {
                         struct_deps.extend(self.cur_deps.clone());
@@ -552,12 +550,12 @@ impl Parser {
                     }
                     fields.push(ins);
                 }
-                Ins::DeclFunc { .. } => {
-                    if !self.cur_deps.is_empty() {
-                        let ins_id = ins.get_id().unwrap();
-                        ood.insert(ins_id, self.cur_deps.clone());
-                        self.cur_deps.clear();
-                    }
+                Ins::DeclFunc { name, .. } => {
+                    // if !self.cur_deps.is_empty() {
+                    let ins_id = ins.get_id().unwrap();
+                    ood.insert(ins_id, self.cur_deps.clone());
+                    self.cur_deps.clear();
+                    // }
                     funcs.push(ins);
                 }
                 Ins::DeclStruct {
@@ -565,12 +563,13 @@ impl Parser {
                     fields,
                     funcs,
                     loc,
+                    init_func,
                 } => todo!(),
+                Ins::ErrorIns { msg, loc } => continue,
                 _ => {
                     // report error for unexpected Ins at this level
                     todo!()
                 }
-                Ins::ErrorIns { msg, loc } => continue,
             }
         }
 
@@ -594,23 +593,32 @@ impl Parser {
 
         let mut ood = self.topological_sort(&mut ood);
         let mut ood_funcs = vec![];
-        for node in ood.iter() {
-            let node = node.as_str();
-            let ins = funcs
-                .iter()
-                .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
-            if let Some(ins) = ins {
-                ood_funcs.push(ins.clone());
+        let mut init_func = None;
+        println!("funcs: {:#?}", funcs);
+        if !ood.is_empty() {
+            // for ins in funcs.iter() {
+            //     if !ood.contains(&ins.get_id().unwrap()) {}
+            // }
+            for node in ood.iter() {
+                let node = node.as_str();
+                let ins = funcs
+                    .iter()
+                    .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
+                if let Some(ins) = ins {
+                    if ins.get_id().unwrap() == "init" {
+                        init_func = Some(funcs.len());
+                        println!("struct init: {:?}", ins);
+                    }
+                    ood_funcs.push(ins.clone());
+                }
             }
-        }
-
-        if ood_funcs.is_empty() {
+        } else {
             ood_funcs = funcs;
         }
 
         self.cur_deps = struct_deps;
 
-        (fields, ood_funcs, block_loc)
+        (init_func, fields, ood_funcs, block_loc)
     }
 
     fn parse_struct(&mut self) -> Ins {
@@ -620,7 +628,7 @@ impl Parser {
         let struct_name = self.parse_identifier();
 
         self.scope.push(ParseScope::Struct);
-        let (fields, ood_funcs, struct_span) = self.parse_struct_block();
+        let (init_func, fields, ood_funcs, struct_span) = self.parse_struct_block();
         self.scope.pop();
 
         Ins::DeclStruct {
@@ -628,6 +636,7 @@ impl Parser {
             loc: struct_span,
             fields,
             funcs: ood_funcs,
+            init_func,
         }
     }
 
@@ -907,11 +916,7 @@ impl Parser {
                 loc,
                 is_interp: false,
             },
-            Token::Identifier(name, loc) => Ty::NamedType {
-                name,
-                loc,
-                type_underneath: None,
-            },
+            Token::Identifier(name, loc) => Ty::NamedType { name, loc },
             Token::Void(loc) => Ty::Void { loc },
             Token::LBracket(loc) => {
                 let sub_ty = Box::new(self.parse_type());
@@ -1384,82 +1389,6 @@ impl Parser {
                 Token::Dot(_) => {
                     let mut cur = self.cur_token();
                     match cur {
-                        // Struct Initialization
-                        Token::LParen(_) => {
-                            self.advance();
-                            let mut fields = vec![];
-                            let mut saw_rparen = false;
-                            while !self.is_at_eof() {
-                                cur = self.cur_token();
-
-                                // if we are not already at the end of the init list,
-                                // we can parse a field and value pairing
-                                if !matches!(cur, Token::RParen(_)) {
-                                    // field : value, || field,
-                                    let field = self.parse_primary();
-                                    let value = match self.cur_token() {
-                                        Token::Colon(_) => {
-                                            // there is a value to parse
-                                            self.advance();
-                                            self.parse_expr()
-                                        }
-                                        _ => field.clone(),
-                                    };
-                                    fields.push((field, value));
-                                }
-
-                                cur = self.cur_token();
-
-                                if matches!(cur, Token::RParen(_)) {
-                                    saw_rparen = true;
-                                    break;
-                                }
-
-                                if !matches!(cur, Token::Comma(_)) {
-                                    self.report_error(ParseError::Expected(
-                                        "a comma to separate field-value pairs or a right parenthesis to terminate the struct initialization expression.".to_string(),
-                                        cur.get_source_ref(),
-                                        None
-                                    ));
-                                    break;
-                                }
-
-                                self.advance();
-                            }
-
-                            let s_init_span = if saw_rparen {
-                                cur = self.cur_token();
-                                self.advance();
-                                lhs.get_source_ref().combine(cur.get_source_ref())
-                            } else {
-                                let last_pair = fields.last();
-                                let pair_span = if let Some(pair) = last_pair {
-                                    pair.1.get_source_ref()
-                                } else {
-                                    op.get_source_ref()
-                                };
-                                self.report_error(ParseError::Expected(
-                                    "a right parenthesis to terminate the struct initialization expression.".to_string(),
-                                    self.cur_token().get_source_ref(),
-                                    None
-                                ));
-                                lhs.get_source_ref().combine(pair_span)
-                            };
-
-                            if let Expr::Ident { name, loc } = &lhs {
-                                self.cur_deps.push(Dep {
-                                    ty: DepTy::Struct,
-                                    to: name.clone(),
-                                    loc: loc.clone(),
-                                });
-                            }
-
-                            lhs = Expr::InitStruct {
-                                struct_name: Box::new(lhs),
-                                fields,
-                                loc: s_init_span,
-                            };
-                        }
                         // Struct Member Access
                         _ => {
                             let member = self.parse_identifier();

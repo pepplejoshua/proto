@@ -210,6 +210,10 @@ pub enum TyIns {
     Block {
         code: Vec<TyIns>,
     },
+    AssignTo {
+        target: TyExpr,
+        val: TyExpr,
+    },
     ExprIns {
         expr: TyExpr,
     },
@@ -329,6 +333,9 @@ impl TyIns {
                     if *is_println { "println" } else { "print" },
                     output.as_str()
                 )
+            }
+            TyIns::AssignTo { target, val } => {
+                format!("{} = {};", target.as_str(), val.as_str())
             }
         }
     }

@@ -1,13 +1,13 @@
 fn main() int {
-    a :: Node(1);
+    a : Node : Node(1);
     return 0;
 }
 
 struct Node {
     n : int;
 
-    fn init(num: int) {
-        self.n = int;
+    fn init(num int) void {
+        self.n = num;
     }
 
     fn as_str() str {

@@ -189,8 +189,16 @@ pub enum CheckerError {
         mem: String,
         loc: SourceRef,
     },
-    StructInitSyntaxOnNonStructType {
+    StructHasNoInitFunction {
         given_ty: String,
+        loc: SourceRef,
+    },
+    CannotAssignToTarget {
+        target: String,
+        loc: SourceRef,
+    },
+    CannotAssignToImmutableTarget {
+        target: String,
         loc: SourceRef,
     },
     TooManyErrors,

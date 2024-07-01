@@ -566,8 +566,18 @@ impl SourceReporter {
                 let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::StructInitSyntaxOnNonStructType { given_ty, loc } => {
-                let msg = format!("Type '{given_ty}' is not a defined struct but was used as target of Struct Initialization syntax.");
+            CheckerError::StructHasNoInitFunction { given_ty, loc } => {
+                let msg =
+                    format!("struct '{given_ty}' does not provide an initialization function.");
+                let tip = format!("Provide initialization function with the signature 'fn init([any parameters]) {given_ty}'.");
+                self.report_with_ref(&loc, msg, Some(tip), false);
+            }
+            CheckerError::CannotAssignToTarget { target, loc } => {
+                let msg = format!("'{target}' cannot be assigned to.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::CannotAssignToImmutableTarget { target, loc } => {
+                let msg = format!("'{target}' is immutable and cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
         }

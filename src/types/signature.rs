@@ -50,13 +50,13 @@ pub enum Ty {
     },
     Struct {
         name: String,
+        init_func: Option<usize>,
         fields: HashMap<String, Ty>,
         funcs: HashMap<String, Ty>,
         loc: SourceRef,
     },
     NamedType {
         name: String,
-        type_underneath: Option<Box<Ty>>,
         loc: SourceRef,
     },
     Deferred {
@@ -200,11 +200,7 @@ impl Ty {
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
             Ty::Struct { name, .. } => name.clone(),
-            Ty::NamedType {
-                name,
-                type_underneath,
-                ..
-            } => format!("{name}"),
+            Ty::NamedType { name, .. } => format!("{name}"),
             Ty::ErrorType { .. } => "err!".into(),
             Ty::Deferred { loc } => format!("<deferred>"),
         }
