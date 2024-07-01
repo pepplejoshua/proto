@@ -566,6 +566,10 @@ impl SourceReporter {
                 let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::StructInitSyntaxOnNonStructType { given_ty, loc } => {
+                let msg = format!("Type '{given_ty}' is not a defined struct but was used as target of Struct Initialization syntax.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

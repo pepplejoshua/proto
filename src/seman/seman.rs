@@ -757,7 +757,77 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             struct_name,
             fields,
             loc,
-        } => todo!(),
+        } => {
+            // we will look for the struct type
+            let name_info = state.env.lookup(&struct_name.as_str());
+            if name_info.is_none() {
+                state.push_err(CheckerError::ReferenceToUndefinedName {
+                    loc: loc.clone(),
+                    var_name: struct_name.as_str(),
+                });
+                return (Ty::ErrorType { loc: loc.clone() }, None);
+            }
+
+            let name_info = name_info.unwrap().clone();
+            if let Ty::Struct {
+                name,
+                fields: struct_fields,
+                funcs,
+                loc,
+            } = &name_info.ty
+            {
+                // we need to make sure the fields in the initialization are fields
+                // on the type
+                let mut found_error = false;
+                let mut ty_field_exprs = vec![];
+                for (field_name, field_expr) in fields {
+                    if !struct_fields.contains_key(&field_name.as_str()) {
+                        state.push_err(CheckerError::MemberDoesNotExist {
+                            given_ty: name.clone(),
+                            mem: field_name.as_str(),
+                            loc: field_name.get_source_ref(),
+                        });
+                        found_error = true;
+                        continue;
+                    }
+
+                    let struct_field_ty = struct_fields[&field_name.as_str()].clone();
+                    let (ty_field, ty_field_expr) =
+                        check_expr(field_expr, &Some(struct_field_ty), state);
+
+                    if ty_field.is_error_ty() {
+                        found_error = true;
+                        continue;
+                    }
+
+                    let ty_field_expr = ty_field_expr.unwrap();
+                    ty_field_exprs.push((field_name.as_str(), ty_field_expr));
+                }
+
+                if found_error {
+                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                }
+
+                return (
+                    Ty::Struct {
+                        loc: loc.clone(),
+                        name: todo!(),
+                        fields: todo!(),
+                        funcs: todo!(),
+                    },
+                    Some(TyExpr::InitStruct {
+                        struct_name: struct_name.as_str(),
+                        fields: ty_field_exprs,
+                    }),
+                );
+            } else {
+                state.push_err(CheckerError::StructInitSyntaxOnNonStructType {
+                    given_ty: name_info.ty.as_str(),
+                    loc: struct_name.get_source_ref(),
+                });
+                (Ty::ErrorType { loc: loc.clone() }, None)
+            }
+        }
         Expr::CallFn { func, args, loc } => {
             let (func_ty, func_ty_expr) = check_expr(func, &None, state);
 
@@ -1238,12 +1308,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             };
 
             match &target_ty {
-                Ty::Struct {
-                    fields,
-                    assoc_funcs,
-                    methods,
-                    ..
-                } => {
+                Ty::Struct { fields, funcs, .. } => {
                     // we will check fields, assoc_funcs and methods
                     let field_ty = fields.get(&mem.as_str());
                     if let Some(field_ty) = field_ty {
@@ -1256,21 +1321,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         );
                     }
 
-                    let assoc_ty = assoc_funcs.get(&mem.as_str());
-                    if let Some(assoc_ty) = assoc_ty {
+                    let func_ty = funcs.get(&mem.as_str());
+                    if let Some(func_ty) = func_ty {
                         return (
-                            assoc_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                            }),
-                        );
-                    }
-
-                    let method_ty = methods.get(&mem.as_str());
-                    if let Some(method_ty) = method_ty {
-                        return (
-                            method_ty.clone(),
+                            func_ty.clone(),
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
@@ -1684,168 +1738,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             };
             ty_ins
         }
-        Ins::DeclMethod {
-            inst_name,
-            name,
-            params,
-            ret_type,
-            body,
-            loc,
-        } => {
-            // make sure name is not taken
-            let fn_info = state.env.lookup(&name.as_str());
-            if fn_info.is_some() {
-                state.push_err(CheckerError::NameAlreadyDefined {
-                    loc: name.get_source_ref(),
-                    name: name.as_str(),
-                });
-                return None;
-            }
-
-            // construct the function type and add it to the environment
-            let ret_ty = match type_is_valid(ret_type) {
-                Ok(_) => ret_type.clone(),
-                Err((e, e_loc)) => match e {
-                    TypeValidErr::Invalid => {
-                        state.push_err(CheckerError::InvalidType {
-                            loc: e_loc,
-                            type_name: ret_type.as_str(),
-                        });
-                        Ty::ErrorType {
-                            loc: ret_type.get_loc(),
-                        }
-                    }
-                    TypeValidErr::Incomplete => {
-                        state.push_err(CheckerError::IncompleteType {
-                            loc: e_loc,
-                            type_name: ret_type.as_str(),
-                        });
-                        Ty::ErrorType {
-                            loc: ret_type.get_loc(),
-                        }
-                    }
-                },
-            };
-
-            if ret_ty.is_error_ty() {
-                return None;
-            }
-
-            let mut fn_type_params = vec![];
-            let mut pairs_to_register = vec![];
-            for param in params.into_iter() {
-                let p_ty = match type_is_valid(&param.given_ty) {
-                    Ok(_) => param.given_ty.clone(),
-                    Err((e, e_loc)) => match e {
-                        TypeValidErr::Invalid => {
-                            state.push_err(CheckerError::InvalidType {
-                                loc: e_loc,
-                                type_name: param.given_ty.as_str(),
-                            });
-                            Ty::ErrorType {
-                                loc: param.given_ty.get_loc(),
-                            }
-                        }
-                        TypeValidErr::Incomplete => {
-                            state.push_err(CheckerError::IncompleteType {
-                                loc: e_loc,
-                                type_name: param.given_ty.as_str(),
-                            });
-                            Ty::ErrorType {
-                                loc: param.given_ty.get_loc(),
-                            }
-                        }
-                    },
-                };
-                fn_type_params.push(p_ty.clone());
-                pairs_to_register.push((
-                    param.name.as_str(),
-                    NameInfo {
-                        ty: p_ty,
-                        refs: vec![param.loc.clone()],
-                        is_const: true,
-                        is_initialized: true,
-                    },
-                ));
-            }
-
-            let fn_type = Ty::Func {
-                params: fn_type_params,
-                ret: Box::new(ret_ty.clone()),
-                loc: loc.clone(),
-            };
-
-            let fn_info = NameInfo {
-                ty: fn_type,
-                refs: vec![loc.clone()],
-                is_const: true,
-                is_initialized: true,
-            };
-            state.env.add(name.as_str(), fn_info);
-            // copy the current environment and preserve it so we can keep
-            // reset it back to it later
-            state.env.extend();
-            state.scope_stack.push(Scope::Func);
-
-            // add the instance variable to the environment
-            let ins_info = NameInfo {
-                ty: context_ty.as_ref().unwrap().clone(),
-                refs: vec![inst_name.get_source_ref()],
-                is_const: false,
-                is_initialized: true,
-            };
-            state.env.add(inst_name.as_str(), ins_info);
-
-            // add the pairs to the environment
-            let mut ty_params = vec![];
-            for (param_name, param_info) in pairs_to_register {
-                state.env.add(param_name.clone(), param_info.clone());
-                ty_params.push(TyFnParam {
-                    name: param_name,
-                    given_ty: param_info.ty,
-                });
-            }
-
-            // check the body
-            let old_enter_new_scope = state.enter_new_scope;
-            state.enter_new_scope = false;
-            let old_check_for_return = state.check_for_return;
-            state.check_for_return = true;
-            let new_body = if body.contains_sub_instructions() {
-                check_ins(body, &Some(ret_type.clone()), state)
-            } else {
-                let ty_i = check_ins(body, &Some(ret_type.clone()), state);
-                if !ret_ty.is_void() {
-                    state.push_err(CheckerError::Expected(
-                        format!(
-                            "2. a return statement with a value of type '{}'.",
-                            ret_ty.as_str()
-                        ),
-                        loc.clone(),
-                        None,
-                    ));
-                }
-                ty_i
-            };
-
-            if new_body.is_none() {
-                return None;
-            }
-
-            let new_body = new_body.unwrap();
-
-            // reset the scope info
-            state.enter_new_scope = old_enter_new_scope;
-            state.check_for_return = old_check_for_return;
-            state.scope_stack.pop();
-            state.env.pop();
-            Some(TyIns::Func {
-                name: name.as_str(),
-                params: ty_params,
-                ret_ty: ret_type.clone(),
-                body: Box::new(new_body),
-            })
-        }
         Ins::DeclFunc {
             name,
             params,
@@ -2072,8 +1964,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             let mut struct_ty = Ty::Struct {
                 name: name.as_str(),
                 fields: HashMap::new(),
-                assoc_funcs: HashMap::new(),
-                methods: HashMap::new(),
+                funcs: HashMap::new(),
                 loc: loc.clone(),
             };
 
@@ -2087,6 +1978,14 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             state.env.add(name.as_str(), info.clone());
             state.env.extend();
             state.scope_stack.push(Scope::Struct);
+            // add instance variable called self
+            let mut self_info = NameInfo {
+                ty: struct_ty.clone(),
+                refs: vec![name.get_source_ref()],
+                is_const: false,
+                is_initialized: false,
+            };
+            state.env.add("self".into(), self_info.clone());
 
             // println!("HERE1, {:#?}", fields);
             let mut ty_fs = vec![];
@@ -2107,7 +2006,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                                 fields.insert(f_name.clone(), v_info.ty.clone());
                             }
                             info.ty = struct_ty.clone();
+                            self_info.ty = struct_ty.clone();
                             state.env.add(name.as_str(), info.clone());
+                            state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in fields vec for Struct."),
                     }
@@ -2128,28 +2029,17 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                             if fn_info.ty.is_error_ty() {
                                 continue;
                             }
-                            if let Ty::Struct { assoc_funcs, .. } = &mut struct_ty {
-                                assoc_funcs.insert(fn_name.clone(), fn_info.ty.clone());
+                            if let Ty::Struct { funcs, .. } = &mut struct_ty {
+                                funcs.insert(fn_name.clone(), fn_info.ty.clone());
                             }
                             info.ty = struct_ty.clone();
+                            self_info.ty = struct_ty.clone();
                             state.env.add(name.as_str(), info.clone());
-                            ty_fns.push(ty_fn);
-                        }
-                        TyIns::Method { name: fn_name, .. } => {
-                            let fn_info = state.env.shallow_lookup(&fn_name).unwrap();
-
-                            if fn_info.ty.is_error_ty() {
-                                continue;
-                            }
-                            if let Ty::Struct { methods, .. } = &mut struct_ty {
-                                methods.insert(fn_name.clone(), fn_info.ty.clone());
-                            }
-                            info.ty = struct_ty.clone();
-                            state.env.add(name.as_str(), info.clone());
-                            ty_fns.push(ty_fn);
+                            state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in funcs vec for Struct."),
                     }
+                    ty_fns.push(ty_fn);
                 }
             }
 

@@ -189,6 +189,10 @@ pub enum CheckerError {
         mem: String,
         loc: SourceRef,
     },
+    StructInitSyntaxOnNonStructType {
+        given_ty: String,
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

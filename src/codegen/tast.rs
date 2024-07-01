@@ -48,6 +48,10 @@ pub enum TyExpr {
     StaticArray {
         vals: Vec<TyExpr>,
     },
+    InitStruct {
+        struct_name: String,
+        fields: Vec<(String, TyExpr)>,
+    },
     InterpolatedString {
         parts: Vec<TyExpr>,
     },
@@ -166,6 +170,10 @@ impl TyExpr {
                 Some(v) => format!("some({})", v.as_str()),
                 None => format!("none"),
             },
+            TyExpr::InitStruct {
+                struct_name,
+                fields,
+            } => todo!(),
         }
     }
 }
@@ -189,13 +197,6 @@ pub enum TyIns {
         init: Option<TyExpr>,
     },
     Func {
-        name: String,
-        params: Vec<TyFnParam>,
-        ret_ty: Ty,
-        body: Box<TyIns>,
-    },
-    Method {
-        inst_name: String,
         name: String,
         params: Vec<TyFnParam>,
         ret_ty: Ty,
@@ -279,24 +280,6 @@ impl TyIns {
                 let params_str = params_str.join(", ");
                 format!(
                     "fn {name}({params_str}) {}\n{}",
-                    ret_ty.as_str(),
-                    body.as_str()
-                )
-            }
-            TyIns::Method {
-                inst_name,
-                name,
-                params,
-                ret_ty,
-                body,
-            } => {
-                let params_str = params
-                    .iter()
-                    .map(|fn_param| format!("{} {}", fn_param.name, fn_param.given_ty.as_str()))
-                    .collect::<Vec<String>>();
-                let params_str = params_str.join(", ");
-                format!(
-                    "fn [{inst_name}] {name}({params_str}) {}\n{}",
                     ret_ty.as_str(),
                     body.as_str()
                 )

@@ -51,8 +51,7 @@ pub enum Ty {
     Struct {
         name: String,
         fields: HashMap<String, Ty>,
-        assoc_funcs: HashMap<String, Ty>,
-        methods: HashMap<String, Ty>,
+        funcs: HashMap<String, Ty>,
         loc: SourceRef,
     },
     NamedType {
@@ -200,27 +199,7 @@ impl Ty {
             }
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
-            Ty::Struct { name, .. } => {
-                name.clone()
-                // format!(
-                //     "{}\n{}\n{}",
-                //     fields
-                //         .iter()
-                //         .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
-                //         .collect::<Vec<String>>()
-                //         .join("\n"),
-                //     methods
-                //         .iter()
-                //         .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
-                //         .collect::<Vec<String>>()
-                //         .join("\n"),
-                //     assoc_funcs
-                //         .iter()
-                //         .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
-                //         .collect::<Vec<String>>()
-                //         .join("\n"),
-                // )
-            }
+            Ty::Struct { name, .. } => name.clone(),
             Ty::NamedType {
                 name,
                 type_underneath,

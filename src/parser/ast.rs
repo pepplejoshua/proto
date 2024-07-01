@@ -332,14 +332,6 @@ pub enum Ins {
         init_val: Option<Expr>,
         loc: SourceRef,
     },
-    DeclMethod {
-        inst_name: Expr,
-        name: Expr,
-        params: Vec<FnParam>,
-        ret_type: Ty,
-        body: Box<Ins>,
-        loc: SourceRef,
-    },
     DeclFunc {
         name: Expr,
         params: Vec<FnParam>,
@@ -403,7 +395,6 @@ impl Ins {
             | Ins::AssignTo { loc, .. }
             | Ins::Return { loc, .. }
             | Ins::DeclFunc { loc, .. }
-            | Ins::DeclMethod { loc, .. }
             | Ins::SingleLineComment { loc, .. }
             | Ins::ExprIns { loc, .. }
             | Ins::DeclStruct { loc, .. }
@@ -425,7 +416,6 @@ impl Ins {
         match self {
             Ins::DeclConst { name, .. }
             | Ins::DeclVar { name, .. }
-            | Ins::DeclMethod { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclStruct { name, .. }
             | Ins::DeclModule { name, .. } => Some(name.as_str()),
@@ -482,30 +472,6 @@ impl Ins {
                     }
                 },
             },
-            Ins::DeclMethod {
-                inst_name,
-                name,
-                params,
-                ret_type,
-                body,
-                ..
-            } => {
-                let params_str: Vec<String> = params
-                    .iter()
-                    .map(|fn_param| {
-                        format!("{} {}", fn_param.name.as_str(), fn_param.given_ty.as_str())
-                    })
-                    .collect();
-                let params_str = params_str.join(", ");
-                let mut buf = format!(
-                    "fn [{}] {}({params_str}) {}\n{}",
-                    inst_name.as_str(),
-                    name.as_str(),
-                    ret_type.as_str(),
-                    body.as_str()
-                );
-                buf
-            }
             Ins::DeclFunc {
                 name,
                 params,

@@ -443,29 +443,6 @@ impl Parser {
         let start = self.cur_token();
         self.advance();
 
-        let can_parse_methods = *(self.scope.last().unwrap()) == ParseScope::Struct;
-
-        let inst_name = if can_parse_methods {
-            if matches!(self.cur_token(), Token::LBracket(_)) {
-                self.advance();
-                let inst_name = self.parse_identifier();
-                if !matches!(self.cur_token(), Token::RBracket(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a right bracket (]) to terminate instance name section.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                } else {
-                    self.advance();
-                }
-                Some(inst_name)
-            } else {
-                None
-            }
-        } else {
-            None
-        };
-
         let fn_name = self.parse_identifier();
 
         let mut cur = self.cur_token();
@@ -539,23 +516,12 @@ impl Parser {
         self.scope.pop();
         let fn_span = start.get_source_ref().combine(body.get_source_ref());
 
-        if can_parse_methods && inst_name.is_some() {
-            Ins::DeclMethod {
-                inst_name: inst_name.unwrap(),
-                name: fn_name,
-                params,
-                ret_type,
-                body: Box::new(body),
-                loc: fn_span,
-            }
-        } else {
-            Ins::DeclFunc {
-                name: fn_name,
-                params,
-                ret_type,
-                body: Box::new(body),
-                loc: fn_span,
-            }
+        Ins::DeclFunc {
+            name: fn_name,
+            params,
+            ret_type,
+            body: Box::new(body),
+            loc: fn_span,
         }
     }
 
@@ -586,7 +552,7 @@ impl Parser {
                     }
                     fields.push(ins);
                 }
-                Ins::DeclMethod { .. } | Ins::DeclFunc { .. } => {
+                Ins::DeclFunc { .. } => {
                     if !self.cur_deps.is_empty() {
                         let ins_id = ins.get_id().unwrap();
                         ood.insert(ins_id, self.cur_deps.clone());

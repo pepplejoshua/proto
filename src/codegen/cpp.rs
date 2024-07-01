@@ -340,6 +340,10 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 format!("{{}}")
             }
         }
+        TyExpr::InitStruct {
+            struct_name,
+            fields,
+        } => todo!(),
     }
 }
 
@@ -389,40 +393,36 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             } else {
                 format!("\n{}", cpp_gen_ins(body, state))
             };
-            buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
-        }
-        TyIns::Method {
-            inst_name,
-            name,
-            params,
-            ret_ty,
-            body,
-        } => {
-            let ret_ty_s = cpp_gen_ty(ret_ty, state);
-            let params_s = params
-                .iter()
-                .map(|param| {
-                    format!(
-                        "{} {}",
-                        cpp_gen_ty(&param.given_ty, state),
-                        param.name.as_str()
-                    )
-                })
-                .collect::<Vec<String>>();
-            let params_s = params_s.join(", ");
-            let body_s = if !matches!(**body, TyIns::Block { code: _ }) {
-                format!(" {{ {} }}", cpp_gen_ins(body, state))
-            } else {
-                format!("\n{}", cpp_gen_ins(body, state))
-            };
-            buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
+            buf = format!("{}{ret_ty_s} {name}({params_s}){body_s}\n", state.get_pad());
         }
         TyIns::Struct {
             name,
             fields,
             funcs,
         } => {
-            todo!()
+            buf = format!("{}struct {name} {{\n", state.get_pad());
+            state.indent();
+            // write code for instance variable, self
+            buf.push_str(&format!("{}{name}& self = *this;\n", state.get_pad()));
+
+            // write all fields
+            for f in fields {
+                let mut ins_str = cpp_gen_ins(f, state);
+                ins_str.push('\n');
+                buf.push_str(&ins_str);
+            }
+
+            if !funcs.is_empty() {
+                // write all functions
+                for func in funcs {
+                    buf.push('\n');
+                    let mut ins_str = cpp_gen_ins(func, state);
+                    buf.push_str(&ins_str);
+                }
+            }
+
+            state.dedent();
+            buf.push_str(&format!("{}}};", state.get_pad()));
         }
         TyIns::Block { code } => {
             buf = format!("{}{{\n", state.get_pad());
