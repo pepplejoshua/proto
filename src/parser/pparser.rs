@@ -713,7 +713,11 @@ impl Parser {
                 loc,
                 is_interp: false,
             },
-            Token::Identifier(name, loc) => Ty::UserDefined { name, loc },
+            Token::Identifier(name, loc) => Ty::NamedType {
+                name,
+                loc,
+                type_underneath: None,
+            },
             Token::Void(loc) => Ty::Void { loc },
             Token::LBracket(loc) => {
                 let sub_ty = Box::new(self.parse_type());

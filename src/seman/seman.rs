@@ -76,6 +76,12 @@ pub enum Scope {
 }
 
 #[derive(Debug, Clone)]
+pub enum DeferredCheck {
+    Call { context_ty: Ty, call_expr: Expr },
+    IdentifierRef { context_ty: Ty, name: Expr },
+}
+
+#[derive(Debug, Clone)]
 pub struct State {
     src: SourceFile,
     env: TypeEnv,
@@ -83,6 +89,7 @@ pub struct State {
     scope_stack: Vec<Scope>,
     enter_new_scope: bool,
     check_for_return: bool,
+    deferred_checks: Vec<DeferredCheck>,
 }
 
 impl State {
@@ -94,6 +101,7 @@ impl State {
             scope_stack: vec![Scope::TopLevel],
             enter_new_scope: true,
             check_for_return: false,
+            deferred_checks: vec![],
         }
     }
 
@@ -544,7 +552,6 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             }
         }
         Expr::Ident { name, loc } => {
-            // check to see if it is a builtin name
             let i_ty = state.env.lookup(name);
             match i_ty {
                 Some(info) => {
@@ -2000,6 +2007,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             })
         }
         Ins::DeclStruct { name, body, loc } => {
+            // we will need to check the body and update the struct type under the name
+            // as we get new information (fields, associated functions and methods)
             todo!()
         }
         Ins::DeclModule { name, body, loc } => todo!(),

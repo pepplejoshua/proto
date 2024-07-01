@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::borrow::BorrowMut;
+use std::{borrow::BorrowMut, collections::HashMap};
 
 use crate::{parser::ast::Expr, source::source::SourceRef};
 
@@ -48,8 +48,18 @@ pub enum Ty {
         sub_ty: Box<Ty>,
         loc: SourceRef,
     },
-    UserDefined {
+    Struct {
+        fields: HashMap<String, Ty>,
+        assoc_funcs: Vec<Ty>,
+        methods: Vec<Ty>,
+        loc: SourceRef,
+    },
+    NamedType {
         name: String,
+        type_underneath: Option<Box<Ty>>,
+        loc: SourceRef,
+    },
+    Deferred {
         loc: SourceRef,
     },
     ErrorType {
@@ -119,7 +129,9 @@ impl Ty {
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
-            | Ty::UserDefined { loc, .. }
+            | Ty::Struct { loc, .. }
+            | Ty::NamedType { loc, .. }
+            | Ty::Deferred { loc }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -135,8 +147,10 @@ impl Ty {
             | Ty::Func { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
-            | Ty::UserDefined { loc, .. }
+            | Ty::Struct { loc, .. }
+            | Ty::NamedType { loc, .. }
             | Ty::Optional { loc, .. }
+            | Ty::Deferred { loc }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
@@ -185,8 +199,38 @@ impl Ty {
             }
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
-            Ty::UserDefined { name, .. } => format!("{name}"),
+            Ty::Struct {
+                fields,
+                assoc_funcs,
+                methods,
+                ..
+            } => {
+                format!(
+                    "{}\n{}\n{}",
+                    fields
+                        .iter()
+                        .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    methods
+                        .iter()
+                        .map(|m| { m.as_str() })
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                    assoc_funcs
+                        .iter()
+                        .map(|m| { m.as_str() })
+                        .collect::<Vec<String>>()
+                        .join("\n"),
+                )
+            }
+            Ty::NamedType {
+                name,
+                type_underneath,
+                ..
+            } => format!("{name}"),
             Ty::ErrorType { .. } => "err!".into(),
+            Ty::Deferred { loc } => format!("<deferred>"),
         }
     }
 

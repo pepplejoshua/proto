@@ -1,6 +1,8 @@
 fn main() int {
-    a :: "hello";
-    b :: "world";
-    println(`{a != b}`);
+    a :: add(1, 2);
     return 0;
+}
+
+fn add(a int, b int) int {
+    return a + b;
 }
