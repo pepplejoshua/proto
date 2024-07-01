@@ -365,6 +365,10 @@ impl SourceReporter {
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
+            ParseError::CyclicalDependencyBetweenNodes { cycle, src } => {
+                let msg = format!("Cyclical dependency detected: '{}'.", cycle);
+                self.report_with_ref(&src, msg, None, false);
+            }
         }
     }
 

@@ -27,26 +27,28 @@ pub enum ParseError {
     MisuseOfPubKeyword(SourceRef),
     UnterminatedCodeBlock(SourceRef, Option<String>),
     ReturnInstructionOutsideFunction(SourceRef),
+    CyclicalDependencyBetweenNodes { cycle: String, src: SourceRef },
     TooManyErrors(SourceRef),
 }
 
 impl ParseError {
     pub fn get_error_src(&self) -> SourceRef {
         match self {
-            ParseError::Expected(_, src, _) => src.clone(),
-            ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => src.clone(),
-            ParseError::CannotParseAnExpression(src) => src.clone(),
-            ParseError::CannotParseAType(src) => src.clone(),
-            ParseError::MalformedDeclaration(_, src) => src.clone(),
-            ParseError::NoCodeBlockAllowedInCurrentContext(src) => src.clone(),
-            ParseError::NoLoopAtTopLevel(src) => src.clone(),
-            ParseError::NoBreakOutsideLoop(src) => src.clone(),
-            ParseError::NoContinueOutsideLoop(src) => src.clone(),
-            ParseError::MisuseOfPubKeyword(src) => src.clone(),
-            ParseError::UnterminatedCodeBlock(src, _) => src.clone(),
-            ParseError::ReturnInstructionOutsideFunction(src) => src.clone(),
-            ParseError::TooManyErrors(src) => src.clone(),
-            ParseError::NoVariableAtCurrentScope(src) => src.clone(),
+            ParseError::Expected(_, src, _)
+            | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
+            | ParseError::CannotParseAnExpression(src)
+            | ParseError::CannotParseAType(src)
+            | ParseError::MalformedDeclaration(_, src)
+            | ParseError::NoCodeBlockAllowedInCurrentContext(src)
+            | ParseError::NoLoopAtTopLevel(src)
+            | ParseError::NoBreakOutsideLoop(src)
+            | ParseError::NoContinueOutsideLoop(src)
+            | ParseError::MisuseOfPubKeyword(src)
+            | ParseError::UnterminatedCodeBlock(src, _)
+            | ParseError::ReturnInstructionOutsideFunction(src)
+            | ParseError::TooManyErrors(src)
+            | ParseError::CyclicalDependencyBetweenNodes { src, .. }
+            | ParseError::NoVariableAtCurrentScope(src) => src.clone(),
         }
     }
 }

@@ -1,5 +1,7 @@
 #![allow(unused)]
 
+use std::collections::HashMap;
+
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::ast::FnParam,
@@ -21,12 +23,26 @@ enum ParseScope {
     Loop,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum DepTy {
+    Func,
+    Struct,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+struct Dep {
+    ty: DepTy,
+    to: String,
+    loc: SourceRef,
+}
+
 pub struct Parser {
     pub lexer: Lexer,
     pub lex_errs: Vec<LexError>,
     pub parse_errs: Vec<ParseError>,
     pub parse_warns: Vec<ParseWarning>,
     pub file_mod: FileModule,
+    cur_deps: Vec<Dep>,
     scope: Vec<ParseScope>,
     lexed_token: Option<Token>,
 }
@@ -41,6 +57,7 @@ impl Parser {
             file_mod: FileModule::new(),
             scope: vec![ParseScope::TopLevel],
             lexed_token: None,
+            cur_deps: vec![],
         };
 
         p.advance();
@@ -114,10 +131,120 @@ impl Parser {
     }
 
     pub fn parse_file(&mut self) {
+        let mut ood = HashMap::new();
+        let mut ins_count = 0;
+        let mut instructions = vec![];
         while !self.is_at_eof() {
             let ins = self.next_ins(true);
-            self.file_mod.top_level.push(ins);
+            let ins_id = ins.get_id();
+            if ins_id.is_some() {
+                ood.insert(ins_id.unwrap(), self.cur_deps.clone());
+            }
+            ins_count += 1;
+            self.cur_deps.clear();
+            instructions.push(ins);
         }
+
+        // topological sort will be done here. It will detect cycles and report them
+        let mut ood = self.topological_sort(&mut ood);
+
+        // sort the instructions based on the topological sort
+        let mut sorted_ins = vec![];
+        for node in ood.iter() {
+            let node = node.as_str();
+            let ins = instructions
+                .iter()
+                .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
+            if let Some(ins) = ins {
+                sorted_ins.push(ins.clone());
+            }
+        }
+
+        self.file_mod.top_level = sorted_ins;
+    }
+
+    fn topological_sort(&mut self, ood: &mut HashMap<String, Vec<Dep>>) -> Vec<String> {
+        let mut sorted = vec![];
+        let mut visited = HashMap::new();
+        let mut cycle = vec![];
+        let mut cycle_found = false;
+        let mut found_error = false;
+
+        for node in ood.keys() {
+            if !visited.contains_key(node) {
+                if let Some(_) = self.visit(
+                    node,
+                    ood,
+                    &mut visited,
+                    &mut sorted,
+                    &mut cycle,
+                    &mut cycle_found,
+                ) {
+                    found_error = true;
+                    cycle_found = false;
+                    cycle.clear();
+                    continue;
+                }
+            }
+        }
+        if found_error {
+            vec![]
+        } else {
+            sorted
+        }
+    }
+
+    fn visit(
+        &mut self,
+        node: &str,
+        ood: &HashMap<String, Vec<Dep>>,
+        visited: &mut HashMap<String, bool>,
+        sorted: &mut Vec<String>,
+        cycle: &mut Vec<String>,
+        cycle_found: &mut bool,
+    ) -> Option<()> {
+        if let Some(&is_visited) = visited.get(node) {
+            if is_visited {
+                return None;
+            } else {
+                return Some(());
+            }
+        } else {
+        }
+
+        visited.insert(node.to_string(), false);
+        cycle.push(node.to_string());
+
+        if let Some(deps) = ood.get(node) {
+            for dep in deps.iter() {
+                // self dependency is allowed
+                if dep.to == node {
+                    continue;
+                }
+                if let Some(_) = self.visit(&dep.to, ood, visited, sorted, cycle, cycle_found) {
+                    if !*cycle_found {
+                        cycle.push(dep.to.clone());
+                        let mut cycle_str = cycle.join(" -> ");
+                        self.report_error(ParseError::CyclicalDependencyBetweenNodes {
+                            cycle: cycle_str,
+                            src: dep.loc.clone(),
+                        });
+                        // pop dep.to
+                        cycle.pop();
+                        // pop node
+                        cycle.pop();
+                        *cycle_found = true;
+                    }
+                    visited.insert(node.to_string(), true);
+                    return Some(());
+                }
+            }
+        }
+
+        visited.insert(node.to_string(), true);
+        cycle.pop();
+        sorted.push(node.to_string());
+        None
     }
 
     fn next_ins(&mut self, use_new_scope: bool) -> Ins {
@@ -427,6 +554,14 @@ impl Parser {
 
         self.scope.push(ParseScope::Struct);
         let body = self.parse_block(false);
+
+        // let mut fields = vec![];
+        // let mut methods = vec![];
+        // let mut assoc_fields = vec![];
+        // if let Ins::Block { code, .. } = body {
+        //     todo!()
+        // }
+
         self.scope.pop();
         let struct_span = start.get_source_ref().combine(body.get_source_ref());
 
@@ -1085,6 +1220,14 @@ impl Parser {
                         ));
                     }
 
+                    if let Expr::Ident { name, loc } = &lhs {
+                        self.cur_deps.push(Dep {
+                            ty: DepTy::Func,
+                            to: name.clone(),
+                            loc: loc.clone(),
+                        });
+                    }
+
                     lhs = Expr::CallFn {
                         func: Box::new(lhs),
                         args,
@@ -1235,6 +1378,14 @@ impl Parser {
                                 ));
                                 lhs.get_source_ref().combine(pair_span)
                             };
+
+                            if let Expr::Ident { name, loc } = &lhs {
+                                self.cur_deps.push(Dep {
+                                    ty: DepTy::Struct,
+                                    to: name.clone(),
+                                    loc: loc.clone(),
+                                });
+                            }
 
                             lhs = Expr::InitStruct {
                                 struct_name: Box::new(lhs),

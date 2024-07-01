@@ -20,30 +20,25 @@ pub struct NameInfo {
     refs: Vec<SourceRef>,
     is_const: bool,
     is_initialized: bool,
-    depth: usize,
 }
 
 #[derive(Debug, Clone)]
 struct TypeEnv {
     vars: Vec<HashMap<String, NameInfo>>,
-    depth: usize,
 }
 
 impl TypeEnv {
     fn new() -> Self {
         TypeEnv {
             vars: vec![HashMap::new()],
-            depth: 0,
         }
     }
 
     fn extend(&mut self) {
-        self.depth += 1;
         self.vars.push(HashMap::new());
     }
 
     fn pop(&mut self) {
-        self.depth -= 1;
         self.vars.pop();
     }
 
@@ -1539,7 +1534,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
-                depth: state.env.depth,
             };
             state.env.add(name.as_str(), info);
             ty_ins
@@ -1587,7 +1581,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
-                        depth: state.env.depth,
                     };
                     state.env.add(name.as_str(), info);
                     ty_ins
@@ -1607,7 +1600,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: false,
-                        depth: state.env.depth,
                     };
                     state.env.add(name.as_str(), info);
                     Some(TyIns::Var {
@@ -1623,7 +1615,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
-                        depth: state.env.depth,
                     };
 
                     let ty_ins = if expr_ty.is_error_ty() {
@@ -1727,7 +1718,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         refs: vec![param.loc.clone()],
                         is_const: true,
                         is_initialized: true,
-                        depth: state.env.depth + 1,
                     },
                 ));
             }
@@ -1743,7 +1733,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
-                depth: state.env.depth,
             };
             state.env.add(name.as_str(), fn_info);
             // copy the current environment and preserve it so we can keep
@@ -1878,7 +1867,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         refs: vec![param.loc.clone()],
                         is_const: true,
                         is_initialized: true,
-                        depth: state.env.depth + 1,
                     },
                 ));
             }
@@ -1894,7 +1882,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
-                depth: state.env.depth,
             };
             state.env.add(name.as_str(), fn_info);
             // copy the current environment and preserve it so we can keep

@@ -420,6 +420,25 @@ impl Ins {
         }
     }
 
+    pub fn get_id(&self) -> Option<String> {
+        match self {
+            Ins::DeclConst { name, .. }
+            | Ins::DeclVar { name, .. }
+            | Ins::DeclMethod { name, .. }
+            | Ins::DeclFunc { name, .. }
+            | Ins::DeclStruct { name, .. }
+            | Ins::DeclModule { name, .. } => Some(name.as_str()),
+            Ins::Block { .. }
+            | Ins::AssignTo { .. }
+            | Ins::ExprIns { .. }
+            | Ins::IfConditional { .. }
+            | Ins::Return { .. }
+            | Ins::SingleLineComment { .. }
+            | Ins::PrintIns { .. }
+            | Ins::ErrorIns { .. } => None,
+        }
+    }
+
     pub fn as_str(&self) -> String {
         match self {
             Ins::DeclConst {
