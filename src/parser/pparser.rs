@@ -594,7 +594,6 @@ impl Parser {
         let mut ood = self.topological_sort(&mut ood);
         let mut ood_funcs = vec![];
         let mut init_func = None;
-        println!("funcs: {:#?}", funcs);
         if !ood.is_empty() {
             // for ins in funcs.iter() {
             //     if !ood.contains(&ins.get_id().unwrap()) {}
@@ -607,7 +606,6 @@ impl Parser {
                 if let Some(ins) = ins {
                     if ins.get_id().unwrap() == "init" {
                         init_func = Some(funcs.len());
-                        println!("struct init: {:?}", ins);
                     }
                     ood_funcs.push(ins.clone());
                 }

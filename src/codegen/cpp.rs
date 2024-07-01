@@ -222,7 +222,7 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             let sub_ty = cpp_gen_ty(sub_ty, state);
             format!("Option<{sub_ty}>")
         }
-        Ty::NamedType { name, .. } => name.clone(),
+        Ty::NamedType { name, .. } | Ty::Struct { name, .. } => name.clone(),
         _ => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
@@ -412,9 +412,39 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 buf.push_str(&ins_str);
             }
 
+            // write initializer
             if !funcs.is_empty() {
                 // write all functions
                 for func in funcs {
+                    if let TyIns::Func {
+                        name: fn_name,
+                        params,
+                        body,
+                        ..
+                    } = func
+                    {
+                        if fn_name == "init" {
+                            buf.push_str(&format!(
+                                "\n{}{}({})",
+                                state.get_pad(),
+                                name,
+                                params
+                                    .iter()
+                                    .map(|param| {
+                                        format!(
+                                            "{} {}",
+                                            cpp_gen_ty(&param.given_ty, state),
+                                            param.name.as_str()
+                                        )
+                                    })
+                                    .collect::<Vec<String>>()
+                                    .join(", ")
+                            ));
+
+                            buf.push_str(&format!("\n{}", cpp_gen_ins(body, state)));
+                            continue;
+                        }
+                    }
                     buf.push('\n');
                     let mut ins_str = cpp_gen_ins(func, state);
                     buf.push_str(&ins_str);
@@ -486,7 +516,8 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
         }
         TyIns::AssignTo { target, val } => {
             buf = format!(
-                "{} = {};",
+                "{}{} = {};",
+                state.get_pad(),
                 cpp_gen_expr(target, state),
                 cpp_gen_expr(val, state)
             );
