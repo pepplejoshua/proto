@@ -417,6 +417,13 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             };
             buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
         }
+        TyIns::Struct {
+            name,
+            fields,
+            funcs,
+        } => {
+            todo!()
+        }
         TyIns::Block { code } => {
             buf = format!("{}{{\n", state.get_pad());
             state.indent();

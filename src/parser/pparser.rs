@@ -146,13 +146,13 @@ impl Parser {
             instructions.push(ins);
         }
 
-        for (ins_s, deps) in ood.iter() {
-            println!("{ins_s}");
-            for dep in deps.iter() {
-                println!("  - {}", dep.to);
-            }
-            println!()
-        }
+        // for (ins_s, deps) in ood.iter() {
+        //     println!("{ins_s}");
+        //     for dep in deps.iter() {
+        //         println!("  - {}", dep.to);
+        //     }
+        //     println!()
+        // }
 
         // topological sort will be done here. It will detect cycles and report them
         let mut ood = self.topological_sort(&mut ood);
@@ -618,13 +618,13 @@ impl Parser {
             self.advance();
         }
 
-        for (ins_s, deps) in ood.iter() {
-            println!("{ins_s}");
-            for dep in deps.iter() {
-                println!("  - {}", dep.to);
-            }
-            println!()
-        }
+        // for (ins_s, deps) in ood.iter() {
+        //     println!("{ins_s}");
+        //     for dep in deps.iter() {
+        //         println!("  - {}", dep.to);
+        //     }
+        //     println!()
+        // }
 
         let mut ood = self.topological_sort(&mut ood);
         let mut ood_funcs = vec![];

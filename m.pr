@@ -1,19 +1,14 @@
 fn main() int {
-    a :: Node.(n: 1);
+    // a :: Node.(n: 1);
     return 0;
 }
 
 struct Node {
     n : int;
 
-    fn [n] show() void {
-        n.does_nothing();
-        println(n.as_str());
-    }
-
-    fn [n] as_str() str {
-        n.does_nothing();
-        return `{n}`;
+    fn [no] as_str() str {
+        no.does_nothing();
+        return `{no.n}`;
     }
 
     fn does_nothing() void {}

@@ -201,6 +201,11 @@ pub enum TyIns {
         ret_ty: Ty,
         body: Box<TyIns>,
     },
+    Struct {
+        name: String,
+        fields: Vec<TyIns>,
+        funcs: Vec<TyIns>,
+    },
     Block {
         code: Vec<TyIns>,
     },
@@ -231,6 +236,35 @@ impl TyIns {
                 } else {
                     format!("{name} : {};", ty.as_str())
                 }
+            }
+            TyIns::Struct {
+                name,
+                fields,
+                funcs,
+            } => {
+                let mut buf = vec![format!("struct {}", name.as_str())];
+
+                if !fields.is_empty() {
+                    buf.push(format!(
+                        "{}",
+                        fields
+                            .iter()
+                            .map(|f| f.as_str())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    ))
+                }
+                if !funcs.is_empty() {
+                    buf.push(format!(
+                        "\n{}",
+                        funcs
+                            .iter()
+                            .map(|f| f.as_str())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    ))
+                }
+                buf.join("\n")
             }
             TyIns::Func {
                 name,
