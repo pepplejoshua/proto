@@ -50,8 +50,8 @@ pub enum Ty {
     },
     Struct {
         fields: HashMap<String, Ty>,
-        assoc_funcs: Vec<Ty>,
-        methods: Vec<Ty>,
+        assoc_funcs: HashMap<String, Ty>,
+        methods: HashMap<String, Ty>,
         loc: SourceRef,
     },
     NamedType {
@@ -214,12 +214,12 @@ impl Ty {
                         .join("\n"),
                     methods
                         .iter()
-                        .map(|m| { m.as_str() })
+                        .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
                         .collect::<Vec<String>>()
                         .join("\n"),
                     assoc_funcs
                         .iter()
-                        .map(|m| { m.as_str() })
+                        .map(|(name, ty)| { format!("{name} : {}", ty.as_str()) })
                         .collect::<Vec<String>>()
                         .join("\n"),
                 )

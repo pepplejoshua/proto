@@ -391,6 +391,32 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             };
             buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
         }
+        TyIns::Method {
+            inst_name,
+            name,
+            params,
+            ret_ty,
+            body,
+        } => {
+            let ret_ty_s = cpp_gen_ty(ret_ty, state);
+            let params_s = params
+                .iter()
+                .map(|param| {
+                    format!(
+                        "{} {}",
+                        cpp_gen_ty(&param.given_ty, state),
+                        param.name.as_str()
+                    )
+                })
+                .collect::<Vec<String>>();
+            let params_s = params_s.join(", ");
+            let body_s = if !matches!(**body, TyIns::Block { code: _ }) {
+                format!(" {{ {} }}", cpp_gen_ins(body, state))
+            } else {
+                format!("\n{}", cpp_gen_ins(body, state))
+            };
+            buf = format!("{ret_ty_s} {name}({params_s}){body_s}\n");
+        }
         TyIns::Block { code } => {
             buf = format!("{}{{\n", state.get_pad());
             state.indent();

@@ -194,6 +194,13 @@ pub enum TyIns {
         ret_ty: Ty,
         body: Box<TyIns>,
     },
+    Method {
+        inst_name: String,
+        name: String,
+        params: Vec<TyFnParam>,
+        ret_ty: Ty,
+        body: Box<TyIns>,
+    },
     Block {
         code: Vec<TyIns>,
     },
@@ -238,6 +245,24 @@ impl TyIns {
                 let params_str = params_str.join(", ");
                 format!(
                     "fn {name}({params_str}) {}\n{}",
+                    ret_ty.as_str(),
+                    body.as_str()
+                )
+            }
+            TyIns::Method {
+                inst_name,
+                name,
+                params,
+                ret_ty,
+                body,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|fn_param| format!("{} {}", fn_param.name, fn_param.given_ty.as_str()))
+                    .collect::<Vec<String>>();
+                let params_str = params_str.join(", ");
+                format!(
+                    "fn [{inst_name}] {name}({params_str}) {}\n{}",
                     ret_ty.as_str(),
                     body.as_str()
                 )

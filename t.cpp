@@ -288,6 +288,15 @@ inline str proto_str(const Array<T, N> arr) {
 
 #include "./src/std/print.cppr"
 
+struct A {
+  int n;
+
+  void a() {
+    A& s = *this;
+    s.n = 300;
+  }
+};
+
 int main() {
     // const Array<int, 5> a = {1, 3, 4, 6, 7};
     // Array<int, 3> b = {1, 3, 5};
@@ -330,6 +339,10 @@ int main() {
     const str b = "world";
 
     proto_println(proto_str(a != b));
+
+    A x;
+    x.a();
+    std::cout << x.n << std::endl;
 
     return 0;
 }

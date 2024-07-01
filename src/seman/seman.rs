@@ -2001,6 +2001,93 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
         } => {
             // we will need to check the body and update the struct type under the name
             // as we get new information (fields, associated functions and methods)
+            let name_info = state.env.shallow_lookup(&name.as_str());
+            if name_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: loc.clone(),
+                    name: name.as_str(),
+                });
+                return None;
+            }
+
+            let mut struct_ty = Ty::Struct {
+                fields: HashMap::new(),
+                assoc_funcs: HashMap::new(),
+                methods: HashMap::new(),
+                loc: loc.clone(),
+            };
+
+            let mut info = NameInfo {
+                ty: struct_ty.clone(),
+                refs: vec![name.get_source_ref()],
+                is_const: true,
+                is_initialized: false,
+            };
+
+            state.env.add(name.as_str(), info.clone());
+            state.env.extend();
+            state.scope_stack.push(Scope::Struct);
+
+            for f in fields {
+                let ty_f = check_ins(i, &None, state);
+
+                if let Some(ty_f) = ty_f {
+                    // we can get the type from the field
+                    match ty_f {
+                        TyIns::Var { name: f_name, .. }
+                        | TyIns::Constant { name: f_name, .. }=> {
+                            let v_info = state.env.shallow_lookup(&f_name).unwrap();
+
+                            if v_info.ty.is_error_ty() {
+                                continue;
+                            }
+                            if let Ty::Struct { fields, .. } = &mut struct_ty {
+                                fields.insert(f_name, v_info.ty.clone());
+                            }
+                            info.ty = struct_ty.clone();
+                            state.env.add(name.as_str(), info.clone());
+                        }
+                        _ => unreachable!("seman::check_ins(): found an unexpected instruction in fields vec for Struct."),
+                    }
+                }
+            }
+
+            for func in funcs {
+                let ty_fn = check_ins(func, &Some(struct_ty.clone()), state);
+
+                if let Some(ty_fn) = ty_fn {
+                    match ty_fn {
+                        TyIns::Func { name: fn_name, .. } => {
+                            let fn_info = state.env.shallow_lookup(&fn_name).unwrap();
+
+                            if fn_info.ty.is_error_ty() {
+                                continue;
+                            }
+                            if let Ty::Struct { assoc_funcs, .. } = &mut struct_ty {
+                                assoc_funcs.insert(fn_name, fn_info.ty.clone());
+                            }
+                            info.ty = struct_ty.clone();
+                            state.env.add(name.as_str(), info.clone());
+                        }
+                        TyIns::Method { name: fn_name, .. } => {
+                            let fn_info = state.env.shallow_lookup(&fn_name).unwrap();
+
+                            if fn_info.ty.is_error_ty() {
+                                continue;
+                            }
+                            if let Ty::Struct { methods, .. } = &mut struct_ty {
+                                methods.insert(fn_name, fn_info.ty.clone());
+                            }
+                            info.ty = struct_ty.clone();
+                            state.env.add(name.as_str(), info.clone());
+                        }
+                        _ => unreachable!("seman::check_ins(): found an unexpected instruction in funcs vec for Struct."),
+                    }
+                }
+            }
+
+            state.scope_stack.pop();
+            state.env.pop();
             todo!()
         }
         Ins::DeclModule { name, body, loc } => todo!(),
