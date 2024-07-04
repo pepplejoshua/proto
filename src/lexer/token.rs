@@ -23,6 +23,7 @@ pub enum Token {
     Println(SourceRef),
     Some(SourceRef),
     None(SourceRef),
+    Defer(SourceRef),
 
     // operators
     Plus(SourceRef),
@@ -169,6 +170,7 @@ impl Token {
             | Token::Some(src)
             | Token::None(src)
             | Token::InterpStrLiteral(src, _)
+            | Token::Defer(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -268,6 +270,7 @@ impl Token {
             Token::Println(_) => "println".to_string(),
             Token::BackTick(_) => '`'.to_string(),
             Token::Some(_) => "some".to_string(),
+            Token::Defer(_) => "defer".to_string(),
             Token::None(_) => "none".to_string(),
         }
     }

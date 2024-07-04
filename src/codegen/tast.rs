@@ -220,6 +220,9 @@ pub enum TyIns {
     Return {
         expr: Option<TyExpr>,
     },
+    Defer {
+        sub_ins: Box<TyIns>,
+    },
     PrintIns {
         is_println: bool,
         output: TyExpr,
@@ -336,6 +339,9 @@ impl TyIns {
             }
             TyIns::AssignTo { target, val } => {
                 format!("{} = {};", target.as_str(), val.as_str())
+            }
+            TyIns::Defer { sub_ins } => {
+                format!("defer {}", sub_ins.as_str())
             }
         }
     }

@@ -201,6 +201,12 @@ pub enum CheckerError {
         target: String,
         loc: SourceRef,
     },
+    CannotReturnFromInsideADeferIns {
+        loc: SourceRef,
+    },
+    FunctionInDeferShouldReturnVoid {
+        loc: SourceRef,
+    },
     TooManyErrors,
 }
 

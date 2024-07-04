@@ -332,6 +332,10 @@ pub enum Ins {
         body: Box<Ins>,
         loc: SourceRef,
     },
+    Defer {
+        sub_ins: Box<Ins>,
+        loc: SourceRef,
+    },
     Block {
         code: Vec<Ins>,
         loc: SourceRef,
@@ -383,6 +387,7 @@ impl Ins {
             | Ins::DeclModule { loc, .. }
             | Ins::IfConditional { loc, .. }
             | Ins::PrintIns { loc, .. }
+            | Ins::Defer { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -402,6 +407,7 @@ impl Ins {
             | Ins::DeclStruct { name, .. }
             | Ins::DeclModule { name, .. } => Some(name.as_str()),
             Ins::Block { .. }
+            | Ins::Defer { .. }
             | Ins::AssignTo { .. }
             | Ins::ExprIns { .. }
             | Ins::IfConditional { .. }
@@ -563,6 +569,9 @@ impl Ins {
                     if *is_println { "println" } else { "print" },
                     output.as_str()
                 )
+            }
+            Ins::Defer { sub_ins, loc } => {
+                format!("defer {}", sub_ins.as_str())
             }
         }
     }

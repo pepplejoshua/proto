@@ -270,6 +270,7 @@ impl Lexer {
             "println" => Ok(Token::Println(combined_ref)),
             "some" => Ok(Token::Some(combined_ref)),
             "none" => Ok(Token::None(combined_ref)),
+            "defer" => Ok(Token::Defer(combined_ref)),
 
             "i8" => Ok(Token::I8(combined_ref)),
             "i16" => Ok(Token::I16(combined_ref)),

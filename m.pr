@@ -1,8 +1,9 @@
 fn main() int {
-    a : Node = Node(3000);
-    println(a.as_str());
-    a.update(420);
-    println(a.as_str());
+    defer {
+    }
+    a := Node(100);
+    s :: "a is " + a.as_str() + ".";
+    println(s);
     return 0;
 }
 
@@ -14,13 +15,10 @@ struct Node {
     }
 
     fn as_str() str {
-        self.does_nothing();
-        return `{self.n}`;
+        return `Node {{ n: {self.n} }`;
     }
 
     fn update(new_n int) void {
         n = new_n;
     }
-
-    fn does_nothing() void {}
 }

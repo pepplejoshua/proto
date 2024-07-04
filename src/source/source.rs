@@ -580,6 +580,15 @@ impl SourceReporter {
                 let msg = format!("'{target}' is immutable and cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::CannotReturnFromInsideADeferIns { loc } => {
+                let msg = format!("Returning from inside a defer instruction is not allowed.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::FunctionInDeferShouldReturnVoid { loc } => {
+                let msg =
+                    format!("Function definitions inside a defer instruction should return void.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

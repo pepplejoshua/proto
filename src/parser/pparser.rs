@@ -261,6 +261,7 @@ impl Parser {
     fn next_ins(&mut self, use_new_scope: bool) -> Ins {
         let cur = self.cur_token();
         match cur {
+            Token::Defer(_) => self.parse_defer(),
             Token::Fn(_) => self.parse_fn(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
@@ -273,6 +274,18 @@ impl Parser {
             Token::If(_) => self.parse_if_conditional(),
             Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
+        }
+    }
+
+    fn parse_defer(&mut self) -> Ins {
+        let mut loc = self.cur_token().get_source_ref();
+        self.advance();
+
+        let sub_ins = self.next_ins(true);
+        loc = loc.combine(sub_ins.get_source_ref());
+        Ins::Defer {
+            sub_ins: Box::new(sub_ins),
+            loc,
         }
     }
 

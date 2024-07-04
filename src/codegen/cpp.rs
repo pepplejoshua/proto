@@ -14,6 +14,7 @@ pub struct State {
     gen_typedefs_for: HashSet<String>,
     uses_str_interpolation: bool,
     uses_print_ins: bool,
+    uses_defer: bool,
 }
 
 impl State {
@@ -23,6 +24,7 @@ impl State {
             gen_typedefs_for: HashSet::new(),
             uses_str_interpolation: false,
             uses_print_ins: false,
+            uses_defer: false,
         }
     }
 
@@ -44,6 +46,7 @@ const OPTION_CODE: &str = include_str!("../std/option.cppr");
 const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
 const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
 const PROTO_PRINT_CODE: &str = include_str!("../std/print.cppr");
+const PROTO_DEFER_CODE: &str = include_str!("../std/defer.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()
@@ -59,6 +62,10 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
     if state.uses_str_interpolation {
         buf.push_str(PROTO_STRINGIFY_CODE);
+    }
+
+    if state.uses_defer {
+        buf.push_str(PROTO_DEFER_CODE);
     }
 
     if state.uses_print_ins {
@@ -521,6 +528,15 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_expr(target, state),
                 cpp_gen_expr(val, state)
             );
+        }
+        TyIns::Defer { sub_ins } => {
+            state.uses_defer = true;
+            buf = format!("{}defer(\n", state.get_pad());
+            state.indent();
+            buf.push_str(&cpp_gen_ins(sub_ins, state));
+            buf.push('\n');
+            state.dedent();
+            buf.push_str(&format!("{});", state.get_pad()));
         }
     }
     buf

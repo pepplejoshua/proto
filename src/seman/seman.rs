@@ -66,14 +66,9 @@ pub enum Scope {
     Func,
     Block,
     Struct,
+    Defer,
     Mod,
     Method,
-}
-
-#[derive(Debug, Clone)]
-pub enum DeferredCheck {
-    Call { context_ty: Ty, call_expr: Expr },
-    IdentifierRef { context_ty: Ty, name: Expr },
 }
 
 #[derive(Debug, Clone)]
@@ -84,7 +79,6 @@ pub struct State {
     scope_stack: Vec<Scope>,
     enter_new_scope: bool,
     check_for_return: bool,
-    deferred_checks: Vec<DeferredCheck>,
 }
 
 impl State {
@@ -96,8 +90,17 @@ impl State {
             scope_stack: vec![Scope::TopLevel],
             enter_new_scope: true,
             check_for_return: false,
-            deferred_checks: vec![],
         }
+    }
+
+    pub fn x_scope_index(&self, x: &Scope) -> Option<usize> {
+        for (index, scope) in self.scope_stack.iter().rev().enumerate() {
+            if scope == x {
+                return Some(index);
+            }
+        }
+
+        None
     }
 
     pub fn is_in_x_scope(&self, x: &Scope) -> bool {
@@ -1775,6 +1778,15 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 },
             };
 
+            if state.is_in_x_scope(&Scope::Defer) {
+                if !ret_ty.is_void() {
+                    state.push_err(CheckerError::FunctionInDeferShouldReturnVoid {
+                        loc: ret_ty.get_loc(),
+                    });
+                    return None;
+                }
+            }
+
             if ret_ty.is_error_ty() {
                 return None;
             }
@@ -2171,6 +2183,13 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
         }
         Ins::Return { expr, loc } => {
             if let Some(e) = expr {
+                if state.is_in_x_scope(&Scope::Defer) {
+                    // check if we are inside a function inside a defer
+                    state.push_err(CheckerError::CannotReturnFromInsideADeferIns {
+                        loc: loc.clone(),
+                    });
+                    return None;
+                }
                 let (expr_ty, ret_ty_expr) = check_expr(e, context_ty, state);
                 if let Some(context_ty) = context_ty {
                     if !expr_ty.is_error_ty() && matches!(context_ty, Ty::Void { .. }) {
@@ -2235,6 +2254,19 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             Some(TyIns::PrintIns {
                 is_println: *is_println,
                 output: output_ty_expr.unwrap(),
+            })
+        }
+        Ins::Defer { sub_ins, loc } => {
+            // for defer, we just need to check the sub ins
+            state.scope_stack.push(Scope::Defer);
+            let ty_sub_ins = check_ins(sub_ins, context_ty, state);
+            state.scope_stack.pop();
+            if ty_sub_ins.is_none() {
+                return None;
+            }
+
+            Some(TyIns::Defer {
+                sub_ins: Box::new(ty_sub_ins.unwrap()),
             })
         }
     }

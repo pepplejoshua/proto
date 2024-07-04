@@ -5,4 +5,4 @@ u8 u16 u32 u64 uint
 bool char
 return mod
 struct _ print println
-some none
+some none defer

@@ -1,0 +1,19 @@
+// all credits to GingerBill for writing this:
+// https://www.gingerbill.org/article/2015/08/19/defer-in-cpp/
+// and to Caleb (https://github.com/caleb-o) for pointing it out to me.
+template<typename Fn>
+struct __Defer__ {
+  Fn f;
+  __Defer__(Fn f) : f(f) {}
+  ~__Defer__() { f(); }
+};
+
+template<typename Fn>
+__Defer__<Fn> __defer_func__(Fn f) {
+  return __Defer__<Fn>(f);
+}
+
+#define DEFER_1(x, y) x##y
+#define DEFER_2(x, y) DEFER_1(x, y)
+#define DEFER_3(x)    DEFER_2(x, __COUNTER__)
+#define defer(code)   auto DEFER_3(_defer_) = __defer_func__([&](){code;})
