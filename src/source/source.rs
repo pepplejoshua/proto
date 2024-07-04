@@ -1,20 +1,19 @@
-use serde::{Deserialize, Serialize};
 use std::{
     fs::{self, File},
     io::Read,
     path::Path,
+    rc::Rc,
 };
 
 #[allow(dead_code)]
-#[derive(Debug, Serialize, Deserialize, Default, Clone)]
+#[derive(Debug, Clone)]
 pub struct SourceFile {
-    pub path: String,
+    pub path: Rc<String>,
     pub text: String,
     pub flat_index: usize,
     pub col: usize,
     pub line: usize,
     pub lines: Vec<String>,
-    pub longest_line_count: usize,
 }
 
 #[allow(dead_code)]
@@ -24,21 +23,20 @@ impl SourceFile {
         let path = Path::new(&path);
         let full_path = fs::canonicalize(&path).unwrap();
         let mut src_file = SourceFile {
-            path: full_path.to_str().unwrap().to_string(),
+            path: Rc::new(full_path.to_str().unwrap().to_string()),
             text: String::new(),
             flat_index: 0,
             col: 0,
             line: 0,
             lines: vec![],
-            longest_line_count: 0,
         };
         src_file.read_file();
         src_file
     }
 
     // get a reference to the current position in the source file
-    pub fn get_ref(&self) -> SourceRef {
-        SourceRef {
+    pub fn get_ref(&self) -> Rc<SourceRef> {
+        Rc::new(SourceRef {
             file: self.path.clone(),
             start_line: self.line,
             start_col: self.col,
@@ -46,11 +44,11 @@ impl SourceFile {
             end_col: self.col,
             flat_start: self.flat_index,
             flat_end: self.flat_index,
-        }
+        })
     }
 
     // jump to a specific position in the source file from a reference
-    pub fn jump_to(&mut self, src_ref: &SourceRef) {
+    pub fn jump_to(&mut self, src_ref: &Rc<SourceRef>) {
         self.flat_index = src_ref.flat_start;
         self.line = src_ref.start_line;
         self.col = src_ref.start_col;
@@ -112,7 +110,7 @@ impl SourceFile {
 
     fn read_file(&mut self) {
         let file_not_found = format!("{}: file not found.", self.path);
-        let mut file = File::open(&self.path).expect(&file_not_found);
+        let mut file = File::open(self.path.as_ref()).expect(&file_not_found);
         let read_error = format!(
             "{}: something went wrong trying to read the file.",
             self.path
@@ -129,9 +127,9 @@ impl SourceFile {
 }
 
 #[allow(dead_code)]
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq)]
 pub struct SourceRef {
-    pub file: String,      // file path
+    pub file: Rc<String>,  // file path
     pub start_line: usize, // start line
     pub start_col: usize,  // start column
     pub end_line: usize,   // end line
@@ -144,7 +142,7 @@ pub struct SourceRef {
 impl SourceRef {
     pub fn dud() -> SourceRef {
         SourceRef {
-            file: String::new(),
+            file: Rc::new(String::new()),
             start_line: 0,
             start_col: 0,
             end_line: 0,
@@ -155,7 +153,7 @@ impl SourceRef {
     }
 
     pub fn new(
-        file: String,
+        file: Rc<String>,
         start_line: usize,
         start_col: usize,
         end_line: usize,
@@ -186,7 +184,7 @@ impl SourceRef {
         )
     }
 
-    pub fn combine(&self, other: SourceRef) -> SourceRef {
+    pub fn combine(&self, other: Rc<SourceRef>) -> Rc<SourceRef> {
         let (start_line, start_col) = if self.start_line < other.start_line {
             (self.start_line, self.start_col)
         } else if self.start_line == other.start_line {
@@ -219,7 +217,7 @@ impl SourceRef {
         } else {
             other.flat_end
         };
-        SourceRef::new(
+        Rc::new(SourceRef::new(
             self.file.clone(),
             start_line,
             start_col,
@@ -227,7 +225,7 @@ impl SourceRef {
             end_col,
             flat_start,
             flat_end,
-        )
+        ))
     }
 }
 
@@ -569,7 +567,7 @@ impl SourceReporter {
             CheckerError::StructHasNoInitFunction { given_ty, loc } => {
                 let msg =
                     format!("struct '{given_ty}' does not provide an initialization function.");
-                let tip = format!("Provide initialization function with the signature 'fn init([any parameters]) {given_ty}'.");
+                let tip = format!("Provide initialization function with the signature 'fn init([any parameters]) void {{ [body] }}.'.");
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
             CheckerError::CannotAssignToTarget { target, loc } => {

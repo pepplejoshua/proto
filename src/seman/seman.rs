@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, pin::Pin, process::exit, sync::Once};
+use std::{collections::HashMap, pin::Pin, process::exit, rc::Rc, sync::Once};
 
 use serde::de::Expected;
 
@@ -17,7 +17,7 @@ use crate::{
 #[derive(Debug, Clone)]
 pub struct NameInfo {
     ty: Ty,
-    refs: Vec<SourceRef>,
+    refs: Vec<Rc<SourceRef>>,
     is_const: bool,
     is_initialized: bool,
 }
@@ -134,7 +134,7 @@ static mut BUILTIN_METHODS_HASHMAP: Option<HashMap<&'static str, HashMap<&'stati
 fn init_builtins() {
     let mut m = HashMap::new();
     let builtin_loc = SourceRef {
-        file: "__proto_gen_builtins__".to_string(),
+        file: Rc::new("__proto_gen_builtins__".to_string()),
         start_line: 0,
         start_col: 0,
         end_line: 0,
@@ -171,7 +171,7 @@ enum TypeValidErr {
     Incomplete,
 }
 
-fn type_is_valid(ty: &Ty) -> Result<(), (TypeValidErr, SourceRef)> {
+fn type_is_valid(ty: &Ty) -> Result<(), (TypeValidErr, Rc<SourceRef>)> {
     match ty {
         Ty::Func { params, ret, .. } => {
             for p in params.iter() {
@@ -767,14 +767,9 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             }
 
             match &func_ty {
-                Ty::Struct {
-                    name,
-                    funcs,
-                    init_func,
-                    ..
-                } => {
+                Ty::Struct { name, funcs, .. } => {
                     // look for init() func
-                    if init_func.is_none() {
+                    if !funcs.contains_key(&"init".to_string()) {
                         state.push_err(CheckerError::StructHasNoInitFunction {
                             given_ty: name.clone(),
                             loc: func.get_source_ref(),
@@ -1295,15 +1290,15 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 },
             }
 
-            let builtin_loc = SourceRef {
-                file: "__proto_gen_builtins__".to_string(),
+            let builtin_loc = Rc::new(SourceRef {
+                file: Rc::new("__proto_gen_builtins__".to_string()),
                 start_line: 0,
                 start_col: 0,
                 end_line: 0,
                 end_col: 0,
                 flat_start: 0,
                 flat_end: 0,
-            };
+            });
 
             match &target_ty {
                 Ty::Struct { fields, funcs, .. } => {
@@ -1956,7 +1951,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             fields,
             funcs,
             loc,
-            init_func,
         } => {
             // we will need to check the body and update the struct type under the name
             // as we get new information (fields, associated functions and methods)
@@ -1974,14 +1968,13 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 fields: HashMap::new(),
                 funcs: HashMap::new(),
                 loc: loc.clone(),
-                init_func: init_func.clone(),
             };
 
             let mut info = NameInfo {
                 ty: struct_ty.clone(),
                 refs: vec![name.get_source_ref()],
                 is_const: true,
-                is_initialized: false,
+                is_initialized: true,
             };
 
             state.env.add(name.as_str(), info.clone());
@@ -1996,7 +1989,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
             };
             state.env.add("self".into(), self_info.clone());
 
-            // println!("HERE1, {:#?}", fields);
             let mut ty_fs = vec![];
             for f in fields {
                 let ty_f = check_ins(f, &None, state);
@@ -2014,9 +2006,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                             if let Ty::Struct { fields, .. } = &mut struct_ty {
                                 fields.insert(f_name.clone(), v_info.ty.clone());
                             }
-                            info.ty = struct_ty.clone();
+                            // info.ty = struct_ty.clone();
                             self_info.ty = struct_ty.clone();
-                            state.env.add(name.as_str(), info.clone());
+                            // state.env.add(name.as_str(), info.clone());
                             state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in fields vec for Struct."),
@@ -2041,9 +2033,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                             if let Ty::Struct { funcs, .. } = &mut struct_ty {
                                 funcs.insert(fn_name.clone(), fn_info.ty.clone());
                             }
-                            info.ty = struct_ty.clone();
+                            // info.ty = struct_ty.clone();
                             self_info.ty = struct_ty.clone();
-                            state.env.add(name.as_str(), info.clone());
+                            // state.env.add(name.as_str(), info.clone());
                             state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in funcs vec for Struct."),
@@ -2054,7 +2046,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
 
             state.scope_stack.pop();
             state.env.pop();
-            state.env.add(name.as_str(), info.clone());
+            info.ty = struct_ty;
+            state.env.add(name.as_str(), info);
             Some(TyIns::Struct {
                 name: name.as_str(),
                 fields: ty_fs,

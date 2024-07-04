@@ -1,104 +1,106 @@
+use std::rc::Rc;
+
 use crate::source::source::SourceRef;
 
 #[allow(dead_code)]
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum Token {
     // keywords
-    Fn(SourceRef),
-    Let(SourceRef),
-    Mut(SourceRef),
-    If(SourceRef),
-    Else(SourceRef),
-    Loop(SourceRef),
-    While(SourceRef),
-    Break(SourceRef),
-    Continue(SourceRef),
-    True(SourceRef),
-    False(SourceRef),
-    Pub(SourceRef),
-    Return(SourceRef),
-    Mod(SourceRef),
-    Struct(SourceRef),
-    Print(SourceRef),
-    Println(SourceRef),
-    Some(SourceRef),
-    None(SourceRef),
-    Defer(SourceRef),
+    Fn(Rc<SourceRef>),
+    Let(Rc<SourceRef>),
+    Mut(Rc<SourceRef>),
+    If(Rc<SourceRef>),
+    Else(Rc<SourceRef>),
+    Loop(Rc<SourceRef>),
+    While(Rc<SourceRef>),
+    Break(Rc<SourceRef>),
+    Continue(Rc<SourceRef>),
+    True(Rc<SourceRef>),
+    False(Rc<SourceRef>),
+    Pub(Rc<SourceRef>),
+    Return(Rc<SourceRef>),
+    Mod(Rc<SourceRef>),
+    Struct(Rc<SourceRef>),
+    Print(Rc<SourceRef>),
+    Println(Rc<SourceRef>),
+    Some(Rc<SourceRef>),
+    None(Rc<SourceRef>),
+    Defer(Rc<SourceRef>),
 
     // operators
-    Plus(SourceRef),
-    Minus(SourceRef),
-    Star(SourceRef),
-    Slash(SourceRef),
-    Modulo(SourceRef),
+    Plus(Rc<SourceRef>),
+    Minus(Rc<SourceRef>),
+    Star(Rc<SourceRef>),
+    Slash(Rc<SourceRef>),
+    Modulo(Rc<SourceRef>),
 
     // special characters
-    At(SourceRef),
+    At(Rc<SourceRef>),
 
     // comparison
-    Equal(SourceRef),
-    NotEqual(SourceRef),
-    Less(SourceRef),
-    LessEqual(SourceRef),
-    Greater(SourceRef),
-    GreaterEqual(SourceRef),
+    Equal(Rc<SourceRef>),
+    NotEqual(Rc<SourceRef>),
+    Less(Rc<SourceRef>),
+    LessEqual(Rc<SourceRef>),
+    Greater(Rc<SourceRef>),
+    GreaterEqual(Rc<SourceRef>),
 
     // assignment
-    Assign(SourceRef),
+    Assign(Rc<SourceRef>),
 
     // logical
-    And(SourceRef),
-    Or(SourceRef),
-    Not(SourceRef),
+    And(Rc<SourceRef>),
+    Or(Rc<SourceRef>),
+    Not(Rc<SourceRef>),
 
     // delimiters
-    LParen(SourceRef),
-    RParen(SourceRef),
-    LCurly(SourceRef),
-    RCurly(SourceRef),
-    LBracket(SourceRef),
-    RBracket(SourceRef),
-    Semicolon(SourceRef),
-    Colon(SourceRef),
-    Comma(SourceRef),
-    Dot(SourceRef),
-    BackTick(SourceRef),
+    LParen(Rc<SourceRef>),
+    RParen(Rc<SourceRef>),
+    LCurly(Rc<SourceRef>),
+    RCurly(Rc<SourceRef>),
+    LBracket(Rc<SourceRef>),
+    RBracket(Rc<SourceRef>),
+    Semicolon(Rc<SourceRef>),
+    Colon(Rc<SourceRef>),
+    Comma(Rc<SourceRef>),
+    Dot(Rc<SourceRef>),
+    BackTick(Rc<SourceRef>),
 
     // literals
-    NumberLiteral(String, SourceRef),
-    Identifier(String, SourceRef),
-    CharLiteral(SourceRef, char),
-    SingleLineStringLiteral(SourceRef, String),
-    InterpStrLiteral(SourceRef, String),
-    MultiLineStringFragment(SourceRef, String),
-    SingleLineComment(SourceRef, String),
+    NumberLiteral(String, Rc<SourceRef>),
+    Identifier(String, Rc<SourceRef>),
+    CharLiteral(Rc<SourceRef>, char),
+    SingleLineStringLiteral(Rc<SourceRef>, String),
+    InterpStrLiteral(Rc<SourceRef>, String),
+    MultiLineStringFragment(Rc<SourceRef>, String),
+    SingleLineComment(Rc<SourceRef>, String),
 
     // type tags
-    I8(SourceRef),
-    I16(SourceRef),
-    I32(SourceRef),
-    I64(SourceRef),
-    Int(SourceRef),
-    U8(SourceRef),
-    U16(SourceRef),
-    U32(SourceRef),
-    U64(SourceRef),
-    UInt(SourceRef),
-    Bool(SourceRef),
-    Void(SourceRef),
-    Char(SourceRef),
-    Str(SourceRef),
-    Type(SourceRef),
+    I8(Rc<SourceRef>),
+    I16(Rc<SourceRef>),
+    I32(Rc<SourceRef>),
+    I64(Rc<SourceRef>),
+    Int(Rc<SourceRef>),
+    U8(Rc<SourceRef>),
+    U16(Rc<SourceRef>),
+    U32(Rc<SourceRef>),
+    U64(Rc<SourceRef>),
+    UInt(Rc<SourceRef>),
+    Bool(Rc<SourceRef>),
+    Void(Rc<SourceRef>),
+    Char(Rc<SourceRef>),
+    Str(Rc<SourceRef>),
+    Type(Rc<SourceRef>),
 
     // misc
-    Underscore(SourceRef),
-    QuestionMark(SourceRef),
-    Eof(SourceRef),
+    Underscore(Rc<SourceRef>),
+    QuestionMark(Rc<SourceRef>),
+    Eof(Rc<SourceRef>),
 }
 
 #[allow(dead_code)]
 impl Token {
-    pub fn get_source_ref(&self) -> SourceRef {
+    pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Token::SingleLineComment(src, _)
             | Token::Fn(src)

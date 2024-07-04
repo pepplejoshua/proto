@@ -1,4 +1,6 @@
 #![allow(unused)]
+use std::rc::Rc;
+
 use crate::{source::source::SourceRef, types::signature::Ty};
 
 #[derive(Debug, Clone, Copy)]
@@ -59,90 +61,90 @@ impl UnaryOpType {
 pub enum Expr {
     Number {
         val: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Str {
         val: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     InterpStr {
         val: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Char {
         val: char,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Bool {
         val: bool,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Ident {
         name: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     BinOp {
         op: BinOpType,
         left: Box<Expr>,
         right: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     CallFn {
         func: Box<Expr>,
         args: Vec<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     UnaryOp {
         op: UnaryOpType,
         expr: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     StaticArray {
         vals: Vec<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     GroupedExpr {
         inner: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     TernaryConditional {
         cond: Box<Expr>,
         then: Box<Expr>,
         otherwise: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     InterpolatedString {
         parts: Vec<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     MakeSlice {
         target: Box<Expr>,
         start: Option<Box<Expr>>,
         end_excl: Option<Box<Expr>>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     IndexInto {
         target: Box<Expr>,
         index: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     AccessMember {
         target: Box<Expr>,
         mem: Box<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     OptionalExpr {
         val: Option<Box<Expr>>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     ErrorExpr {
         msg: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
 }
 
 impl Expr {
-    pub fn get_source_ref(&self) -> SourceRef {
+    pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Expr::Number { loc, .. }
             | Expr::Str { loc, .. }
@@ -296,7 +298,7 @@ impl Expr {
 pub struct FnParam {
     pub name: Expr,
     pub given_ty: Ty,
-    pub loc: SourceRef,
+    pub loc: Rc<SourceRef>,
 }
 
 #[derive(Debug, Clone)]
@@ -305,75 +307,74 @@ pub enum Ins {
         name: Expr,
         ty: Option<Ty>, // might be provided, or not
         init_val: Expr,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     DeclVar {
         name: Expr,
         ty: Option<Ty>,
         init_val: Option<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     DeclFunc {
         name: Expr,
         params: Vec<FnParam>,
         ret_type: Ty,
         body: Box<Ins>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     DeclStruct {
         name: Expr,
-        init_func: Option<usize>,
         fields: Vec<Ins>,
         funcs: Vec<Ins>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     DeclModule {
         name: Expr,
         body: Box<Ins>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Defer {
         sub_ins: Box<Ins>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Block {
         code: Vec<Ins>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     AssignTo {
         target: Expr,
         value: Expr,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     ExprIns {
         expr: Expr,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     IfConditional {
         conds_and_code: Vec<(Option<Expr>, Ins)>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Return {
         expr: Option<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     SingleLineComment {
         comment: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     PrintIns {
         is_println: bool,
         output: Expr,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     ErrorIns {
         msg: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
 }
 
 impl Ins {
-    pub fn get_source_ref(&self) -> SourceRef {
+    pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Ins::DeclConst { loc, .. }
             | Ins::DeclVar { loc, .. }

@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::collections::HashMap;
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
@@ -33,7 +33,7 @@ enum DepTy {
 struct Dep {
     ty: DepTy,
     to: String,
-    loc: SourceRef,
+    loc: Rc<SourceRef>,
 }
 
 pub struct Parser {
@@ -536,7 +536,7 @@ impl Parser {
         }
     }
 
-    fn parse_struct_block(&mut self) -> (Option<usize>, Vec<Ins>, Vec<Ins>, SourceRef) {
+    fn parse_struct_block(&mut self) -> (Vec<Ins>, Vec<Ins>, Rc<SourceRef>) {
         let mut block_loc = self.cur_token().get_source_ref();
         self.advance();
 
@@ -564,11 +564,9 @@ impl Parser {
                     fields.push(ins);
                 }
                 Ins::DeclFunc { name, .. } => {
-                    // if !self.cur_deps.is_empty() {
                     let ins_id = ins.get_id().unwrap();
                     ood.insert(ins_id, self.cur_deps.clone());
                     self.cur_deps.clear();
-                    // }
                     funcs.push(ins);
                 }
                 Ins::DeclStruct {
@@ -576,7 +574,6 @@ impl Parser {
                     fields,
                     funcs,
                     loc,
-                    init_func,
                 } => todo!(),
                 Ins::ErrorIns { msg, loc } => continue,
                 _ => {
@@ -606,7 +603,6 @@ impl Parser {
 
         let mut ood = self.topological_sort(&mut ood);
         let mut ood_funcs = vec![];
-        let mut init_func = None;
         if !ood.is_empty() {
             // for ins in funcs.iter() {
             //     if !ood.contains(&ins.get_id().unwrap()) {}
@@ -617,9 +613,6 @@ impl Parser {
                     .iter()
                     .find(|ins| ins.get_id().is_some() && ins.get_id().unwrap() == node);
                 if let Some(ins) = ins {
-                    if ins.get_id().unwrap() == "init" {
-                        init_func = Some(funcs.len());
-                    }
                     ood_funcs.push(ins.clone());
                 }
             }
@@ -629,7 +622,7 @@ impl Parser {
 
         self.cur_deps = struct_deps;
 
-        (init_func, fields, ood_funcs, block_loc)
+        (fields, ood_funcs, block_loc)
     }
 
     fn parse_struct(&mut self) -> Ins {
@@ -639,7 +632,7 @@ impl Parser {
         let struct_name = self.parse_identifier();
 
         self.scope.push(ParseScope::Struct);
-        let (init_func, fields, ood_funcs, struct_span) = self.parse_struct_block();
+        let (fields, ood_funcs, struct_span) = self.parse_struct_block();
         self.scope.pop();
 
         Ins::DeclStruct {
@@ -647,7 +640,6 @@ impl Parser {
             loc: struct_span,
             fields,
             funcs: ood_funcs,
-            init_func,
         }
     }
 
@@ -1590,9 +1582,9 @@ impl Parser {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct ParserTestResult {
     code_str_repr: Vec<String>,
-    lexer_errors: Vec<LexError>,
-    parser_errors: Vec<ParseError>,
-    parse_warning: Vec<ParseWarning>,
+    lexer_errors: Vec<String>,
+    parser_errors: Vec<String>,
+    parse_warning: Vec<String>,
 }
 
 #[cfg(test)]
@@ -1615,9 +1607,21 @@ fn test_parser() {
             .split("\n")
             .map(|s| s.to_string())
             .collect::<Vec<String>>();
-        let lexer_errors = parser.lex_errs.clone();
-        let parser_errors = parser.parse_errs.clone();
-        let parse_warning = parser.parse_warns.clone();
+        let lexer_errors = parser
+            .lex_errs
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<String>>();
+        let parser_errors = parser
+            .parse_errs
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<String>>();
+        let parse_warning = parser
+            .parse_warns
+            .iter()
+            .map(|w| format!("{:?}", w))
+            .collect::<Vec<String>>();
 
         let result = ParserTestResult {
             code_str_repr,

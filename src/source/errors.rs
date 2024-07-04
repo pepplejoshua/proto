@@ -1,38 +1,40 @@
 #![allow(dead_code)]
 
+use std::rc::Rc;
+
 use super::source::SourceRef;
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum LexError {
-    InvalidCharacter(SourceRef),
-    CannotMakeSignedNumber(SourceRef),
-    CannotMakeUnsignedNumber(SourceRef),
-    EmptyCharacterLiteral(SourceRef),
-    UnterminatedCharacterLiteral(SourceRef),
-    UnterminatedStringLiteral(SourceRef),
+    InvalidCharacter(Rc<SourceRef>),
+    CannotMakeSignedNumber(Rc<SourceRef>),
+    CannotMakeUnsignedNumber(Rc<SourceRef>),
+    EmptyCharacterLiteral(Rc<SourceRef>),
+    UnterminatedCharacterLiteral(Rc<SourceRef>),
+    UnterminatedStringLiteral(Rc<SourceRef>),
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum ParseError {
-    Expected(String, SourceRef, Option<String>),
-    ConstantDeclarationNeedsTypeOrInitValue(SourceRef),
-    CannotParseAnExpression(SourceRef),
-    CannotParseAType(SourceRef),
-    MalformedDeclaration(String, SourceRef),
-    NoVariableAtCurrentScope(SourceRef),
-    NoCodeBlockAllowedInCurrentContext(SourceRef),
-    NoLoopAtTopLevel(SourceRef),
-    NoBreakOutsideLoop(SourceRef),
-    NoContinueOutsideLoop(SourceRef),
-    MisuseOfPubKeyword(SourceRef),
-    UnterminatedCodeBlock(SourceRef, Option<String>),
-    ReturnInstructionOutsideFunction(SourceRef),
-    CyclicalDependencyBetweenNodes { cycle: String, src: SourceRef },
-    TooManyErrors(SourceRef),
+    Expected(String, Rc<SourceRef>, Option<String>),
+    ConstantDeclarationNeedsTypeOrInitValue(Rc<SourceRef>),
+    CannotParseAnExpression(Rc<SourceRef>),
+    CannotParseAType(Rc<SourceRef>),
+    MalformedDeclaration(String, Rc<SourceRef>),
+    NoVariableAtCurrentScope(Rc<SourceRef>),
+    NoCodeBlockAllowedInCurrentContext(Rc<SourceRef>),
+    NoLoopAtTopLevel(Rc<SourceRef>),
+    NoBreakOutsideLoop(Rc<SourceRef>),
+    NoContinueOutsideLoop(Rc<SourceRef>),
+    MisuseOfPubKeyword(Rc<SourceRef>),
+    UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
+    ReturnInstructionOutsideFunction(Rc<SourceRef>),
+    CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
+    TooManyErrors(Rc<SourceRef>),
 }
 
 impl ParseError {
-    pub fn get_error_src(&self) -> SourceRef {
+    pub fn get_error_src(&self) -> Rc<SourceRef> {
         match self {
             ParseError::Expected(_, src, _)
             | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
@@ -53,164 +55,164 @@ impl ParseError {
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ParseWarning {
     pub msg: String,
-    pub src: SourceRef,
+    pub src: Rc<SourceRef>,
 }
 
 impl ParseWarning {
-    pub fn get_warning_src(&self) -> SourceRef {
+    pub fn get_warning_src(&self) -> Rc<SourceRef> {
         self.src.clone()
     }
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum CheckerError {
     TypeMismatch {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         expected: String,
         found: String,
     },
     NumberTypeDefaultInferenceFailed {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         number: String,
     },
     NumberTypeInferenceFailed {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         number: String,
         given_type: String,
     },
     ReferenceToUndefinedName {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         var_name: String,
     },
     InvalidUseOfBinaryOperator {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         op: String,
         left: String,
         right: String,
     },
     InvalidUseOfUnaryOperator {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         op: String,
         operand: String,
         tip: Option<String>,
     },
     InvalidType {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         type_name: String,
     },
     IncompleteType {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         type_name: String,
     },
     // TODO: track the location of the previous definition
     NameAlreadyDefined {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         name: String,
     },
     UseOfUninitializedVariable {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         name: String,
     },
     UseOfErroredVariableOrConstant {
         is_const: bool,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         name: String,
     },
     NameIsNotCallable {
         name: String,
         name_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     MismatchingReturnType {
         exp: String,
         given: String,
-        loc_given: SourceRef,
+        loc_given: Rc<SourceRef>,
     },
     IncorrectFunctionArity {
         func: String,
         exp: usize,
         given: usize,
-        loc_given: SourceRef,
+        loc_given: Rc<SourceRef>,
     },
     CannotInferTypeOfEmptyArray {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     MismatchingStaticArrayItemTypes {
         expected_ty: String,
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     StaticArrayTypeInferenceFailed {
         given_ty: String,
-        arr_loc: SourceRef,
+        arr_loc: Rc<SourceRef>,
     },
     OptionalTypeInferenceFailed {
         given_ty: String,
-        opt_loc: SourceRef,
+        opt_loc: Rc<SourceRef>,
     },
     OptionalTypeInferenceFailedWithoutContextualTy {
-        opt_loc: SourceRef,
+        opt_loc: Rc<SourceRef>,
     },
     NonConstantNumberSizeForStaticArray {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     MismismatchStaticArrayLength {
         exp: String,
         given: String,
-        arr_loc: SourceRef,
+        arr_loc: Rc<SourceRef>,
     },
     ConditionShouldBeTypedBool {
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     ExpectedArrayOrSlice {
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     PrintRequiresAStringArg {
         is_println: bool,
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     IndexIntoOpRequiresArraySliceOrString {
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
-    Expected(String, SourceRef, Option<String>),
+    Expected(String, Rc<SourceRef>, Option<String>),
     AccessMemberOpCannotBePerformedOnType {
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     MemberDoesNotExist {
         given_ty: String,
         mem: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     StructHasNoInitFunction {
         given_ty: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     CannotAssignToTarget {
         target: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     CannotAssignToImmutableTarget {
         target: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     CannotReturnFromInsideADeferIns {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     FunctionInDeferShouldReturnVoid {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     TooManyErrors,
 }
 
-#[derive(serde::Deserialize, serde::Serialize, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub enum CodeGenError {
     CompileErr(),
 }

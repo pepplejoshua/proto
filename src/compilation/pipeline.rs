@@ -242,7 +242,6 @@ impl Workspace {
         let file_mod = parser.file_mod;
         let src_file = parser.lexer.src;
         let (state, ty_file_mod) = check_top_level(&file_mod, src_file.clone());
-        let reporter = SourceReporter::new(src_file);
         if !state.errs.is_empty() {
             for ce in state.errs.iter() {
                 reporter.report_checker_error(ce.clone());

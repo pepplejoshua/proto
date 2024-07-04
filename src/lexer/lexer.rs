@@ -81,6 +81,7 @@ impl Lexer {
 
         // get the current character
         let c = self.src.cur_char();
+        let c_ref = self.src.get_ref();
 
         // if we reached the end of the file, return EOF
         if c == '\0' {
@@ -101,10 +102,10 @@ impl Lexer {
             '"' => self.lex_string(),
             // invalid character
             _ => {
-                let mut err_ref = self.src.get_ref();
-                err_ref.end_col += 1;
-                let err = Err(LexError::InvalidCharacter(err_ref));
                 self.src.next_char(); // try to keep lexing
+                let err = Err(LexError::InvalidCharacter(
+                    c_ref.combine(self.src.get_ref()),
+                ));
                 err
             }
         };
@@ -578,7 +579,6 @@ fn test_lexer() {
         // build the lexer
         let mut lexer = Lexer::new(src);
 
-        let mut tokens = Vec::new();
         let mut res = LexerTestResult {
             stringified_tokens: Vec::new(),
         };
@@ -596,7 +596,6 @@ fn test_lexer() {
                 token.as_str(),
                 token.get_source_ref().as_str()
             ));
-            tokens.push(token);
         }
         insta::assert_yaml_snapshot!(res)
     });

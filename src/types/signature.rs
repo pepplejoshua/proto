@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::{borrow::BorrowMut, collections::HashMap};
+use std::{borrow::BorrowMut, collections::HashMap, rc::Rc};
 
 use crate::{parser::ast::Expr, source::source::SourceRef};
 
@@ -10,60 +10,59 @@ pub enum Ty {
     Signed {
         size: u8,
         is_int: bool,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Unsigned {
         size: u8,
         is_uint: bool,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Str {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
         is_interp: bool,
     },
     Char {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Void {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Bool {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Func {
         params: Vec<Ty>,
         ret: Box<Ty>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     StaticArray {
         sub_ty: Box<Ty>,
         size: Option<Expr>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Slice {
         sub_ty: Box<Ty>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Optional {
         sub_ty: Box<Ty>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Struct {
         name: String,
-        init_func: Option<usize>,
         fields: HashMap<String, Ty>,
         funcs: HashMap<String, Ty>,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     NamedType {
         name: String,
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     Deferred {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
     ErrorType {
-        loc: SourceRef,
+        loc: Rc<SourceRef>,
     },
 }
 
@@ -117,7 +116,7 @@ impl Ty {
         }
     }
 
-    pub fn get_loc(&self) -> SourceRef {
+    pub fn get_loc(&self) -> Rc<SourceRef> {
         match self {
             Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
@@ -136,7 +135,7 @@ impl Ty {
         }
     }
 
-    pub fn set_loc(&mut self, n_loc: SourceRef) {
+    pub fn set_loc(&mut self, n_loc: Rc<SourceRef>) {
         match self {
             Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
@@ -206,13 +205,13 @@ impl Ty {
         }
     }
 
-    pub fn clone_loc(&self, loc: SourceRef) -> Ty {
+    pub fn clone_loc(&self, loc: Rc<SourceRef>) -> Ty {
         let mut ty = self.clone();
         ty.set_loc(loc);
         ty
     }
 
-    pub fn get_int_ty(loc: SourceRef) -> Ty {
+    pub fn get_int_ty(loc: Rc<SourceRef>) -> Ty {
         Ty::Signed {
             size: Ty::get_platform_size(),
             is_int: true,
@@ -220,7 +219,7 @@ impl Ty {
         }
     }
 
-    pub fn get_uint_ty(loc: SourceRef) -> Ty {
+    pub fn get_uint_ty(loc: Rc<SourceRef>) -> Ty {
         Ty::Unsigned {
             size: Ty::get_platform_size(),
             is_uint: true,

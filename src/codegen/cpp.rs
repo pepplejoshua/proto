@@ -558,7 +558,7 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     }
     // println!("{cpp_code}");
 
-    let og_file_path = Path::new(&file_mod.src_file);
+    let og_file_path = Path::new(file_mod.src_file.as_str());
     // println!("{og_file_path:?}");
     let file_path = og_file_path.with_extension("cpp");
     // println!("{file_path:?}");

@@ -1,5 +1,7 @@
 fn main() int {
     defer {
+        b :: 1 + 2;
+        println(`{b}`);
     }
     a := Node(100);
     s :: "a is " + a.as_str() + ".";

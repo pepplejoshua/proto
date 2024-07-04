@@ -1,4 +1,6 @@
 #![allow(unused)]
+use std::rc::Rc;
+
 use crate::{
     parser::ast::{BinOpType, UnaryOpType},
     types::signature::Ty,
@@ -350,11 +352,11 @@ impl TyIns {
 #[derive(Debug, Clone)]
 pub struct TyFileModule {
     pub top_level: Vec<TyIns>,
-    pub src_file: String,
+    pub src_file: Rc<String>,
 }
 
 impl TyFileModule {
-    pub fn new(src_file: String) -> Self {
+    pub fn new(src_file: Rc<String>) -> Self {
         TyFileModule {
             top_level: vec![],
             src_file,
