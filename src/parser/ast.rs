@@ -297,7 +297,7 @@ impl Expr {
 #[derive(Debug, Clone)]
 pub struct FnParam {
     pub name: Expr,
-    pub given_ty: Ty,
+    pub given_ty: Rc<Ty>,
     pub loc: Rc<SourceRef>,
 }
 
@@ -305,20 +305,20 @@ pub struct FnParam {
 pub enum Ins {
     DeclConst {
         name: Expr,
-        ty: Option<Ty>, // might be provided, or not
+        ty: Option<Rc<Ty>>, // might be provided, or not
         init_val: Expr,
         loc: Rc<SourceRef>,
     },
     DeclVar {
         name: Expr,
-        ty: Option<Ty>,
+        ty: Option<Rc<Ty>>,
         init_val: Option<Expr>,
         loc: Rc<SourceRef>,
     },
     DeclFunc {
         name: Expr,
         params: Vec<FnParam>,
-        ret_type: Ty,
+        ret_type: Rc<Ty>,
         body: Box<Ins>,
         loc: Rc<SourceRef>,
     },

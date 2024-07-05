@@ -31,27 +31,27 @@ pub enum Ty {
         loc: Rc<SourceRef>,
     },
     Func {
-        params: Vec<Ty>,
-        ret: Box<Ty>,
+        params: Vec<Rc<Ty>>,
+        ret: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     StaticArray {
-        sub_ty: Box<Ty>,
+        sub_ty: Rc<Ty>,
         size: Option<Expr>,
         loc: Rc<SourceRef>,
     },
     Slice {
-        sub_ty: Box<Ty>,
+        sub_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     Optional {
-        sub_ty: Box<Ty>,
+        sub_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     Struct {
         name: String,
-        fields: HashMap<String, Ty>,
-        funcs: HashMap<String, Ty>,
+        fields: HashMap<String, Rc<Ty>>,
+        funcs: HashMap<String, Rc<Ty>>,
         loc: Rc<SourceRef>,
     },
     NamedType {
@@ -205,26 +205,26 @@ impl Ty {
         }
     }
 
-    pub fn clone_loc(&self, loc: Rc<SourceRef>) -> Ty {
+    pub fn clone_loc(&self, loc: Rc<SourceRef>) -> Rc<Ty> {
         let mut ty = self.clone();
         ty.set_loc(loc);
-        ty
+        Rc::new(ty)
     }
 
-    pub fn get_int_ty(loc: Rc<SourceRef>) -> Ty {
-        Ty::Signed {
+    pub fn get_int_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
+        Rc::new(Ty::Signed {
             size: Ty::get_platform_size(),
             is_int: true,
             loc,
-        }
+        })
     }
 
-    pub fn get_uint_ty(loc: Rc<SourceRef>) -> Ty {
-        Ty::Unsigned {
+    pub fn get_uint_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
+        Rc::new(Ty::Unsigned {
             size: Ty::get_platform_size(),
             is_uint: true,
             loc,
-        }
+        })
     }
 
     pub fn get_platform_size() -> u8 {

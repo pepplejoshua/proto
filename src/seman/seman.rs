@@ -1,8 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, pin::Pin, process::exit, rc::Rc, sync::Once};
-
-use serde::de::Expected;
+use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
 use crate::{
     codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
@@ -16,7 +14,7 @@ use crate::{
 
 #[derive(Debug, Clone)]
 pub struct NameInfo {
-    ty: Ty,
+    ty: Rc<RefCell<Ty>>,
     refs: Vec<Rc<SourceRef>>,
     is_const: bool,
     is_initialized: bool,
@@ -125,46 +123,22 @@ impl State {
     }
 }
 
-static BUILTIN_METHODS_INIT: Once = Once::new();
-// It will be a [str: [str: Ty]]
-// The main hashmap will be keyed by the type. The sub hashmap will be keyed by
-// the method
-static mut BUILTIN_METHODS_HASHMAP: Option<HashMap<&'static str, HashMap<&'static str, Ty>>> = None;
+// static BUILTIN_INIT: Once = Once::new();
+// static mut BUILTIN_HASHMAP: Option<HashMap<&'static str, HashMap<&'static str, Ty>>> = None;
 
-fn init_builtins() {
-    let mut m = HashMap::new();
-    let builtin_loc = SourceRef {
-        file: Rc::new("__proto_gen_builtins__".to_string()),
-        start_line: 0,
-        start_col: 0,
-        end_line: 0,
-        end_col: 0,
-        flat_start: 0,
-        flat_end: 0,
-    };
-    // m.insert(
-    //     "str",
-    //     HashMap::from([(
-    //         "len",
-    //         Ty::Func {
-    //             params: vec![],
-    //             ret: Box::new(Ty::get_uint_ty(builtin_loc.clone())),
-    //             loc: builtin_loc.clone(),
-    //         },
-    //     )]),
-    // );
+// fn init_builtins() {
+//     let mut m = HashMap::new();
+//     unsafe {
+//         BUILTIN_HASHMAP = Some(m);
+//     }
+// }
 
-    unsafe {
-        BUILTIN_METHODS_HASHMAP = Some(m);
-    }
-}
-
-fn get_builtin_methods() -> &'static HashMap<&'static str, HashMap<&'static str, Ty>> {
-    unsafe {
-        BUILTIN_METHODS_INIT.call_once(init_builtins);
-        BUILTIN_METHODS_HASHMAP.as_ref().unwrap()
-    }
-}
+// fn get_builtin_methods() -> &'static HashMap<&'static str, HashMap<&'static str, Ty>> {
+//     unsafe {
+//         BUILTIN_INIT.call_once(init_builtins);
+//         BUILTIN_HASHMAP.as_ref().unwrap()
+//     }
+// }
 
 enum TypeValidErr {
     Invalid,
@@ -246,12 +220,16 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
     }
 }
 
-pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, Option<TyExpr>) {
+pub fn check_expr(
+    e: &Expr,
+    context_ty: &Option<Rc<Ty>>,
+    state: &mut State,
+) -> (Rc<Ty>, Option<TyExpr>) {
     match e {
         Expr::Number { val, loc } => match context_ty {
             Some(ty) => {
                 if ty.is_num_ty() {
-                    let val_is_err = match ty {
+                    let val_is_err = match ty.as_ref() {
                         Ty::Signed { size, is_int, loc } => {
                             match size {
                                 8 => {
@@ -304,7 +282,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             number: val.clone(),
                             given_type: ty.as_str(),
                         });
-                        (Ty::ErrorType { loc: loc.clone() }, None)
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     } else {
                         (
                             ty.clone_loc(loc.clone()),
@@ -327,14 +305,14 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             loc: loc.clone(),
                             number: val.clone(),
                         });
-                        (Ty::ErrorType { loc: loc.clone() }, None)
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     } else {
                         (
-                            Ty::Signed {
+                            Rc::new(Ty::Signed {
                                 size,
                                 is_int: true,
                                 loc: loc.clone(),
-                            },
+                            }),
                             Some(TyExpr::Integer { val: val.clone() }),
                         )
                     }
@@ -358,32 +336,32 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         loc: loc.clone(),
                         number: val.clone(),
                     });
-                    (Ty::ErrorType { loc: loc.clone() }, None)
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                 } else {
                     (
-                        Ty::Signed {
+                        Rc::new(Ty::Signed {
                             size,
                             is_int: true,
                             loc: loc.clone(),
-                        },
+                        }),
                         Some(TyExpr::Integer { val: val.clone() }),
                     )
                 }
             }
         },
         Expr::Str { loc, val } => (
-            Ty::Str {
+            Rc::new(Ty::Str {
                 loc: loc.clone(),
                 is_interp: false,
-            },
+            }),
             Some(TyExpr::Str { val: val.clone() }),
         ),
         Expr::Char { loc, val } => (
-            Ty::Char { loc: loc.clone() },
+            Rc::new(Ty::Char { loc: loc.clone() }),
             Some(TyExpr::Char { val: val.clone() }),
         ),
         Expr::Bool { loc, val } => (
-            Ty::Bool { loc: loc.clone() },
+            Rc::new(Ty::Bool { loc: loc.clone() }),
             Some(TyExpr::Bool { val: *val }),
         ),
         Expr::StaticArray { vals, loc } => {
@@ -398,7 +376,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     // will be used as the context_ty to process the items in the array.
                     // assuming all goes well, we can take the type of the context ty,
                     // and the count of the array to create the new type to be returned
-                    match ty {
+                    match ty.as_ref() {
                         Ty::StaticArray { sub_ty, size, loc } => {
                             let arr_size = match size {
                                 Some(e) => {
@@ -408,7 +386,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                                 loc: e.get_source_ref(),
                                             },
                                         );
-                                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                     }
 
                                     let (e_ty, e_expr) = check_expr(
@@ -418,7 +396,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                     );
 
                                     if e_ty.is_error_ty() {
-                                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                     }
 
                                     let e_expr = e_expr.unwrap();
@@ -431,7 +409,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                                 arr_loc: loc.clone(),
                                             },
                                         );
-                                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                     }
                                     e_expr_str
                                 }
@@ -440,7 +418,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
 
                             // we can now go about checking each item in the static array against
                             // the expected item type.
-                            let expected_item_ty = *sub_ty.clone();
+                            let expected_item_ty = sub_ty.clone();
                             let mut item_ty_exprs = vec![];
                             let mut had_item_error = false;
                             for item in vals.iter() {
@@ -465,18 +443,18 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             }
 
                             if had_item_error {
-                                return (Ty::ErrorType { loc: loc.clone() }, None);
+                                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                             }
 
                             (
-                                Ty::StaticArray {
-                                    sub_ty: Box::new(sub_ty.clone_loc(loc.clone())),
+                                Rc::new(Ty::StaticArray {
+                                    sub_ty: sub_ty.clone_loc(loc.clone()),
                                     size: Some(Expr::Number {
                                         val: arr_size,
                                         loc: loc.clone(),
                                     }),
                                     loc: loc.clone(),
-                                },
+                                }),
                                 Some(TyExpr::StaticArray {
                                     vals: item_ty_exprs,
                                 }),
@@ -487,7 +465,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 given_ty: ty.as_str(),
                                 arr_loc: loc.clone(),
                             });
-                            (Ty::ErrorType { loc: loc.clone() }, None)
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                         }
                     }
                 }
@@ -500,12 +478,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         state.push_err(CheckerError::CannotInferTypeOfEmptyArray {
                             loc: loc.clone(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     let (expected_item_ty, first_ty_expr) = check_expr(&vals[0], context_ty, state);
                     if expected_item_ty.is_error_ty() {
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     let mut had_item_error = false;
@@ -533,18 +511,18 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     }
 
                     if had_item_error {
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     (
-                        Ty::StaticArray {
-                            sub_ty: Box::new(expected_item_ty.clone_loc(loc.clone())),
+                        Rc::new(Ty::StaticArray {
+                            sub_ty: expected_item_ty.clone_loc(loc.clone()),
                             size: Some(Expr::Number {
                                 val: vals.len().to_string(),
                                 loc: loc.clone(),
                             }),
                             loc: loc.clone(),
-                        },
+                        }),
                         Some(TyExpr::StaticArray {
                             vals: item_ty_exprs,
                         }),
@@ -557,14 +535,17 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             match i_ty {
                 Some(info) => {
                     info.refs.push(loc.clone());
-                    (info.ty.clone(), Some(TyExpr::Ident { name: name.clone() }))
+                    (
+                        Rc::new(info.ty.borrow().clone()),
+                        Some(TyExpr::Ident { name: name.clone() }),
+                    )
                 }
                 None => {
                     state.push_err(CheckerError::ReferenceToUndefinedName {
                         loc: loc.clone(),
                         var_name: name.clone(),
                     });
-                    (Ty::ErrorType { loc: loc.clone() }, None)
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                 }
             }
         }
@@ -610,7 +591,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (mut l_ty, mut l_ty_expr) =
                 check_expr(if lhs_is_first { left } else { right }, context_ty, state);
             if l_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
             let temp_l_ty = &Some(l_ty.clone());
             let (mut r_ty, mut r_ty_expr) = check_expr(
@@ -623,7 +604,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 state,
             );
             if r_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             if !lhs_is_first {
@@ -637,7 +618,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 | BinOpType::Sub
                 | BinOpType::Mult
                 | BinOpType::Div
-                | BinOpType::Mod => match (&l_ty, &r_ty) {
+                | BinOpType::Mod => match (l_ty.as_ref(), r_ty.as_ref()) {
                     (Ty::Signed { .. }, Ty::Signed { .. }) if types_are_eq(&l_ty, &r_ty) => (
                         l_ty.clone_loc(loc.clone()),
                         Some(TyExpr::BinOp {
@@ -660,10 +641,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         if matches!(op, BinOpType::Add) =>
                     {
                         (
-                            Ty::Str {
+                            Rc::new(Ty::Str {
                                 loc: loc.clone(),
                                 is_interp: false,
-                            },
+                            }),
                             Some(TyExpr::BinOp {
                                 op: *op,
                                 lhs: Box::new(l_ty_expr.unwrap()),
@@ -678,10 +659,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             left: l_ty.as_str(),
                             right: r_ty.as_str(),
                         });
-                        (Ty::ErrorType { loc: loc.clone() }, None)
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     }
                 },
-                BinOpType::And | BinOpType::Or => match (&l_ty, &r_ty) {
+                BinOpType::And | BinOpType::Or => match (l_ty.as_ref(), r_ty.as_ref()) {
                     (Ty::Bool { .. }, Ty::Bool { .. }) => (
                         l_ty.clone_loc(loc.clone()),
                         Some(TyExpr::BinOp {
@@ -697,7 +678,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             left: l_ty.as_str(),
                             right: r_ty.as_str(),
                         });
-                        (Ty::ErrorType { loc: loc.clone() }, None)
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     }
                 },
                 BinOpType::Eq
@@ -705,13 +686,13 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 | BinOpType::Gt
                 | BinOpType::Lt
                 | BinOpType::GtEq
-                | BinOpType::LtEq => match (&l_ty, &r_ty) {
+                | BinOpType::LtEq => match (l_ty.as_ref(), r_ty.as_ref()) {
                     (Ty::Signed { .. }, Ty::Signed { .. })
                     | (Ty::Unsigned { .. }, Ty::Unsigned { .. })
                         if types_are_eq(&l_ty, &r_ty) && types_are_eq(&l_ty, &r_ty) =>
                     {
                         (
-                            Ty::Bool { loc: loc.clone() },
+                            Rc::new(Ty::Bool { loc: loc.clone() }),
                             Some(TyExpr::BinOp {
                                 op: *op,
                                 lhs: Box::new(l_ty_expr.unwrap()),
@@ -720,7 +701,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         )
                     }
                     (Ty::Char { .. }, Ty::Char { .. }) => (
-                        Ty::Bool { loc: loc.clone() },
+                        Rc::new(Ty::Bool { loc: loc.clone() }),
                         Some(TyExpr::BinOp {
                             op: *op,
                             lhs: Box::new(l_ty_expr.unwrap()),
@@ -728,7 +709,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         }),
                     ),
                     (Ty::Str { .. }, Ty::Str { .. }) => (
-                        Ty::Bool { loc: loc.clone() },
+                        Rc::new(Ty::Bool { loc: loc.clone() }),
                         Some(TyExpr::BinOp {
                             op: *op,
                             lhs: Box::new(l_ty_expr.unwrap()),
@@ -754,7 +735,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             left: l_ty.as_str(),
                             right: r_ty.as_str(),
                         });
-                        (Ty::ErrorType { loc: loc.clone() }, None)
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     }
                 },
             }
@@ -763,10 +744,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (func_ty, func_ty_expr) = check_expr(func, &None, state);
 
             if func_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
-            match &func_ty {
+            match func_ty.as_ref() {
                 Ty::Struct { name, funcs, .. } => {
                     // look for init() func
                     if !funcs.contains_key(&"init".to_string()) {
@@ -774,12 +755,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             given_ty: name.clone(),
                             loc: func.get_source_ref(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     let init_fn = &funcs[&"init".to_string()];
 
-                    if let Ty::Func { params, ret, .. } = init_fn {
+                    if let Ty::Func { params, ret, .. } = init_fn.as_ref() {
                         // make sure ret equals the struct ty
                         if !ret.is_void() {
                             state.push_err(CheckerError::TypeMismatch {
@@ -787,7 +768,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 expected: "void".into(),
                                 found: ret.as_str(),
                             });
-                            return (Ty::ErrorType { loc: loc.clone() }, None);
+                            return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                         }
 
                         // check parameters
@@ -799,7 +780,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 given: args.len(),
                                 loc_given: loc.clone(),
                             });
-                            return (Ty::ErrorType { loc: loc.clone() }, None);
+                            return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                         }
 
                         let mut fn_ty_args = vec![];
@@ -838,7 +819,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             given: args.len(),
                             loc_given: loc.clone(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     let mut fn_ty_args = vec![];
@@ -870,7 +851,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         name_ty: func_ty.as_str(),
                         loc: func.get_source_ref(),
                     });
-                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                 }
             }
         }
@@ -880,10 +861,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             match op {
                 UnaryOpType::Not => {
                     if expr_ty.is_error_ty() {
-                        return (Ty::Bool { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::Bool { loc: loc.clone() }), None);
                     }
 
-                    if matches!(expr_ty, Ty::Bool { .. }) {
+                    if matches!(expr_ty.as_ref(), Ty::Bool { .. }) {
                         return (
                             expr_ty.clone_loc(loc.clone()),
                             Some(TyExpr::UnaryOp {
@@ -898,12 +879,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         operand: expr.as_str(),
                         tip: None,
                     });
-                    (Ty::ErrorType { loc: loc.clone() }, None)
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                 }
                 UnaryOpType::Negate => {
                     if expr_ty.is_error_ty() {
                         // we can just return an error type
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     if !expr_ty.is_signed_ty() {
@@ -913,7 +894,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             operand: expr.as_str(),
                             tip: None,
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     (
@@ -926,11 +907,11 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 }
             }
         }
-        Expr::ErrorExpr { msg, loc } => (Ty::ErrorType { loc: loc.clone() }, None),
+        Expr::ErrorExpr { msg, loc } => (Rc::new(Ty::ErrorType { loc: loc.clone() }), None),
         Expr::GroupedExpr { inner, loc } => {
             let (inner_ty, inner_ty_expr) = check_expr(inner, context_ty, state);
             if inner_ty.is_error_ty() {
-                (Ty::ErrorType { loc: loc.clone() }, None)
+                (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
             } else {
                 (
                     inner_ty.clone_loc(loc.clone()),
@@ -949,12 +930,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (cond_ty, cond_ty_expr) = check_expr(cond, &None, state);
 
             // we expect the condition to be typed bool
-            if !cond_ty.is_error_ty() && !matches!(cond_ty, Ty::Bool { .. }) {
+            if !cond_ty.is_error_ty() && !matches!(cond_ty.as_ref(), Ty::Bool { .. }) {
                 state.push_err(CheckerError::ConditionShouldBeTypedBool {
                     given_ty: cond_ty.as_str(),
                     loc: cond.get_source_ref(),
                 });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             // typecheck then and otherwise expressions and make sure they have
@@ -965,7 +946,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             let (other_ty, other_ty_expr) = check_expr(otherwise, context_ty, state);
 
             if then_ty.is_error_ty() || other_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             if !types_are_eq(&then_ty, &other_ty) {
@@ -974,7 +955,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     expected: then_ty.as_str(),
                     found: other_ty.as_str(),
                 });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             (
@@ -987,10 +968,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             )
         }
         Expr::InterpStr { val, loc } => (
-            Ty::Str {
+            Rc::new(Ty::Str {
                 loc: loc.clone(),
                 is_interp: true,
-            },
+            }),
             Some(TyExpr::Str { val: val.clone() }),
         ),
         Expr::InterpolatedString { parts, loc } => {
@@ -1000,7 +981,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             for part in parts.iter() {
                 let (new_ty, mut new_ty_expr) = check_expr(part, &None, state);
                 if !new_ty.is_error_ty() {
-                    new_ty_expr = match new_ty {
+                    new_ty_expr = match new_ty.as_ref() {
                         Ty::Void { .. } => Some(TyExpr::MultiExpr {
                             exprs: vec![
                                 new_ty_expr.unwrap(),
@@ -1010,7 +991,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             ],
                         }),
                         Ty::Str { is_interp, .. } => {
-                            if is_interp {
+                            if *is_interp {
                                 Some(TyExpr::CallFn {
                                     func: Box::new(TyExpr::Ident {
                                         name: "str".to_string(),
@@ -1052,15 +1033,15 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     };
                     new_ty_exprs.push(new_ty_expr.unwrap());
                 } else {
-                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                 }
             }
 
             (
-                Ty::Str {
+                Rc::new(Ty::Str {
                     loc: loc.clone(),
                     is_interp: false,
-                },
+                }),
                 Some(TyExpr::InterpolatedString {
                     parts: new_ty_exprs,
                 }),
@@ -1074,7 +1055,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
         } => {
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             if !target_ty.is_sliceable() {
@@ -1082,7 +1063,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     given_ty: target_ty.as_str(),
                     loc: target_ty.get_loc(),
                 });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             // check both start and end_excl expressions, if they are provided
@@ -1091,7 +1072,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     let (a, b) =
                         check_expr(start, &Some(Ty::get_uint_ty(start.get_source_ref())), state);
                     if a.is_error_ty() {
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     if !a.is_unsigned_ty() {
@@ -1100,7 +1081,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             expected: "uint".into(),
                             found: a.as_str(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     };
 
                     (a, b.unwrap())
@@ -1116,7 +1097,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     let (end_ty, end_ty_expr) = check_expr(end_excl,
                         &Some(Ty::get_uint_ty(end_excl.get_source_ref())), state);
                     if end_ty.is_error_ty() {
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
                     if !end_ty.is_unsigned_ty() {
@@ -1125,12 +1106,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             expected: "uint".into(),
                             found: end_ty.as_str(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
-                    match target_ty {
+                    match target_ty.as_ref() {
                         Ty::StaticArray { sub_ty, .. } => {
-                            let slice_ty = Ty::Slice { sub_ty: Box::new(sub_ty.clone_loc(loc.clone())), loc: loc.clone() };
+                            let slice_ty = Ty::Slice { sub_ty: sub_ty.clone_loc(loc.clone()), loc: loc.clone() };
                             if let Some(context_ty) = context_ty {
                                 if !types_are_eq(context_ty, &slice_ty) {
                                     state.push_err(CheckerError::TypeMismatch {
@@ -1138,17 +1119,17 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                 }
                             }
-                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                            (Rc::new(slice_ty), Some(TyExpr::MakeSliceWithEnd {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 start: Box::new(start_ty_expr),
                                 end_excl: Box::new(end_ty_expr.unwrap())
                             }))
                         }
                         Ty::Slice { sub_ty, .. } => {
-                            let slice_ty = Ty::Slice { sub_ty: Box::new(sub_ty.clone_loc(loc.clone())), loc: loc.clone() };
+                            let slice_ty = Ty::Slice { sub_ty: sub_ty.clone_loc(loc.clone()), loc: loc.clone() };
                             if let Some(context_ty) = context_ty {
                                 if !types_are_eq(context_ty, &slice_ty) {
                                     state.push_err(CheckerError::TypeMismatch {
@@ -1156,11 +1137,11 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                 }
                             }
 
-                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                            (Rc::new(slice_ty), Some(TyExpr::MakeSliceWithEnd {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 start: Box::new(start_ty_expr),
                                 end_excl: Box::new(end_ty_expr.unwrap())
@@ -1170,12 +1151,12 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     }
                 }
                 None =>
-                    match target_ty {
+                    match target_ty.as_ref() {
                         Ty::StaticArray { sub_ty, size, .. } => {
                             let end_ty_expr = TyExpr::Integer {
                                 val: size.as_ref().unwrap().as_str(),
                             };
-                            let slice_ty = Ty::Slice { sub_ty: Box::new(sub_ty.clone_loc(loc.clone())), loc: loc.clone() };
+                            let slice_ty = Ty::Slice { sub_ty: sub_ty.clone_loc(loc.clone()), loc: loc.clone() };
                             if let Some(context_ty) = context_ty {
                                 if !types_are_eq(context_ty, &slice_ty) {
                                     state.push_err(CheckerError::TypeMismatch {
@@ -1183,17 +1164,17 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                 }
                             }
-                            (slice_ty, Some(TyExpr::MakeSliceWithEnd {
+                            (Rc::new(slice_ty), Some(TyExpr::MakeSliceWithEnd {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 start: Box::new(start_ty_expr),
                                 end_excl: Box::new(end_ty_expr)
                             }))
                         }
                         Ty::Slice { sub_ty, .. } => {
-                            let slice_ty = Ty::Slice { sub_ty: Box::new(sub_ty.clone_loc(loc.clone())), loc: loc.clone() };
+                            let slice_ty = Ty::Slice { sub_ty: sub_ty.clone_loc(loc.clone()), loc: loc.clone() };
                             if let Some(context_ty) = context_ty {
                                 if !types_are_eq(context_ty, &slice_ty) {
                                     state.push_err(CheckerError::TypeMismatch {
@@ -1201,10 +1182,10 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                         expected: context_ty.as_str(),
                                         found: slice_ty.as_str()
                                     });
-                                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                                 }
                             }
-                            (slice_ty, Some(TyExpr::MakeSliceFrom {
+                            (Rc::new(slice_ty), Some(TyExpr::MakeSliceFrom {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 start: Box::new(start_ty_expr)
                             }))
@@ -1218,7 +1199,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             // index must be usize.
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             if target_ty.is_indexable() {
@@ -1226,13 +1207,13 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     given_ty: target_ty.as_str(),
                     loc: target.get_source_ref(),
                 });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             let (index_ty, index_ty_expr) =
                 check_expr(index, &Some(Ty::get_uint_ty(index.get_source_ref())), state);
             if index_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
             if index_ty.is_unsigned_ty() {
                 state.push_err(CheckerError::TypeMismatch {
@@ -1240,11 +1221,11 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     expected: "uint".into(),
                     found: index_ty.as_str(),
                 });
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             };
 
-            let new_ty = match target_ty {
-                Ty::Str { .. } => Ty::Char { loc: loc.clone() },
+            let new_ty = match target_ty.as_ref() {
+                Ty::Str { .. } => Rc::new(Ty::Char { loc: loc.clone() }),
                 Ty::StaticArray { sub_ty, .. } | Ty::Slice { sub_ty, .. } => {
                     let sub_ty = sub_ty.clone_loc(loc.clone());
                     sub_ty
@@ -1267,7 +1248,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
             // support for Slice, Array, Option and String methods
             let (target_ty, target_ty_expr) = check_expr(target, &None, state);
             if target_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             match type_is_valid(&target_ty) {
@@ -1278,14 +1259,14 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             loc: e_loc,
                             type_name: target_ty.as_str(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
                     TypeValidErr::Incomplete => {
                         state.push_err(CheckerError::IncompleteType {
                             loc: e_loc,
                             type_name: target_ty.as_str(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
                 },
             }
@@ -1300,7 +1281,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                 flat_end: 0,
             });
 
-            match &target_ty {
+            match target_ty.as_ref() {
                 Ty::Struct { fields, funcs, .. } => {
                     // we will check fields, assoc_funcs and methods
                     let field_ty = fields.get(&mem.as_str());
@@ -1330,16 +1311,16 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         mem: mem.as_str(),
                         loc: loc.clone(),
                     });
-                    (Ty::ErrorType { loc: loc.clone() }, None)
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                 }
                 Ty::Str { .. } => {
-                    let mut methods: HashMap<&str, Ty> = HashMap::from([(
+                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
                         "len",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![],
-                            ret: Box::new(Ty::get_uint_ty(builtin_loc.clone())),
+                            ret: Ty::get_uint_ty(builtin_loc.clone()),
                             loc: builtin_loc,
-                        },
+                        }),
                     )]);
                     // check if it is one of the methods on the type
                     let mem_str = mem.as_str();
@@ -1363,54 +1344,54 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Ty::ErrorType { loc: loc.clone() }, None)
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                         }
                     }
                 }
                 Ty::StaticArray { sub_ty, .. } | Ty::Slice { sub_ty, .. } => {
-                    let mut methods: HashMap<&str, Ty> = HashMap::from([(
+                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
                         "len",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![],
-                            ret: Box::new(Ty::get_uint_ty(builtin_loc.clone())),
+                            ret: Ty::get_uint_ty(builtin_loc.clone()),
                             loc: builtin_loc.clone(),
-                        },
+                        }),
                     )]);
                     methods.insert(
                         "get",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![Ty::get_uint_ty(builtin_loc.clone())],
-                            ret: Box::new(Ty::Optional {
-                                sub_ty: Box::new(sub_ty.clone_loc(builtin_loc.clone())),
+                            ret: Rc::new(Ty::Optional {
+                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
                                 loc: builtin_loc.clone(),
                             }),
                             loc: builtin_loc.clone(),
-                        },
+                        }),
                     );
                     methods.insert(
                         "make_slice",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![
                                 Ty::get_uint_ty(builtin_loc.clone()),
                                 Ty::get_uint_ty(builtin_loc.clone()),
                             ],
-                            ret: Box::new(Ty::Slice {
-                                sub_ty: Box::new(sub_ty.clone_loc(builtin_loc.clone())),
+                            ret: Rc::new(Ty::Slice {
+                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
                                 loc: builtin_loc.clone(),
                             }),
                             loc: builtin_loc.clone(),
-                        },
+                        }),
                     );
                     methods.insert(
                         "make_slice_from",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![Ty::get_uint_ty(builtin_loc.clone())],
-                            ret: Box::new(Ty::Slice {
-                                sub_ty: Box::new(sub_ty.clone_loc(builtin_loc.clone())),
+                            ret: Rc::new(Ty::Slice {
+                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
                                 loc: builtin_loc.clone(),
                             }),
                             loc: builtin_loc,
-                        },
+                        }),
                     );
                     // check if it is one of the methods on the type
                     let mem_str = mem.as_str();
@@ -1428,7 +1409,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Ty::ErrorType { loc: loc.clone() }, None)
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                         }
                     }
                 }
@@ -1436,32 +1417,32 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                     let mut methods = HashMap::from([
                         (
                             "is_some",
-                            Ty::Func {
+                            Rc::new(Ty::Func {
                                 params: vec![],
-                                ret: Box::new(Ty::Bool {
+                                ret: Rc::new(Ty::Bool {
                                     loc: builtin_loc.clone(),
                                 }),
                                 loc: builtin_loc.clone(),
-                            },
+                            }),
                         ),
                         (
                             "is_none",
-                            Ty::Func {
+                            Rc::new(Ty::Func {
                                 params: vec![],
-                                ret: Box::new(Ty::Bool {
+                                ret: Rc::new(Ty::Bool {
                                     loc: builtin_loc.clone(),
                                 }),
                                 loc: builtin_loc.clone(),
-                            },
+                            }),
                         ),
                     ]);
                     methods.insert(
                         "unwrap",
-                        Ty::Func {
+                        Rc::new(Ty::Func {
                             params: vec![],
-                            ret: Box::new(sub_ty.clone_loc(builtin_loc.clone())),
+                            ret: sub_ty.clone_loc(builtin_loc.clone()),
                             loc: builtin_loc,
-                        },
+                        }),
                     );
 
                     // check if it is one of the methods on the type
@@ -1480,7 +1461,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                                 mem: mem_str,
                                 loc: loc.clone(),
                             });
-                            (Ty::ErrorType { loc: loc.clone() }, None)
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                         }
                     }
                 }
@@ -1489,15 +1470,15 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                         given_ty: target_ty.as_str(),
                         loc: target.get_source_ref(),
                     });
-                    (Ty::ErrorType { loc: loc.clone() }, None)
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                 }
             }
         }
         Expr::OptionalExpr { val, loc } => {
             let (v_ty, v_ty_expr) = match (context_ty, val) {
-                (Some(ty), Some(val)) => match ty {
+                (Some(ty), Some(val)) => match ty.as_ref() {
                     Ty::Optional { sub_ty, loc } => {
-                        let expected_item_ty = *sub_ty.clone();
+                        let expected_item_ty = sub_ty.clone();
                         check_expr(val, &Some(expected_item_ty), state)
                     }
                     _ => {
@@ -1505,16 +1486,16 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             given_ty: ty.as_str(),
                             opt_loc: loc.clone(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
                 },
                 (None, Some(val)) => check_expr(val, context_ty, state),
-                (Some(ty), None) => match ty {
+                (Some(ty), None) => match ty.as_ref() {
                     Ty::Optional { sub_ty, loc } => {
-                        let opt_ty = Ty::Optional {
+                        let opt_ty = Rc::new(Ty::Optional {
                             sub_ty: sub_ty.clone(),
                             loc: loc.clone(),
-                        };
+                        });
                         return (opt_ty, Some(TyExpr::OptionalExpr { val: None }));
                     }
                     _ => {
@@ -1522,7 +1503,7 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             given_ty: ty.as_str(),
                             opt_loc: loc.clone(),
                         });
-                        return (Ty::ErrorType { loc: loc.clone() }, None);
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
                 },
                 (None, None) => {
@@ -1531,20 +1512,20 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
                             opt_loc: loc.clone(),
                         },
                     );
-                    return (Ty::ErrorType { loc: loc.clone() }, None);
+                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                 }
             };
 
             if v_ty.is_error_ty() {
-                return (Ty::ErrorType { loc: loc.clone() }, None);
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
             let opt_ty = Ty::Optional {
-                sub_ty: Box::new(v_ty),
+                sub_ty: v_ty,
                 loc: loc.clone(),
             };
             (
-                opt_ty,
+                Rc::new(opt_ty),
                 Some(TyExpr::OptionalExpr {
                     val: Some(Box::new(v_ty_expr.unwrap())),
                 }),
@@ -1553,7 +1534,11 @@ pub fn check_expr(e: &Expr, context_ty: &Option<Ty>, state: &mut State) -> (Ty, 
     }
 }
 
-pub fn check_ins_for_return(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<TyIns> {
+pub fn check_ins_for_return(
+    i: &Ins,
+    context_ty: &Option<Rc<Ty>>,
+    state: &mut State,
+) -> Option<TyIns> {
     let ret_ty = context_ty.as_ref().unwrap();
     if !ret_ty.is_void() {
         if i.contains_sub_instructions() {
@@ -1579,7 +1564,7 @@ pub fn check_ins_for_return(i: &Ins, context_ty: &Option<Ty>, state: &mut State)
     }
 }
 
-pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<TyIns> {
+pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Option<TyIns> {
     match i {
         Ins::DeclConst {
             name,
@@ -1624,7 +1609,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 }
             };
             let info = NameInfo {
-                ty: expr_ty.clone(),
+                ty: Rc::new(RefCell::new((*expr_ty).clone())),
                 refs: vec![loc.clone()],
                 is_const: true,
                 is_initialized: true,
@@ -1671,7 +1656,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         }
                     };
                     let info = NameInfo {
-                        ty: expr_ty.clone(),
+                        ty: Rc::new(RefCell::new((*expr_ty).clone())),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
@@ -1681,7 +1666,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 }
                 (Some(ty), None) => {
                     let var_ty = if type_is_valid(ty).is_err() {
-                        Ty::ErrorType { loc: loc.clone() }
+                        Rc::new(Ty::ErrorType { loc: loc.clone() })
                     } else {
                         ty.clone()
                     };
@@ -1690,7 +1675,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                     // For static arrays where the size and type are not specified
                     // we will need to either enforce providing them or
                     let info = NameInfo {
-                        ty: var_ty.clone(),
+                        ty: Rc::new(RefCell::new((*var_ty).clone())),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: false,
@@ -1705,7 +1690,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 (None, Some(expr)) => {
                     let (expr_ty, expr_ty_expr) = check_expr(expr, &None, state);
                     let info = NameInfo {
-                        ty: expr_ty.clone(),
+                        ty: Rc::new(RefCell::new((*expr_ty).clone())),
                         refs: vec![loc.clone()],
                         is_const: false,
                         is_initialized: true,
@@ -1757,21 +1742,25 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                             loc: e_loc,
                             type_name: ret_type.as_str(),
                         });
-                        Ty::ErrorType {
+                        Rc::new(Ty::ErrorType {
                             loc: ret_type.get_loc(),
-                        }
+                        })
                     }
                     TypeValidErr::Incomplete => {
                         state.push_err(CheckerError::IncompleteType {
                             loc: e_loc,
                             type_name: ret_type.as_str(),
                         });
-                        Ty::ErrorType {
+                        Rc::new(Ty::ErrorType {
                             loc: ret_type.get_loc(),
-                        }
+                        })
                     }
                 },
             };
+
+            if ret_ty.is_error_ty() {
+                return None;
+            }
 
             if state.is_in_x_scope(&Scope::Defer) {
                 if !ret_ty.is_void() {
@@ -1782,12 +1771,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 }
             }
 
-            if ret_ty.is_error_ty() {
-                return None;
-            }
-
             let mut fn_type_params = vec![];
             let mut pairs_to_register = vec![];
+            let mut has_error = false;
             for param in params.into_iter() {
                 let p_ty = match type_is_valid(&param.given_ty) {
                     Ok(_) => param.given_ty.clone(),
@@ -1797,26 +1783,29 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                                 loc: e_loc,
                                 type_name: param.given_ty.as_str(),
                             });
-                            Ty::ErrorType {
+                            Rc::new(Ty::ErrorType {
                                 loc: param.given_ty.get_loc(),
-                            }
+                            })
                         }
                         TypeValidErr::Incomplete => {
                             state.push_err(CheckerError::IncompleteType {
                                 loc: e_loc,
                                 type_name: param.given_ty.as_str(),
                             });
-                            Ty::ErrorType {
+                            Rc::new(Ty::ErrorType {
                                 loc: param.given_ty.get_loc(),
-                            }
+                            })
                         }
                     },
                 };
+                if p_ty.is_error_ty() {
+                    has_error = true;
+                }
                 fn_type_params.push(p_ty.clone());
                 pairs_to_register.push((
                     param.name.as_str(),
                     NameInfo {
-                        ty: p_ty,
+                        ty: Rc::new(RefCell::new((*p_ty).clone())),
                         refs: vec![param.loc.clone()],
                         is_const: true,
                         is_initialized: true,
@@ -1824,11 +1813,15 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 ));
             }
 
-            let fn_type = Ty::Func {
+            if has_error {
+                return None;
+            }
+
+            let fn_type = Rc::new(RefCell::new(Ty::Func {
                 params: fn_type_params,
-                ret: Box::new(ret_ty.clone()),
+                ret: ret_ty.clone(),
                 loc: loc.clone(),
-            };
+            }));
 
             let fn_info = NameInfo {
                 ty: fn_type,
@@ -1848,7 +1841,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 state.env.add(param_name.clone(), param_info.clone());
                 ty_params.push(TyFnParam {
                     name: param_name,
-                    given_ty: param_info.ty,
+                    given_ty: Rc::new(param_info.ty.borrow().clone()),
                 });
             }
 
@@ -1907,7 +1900,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                     let (cond_ty, cond_ty_expr) = check_expr(cond, context_ty, state);
                     if cond_ty.is_error_ty() {
                         None
-                    } else if !matches!(cond_ty, Ty::Bool { .. }) {
+                    } else if !matches!(cond_ty.as_ref(), Ty::Bool { .. }) {
                         state.push_err(CheckerError::ConditionShouldBeTypedBool {
                             given_ty: cond_ty.as_str(),
                             loc: cond.get_source_ref(),
@@ -1954,7 +1947,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
         } => {
             // we will need to check the body and update the struct type under the name
             // as we get new information (fields, associated functions and methods)
-            let name_info = state.env.shallow_lookup(&name.as_str());
+            let name_info = state.env.lookup(&name.as_str());
             if name_info.is_some() {
                 state.push_err(CheckerError::NameAlreadyDefined {
                     loc: loc.clone(),
@@ -1963,12 +1956,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 return None;
             }
 
-            let mut struct_ty = Ty::Struct {
+            let mut struct_ty = Rc::new(RefCell::new(Ty::Struct {
                 name: name.as_str(),
                 fields: HashMap::new(),
                 funcs: HashMap::new(),
                 loc: loc.clone(),
-            };
+            }));
 
             let mut info = NameInfo {
                 ty: struct_ty.clone(),
@@ -2000,16 +1993,13 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                         | TyIns::Constant { name: f_name, .. }=> {
                             let v_info = state.env.shallow_lookup(&f_name).unwrap();
 
-                            if v_info.ty.is_error_ty() {
+                            if v_info.ty.borrow().is_error_ty() {
                                 continue;
                             }
-                            if let Ty::Struct { fields, .. } = &mut struct_ty {
-                                fields.insert(f_name.clone(), v_info.ty.clone());
+                            let mut b_struct_ty = &mut *(*struct_ty).borrow_mut();
+                            if let Ty::Struct { fields, .. } = b_struct_ty {
+                                fields.insert(f_name.clone(), Rc::new(v_info.ty.borrow().clone()));
                             }
-                            // info.ty = struct_ty.clone();
-                            self_info.ty = struct_ty.clone();
-                            // state.env.add(name.as_str(), info.clone());
-                            state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in fields vec for Struct."),
                     }
@@ -2017,26 +2007,22 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 }
             }
 
-            // println!("HERE2, {:#?}", funcs);
             let mut ty_fns = vec![];
             for func in funcs {
-                let ty_fn = check_ins(func, &Some(struct_ty.clone()), state);
+                let ty_fn = check_ins(func, &None, state);
 
                 if let Some(ty_fn) = ty_fn {
                     match &ty_fn {
                         TyIns::Func { name: fn_name, .. } => {
                             let fn_info = state.env.shallow_lookup(&fn_name).unwrap();
 
-                            if fn_info.ty.is_error_ty() {
+                            if fn_info.ty.borrow().is_error_ty() {
                                 continue;
                             }
-                            if let Ty::Struct { funcs, .. } = &mut struct_ty {
-                                funcs.insert(fn_name.clone(), fn_info.ty.clone());
+                            let mut b_struct_ty = &mut *(*struct_ty).borrow_mut();
+                            if let Ty::Struct { funcs, .. } = b_struct_ty {
+                                funcs.insert(fn_name.clone(), Rc::new(fn_info.ty.borrow().clone()));
                             }
-                            // info.ty = struct_ty.clone();
-                            self_info.ty = struct_ty.clone();
-                            // state.env.add(name.as_str(), info.clone());
-                            state.env.add("self".into(), self_info.clone());
                         }
                         _ => unreachable!("seman::check_ins(): found an unexpected instruction in funcs vec for Struct."),
                     }
@@ -2185,7 +2171,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 }
                 let (expr_ty, ret_ty_expr) = check_expr(e, context_ty, state);
                 if let Some(context_ty) = context_ty {
-                    if !expr_ty.is_error_ty() && matches!(context_ty, Ty::Void { .. }) {
+                    if !expr_ty.is_error_ty() && matches!(context_ty.as_ref(), Ty::Void { .. }) {
                         state.push_err(CheckerError::MismatchingReturnType {
                             exp: "void".to_string(),
                             given: expr_ty.as_str(),
@@ -2206,7 +2192,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 Some(TyIns::Return { expr: ret_ty_expr })
             } else {
                 if let Some(context_ty) = context_ty {
-                    if !matches!(context_ty, Ty::Void { .. }) {
+                    if !matches!(context_ty.as_ref(), Ty::Void { .. }) {
                         state.push_err(CheckerError::MismatchingReturnType {
                             exp: context_ty.as_str(),
                             given: "void".to_string(),
@@ -2235,7 +2221,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Ty>, state: &mut State) -> Option<
                 return None;
             }
 
-            if !matches!(output_ty, Ty::Str { .. }) {
+            if !matches!(output_ty.as_ref(), Ty::Str { .. }) {
                 state.push_err(CheckerError::PrintRequiresAStringArg {
                     is_println: *is_println,
                     given_ty: output_ty.as_str(),

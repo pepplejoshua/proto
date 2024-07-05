@@ -7,7 +7,8 @@
 - Make sure all functions return from the last instruction if they have non-void return type. If the last instruction is an if statement, make sure it covers all cases (i.e. provides an else) with returns. [DONE]
 - Work on out of order declarations. [On Hold. Implemented topological sort using weak references to names. Not the best but it works in the top level and in structs.]
 - Add support for structs. [DONE. Other small tasks have spawned from this one.]
-- Add defer instruction.
+- Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
+- Add defer instruction. [DONE]
 - Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
 - Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables.
 ```rs

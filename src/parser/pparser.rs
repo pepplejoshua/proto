@@ -861,68 +861,68 @@ impl Parser {
         }
     }
 
-    fn parse_type(&mut self) -> Ty {
+    fn parse_type(&mut self) -> Rc<Ty> {
         let cur = self.cur_token();
         self.advance();
-        match cur {
-            Token::I8(loc) => Ty::Signed {
+        let ty = match cur {
+            Token::I8(loc) => Rc::new(Ty::Signed {
                 size: 8,
                 is_int: false,
                 loc,
-            },
-            Token::I16(loc) => Ty::Signed {
+            }),
+            Token::I16(loc) => Rc::new(Ty::Signed {
                 size: 16,
                 is_int: false,
                 loc,
-            },
-            Token::I32(loc) => Ty::Signed {
+            }),
+            Token::I32(loc) => Rc::new(Ty::Signed {
                 size: 32,
                 is_int: false,
                 loc,
-            },
-            Token::I64(loc) => Ty::Signed {
+            }),
+            Token::I64(loc) => Rc::new(Ty::Signed {
                 size: 64,
                 is_int: false,
                 loc,
-            },
+            }),
             Token::Int(loc) => {
                 // 64 bit platform
                 Ty::get_int_ty(loc)
             }
-            Token::U8(loc) => Ty::Unsigned {
+            Token::U8(loc) => Rc::new(Ty::Unsigned {
                 size: 8,
                 is_uint: false,
                 loc,
-            },
-            Token::U16(loc) => Ty::Unsigned {
+            }),
+            Token::U16(loc) => Rc::new(Ty::Unsigned {
                 size: 16,
                 is_uint: false,
                 loc,
-            },
-            Token::U32(loc) => Ty::Unsigned {
+            }),
+            Token::U32(loc) => Rc::new(Ty::Unsigned {
                 size: 32,
                 is_uint: false,
                 loc,
-            },
-            Token::U64(loc) => Ty::Unsigned {
+            }),
+            Token::U64(loc) => Rc::new(Ty::Unsigned {
                 size: 64,
                 is_uint: false,
                 loc,
-            },
+            }),
             Token::UInt(loc) => {
                 // 64 bit platform
                 Ty::get_uint_ty(loc)
             }
-            Token::Char(loc) => Ty::Char { loc },
-            Token::Bool(loc) => Ty::Bool { loc },
-            Token::Str(loc) => Ty::Str {
+            Token::Char(loc) => Rc::new(Ty::Char { loc }),
+            Token::Bool(loc) => Rc::new(Ty::Bool { loc }),
+            Token::Str(loc) => Rc::new(Ty::Str {
                 loc,
                 is_interp: false,
-            },
-            Token::Identifier(name, loc) => Ty::NamedType { name, loc },
-            Token::Void(loc) => Ty::Void { loc },
+            }),
+            Token::Identifier(name, loc) => Rc::new(Ty::NamedType { name, loc }),
+            Token::Void(loc) => Rc::new(Ty::Void { loc }),
             Token::LBracket(loc) => {
-                let sub_ty = Box::new(self.parse_type());
+                let sub_ty = self.parse_type();
 
                 match self.cur_token() {
                     Token::Comma(_) => {
@@ -949,16 +949,16 @@ impl Parser {
                             span = span.combine(self.cur_token().get_source_ref());
                             self.advance()
                         }
-                        Ty::StaticArray {
+                        Rc::new(Ty::StaticArray {
                             sub_ty,
                             size: static_size,
                             loc: span,
-                        }
+                        })
                     }
                     Token::RBracket(rbrac_loc) => {
                         self.advance();
                         let span = loc.combine(rbrac_loc);
-                        Ty::Slice { sub_ty, loc: span }
+                        Rc::new(Ty::Slice { sub_ty, loc: span })
                     }
                     _ => {
                         self.report_error(ParseError::Expected(
@@ -966,25 +966,26 @@ impl Parser {
                             self.cur_token().get_source_ref(),
                             None,
                         ));
-                        Ty::ErrorType {
+                        Rc::new(Ty::ErrorType {
                             loc: self.cur_token().get_source_ref(),
-                        }
+                        })
                     }
                 }
             }
             Token::QuestionMark(loc) => {
-                let sub_ty = Box::new(self.parse_type());
+                let sub_ty = self.parse_type();
                 let span = loc.combine(sub_ty.get_loc().clone());
-                Ty::Optional { sub_ty, loc: span }
+                Rc::new(Ty::Optional { sub_ty, loc: span })
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
-                Ty::ErrorType {
+                Rc::new(Ty::ErrorType {
                     loc: cur.get_source_ref(),
-                }
+                })
             }
-        }
+        };
+        ty
     }
 
     fn parse_expr(&mut self) -> Expr {

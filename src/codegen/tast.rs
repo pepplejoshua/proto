@@ -50,10 +50,6 @@ pub enum TyExpr {
     StaticArray {
         vals: Vec<TyExpr>,
     },
-    InitStruct {
-        struct_name: String,
-        fields: Vec<(String, TyExpr)>,
-    },
     InterpolatedString {
         parts: Vec<TyExpr>,
     },
@@ -172,10 +168,6 @@ impl TyExpr {
                 Some(v) => format!("some({})", v.as_str()),
                 None => format!("none"),
             },
-            TyExpr::InitStruct {
-                struct_name,
-                fields,
-            } => todo!(),
         }
     }
 }
@@ -183,25 +175,25 @@ impl TyExpr {
 #[derive(Debug, Clone)]
 pub struct TyFnParam {
     pub name: String,
-    pub given_ty: Ty,
+    pub given_ty: Rc<Ty>,
 }
 
 #[derive(Debug, Clone)]
 pub enum TyIns {
     Constant {
         name: String,
-        ty: Ty,
+        ty: Rc<Ty>,
         init: TyExpr,
     },
     Var {
         name: String,
-        ty: Ty,
+        ty: Rc<Ty>,
         init: Option<TyExpr>,
     },
     Func {
         name: String,
         params: Vec<TyFnParam>,
-        ret_ty: Ty,
+        ret_ty: Rc<Ty>,
         body: Box<TyIns>,
     },
     Struct {

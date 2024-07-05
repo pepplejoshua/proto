@@ -347,10 +347,6 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 format!("{{}}")
             }
         }
-        TyExpr::InitStruct {
-            struct_name,
-            fields,
-        } => todo!(),
     }
 }
 
@@ -457,9 +453,8 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                     buf.push_str(&ins_str);
                 }
             }
-
             state.dedent();
-            buf.push_str(&format!("{}}};", state.get_pad()));
+            buf.push_str(&format!("\n{}}};", state.get_pad()));
         }
         TyIns::Block { code } => {
             buf = format!("{}{{\n", state.get_pad());
