@@ -367,10 +367,6 @@ impl SourceReporter {
                 let msg = format!("Cyclical dependency detected: '{}'.", cycle);
                 self.report_with_ref(&src, msg, None, false);
             }
-            ParseError::BreakInstructionOutsideLoop(src) => {
-                let msg = "A break instruction can only be used in a loop's body.".to_string();
-                self.report_with_ref(&src, msg, None, false);
-            }
         }
     }
 
@@ -589,6 +585,14 @@ impl SourceReporter {
             CheckerError::FunctionInDeferShouldReturnVoid { loc } => {
                 let msg =
                     format!("Function definitions inside a defer instruction should return void.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::LoopControlInstructionOutsideLoop { ty, loc } => {
+                let msg = format!("A {ty} instruction can only be used in a loop's body.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::InvalidForInLoopTargetType { given_ty, loc } => {
+                let msg = format!("The type of the target of a for-in loop must be either a str, an array, or a slice but got '{given_ty}'. ");
                 self.report_with_ref(&loc, msg, None, false);
             }
         }

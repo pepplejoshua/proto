@@ -1,11 +1,7 @@
 #![allow(unused)]
-
 use std::{collections::HashSet, path::Path, process::Command};
 
-use crate::{
-    source::source::{SourceRef, SourceReporter},
-    types::signature::Ty,
-};
+use crate::types::signature::Ty;
 
 use super::tast::{TyExpr, TyFileModule, TyIns};
 
@@ -199,14 +195,14 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             state.gen_typedefs_for.insert("str".to_string());
             ty.as_str()
         }
-        Ty::Signed { size, is_int, .. } => {
+        Ty::Signed { is_int, .. } => {
             if *is_int {
                 return "int".into();
             }
             state.gen_typedefs_for.insert(ty.as_str());
             ty.as_str()
         }
-        Ty::Unsigned { size, is_uint, .. } => {
+        Ty::Unsigned { is_uint, .. } => {
             if *is_uint {
                 return "uint_pr".into();
             }
@@ -290,7 +286,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             // allows us use #include <string> and std::to_string()
             state.gen_typedefs_for.insert("str".into());
             state.uses_str_interpolation = true;
-            let mut buf = parts
+            let buf = parts
                 .iter()
                 .map(|p| cpp_gen_expr(p, state))
                 .collect::<Vec<String>>()
@@ -449,7 +445,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                         }
                     }
                     buf.push('\n');
-                    let mut ins_str = cpp_gen_ins(func, state);
+                    let ins_str = cpp_gen_ins(func, state);
                     buf.push_str(&ins_str);
                 }
             }
@@ -533,6 +529,20 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             state.dedent();
             buf.push_str(&format!("{});", state.get_pad()));
         }
+        TyIns::Break => {
+            buf = format!("{}break;", state.get_pad());
+        }
+        TyIns::Continue => {
+            buf = format!("{}continue;", state.get_pad());
+        }
+        TyIns::ForInLoop { var, target, block } => {
+            buf = format!(
+                "{}for (const auto {var} : {})\n{}",
+                state.get_pad(),
+                cpp_gen_expr(target, state),
+                cpp_gen_ins(block, state)
+            );
+        }
     }
     buf
 }
@@ -561,7 +571,7 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
     // println!("{exe_path:?}");
     std::fs::write(file_path.clone(), cpp_code.trim()).expect("Unable to write file");
 
-    let mut clang_compile = Command::new("clang++")
+    let clang_compile = Command::new("clang++")
         .args([
             file_path.to_str().unwrap(),
             "-o",

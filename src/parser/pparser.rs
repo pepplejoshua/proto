@@ -134,7 +134,7 @@ impl Parser {
         let mut ood = HashMap::new();
         let mut instructions = vec![];
         while !self.is_at_eof() {
-            let ins = self.next_ins(true, true);
+            let ins = self.next_ins(true, false);
             let ins_id = ins.get_id();
 
             if ins_id.is_some() {
@@ -273,7 +273,11 @@ impl Parser {
             }
             Token::Break(_) => {
                 check_term = true;
-                self.parse_break()
+                self.parse_loop_control_ins()
+            }
+            Token::Continue(_) => {
+                check_term = true;
+                self.parse_loop_control_ins()
             }
             Token::SingleLineComment(loc, comment) => {
                 self.advance();
@@ -301,20 +305,24 @@ impl Parser {
             } else {
                 self.advance();
             }
+        } else if check_term {
+            if matches!(self.cur_token(), Token::Semicolon(_)) {
+                self.advance();
+            }
         }
         ins
     }
 
-    fn parse_break(&mut self) -> Ins {
-        if !self.scope.contains(&ParseScope::Loop) {
-            self.report_error(ParseError::BreakInstructionOutsideLoop(
-                self.cur_token().get_source_ref(),
-            ));
-        }
-
-        let mut span = self.cur_token().get_source_ref();
+    fn parse_loop_control_ins(&mut self) -> Ins {
+        let cur = self.cur_token();
+        let mut span = cur.get_source_ref();
         self.advance();
-        Ins::Break { loc: span }
+
+        if matches!(cur, Token::Break(_)) {
+            Ins::Break { loc: span }
+        } else {
+            Ins::Continue { loc: span }
+        }
     }
 
     fn parse_loop(&mut self) -> Ins {
@@ -336,9 +344,7 @@ impl Parser {
         // we are dealing with a conventional loop
         if matches!(self.cur_token(), Token::LParen(_)) {
             self.advance();
-
             let loop_var = self.next_ins(false, true);
-
             if !matches!(loop_var, Ins::DeclVar { .. }) {
                 // report error
                 self.report_error(ParseError::Expected(
@@ -347,9 +353,7 @@ impl Parser {
                     None,
                 ));
             }
-
             let loop_cond = self.parse_expr();
-
             if !matches!(self.cur_token(), Token::Semicolon(_)) {
                 // report error
                 self.report_error(ParseError::Expected(
@@ -360,9 +364,7 @@ impl Parser {
             } else {
                 self.advance();
             }
-
             let loop_update = self.next_ins(false, false);
-
             if !matches!(self.cur_token(), Token::RParen(_)) {
                 self.report_error(ParseError::Expected(
                     "a right parenthesis to terminate conventional loop header.".into(),
@@ -372,7 +374,6 @@ impl Parser {
             } else {
                 self.advance();
             }
-
             self.scope.push(ParseScope::Loop);
             let body = self.parse_block(false);
             self.scope.pop();
@@ -385,7 +386,6 @@ impl Parser {
                 loc: span,
             };
         }
-
         let expr = self.parse_expr();
         let mut cur = self.cur_token();
         match (&expr, cur) {
@@ -399,10 +399,8 @@ impl Parser {
                         None,
                     ));
                 }
-
                 // skip over the Token::In
                 self.advance();
-
                 // parse the iteration target
                 let target = self.parse_expr();
                 self.scope.push(ParseScope::Loop);
@@ -475,7 +473,7 @@ impl Parser {
         let mut loc = self.cur_token().get_source_ref();
         self.advance();
 
-        let sub_ins = self.next_ins(true, true);
+        let sub_ins = self.next_ins(true, false);
         loc = loc.combine(sub_ins.get_source_ref());
         Ins::Defer {
             sub_ins: Box::new(sub_ins),
@@ -673,7 +671,7 @@ impl Parser {
 
         let ret_type = self.parse_type();
         self.scope.push(ParseScope::Function);
-        let body = self.next_ins(false, true);
+        let body = self.next_ins(false, false);
         self.scope.pop();
         let fn_span = start.get_source_ref().combine(body.get_source_ref());
 
@@ -703,7 +701,7 @@ impl Parser {
                 break;
             }
 
-            let ins = self.next_ins(true, true);
+            let ins = self.next_ins(true, false);
             block_loc = block_loc.combine(ins.get_source_ref());
             match &ins {
                 Ins::DeclConst { .. } | Ins::DeclVar { .. } => {
@@ -946,7 +944,7 @@ impl Parser {
                 break;
             }
 
-            let ins = self.next_ins(true, true);
+            let ins = self.next_ins(true, false);
             code.push(ins);
         }
         let last_ins = code.last();

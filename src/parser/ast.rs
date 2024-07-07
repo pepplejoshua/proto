@@ -369,6 +369,9 @@ pub enum Ins {
     Break {
         loc: Rc<SourceRef>,
     },
+    Continue {
+        loc: Rc<SourceRef>,
+    },
     ForInLoop {
         loop_var: Expr,
         loop_target: Expr,
@@ -418,6 +421,7 @@ impl Ins {
             | Ins::WhileLoop { loc, .. }
             | Ins::RegLoop { loc, .. }
             | Ins::Break { loc }
+            | Ins::Continue { loc }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -446,6 +450,7 @@ impl Ins {
             | Ins::PrintIns { .. }
             | Ins::ForInLoop { .. }
             | Ins::Break { .. }
+            | Ins::Continue { .. }
             | Ins::InfiniteLoop { .. }
             | Ins::WhileLoop { .. }
             | Ins::RegLoop { .. }
@@ -460,13 +465,13 @@ impl Ins {
             } => {
                 if let Some(ty) = ty {
                     format!(
-                        "{} : {} : {};",
+                        "{} : {} : {}",
                         name.as_str(),
                         ty.as_str(),
                         init_val.as_str()
                     )
                 } else {
-                    format!("{} :: {};", name.as_str(), init_val.as_str())
+                    format!("{} :: {}", name.as_str(), init_val.as_str())
                 }
             }
             Ins::SingleLineComment { comment, .. } => format!("{comment}"),
@@ -475,15 +480,10 @@ impl Ins {
             } => match init_val {
                 Some(init_v) => match ty {
                     Some(tyv) => {
-                        format!(
-                            "{} : {} = {};",
-                            name.as_str(),
-                            tyv.as_str(),
-                            init_v.as_str()
-                        )
+                        format!("{} : {} = {}", name.as_str(), tyv.as_str(), init_v.as_str())
                     }
                     None => {
-                        format!("{} := {};", name.as_str(), init_v.as_str())
+                        format!("{} := {}", name.as_str(), init_v.as_str())
                     }
                 },
                 None => match ty {
@@ -525,18 +525,18 @@ impl Ins {
                 buf
             }
             Ins::AssignTo { target, value, .. } => {
-                format!("{} = {};", target.as_str(), value.as_str())
+                format!("{} = {}", target.as_str(), value.as_str())
             }
             Ins::Return { expr, .. } => match expr {
                 Some(val) => {
-                    format!("return {};", val.as_str())
+                    format!("return {}", val.as_str())
                 }
                 None => {
-                    format!("return;")
+                    format!("return")
                 }
             },
             Ins::ExprIns { expr, .. } => {
-                format!("{};", expr.as_str())
+                format!("{}", expr.as_str())
             }
             Ins::ErrorIns { .. } => format!("[ErrIns]"),
             Ins::DeclStruct {
@@ -600,7 +600,7 @@ impl Ins {
                 output,
             } => {
                 format!(
-                    "{}({});",
+                    "{}({})",
                     if *is_println { "println" } else { "print" },
                     output.as_str()
                 )
@@ -622,6 +622,7 @@ impl Ins {
                 )
             }
             Ins::Break { loc } => "break;".into(),
+            Ins::Continue { loc } => "continue;".into(),
             Ins::InfiniteLoop { block, .. } => {
                 format!("for\n{}", block.as_str())
             }
@@ -632,7 +633,7 @@ impl Ins {
                 ..
             } => {
                 let post_code = if let Some(pcode) = post_code {
-                    format!(": ({})", pcode.as_str())
+                    format!(" : ({})", pcode.as_str())
                 } else {
                     "".into()
                 };
@@ -646,7 +647,7 @@ impl Ins {
                 ..
             } => {
                 format!(
-                    "for ({} {}; {})\n{}",
+                    "for ({}; {}; {})\n{}",
                     init.as_str(),
                     loop_cond.as_str(),
                     update.as_str(),

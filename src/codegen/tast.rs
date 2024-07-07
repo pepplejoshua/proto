@@ -224,6 +224,13 @@ pub enum TyIns {
     IfConditional {
         comb: Vec<(Option<TyExpr>, TyIns)>,
     },
+    Break,
+    Continue,
+    ForInLoop {
+        var: String,
+        target: TyExpr,
+        block: Box<TyIns>,
+    },
 }
 
 impl TyIns {
@@ -234,9 +241,9 @@ impl TyIns {
             }
             TyIns::Var { name, ty, init } => {
                 if let Some(init) = init {
-                    format!("{name} : {} : {};", ty.as_str(), init.as_str())
+                    format!("{name} : {} : {}", ty.as_str(), init.as_str())
                 } else {
-                    format!("{name} : {};", ty.as_str())
+                    format!("{name} : {}", ty.as_str())
                 }
             }
             TyIns::Struct {
@@ -293,13 +300,13 @@ impl TyIns {
                 buf
             }
             TyIns::ExprIns { expr } => {
-                format!("{};", expr.as_str())
+                format!("{}", expr.as_str())
             }
             TyIns::Return { expr } => {
                 if let Some(expr) = expr {
                     format!("return {}", expr.as_str())
                 } else {
-                    "return;".to_string()
+                    "return".to_string()
                 }
             }
             TyIns::IfConditional { comb } => {
@@ -336,6 +343,11 @@ impl TyIns {
             }
             TyIns::Defer { sub_ins } => {
                 format!("defer {}", sub_ins.as_str())
+            }
+            TyIns::Break => "break".into(),
+            TyIns::Continue => "continue".into(),
+            TyIns::ForInLoop { var, target, block } => {
+                format!("for {var} in {}\n{}", target.as_str(), block.as_str())
             }
         }
     }

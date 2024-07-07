@@ -64,9 +64,19 @@ pub enum Scope {
     Func,
     Block,
     Struct,
+    Loop,
     Defer,
     Mod,
     Method,
+}
+
+impl Scope {
+    pub fn is_major_scope(&self) -> bool {
+        match self {
+            Scope::Block => false,
+            _ => true,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -89,6 +99,15 @@ impl State {
             enter_new_scope: true,
             check_for_return: false,
         }
+    }
+
+    pub fn first_major_scope(&self) -> Scope {
+        for scope in self.scope_stack.iter().rev() {
+            if scope.is_major_scope() {
+                return *scope;
+            }
+        }
+        self.scope_stack[0]
     }
 
     pub fn x_scope_index(&self, x: &Scope) -> Option<usize> {
@@ -2248,13 +2267,85 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 sub_ins: Box::new(ty_sub_ins.unwrap()),
             })
         }
+        Ins::Break { loc } | Ins::Continue { loc } => {
+            let first_major_scope = state.first_major_scope();
+            let (control_ty, ty_ins) = if matches!(i, Ins::Break { .. }) {
+                ("break".to_string(), TyIns::Break)
+            } else {
+                ("continue".to_string(), TyIns::Continue)
+            };
+            if !matches!(first_major_scope, Scope::Loop) {
+                state.push_err(CheckerError::LoopControlInstructionOutsideLoop {
+                    ty: control_ty,
+                    loc: loc.clone(),
+                });
+            }
+            Some(ty_ins)
+        }
         Ins::ForInLoop {
             loop_var,
             loop_target,
             block,
             loc,
-        } => todo!(),
-        Ins::Break { loc } => todo!(),
+        } => {
+            // we will check the loop target and use its type to determine the type
+            // of the loop var, which will be a constant
+            let (ty_targ, ty_targ_expr) = check_expr(loop_target, &None, state);
+
+            if ty_targ.is_error_ty() {
+                return None;
+            }
+
+            if !ty_targ.is_indexable() {
+                state.push_err(CheckerError::InvalidForInLoopTargetType {
+                    given_ty: ty_targ.as_str(),
+                    loc: loop_target.get_source_ref(),
+                });
+                return None;
+            }
+
+            // now we can grab the type of the loop constant
+            let loop_var_ty = match ty_targ.as_ref() {
+                Ty::Str { .. } => Ty::Char {
+                    loc: loop_var.get_source_ref(),
+                },
+                Ty::StaticArray { sub_ty, loc, .. } | Ty::Slice { sub_ty, loc } => {
+                    let n_sub_ty = sub_ty.clone_loc(loop_var.get_source_ref());
+                    (*n_sub_ty).clone()
+                }
+                _ => unreachable!("seman::check_ins(): Unexpected indexable type in for-in loop."),
+            };
+
+            // create new scope to add loop variable and check loop body with
+            state.env.extend();
+            state.scope_stack.push(Scope::Loop);
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+            let loop_var_info = NameInfo {
+                ty: Rc::new(RefCell::new(loop_var_ty)),
+                refs: vec![loop_var.get_source_ref()],
+                is_const: true,
+                is_initialized: true,
+            };
+            state.env.add(loop_var.as_str(), loop_var_info);
+
+            let new_body = check_ins(block, &None, state);
+
+            if new_body.is_none() {
+                return None;
+            }
+
+            // exit scope after checks
+            state.enter_new_scope = old_enter_new_scope;
+            state.scope_stack.pop();
+            state.env.pop();
+
+            Some(TyIns::ForInLoop {
+                var: loop_var.as_str(),
+                target: ty_targ_expr.unwrap(),
+                block: Box::new(new_body.unwrap()),
+            })
+        }
         Ins::InfiniteLoop { block, loc } => todo!(),
         Ins::WhileLoop {
             cond,
