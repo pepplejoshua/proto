@@ -291,14 +291,16 @@ impl Parser {
             }
         };
 
-        if require_term && check_term && !matches!(self.cur_token(), Token::Semicolon(_)) {
-            self.report_error(ParseError::Expected(
-                "a semi-colon to terminate this instruction.".into(),
-                ins.get_source_ref(),
-                None,
-            ));
-        } else {
-            self.advance();
+        if require_term && check_term {
+            if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                self.report_error(ParseError::Expected(
+                    "a semi-colon to terminate this instruction.".into(),
+                    ins.get_source_ref(),
+                    None,
+                ));
+            } else {
+                self.advance();
+            }
         }
         ins
     }
@@ -327,6 +329,59 @@ impl Parser {
             span = span.combine(block.get_source_ref());
             return Ins::InfiniteLoop {
                 block: Box::new(block),
+                loc: span,
+            };
+        }
+
+        // we are dealing with a conventional loop
+        if matches!(self.cur_token(), Token::LParen(_)) {
+            self.advance();
+
+            let loop_var = self.next_ins(false, true);
+
+            if !matches!(loop_var, Ins::DeclVar { .. }) {
+                // report error
+                self.report_error(ParseError::Expected(
+                    "a variable declaration instruction for the loop variable.".into(),
+                    loop_var.get_source_ref(),
+                    None,
+                ));
+            }
+
+            let loop_cond = self.parse_expr();
+
+            if !matches!(self.cur_token(), Token::Semicolon(_)) {
+                // report error
+                self.report_error(ParseError::Expected(
+                    "a semicolon to terminate the condition expression of the loop".into(),
+                    loop_var.get_source_ref(),
+                    None,
+                ));
+            } else {
+                self.advance();
+            }
+
+            let loop_update = self.next_ins(false, false);
+
+            if !matches!(self.cur_token(), Token::RParen(_)) {
+                self.report_error(ParseError::Expected(
+                    "a right parenthesis to terminate conventional loop header.".into(),
+                    self.cur_token().get_source_ref(),
+                    None,
+                ));
+            } else {
+                self.advance();
+            }
+
+            self.scope.push(ParseScope::Loop);
+            let body = self.parse_block(false);
+            self.scope.pop();
+            span = span.combine(body.get_source_ref());
+            return Ins::RegLoop {
+                init: Box::new(loop_var),
+                loop_cond,
+                update: Box::new(loop_update),
+                block: Box::new(body),
                 loc: span,
             };
         }
@@ -361,42 +416,44 @@ impl Parser {
                     loc: span,
                 }
             }
-            // either while loop or conventional loop
+            // while with a post code
             (_, Token::Colon(_)) => {
-                // determine if it is a while loop or a conventional loop
-                // so far we have seen for Expr :
                 self.advance();
-
                 cur = self.cur_token();
-
-                if matches!(cur, Token::LParen(_)) {
+                self.scope.push(ParseScope::Loop);
+                let post_code = if matches!(cur, Token::LParen(_)) {
                     // we are in a while with post instruction
                     self.advance();
-                    self.scope.push(ParseScope::Loop);
                     let post_code = self.next_ins(true, false);
                     // we should see a )
                     if !matches!(self.cur_token(), Token::RParen(_)) {
                         self.report_error(ParseError::Expected(
-                            "a right parenthesis to terminate post-loop code.".into(),
+                            "a right parenthesis to terminate post-instruction.".into(),
                             self.cur_token().get_source_ref(),
                             None,
                         ));
                     } else {
                         self.advance();
                     }
-                    let body = self.parse_block(false);
-                    self.scope.pop();
-                    span = span.combine(body.get_source_ref());
-                    return Ins::WhileLoop {
-                        cond: expr,
-                        post_code: Some(Box::new(post_code)),
-                        block: Box::new(body),
-                        loc: span,
-                    };
-                }
+                    Some(Box::new(post_code))
+                } else {
+                    self.report_error(ParseError::Expected(
+                        "a left parenthesis to begin post-instruction.".into(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                    None
+                };
 
-                // we should handle a conventional loop
-                todo!()
+                let body = self.parse_block(false);
+                self.scope.pop();
+                span = span.combine(body.get_source_ref());
+                return Ins::WhileLoop {
+                    cond: expr,
+                    post_code,
+                    block: Box::new(body),
+                    loc: span,
+                };
             }
             // parse a while
             (_, _) => {

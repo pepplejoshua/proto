@@ -385,6 +385,13 @@ pub enum Ins {
         block: Box<Ins>,
         loc: Rc<SourceRef>,
     },
+    RegLoop {
+        init: Box<Ins>,
+        loop_cond: Expr,
+        update: Box<Ins>,
+        block: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
     ErrorIns {
         loc: Rc<SourceRef>,
     },
@@ -409,6 +416,7 @@ impl Ins {
             | Ins::ForInLoop { loc, .. }
             | Ins::InfiniteLoop { loc, .. }
             | Ins::WhileLoop { loc, .. }
+            | Ins::RegLoop { loc, .. }
             | Ins::Break { loc }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
@@ -440,6 +448,7 @@ impl Ins {
             | Ins::Break { .. }
             | Ins::InfiniteLoop { .. }
             | Ins::WhileLoop { .. }
+            | Ins::RegLoop { .. }
             | Ins::ErrorIns { .. } => None,
         }
     }
@@ -628,6 +637,21 @@ impl Ins {
                     "".into()
                 };
                 format!("for {}{}\n{}", cond.as_str(), post_code, block.as_str())
+            }
+            Ins::RegLoop {
+                init,
+                loop_cond,
+                update,
+                block,
+                ..
+            } => {
+                format!(
+                    "for ({} {}; {})\n{}",
+                    init.as_str(),
+                    loop_cond.as_str(),
+                    update.as_str(),
+                    block.as_str()
+                )
             }
         }
     }

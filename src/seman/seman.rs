@@ -2262,6 +2262,13 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             block,
             loc,
         } => todo!(),
+        Ins::RegLoop {
+            init,
+            loop_cond,
+            update,
+            block,
+            loc,
+        } => todo!(),
     }
 }
 

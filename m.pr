@@ -1,7 +1,16 @@
 fn main() int {
     arr :: [1, 2, 3, 4, 5];
 
-    println(`{arr}`);
+    for (i := 0; i < arr.len(); i = i + 1) {
+        println(`arr[{i}] = {arr[i]}`);
+    }
+    println("");
+
+    i = 0;
+    for i < arr.len() : (i = i + 1) {
+        n :: arr[i];
+        println(`arr[{i}] = {arr[i]}`);
+    }
 
     return 0;
 }
