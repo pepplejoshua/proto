@@ -2248,6 +2248,14 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 sub_ins: Box::new(ty_sub_ins.unwrap()),
             })
         }
+        Ins::ForInLoop {
+            loop_var,
+            loop_target,
+            block,
+            loc,
+        } => todo!(),
+        Ins::Break { loc } => todo!(),
+        Ins::InfiniteLoop { block, loc } => todo!(),
     }
 }
 

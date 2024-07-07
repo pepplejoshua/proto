@@ -367,6 +367,10 @@ impl SourceReporter {
                 let msg = format!("Cyclical dependency detected: '{}'.", cycle);
                 self.report_with_ref(&src, msg, None, false);
             }
+            ParseError::BreakInstructionOutsideLoop(src) => {
+                let msg = "A break instruction can only be used in a loop's body.".to_string();
+                self.report_with_ref(&src, msg, None, false);
+            }
         }
     }
 

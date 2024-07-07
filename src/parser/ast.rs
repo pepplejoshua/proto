@@ -367,6 +367,19 @@ pub enum Ins {
         output: Expr,
         loc: Rc<SourceRef>,
     },
+    Break {
+        loc: Rc<SourceRef>,
+    },
+    ForInLoop {
+        loop_var: Expr,
+        loop_target: Expr,
+        block: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
+    InfiniteLoop {
+        block: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
     ErrorIns {
         msg: String,
         loc: Rc<SourceRef>,
@@ -389,6 +402,9 @@ impl Ins {
             | Ins::IfConditional { loc, .. }
             | Ins::PrintIns { loc, .. }
             | Ins::Defer { loc, .. }
+            | Ins::ForInLoop { loc, .. }
+            | Ins::InfiniteLoop { loc, .. }
+            | Ins::Break { loc }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -415,6 +431,9 @@ impl Ins {
             | Ins::Return { .. }
             | Ins::SingleLineComment { .. }
             | Ins::PrintIns { .. }
+            | Ins::ForInLoop { .. }
+            | Ins::Break { .. }
+            | Ins::InfiniteLoop { .. }
             | Ins::ErrorIns { .. } => None,
         }
     }
@@ -573,6 +592,23 @@ impl Ins {
             }
             Ins::Defer { sub_ins, loc } => {
                 format!("defer {}", sub_ins.as_str())
+            }
+            Ins::ForInLoop {
+                loop_var,
+                loop_target,
+                block,
+                loc,
+            } => {
+                format!(
+                    "for {} in {}\n{}",
+                    loop_var.as_str(),
+                    loop_target.as_str(),
+                    block.as_str()
+                )
+            }
+            Ins::Break { loc } => "break;".into(),
+            Ins::InfiniteLoop { block, .. } => {
+                format!("for\n{}", block.as_str())
             }
         }
     }

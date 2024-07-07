@@ -1,5 +1,5 @@
 fn mut if else for
-loop while void true false
+void true false
 i8 i16 i32 i64 int
 u8 u16 u32 u64 uint
 bool char

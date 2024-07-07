@@ -263,9 +263,11 @@ impl Parser {
         match cur {
             Token::Defer(_) => self.parse_defer(),
             Token::Fn(_) => self.parse_fn(),
+            Token::For(_) => self.parse_loop(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
             Token::Print(_) | Token::Println(_) => self.parse_print(),
+            Token::Break(_) => self.parse_break(),
             Token::SingleLineComment(loc, comment) => {
                 self.advance();
                 Ins::SingleLineComment { comment, loc }
@@ -275,6 +277,37 @@ impl Parser {
             Token::LCurly(_) => self.parse_block(use_new_scope),
             _ => self.parse_expr_ins(),
         }
+    }
+
+    fn parse_break(&mut self) -> Ins {
+        if !self.scope.contains(&ParseScope::Loop) {
+            self.report_error(ParseError::BreakInstructionOutsideLoop(
+                self.cur_token().get_source_ref(),
+            ));
+        }
+
+        let span = self.cur_token().get_source_ref();
+        self.advance();
+        Ins::Break { loc: span }
+    }
+
+    fn parse_loop(&mut self) -> Ins {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance();
+
+        // we are parsing an infinite loop
+        if matches!(self.cur_token(), Token::RCurly(_)) {
+            self.scope.push(ParseScope::Loop);
+            let block = self.parse_block(false);
+            self.scope.pop();
+            span = span.combine(block.get_source_ref());
+            return Ins::InfiniteLoop {
+                block: Box::new(block),
+                loc: span,
+            };
+        }
+
+        todo!()
     }
 
     fn parse_defer(&mut self) -> Ins {

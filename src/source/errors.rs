@@ -29,6 +29,7 @@ pub enum ParseError {
     MisuseOfPubKeyword(Rc<SourceRef>),
     UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
     ReturnInstructionOutsideFunction(Rc<SourceRef>),
+    BreakInstructionOutsideLoop(Rc<SourceRef>),
     CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
     TooManyErrors(Rc<SourceRef>),
 }
@@ -50,6 +51,7 @@ impl ParseError {
             | ParseError::ReturnInstructionOutsideFunction(src)
             | ParseError::TooManyErrors(src)
             | ParseError::CyclicalDependencyBetweenNodes { src, .. }
+            | ParseError::BreakInstructionOutsideLoop(src)
             | ParseError::NoVariableAtCurrentScope(src) => src.clone(),
         }
     }

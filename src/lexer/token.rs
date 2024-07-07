@@ -11,8 +11,7 @@ pub enum Token {
     Mut(Rc<SourceRef>),
     If(Rc<SourceRef>),
     Else(Rc<SourceRef>),
-    Loop(Rc<SourceRef>),
-    While(Rc<SourceRef>),
+    For(Rc<SourceRef>),
     Break(Rc<SourceRef>),
     Continue(Rc<SourceRef>),
     True(Rc<SourceRef>),
@@ -108,8 +107,7 @@ impl Token {
             | Token::Mut(src)
             | Token::If(src)
             | Token::Else(src)
-            | Token::Loop(src)
-            | Token::While(src)
+            | Token::For(src)
             | Token::Plus(src)
             | Token::Minus(src)
             | Token::Star(src)
@@ -186,8 +184,7 @@ impl Token {
             self,
             Token::Let(_)
                 | Token::LCurly(_)
-                | Token::Loop(_)
-                | Token::While(_)
+                | Token::For(_)
                 | Token::Pub(_)
                 | Token::Return(_)
                 | Token::Break(_)
@@ -207,8 +204,7 @@ impl Token {
             Token::Mut(_) => "mut".into(),
             Token::If(_) => "if".into(),
             Token::Else(_) => "else".into(),
-            Token::Loop(_) => "loop".into(),
-            Token::While(_) => "while".into(),
+            Token::For(_) => "for".into(),
             Token::Break(_) => "break".into(),
             Token::Continue(_) => "continue".into(),
             Token::Void(_) => "void".into(),

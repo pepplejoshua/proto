@@ -9,6 +9,13 @@
 - Add support for structs. [DONE. Other small tasks have spawned from this one.]
 - Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
 - Add defer instruction. [DONE]
+- Add loops, continue, break.
+- Add compound assignment expressions (+=, -=, *=, /=).
+- Add range expression.
+- Work on pointers and references.
+- Add functional methods (map, filter) to iterables.
+- Add Vec<T> type for growable vectors.
+- Consider if tuples are valuable to add (if I can implement them myself in C++)
 - Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
 - Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables.
 ```rs
@@ -47,7 +54,6 @@ fn main() int {
 - For literals like Strings, Slices, Arrays and Optional, instead of just generating the literal in C++, wrap it with the actual type. This will mean these expression nodes will carry their type with them. So the literals can be used in any instance (like printing a `some a` where a is an array) without a complaint about knowing the type to use.
 - Add support for traits.
 - Determine how exactly types propagate top down in expr essions. Fix inconsistencies. [DONE. For now seems okay. I trickle types down as required from a parent context (types from variable, constants, function parameters, et.c). In the case of binary statements, I can use a sibling to typecheck an expression node. This is especially useful when one of the siblings has a guaranteed type (a identifier) and the other sibling would have been inferred (to be int for example) without the context of its sibling's type. So we can decide to check one before the other.]
-- Work on pointers and references.
 - Work on some type of support for generic types and functions.
 - Write something for blog about journey so far (lexer, parser, seman and codegen).
 - Improve error reporting. Instead of current style, maybe allow combining multiple string sources from different sources to provide more information in errors.
@@ -71,3 +77,20 @@ fn main() int {
 - proto testing framework built in language?
 - Notebook support? 👀
 - 0.0.1 release?
+
+```rs
+// conventional loop
+// for [Ident := Expr]; Expr; [Expr]
+for i := 0; i < arr.len(); i += 1 {
+    println(`arr[{i}] = {arr[i]}`);
+}
+println("");
+
+i = 0;
+// while loop
+// for Expr [: Expr]
+for i < arr.len() : i += 1 {
+    n :: arr[i];
+    println(`arr[{i}] = {arr[i]}`);
+}
+```
