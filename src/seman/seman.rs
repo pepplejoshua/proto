@@ -2355,8 +2355,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             state.scope_stack.pop();
             state.env.pop();
 
-            Some(TyIns::InfiniteLoop {
+            Some(TyIns::WhileLoop {
                 block: Box::new(new_body.unwrap()),
+                cond: TyExpr::Bool { val: true },
             })
         }
         Ins::WhileLoop {
@@ -2364,7 +2365,74 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             post_code,
             block,
             loc,
-        } => todo!(),
+        } => {
+            // first we need to make sure that cond is typed bool
+            let (cond_ty, cond_ty_expr) = check_expr(
+                cond,
+                &Some(Rc::new(Ty::Bool {
+                    loc: cond.get_source_ref(),
+                })),
+                state,
+            );
+
+            if cond_ty.is_error_ty() {
+                return None;
+            }
+
+            if !matches!(cond_ty.as_ref(), Ty::Bool { .. }) {
+                state.push_err(CheckerError::TypeMismatch {
+                    loc: cond.get_source_ref(),
+                    expected: "bool".into(),
+                    found: cond_ty.as_str(),
+                });
+                return None;
+            }
+
+            // we can check the post before we check the body
+            let ty_post_code = if let Some(post_code) = post_code {
+                let deferred_post_code = Ins::Defer {
+                    sub_ins: post_code.clone(),
+                    loc: post_code.get_source_ref(),
+                };
+                check_ins(&deferred_post_code, context_ty, state)
+            } else {
+                None
+            };
+
+            // then we can enter a new scope, check body and post code
+            state.env.extend();
+            state.scope_stack.push(Scope::Loop);
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+
+            let new_body = check_ins(block, &None, state);
+
+            if new_body.is_none() {
+                return None;
+            }
+
+            let mut new_body = new_body.unwrap();
+
+            if let TyIns::Block { code } = &mut new_body {
+                // we can now typecheck the post_code and append it to code
+                if let Some(ty_post_code) = ty_post_code {
+                    // put the deferred code into the first statement of the block
+                    code.insert(0, ty_post_code);
+                }
+            }
+
+            // exit scope after checks
+            state.enter_new_scope = old_enter_new_scope;
+            state.scope_stack.pop();
+            state.env.pop();
+
+            // create a while loop instruction with cond and the concatenation
+            // of body and post code
+            Some(TyIns::WhileLoop {
+                cond: cond_ty_expr.unwrap(),
+                block: Box::new(new_body),
+            })
+        }
         Ins::RegLoop {
             init,
             loop_cond,

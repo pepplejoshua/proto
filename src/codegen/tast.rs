@@ -231,7 +231,8 @@ pub enum TyIns {
         target: TyExpr,
         block: Box<TyIns>,
     },
-    InfiniteLoop {
+    WhileLoop {
+        cond: TyExpr,
         block: Box<TyIns>,
     },
 }
@@ -352,8 +353,8 @@ impl TyIns {
             TyIns::ForInLoop { var, target, block } => {
                 format!("for {var} in {}\n{}", target.as_str(), block.as_str())
             }
-            TyIns::InfiniteLoop { block } => {
-                format!("for\n{}", block.as_str())
+            TyIns::WhileLoop { cond, block } => {
+                format!("for {}\n{}", cond.as_str(), block.as_str())
             }
         }
     }

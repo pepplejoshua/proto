@@ -545,12 +545,13 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_ins(block, state)
             );
         }
-        TyIns::InfiniteLoop { block } => {
+        TyIns::WhileLoop { cond, block } => {
             buf = format!(
-                "{}while (true)\n{}",
+                "{}while ({})\n{}",
                 state.get_pad(),
+                cpp_gen_expr(cond, state),
                 cpp_gen_ins(block, state)
-            );
+            )
         }
     }
     buf
