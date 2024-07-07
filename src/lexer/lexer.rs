@@ -63,20 +63,8 @@ impl Lexer {
         }
 
         while self.src.cur_char().is_whitespace() {
-            // TODO: understand the ramifications of using newlines instead of ;
-            // we care about newline characters since they take the place
-            // of semicolons in the grammar
-            // if self.src.cur_char() == '\n' {
-            //     let newline_loc = self.src.get_ref();
-            //     self.src.next_char();
-            //     return Ok(Token::Newline(newline_loc));
-            // }
             // skip all preceding whitespace
             self.skip_whitespace();
-            // process comments
-            // eventually, it'll get documentation comments
-            // for now, it just skips single line comments
-            // self.process_comment();
         }
 
         // get the current character
@@ -166,13 +154,23 @@ impl Lexer {
                     // from this point till we see a }, we will call next_token() to read
                     // regular token to us, instead of a string
                     let mut saw_rcurly = false;
+                    let mut num_of_lcurly = 1;
                     while !self.src.is_eof() {
                         if let Ok(tok) = self.next_token() {
                             span = span.combine(tok.get_source_ref());
+                            let saw_lcurly = matches!(tok, Token::LCurly(_));
+                            if saw_lcurly {
+                                // we have nested interpolated strings with code sections
+                                num_of_lcurly += 1;
+                            }
                             saw_rcurly = matches!(tok, Token::RCurly(_));
                             parts.push(tok);
                             if saw_rcurly {
-                                break;
+                                if num_of_lcurly == 1 {
+                                    // we are closing the original {
+                                    break;
+                                }
+                                num_of_lcurly -= 1;
                             }
                         } else {
                             break;
@@ -182,7 +180,6 @@ impl Lexer {
                     if !saw_rcurly {
                         return Err(LexError::UnterminatedStringLiteral(span));
                     }
-
                     buf_span = self.src.get_ref();
                 }
                 _ => {

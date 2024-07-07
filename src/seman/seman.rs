@@ -1011,23 +1011,13 @@ pub fn check_expr(
                         }),
                         Ty::Str { is_interp, .. } => {
                             if *is_interp {
-                                Some(TyExpr::CallFn {
-                                    func: Box::new(TyExpr::Ident {
-                                        name: "str".to_string(),
-                                    }),
-                                    args: vec![new_ty_expr.unwrap()],
-                                })
+                                new_ty_expr
                             } else {
                                 Some(TyExpr::CallFn {
                                     func: Box::new(TyExpr::Ident {
                                         name: "proto_str".to_string(),
                                     }),
-                                    args: vec![TyExpr::CallFn {
-                                        func: Box::new(TyExpr::Ident {
-                                            name: "str".to_string(),
-                                        }),
-                                        args: vec![new_ty_expr.unwrap()],
-                                    }],
+                                    args: vec![new_ty_expr.unwrap()],
                                 })
                             }
                         }
@@ -1221,7 +1211,7 @@ pub fn check_expr(
                 return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
-            if target_ty.is_indexable() {
+            if !target_ty.is_indexable() {
                 state.push_err(CheckerError::IndexIntoOpRequiresArraySliceOrString {
                     given_ty: target_ty.as_str(),
                     loc: target.get_source_ref(),
@@ -1234,7 +1224,7 @@ pub fn check_expr(
             if index_ty.is_error_ty() {
                 return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
-            if index_ty.is_unsigned_ty() {
+            if !index_ty.is_unsigned_ty() {
                 state.push_err(CheckerError::TypeMismatch {
                     loc: index.get_source_ref(),
                     expected: "uint".into(),
@@ -2346,7 +2336,29 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 block: Box::new(new_body.unwrap()),
             })
         }
-        Ins::InfiniteLoop { block, loc } => todo!(),
+        Ins::InfiniteLoop { block, loc } => {
+            // we simply have to enter a new scope and check the body
+            // create new scope to add loop variable and check loop body with
+            state.env.extend();
+            state.scope_stack.push(Scope::Loop);
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+
+            let new_body = check_ins(block, &None, state);
+
+            if new_body.is_none() {
+                return None;
+            }
+
+            // exit scope after checks
+            state.enter_new_scope = old_enter_new_scope;
+            state.scope_stack.pop();
+            state.env.pop();
+
+            Some(TyIns::InfiniteLoop {
+                block: Box::new(new_body.unwrap()),
+            })
+        }
         Ins::WhileLoop {
             cond,
             post_code,

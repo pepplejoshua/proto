@@ -1,14 +1,8 @@
 fn main() int {
     arr :: [1, 2, 3, 4, 5]
 
-    // const iterator loop
-    for n in arr {
-        println(`n = {n}`)
-    }
-    println("")
-
     // infinite loop
-    i := 0
+    i : uint = 0
     for {
         if i >= arr.len() {
             break
@@ -16,20 +10,6 @@ fn main() int {
         n :: arr[i]
         println(`arr[{i}] = {arr[i]}`)
         i = i + 1
-    }
-    println("")
-
-    // regular c-style loop
-    for (i := 0; i < arr.len(); i = i + 1) {
-        println(`arr[{i}] = {arr[i]}`)
-    }
-    println("")
-
-    i = 0
-    // while loop, with post instruction
-    for i < arr.len() : (i = i + 1) {
-        n :: arr[i]
-        println(`arr[{i}] = {arr[i]}`)
     }
 
     return 0

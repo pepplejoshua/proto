@@ -78,6 +78,13 @@ fn main() int {
 - Notebook support? 👀
 - 0.0.1 release?
 
+
+// const iterator loop
+for n in arr {
+    println(`{ n }`)
+}
+println("")
+
 // infinite loop
 i := 0
 for {

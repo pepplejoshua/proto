@@ -238,11 +238,13 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
 pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
     match expr {
         TyExpr::Integer { .. }
-        | TyExpr::Str { .. }
         | TyExpr::Char { .. }
         | TyExpr::Bool { .. }
         | TyExpr::Ident { .. }
         | TyExpr::UnaryOp { .. } => expr.as_str(),
+        TyExpr::Str { .. } => {
+            format!("str({})", expr.as_str())
+        }
         TyExpr::StaticArray { vals } => {
             let mut item_expr_strs = vec![];
             for item in vals.iter() {
@@ -540,6 +542,13 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 "{}for (const auto {var} : {})\n{}",
                 state.get_pad(),
                 cpp_gen_expr(target, state),
+                cpp_gen_ins(block, state)
+            );
+        }
+        TyIns::InfiniteLoop { block } => {
+            buf = format!(
+                "{}while (true)\n{}",
+                state.get_pad(),
                 cpp_gen_ins(block, state)
             );
         }
