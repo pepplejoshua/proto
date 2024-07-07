@@ -10,6 +10,26 @@
 - Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
 - Add defer instruction. [DONE]
 - Add loops, continue, break.
+```rs
+// iterator loop
+// for Ident in Expr
+for n in arr {
+    println(`n = {n}`);
+}
+println("");
+
+// infinite loop
+i := 0;
+for {
+    if i >= arr.len() {
+        break;
+    }
+    n :: arr[i];
+    println(`arr[{i}] = {arr[i]}`);
+    i = i + 1;
+}
+println("");
+```
 - Add compound assignment expressions (+=, -=, *=, /=).
 - Add range expression.
 - Work on pointers and references.
@@ -77,20 +97,3 @@ fn main() int {
 - proto testing framework built in language?
 - Notebook support? 👀
 - 0.0.1 release?
-
-```rs
-// conventional loop
-// for [Ident := Expr]; Expr; [Expr]
-for i := 0; i < arr.len(); i += 1 {
-    println(`arr[{i}] = {arr[i]}`);
-}
-println("");
-
-i = 0;
-// while loop
-// for Expr [: Expr]
-for i < arr.len() : i += 1 {
-    n :: arr[i];
-    println(`arr[{i}] = {arr[i]}`);
-}
-```

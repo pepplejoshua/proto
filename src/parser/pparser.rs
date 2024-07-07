@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, rc::Rc};
+use std::{collections::HashMap, f64::consts::PI, iter::MapWhile, rc::Rc};
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
@@ -134,7 +134,7 @@ impl Parser {
         let mut ood = HashMap::new();
         let mut instructions = vec![];
         while !self.is_at_eof() {
-            let ins = self.next_ins(true);
+            let ins = self.next_ins(true, true);
             let ins_id = ins.get_id();
 
             if ins_id.is_some() {
@@ -258,25 +258,49 @@ impl Parser {
         None
     }
 
-    fn next_ins(&mut self, use_new_scope: bool) -> Ins {
+    fn next_ins(&mut self, use_new_scope: bool, require_term: bool) -> Ins {
         let cur = self.cur_token();
-        match cur {
+        let mut check_term = false;
+        let ins = match cur {
             Token::Defer(_) => self.parse_defer(),
             Token::Fn(_) => self.parse_fn(),
             Token::For(_) => self.parse_loop(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
-            Token::Print(_) | Token::Println(_) => self.parse_print(),
-            Token::Break(_) => self.parse_break(),
+            Token::Print(_) | Token::Println(_) => {
+                check_term = true;
+                self.parse_print()
+            }
+            Token::Break(_) => {
+                check_term = true;
+                self.parse_break()
+            }
             Token::SingleLineComment(loc, comment) => {
                 self.advance();
                 Ins::SingleLineComment { comment, loc }
             }
-            Token::Return(_) => self.parse_return(),
+            Token::Return(_) => {
+                check_term = true;
+                self.parse_return()
+            }
             Token::If(_) => self.parse_if_conditional(),
             Token::LCurly(_) => self.parse_block(use_new_scope),
-            _ => self.parse_expr_ins(),
+            _ => {
+                check_term = true;
+                self.parse_expr_ins()
+            }
+        };
+
+        if require_term && check_term && !matches!(self.cur_token(), Token::Semicolon(_)) {
+            self.report_error(ParseError::Expected(
+                "a semi-colon to terminate this instruction.".into(),
+                ins.get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
         }
+        ins
     }
 
     fn parse_break(&mut self) -> Ins {
@@ -286,7 +310,7 @@ impl Parser {
             ));
         }
 
-        let span = self.cur_token().get_source_ref();
+        let mut span = self.cur_token().get_source_ref();
         self.advance();
         Ins::Break { loc: span }
     }
@@ -296,7 +320,7 @@ impl Parser {
         self.advance();
 
         // we are parsing an infinite loop
-        if matches!(self.cur_token(), Token::RCurly(_)) {
+        if matches!(self.cur_token(), Token::LCurly(_)) {
             self.scope.push(ParseScope::Loop);
             let block = self.parse_block(false);
             self.scope.pop();
@@ -307,14 +331,94 @@ impl Parser {
             };
         }
 
-        todo!()
+        let expr = self.parse_expr();
+        let mut cur = self.cur_token();
+        match (&expr, cur) {
+            // iterator loop
+            (_, Token::In(_)) => {
+                // report error for expr if it is not an Expr::Ident {..}
+                if !matches!(expr, Expr::Ident { .. }) {
+                    self.report_error(ParseError::Expected(
+                        "an identifier to name the loop variable.".into(),
+                        expr.get_source_ref(),
+                        None,
+                    ));
+                }
+
+                // skip over the Token::In
+                self.advance();
+
+                // parse the iteration target
+                let target = self.parse_expr();
+                self.scope.push(ParseScope::Loop);
+                let body = self.parse_block(false);
+                self.scope.pop();
+                span = span.combine(body.get_source_ref());
+                Ins::ForInLoop {
+                    loop_var: expr,
+                    loop_target: target,
+                    block: Box::new(body),
+                    loc: span,
+                }
+            }
+            // either while loop or conventional loop
+            (_, Token::Colon(_)) => {
+                // determine if it is a while loop or a conventional loop
+                // so far we have seen for Expr :
+                self.advance();
+
+                cur = self.cur_token();
+
+                if matches!(cur, Token::LParen(_)) {
+                    // we are in a while with post instruction
+                    self.advance();
+                    self.scope.push(ParseScope::Loop);
+                    let post_code = self.next_ins(true, false);
+                    // we should see a )
+                    if !matches!(self.cur_token(), Token::RParen(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a right parenthesis to terminate post-loop code.".into(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    } else {
+                        self.advance();
+                    }
+                    let body = self.parse_block(false);
+                    self.scope.pop();
+                    span = span.combine(body.get_source_ref());
+                    return Ins::WhileLoop {
+                        cond: expr,
+                        post_code: Some(Box::new(post_code)),
+                        block: Box::new(body),
+                        loc: span,
+                    };
+                }
+
+                // we should handle a conventional loop
+                todo!()
+            }
+            // parse a while
+            (_, _) => {
+                self.scope.push(ParseScope::Loop);
+                let body = self.parse_block(false);
+                self.scope.pop();
+                span = span.combine(body.get_source_ref());
+                Ins::WhileLoop {
+                    cond: expr,
+                    post_code: None,
+                    block: Box::new(body),
+                    loc: span,
+                }
+            }
+        }
     }
 
     fn parse_defer(&mut self) -> Ins {
         let mut loc = self.cur_token().get_source_ref();
         self.advance();
 
-        let sub_ins = self.next_ins(true);
+        let sub_ins = self.next_ins(true, true);
         loc = loc.combine(sub_ins.get_source_ref());
         Ins::Defer {
             sub_ins: Box::new(sub_ins),
@@ -340,10 +444,6 @@ impl Parser {
                 None,
             ));
             return Ins::ErrorIns {
-                msg: format!(
-                    "a left parenthesis to begin argument section for {}.",
-                    if is_println { "println" } else { "print" }
-                ),
                 loc: span.combine(cur.get_source_ref()),
             };
         }
@@ -365,36 +465,11 @@ impl Parser {
                 None,
             ));
             return Ins::ErrorIns {
-                msg: format!(
-                    "a right parenthesis to end argument section for {} instruction.",
-                    if is_println { "println" } else { "print" }
-                ),
                 loc: span.combine(cur.get_source_ref()),
             };
         }
 
-        self.advance();
-        // look for ;
-        cur = self.cur_token();
-        if !matches!(cur, Token::Semicolon(_)) {
-            self.report_error(ParseError::Expected(
-                format!(
-                    "a semicolon to terminate {} instruction.",
-                    if is_println { "println" } else { "print" }
-                ),
-                cur.get_source_ref(),
-                None,
-            ));
-            return Ins::ErrorIns {
-                msg: format!(
-                    "a semicolon to terminate {} instruction.",
-                    if is_println { "println" } else { "print" }
-                ),
-                loc: span.combine(cur.get_source_ref()),
-            };
-        }
-
-        span = span.combine(self.cur_token().get_source_ref());
+        span = span.combine(cur.get_source_ref());
         self.advance();
 
         Ins::PrintIns {
@@ -415,26 +490,12 @@ impl Parser {
         // check if there is semicolon, else we need a parse an expression
         let cur = self.cur_token();
         if matches!(cur, Token::Semicolon(_)) {
-            // skip past the semicolon
-            self.advance();
             let loc = start_loc.combine(cur.get_source_ref());
             Ins::Return { expr: None, loc }
         } else {
             let val = self.parse_expr();
             // TODO: determine if this triggered an error and react appropriately
             let mut return_loc = start_loc.combine(val.get_source_ref());
-            let semi = self.cur_token();
-            // then skip past the semicolon
-            if !matches!(semi, Token::Semicolon(_)) {
-                self.report_error(ParseError::Expected(
-                    "a semicolon to terminate the return statement.".to_string(),
-                    return_loc.clone(),
-                    None,
-                ));
-            } else {
-                self.advance();
-                return_loc = return_loc.combine(semi.get_source_ref());
-            }
 
             Ins::Return {
                 expr: Some(val),
@@ -469,7 +530,7 @@ impl Parser {
                 conds_and_code.push((Some(else_if_cond), else_if_code));
                 cur = self.cur_token();
             } else {
-                let else_body = self.next_ins(true);
+                let else_body = self.parse_block(true);
                 conds_and_code.push((None, else_body));
                 break;
             }
@@ -498,7 +559,6 @@ impl Parser {
                 None,
             ));
             return Ins::ErrorIns {
-                msg: "a left parenthesis to begin the list of parameters.".to_string(),
                 loc: start.get_source_ref().combine(fn_name.get_source_ref()),
             };
         }
@@ -556,7 +616,7 @@ impl Parser {
 
         let ret_type = self.parse_type();
         self.scope.push(ParseScope::Function);
-        let body = self.next_ins(false);
+        let body = self.next_ins(false, true);
         self.scope.pop();
         let fn_span = start.get_source_ref().combine(body.get_source_ref());
 
@@ -586,7 +646,7 @@ impl Parser {
                 break;
             }
 
-            let ins = self.next_ins(true);
+            let ins = self.next_ins(true, true);
             block_loc = block_loc.combine(ins.get_source_ref());
             match &ins {
                 Ins::DeclConst { .. } | Ins::DeclVar { .. } => {
@@ -608,7 +668,7 @@ impl Parser {
                     funcs,
                     loc,
                 } => todo!(),
-                Ins::ErrorIns { msg, loc } => continue,
+                Ins::ErrorIns { .. } => continue,
                 _ => {
                     // report error for unexpected Ins at this level
                     todo!()
@@ -698,14 +758,9 @@ impl Parser {
         let lhs = self.parse_expr();
 
         if matches!(self.cur_token(), Token::Semicolon(_)) {
-            let expr_ins_span = lhs
-                .get_source_ref()
-                .combine(self.cur_token().get_source_ref());
-
-            self.advance();
             return Ins::ExprIns {
+                loc: lhs.get_source_ref(),
                 expr: lhs,
-                loc: expr_ins_span,
             };
         }
 
@@ -739,16 +794,6 @@ impl Parser {
                         let mut decl_var_span = loc.combine(val.get_source_ref());
 
                         cur = self.cur_token();
-                        if !matches!(cur, Token::Semicolon(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a semicolon to terminate the variable declaration.".to_string(),
-                                cur.get_source_ref(),
-                                None,
-                            ));
-                        } else {
-                            decl_var_span = loc.combine(decl_var_span);
-                            self.advance();
-                        }
 
                         Ins::DeclVar {
                             name: Expr::Ident { name, loc },
@@ -764,16 +809,6 @@ impl Parser {
                         let mut decl_const_span = loc.combine(val.get_source_ref());
 
                         cur = self.cur_token();
-                        if !matches!(cur, Token::Semicolon(_)) {
-                            self.report_error(ParseError::Expected(
-                                "a semicolon to terminate the constant declaration.".to_string(),
-                                cur.get_source_ref(),
-                                None,
-                            ));
-                        } else {
-                            decl_const_span = decl_const_span.combine(cur.get_source_ref());
-                            self.advance();
-                        }
 
                         Ins::DeclConst {
                             name: Expr::Ident { name, loc },
@@ -785,16 +820,15 @@ impl Parser {
                     // Potential Variable Declaration without Initialization
                     Token::Semicolon(_) => {
                         // we can guarantee there will be a provided type by this point
-                        self.advance();
                         let decl_ty = decl_ty.unwrap();
                         Ins::DeclVar {
                             name: Expr::Ident {
                                 name,
                                 loc: loc.clone(),
                             },
+                            loc: loc.combine(decl_ty.get_loc()),
                             ty: Some(decl_ty),
                             init_val: None,
-                            loc: loc.combine(cur.get_source_ref()),
                         }
                     }
                     _ => {
@@ -804,8 +838,7 @@ impl Parser {
                             None,
                         ));
                         Ins::ErrorIns {
-                            msg: "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
-                            loc: loc.combine(cur.get_source_ref())
+                            loc: loc.combine(cur.get_source_ref()),
                         }
                     }
                 }
@@ -817,18 +850,6 @@ impl Parser {
                 self.advance();
                 let value = self.parse_expr();
                 let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
-
-                // look for a semicolon and skip it
-                if !matches!(self.cur_token(), Token::Semicolon(_)) {
-                    self.report_error(ParseError::Expected(
-                        "a semicolon to terminate the assignment instruction.".to_string(),
-                        self.cur_token().get_source_ref(),
-                        None,
-                    ));
-                } else {
-                    assign_span = assign_span.combine(self.cur_token().get_source_ref());
-                    self.advance();
-                }
 
                 Ins::AssignTo {
                     target: lhs,
@@ -843,7 +864,9 @@ impl Parser {
                     None
                 ));
 
-                Ins::ErrorIns { msg: "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(), loc: following_token.get_source_ref() }
+                Ins::ErrorIns {
+                    loc: following_token.get_source_ref(),
+                }
             }
         }
     }
@@ -866,7 +889,7 @@ impl Parser {
                 break;
             }
 
-            let ins = self.next_ins(true);
+            let ins = self.next_ins(true, true);
             code.push(ins);
         }
         let last_ins = code.last();
@@ -1460,7 +1483,6 @@ impl Parser {
                     None,
                 ));
                 Expr::ErrorExpr {
-                    msg: "expected an identifier.".to_string(),
                     loc: cur.get_source_ref(),
                 }
             }
@@ -1603,10 +1625,7 @@ impl Parser {
             _ => {
                 let span = cur.get_source_ref();
                 self.report_error(ParseError::CannotParseAnExpression(span.clone()));
-                Expr::ErrorExpr {
-                    msg: "an expression.".to_string(),
-                    loc: span,
-                }
+                Expr::ErrorExpr { loc: span }
             }
         }
     }

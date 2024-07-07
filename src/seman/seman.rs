@@ -907,7 +907,7 @@ pub fn check_expr(
                 }
             }
         }
-        Expr::ErrorExpr { msg, loc } => (Rc::new(Ty::ErrorType { loc: loc.clone() }), None),
+        Expr::ErrorExpr { loc } => (Rc::new(Ty::ErrorType { loc: loc.clone() }), None),
         Expr::GroupedExpr { inner, loc } => {
             let (inner_ty, inner_ty_expr) = check_expr(inner, context_ty, state);
             if inner_ty.is_error_ty() {
@@ -2256,6 +2256,12 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
         } => todo!(),
         Ins::Break { loc } => todo!(),
         Ins::InfiniteLoop { block, loc } => todo!(),
+        Ins::WhileLoop {
+            cond,
+            post_code,
+            block,
+            loc,
+        } => todo!(),
     }
 }
 

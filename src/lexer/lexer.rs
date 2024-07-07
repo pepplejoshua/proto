@@ -260,6 +260,7 @@ impl Lexer {
             "if" => Ok(Token::If(combined_ref)),
             "else" => Ok(Token::Else(combined_ref)),
             "for" => Ok(Token::For(combined_ref)),
+            "in" => Ok(Token::In(combined_ref)),
             "true" => Ok(Token::True(combined_ref)),
             "false" => Ok(Token::False(combined_ref)),
             "break" => Ok(Token::Break(combined_ref)),

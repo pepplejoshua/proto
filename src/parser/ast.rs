@@ -138,7 +138,6 @@ pub enum Expr {
         loc: Rc<SourceRef>,
     },
     ErrorExpr {
-        msg: String,
         loc: Rc<SourceRef>,
     },
 }
@@ -248,7 +247,7 @@ impl Expr {
                         .iter()
                         .map(|part| {
                             match part {
-                                Expr::Str { val, .. } => val.clone(),
+                                Expr::Str { val, .. } | Expr::InterpStr { val, .. } => val.clone(),
                                 _ => format!("{{{}}}", part.as_str()),
                             }
                         })
@@ -289,7 +288,7 @@ impl Expr {
                 None => format!("none"),
             },
             Expr::InterpStr { val, .. } => val.clone(),
-            Expr::ErrorExpr { msg, .. } => format!("[ErrExpr {msg}]"),
+            Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
         }
     }
 }
@@ -380,8 +379,13 @@ pub enum Ins {
         block: Box<Ins>,
         loc: Rc<SourceRef>,
     },
+    WhileLoop {
+        cond: Expr,
+        post_code: Option<Box<Ins>>,
+        block: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
     ErrorIns {
-        msg: String,
         loc: Rc<SourceRef>,
     },
 }
@@ -404,6 +408,7 @@ impl Ins {
             | Ins::Defer { loc, .. }
             | Ins::ForInLoop { loc, .. }
             | Ins::InfiniteLoop { loc, .. }
+            | Ins::WhileLoop { loc, .. }
             | Ins::Break { loc }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
@@ -434,6 +439,7 @@ impl Ins {
             | Ins::ForInLoop { .. }
             | Ins::Break { .. }
             | Ins::InfiniteLoop { .. }
+            | Ins::WhileLoop { .. }
             | Ins::ErrorIns { .. } => None,
         }
     }
@@ -523,7 +529,7 @@ impl Ins {
             Ins::ExprIns { expr, .. } => {
                 format!("{};", expr.as_str())
             }
-            Ins::ErrorIns { msg, .. } => format!("[ErrIns {msg}]"),
+            Ins::ErrorIns { .. } => format!("[ErrIns]"),
             Ins::DeclStruct {
                 name,
                 fields,
@@ -609,6 +615,19 @@ impl Ins {
             Ins::Break { loc } => "break;".into(),
             Ins::InfiniteLoop { block, .. } => {
                 format!("for\n{}", block.as_str())
+            }
+            Ins::WhileLoop {
+                cond,
+                block,
+                post_code,
+                ..
+            } => {
+                let post_code = if let Some(pcode) = post_code {
+                    format!(": ({})", pcode.as_str())
+                } else {
+                    "".into()
+                };
+                format!("for {}{}\n{}", cond.as_str(), post_code, block.as_str())
             }
         }
     }

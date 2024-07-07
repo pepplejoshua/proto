@@ -1,24 +1,7 @@
 fn main() int {
     arr :: [1, 2, 3, 4, 5];
 
-    // iterator loop
-    // for Ident in Expr
-    for n in arr {
-        println(`n = {n}`);
-    }
-    println("");
-
-    // infinite loop
-    i := 0;
-    for {
-        if i >= arr.len() {
-            break;
-        }
-        n :: arr[i];
-        println(`arr[{i}] = {arr[i]}`);
-        i += 1;
-    }
-    println("");
+    println(`{arr}`);
 
     return 0;
 }

@@ -12,6 +12,7 @@ pub enum Token {
     If(Rc<SourceRef>),
     Else(Rc<SourceRef>),
     For(Rc<SourceRef>),
+    In(Rc<SourceRef>),
     Break(Rc<SourceRef>),
     Continue(Rc<SourceRef>),
     True(Rc<SourceRef>),
@@ -171,6 +172,7 @@ impl Token {
             | Token::None(src)
             | Token::InterpStrLiteral(src, _)
             | Token::Defer(src)
+            | Token::In(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -270,6 +272,7 @@ impl Token {
             Token::Some(_) => "some".to_string(),
             Token::Defer(_) => "defer".to_string(),
             Token::None(_) => "none".to_string(),
+            Token::In(_) => "in".to_string(),
         }
     }
 }
