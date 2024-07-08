@@ -300,26 +300,56 @@ impl Lexer {
         match cur {
             // arithmetic operators
             '+' => {
+                let c = self.src.peek_char();
+                if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::PlusAssign(cur_ref.combine(self.src.get_ref())));
+                }
                 self.src.next_char();
                 Ok(Token::Plus(cur_ref.combine(self.src.get_ref())))
             }
             '-' => {
+                let c = self.src.peek_char();
+                if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::MinusAssign(cur_ref.combine(self.src.get_ref())));
+                }
                 self.src.next_char();
                 Ok(Token::Minus(cur_ref.combine(self.src.get_ref())))
             }
             '*' => {
+                let c = self.src.peek_char();
+                if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::StarAssign(cur_ref.combine(self.src.get_ref())));
+                }
                 self.src.next_char();
                 Ok(Token::Star(cur_ref.combine(self.src.get_ref())))
             }
             '/' => {
                 // if the next character is a '/', lex a comment
-                if self.src.peek_char() == '/' {
+                let c = self.src.peek_char();
+                if c == '/' {
                     return self.lex_comment();
+                }
+                if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::SlashAssign(cur_ref.combine(self.src.get_ref())));
                 }
                 self.src.next_char();
                 Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
             }
             '%' => {
+                let c = self.src.peek_char();
+                if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(Token::ModuloAssign(cur_ref.combine(self.src.get_ref())));
+                }
                 self.src.next_char();
                 Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
             }

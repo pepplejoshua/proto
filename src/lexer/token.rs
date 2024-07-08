@@ -33,6 +33,11 @@ pub enum Token {
     Star(Rc<SourceRef>),
     Slash(Rc<SourceRef>),
     Modulo(Rc<SourceRef>),
+    PlusAssign(Rc<SourceRef>),
+    MinusAssign(Rc<SourceRef>),
+    StarAssign(Rc<SourceRef>),
+    SlashAssign(Rc<SourceRef>),
+    ModuloAssign(Rc<SourceRef>),
 
     // special characters
     At(Rc<SourceRef>),
@@ -173,6 +178,11 @@ impl Token {
             | Token::InterpStrLiteral(src, _)
             | Token::Defer(src)
             | Token::In(src)
+            | Token::PlusAssign(src)
+            | Token::MinusAssign(src)
+            | Token::StarAssign(src)
+            | Token::SlashAssign(src)
+            | Token::ModuloAssign(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -273,6 +283,11 @@ impl Token {
             Token::Defer(_) => "defer".to_string(),
             Token::None(_) => "none".to_string(),
             Token::In(_) => "in".to_string(),
+            Token::PlusAssign(_) => "+=".to_string(),
+            Token::MinusAssign(_) => "-=".to_string(),
+            Token::StarAssign(_) => "*=".to_string(),
+            Token::SlashAssign(_) => "/=".to_string(),
+            Token::ModuloAssign(_) => "%=".to_string(),
         }
     }
 }

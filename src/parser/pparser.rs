@@ -812,19 +812,12 @@ impl Parser {
     fn parse_expr_ins(&mut self) -> Ins {
         let lhs = self.parse_expr();
 
-        if matches!(self.cur_token(), Token::Semicolon(_)) {
-            return Ins::ExprIns {
-                loc: lhs.get_source_ref(),
-                expr: lhs,
-            };
-        }
-
         let mut cur = self.cur_token();
         match (lhs, cur) {
             // Variable / Constant Declaration and Initialization:
-            // Variable Declaration and Initialization => Expr::Ident : Type? = Expr?;
-            // Variable Declaration => Expr::Ident : Type;
-            // Constant => Expr::Ident : Type? : Expr;
+            // Variable Declaration and Initialization => Expr::Ident : Type? = Expr?
+            // Variable Declaration => Expr::Ident : Type
+            // Constant => Expr::Ident : Type? : Expr
             (Expr::Ident { name, loc }, Token::Colon(_)) => {
                 // skip the ':'
                 self.advance();
@@ -873,27 +866,14 @@ impl Parser {
                         }
                     }
                     // Potential Variable Declaration without Initialization
-                    Token::Semicolon(_) => {
+                    _ => {
                         // we can guarantee there will be a provided type by this point
                         let decl_ty = decl_ty.unwrap();
                         Ins::DeclVar {
-                            name: Expr::Ident {
-                                name,
-                                loc: loc.clone(),
-                            },
                             loc: loc.combine(decl_ty.get_loc()),
+                            name: Expr::Ident { name, loc },
                             ty: Some(decl_ty),
                             init_val: None,
-                        }
-                    }
-                    _ => {
-                        self.report_error(ParseError::Expected(
-                            "a semicolon to terminate the declaration or a properly formed declaration.".to_string(),
-                            loc.combine(cur.get_source_ref()),
-                            None,
-                        ));
-                        Ins::ErrorIns {
-                            loc: loc.combine(cur.get_source_ref()),
                         }
                     }
                 }
@@ -912,17 +892,95 @@ impl Parser {
                     loc: assign_span,
                 }
             }
-            (_, following_token) => {
-                self.report_error(ParseError::Expected(
-                    "a semicolon to terminate the expression instruction or a properly formed instruction.".to_string(),
-                    following_token.get_source_ref(),
-                    None
-                ));
+            (lhs, Token::PlusAssign(_)) => {
+                // skip past the +=
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
 
-                Ins::ErrorIns {
-                    loc: following_token.get_source_ref(),
+                Ins::AssignTo {
+                    target: lhs.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Add,
+                        left: Box::new(lhs),
+                        right: Box::new(value),
+                        loc: assign_span.clone(),
+                    },
+                    loc: assign_span,
                 }
             }
+            (lhs, Token::MinusAssign(_)) => {
+                // skip past the -=
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                Ins::AssignTo {
+                    target: lhs.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Sub,
+                        left: Box::new(lhs),
+                        right: Box::new(value),
+                        loc: assign_span.clone(),
+                    },
+                    loc: assign_span,
+                }
+            }
+            (lhs, Token::StarAssign(_)) => {
+                // skip past the *=
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                Ins::AssignTo {
+                    target: lhs.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Mult,
+                        left: Box::new(lhs),
+                        right: Box::new(value),
+                        loc: assign_span.clone(),
+                    },
+                    loc: assign_span,
+                }
+            }
+            (lhs, Token::SlashAssign(_)) => {
+                // skip past the /=
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                Ins::AssignTo {
+                    target: lhs.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Div,
+                        left: Box::new(lhs),
+                        right: Box::new(value),
+                        loc: assign_span.clone(),
+                    },
+                    loc: assign_span,
+                }
+            }
+            (lhs, Token::ModuloAssign(_)) => {
+                // skip past the %=
+                self.advance();
+                let value = self.parse_expr();
+                let mut assign_span = lhs.get_source_ref().combine(value.get_source_ref());
+
+                Ins::AssignTo {
+                    target: lhs.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Mod,
+                        left: Box::new(lhs),
+                        right: Box::new(value),
+                        loc: assign_span.clone(),
+                    },
+                    loc: assign_span,
+                }
+            }
+            (lhs, _) => Ins::ExprIns {
+                loc: lhs.get_source_ref(),
+                expr: lhs,
+            },
         }
     }
 
