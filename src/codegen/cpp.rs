@@ -553,6 +553,24 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_ins(block, state)
             )
         }
+        TyIns::RegLoop {
+            init,
+            cond,
+            update,
+            block,
+        } => {
+            let mut update_s = cpp_gen_ins(update, state);
+            if update_s.ends_with(";") {
+                update_s.pop();
+            }
+            buf = format!(
+                "{}for ({} {}; {update_s})\n{}",
+                state.get_pad(),
+                cpp_gen_ins(init, state),
+                cpp_gen_expr(cond, state),
+                cpp_gen_ins(block, state)
+            );
+        }
     }
     buf
 }

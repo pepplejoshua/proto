@@ -235,6 +235,12 @@ pub enum TyIns {
         cond: TyExpr,
         block: Box<TyIns>,
     },
+    RegLoop {
+        init: Box<TyIns>,
+        cond: TyExpr,
+        update: Box<TyIns>,
+        block: Box<TyIns>,
+    },
 }
 
 impl TyIns {
@@ -355,6 +361,20 @@ impl TyIns {
             }
             TyIns::WhileLoop { cond, block } => {
                 format!("for {}\n{}", cond.as_str(), block.as_str())
+            }
+            TyIns::RegLoop {
+                init,
+                cond,
+                update,
+                block,
+            } => {
+                format!(
+                    "for ({} {}; {})\n{}",
+                    init.as_str(),
+                    cond.as_str(),
+                    update.as_str(),
+                    block.as_str()
+                )
             }
         }
     }

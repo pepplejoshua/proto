@@ -1,4 +1,5 @@
 #include <iostream>
+#include <ostream>
 
 template<typename Fn>
 struct Defer {
@@ -38,6 +39,10 @@ int main() {
     defer(std::cout << x.n << std::endl);
     std::cout << "printing here" << std::endl;
     defer(std::cout << "printing there" << std::endl);
+
+    for (int i = 0; i < 10; i = i + 1) {
+      std::cout << i << std::endl;
+    }
 
     return 0;
 }

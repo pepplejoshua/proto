@@ -1,17 +1,13 @@
 fn main() int {
     arr :: [1, 2, 3, 4, 5]
 
-    i : uint = 0
-    for i < arr.len() : ({
-        println(`now incrementing i`)
-        i = i + 1
-    }) {
+    for (i : uint = 0; i < arr.len(); i = i + 1) {
+        defer println(`now incrementing i which is currently {i}.`)
         if i == 2 {
-            continue
+            println("skipping on i = 2"); continue
         }
-
         n :: arr[i]
-        println(`i is {i}`)
+        println(`i is {i} and n is {n}`)
     }
 
     return 0

@@ -613,15 +613,8 @@ pub fn check_expr(
                 return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
             let temp_l_ty = &Some(l_ty.clone());
-            let (mut r_ty, mut r_ty_expr) = check_expr(
-                if lhs_is_first { right } else { left },
-                if context_ty.is_none() {
-                    temp_l_ty
-                } else {
-                    context_ty
-                },
-                state,
-            );
+            let (mut r_ty, mut r_ty_expr) =
+                check_expr(if lhs_is_first { right } else { left }, temp_l_ty, state);
             if r_ty.is_error_ty() {
                 return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
@@ -2439,7 +2432,58 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             update,
             block,
             loc,
-        } => todo!(),
+        } => {
+            // first we will need to enter a new scope, and call check_ins on the init
+            // instruction
+            state.env.extend();
+            state.scope_stack.push(Scope::Loop);
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+            let ty_init = check_ins(init, context_ty, state);
+
+            if ty_init.is_none() {
+                return None;
+            }
+
+            // then we will check to make sure the loop condition has a boolean type
+            let (cond_ty, cond_ty_expr) = check_expr(loop_cond, context_ty, state);
+            if cond_ty.is_error_ty() {
+                return None;
+            }
+
+            if !matches!(cond_ty.as_ref(), Ty::Bool { .. }) {
+                state.push_err(CheckerError::TypeMismatch {
+                    loc: loop_cond.get_source_ref(),
+                    expected: "bool".into(),
+                    found: cond_ty.as_str(),
+                });
+            }
+
+            // then we will check the update instruction
+            let ty_update = check_ins(update, context_ty, state);
+
+            if ty_update.is_none() {
+                return None;
+            }
+
+            // we can finally check the body and be done
+            let new_body = check_ins(block, context_ty, state);
+
+            if new_body.is_none() {
+                return None;
+            }
+
+            state.enter_new_scope = old_enter_new_scope;
+            state.scope_stack.pop();
+            state.env.pop();
+
+            Some(TyIns::RegLoop {
+                init: Box::new(ty_init.unwrap()),
+                cond: cond_ty_expr.unwrap(),
+                update: Box::new(ty_update.unwrap()),
+                block: Box::new(new_body.unwrap()),
+            })
+        }
     }
 }
 
