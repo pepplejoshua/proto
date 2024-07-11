@@ -1,15 +1,27 @@
+fn apply2arr(arr [int, 5], op \(int) int) [int, 5] {
+    i : uint = 0
+    new_arr : [int, 5] = [0, 0, 0, 0, 0]
+    for i < arr.len() : (i += 1) {
+        n := arr[i]
+        new_n :: op(n)
+        new_arr[i] = new_n
+    }
+
+    return new_arr
+}
+
+fn mult_by_3(n int) int {
+    return n * 3
+}
 
 fn main() int {
-    a :: 1 + 200
-    b :: \(num int) void {
-        println(`num is {num}`)
-    }
-    b(a)
-    c :: \() str {
-        return `{a}`
-    }
-    println(c())
-
-    d : str : 'a' + 'b';
+    arr := [1, 2, 3, 4, 5]
+    // lambda
+    double_int :: \(n int) int return n * n;
+    new_arr := apply2arr(arr, double_int)
+    new_arr2 := apply2arr(arr, mult_by_3)
+    println(`arr      = {arr}`)
+    println(`new_arr  = {new_arr}`)
+    println(`new_arr2 = {new_arr2}`)
     return 0
 }

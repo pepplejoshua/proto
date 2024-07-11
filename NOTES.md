@@ -25,10 +25,12 @@ fn multi() {
     println(s)
 }
 ```
+- Look into implementing my own Char and Str types. Use starting work in t.h
 - Allow declaring functions with `fn name() ret_ty {}` syntax within function blocks. Generate lambda assigned to a constant after checking. In the lambda, do not capture the environment. Functions declared this way are self-contained with no reference to outside scope. They are not closures.
 - Work on pointers and references.
 - Work on support for allocators (explicit or implicitly through context passing).
 - Add Vec<T> type for growable vectors. Requires an explicit allocator passed into it.
+- Add String type for growable strings. Requires an explicit allocator passed into it.
 - Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection.
 - Add functional methods (map, filter) to iterables.
 - Consider if tuples are valuable to add (if I can implement them myself in C++)

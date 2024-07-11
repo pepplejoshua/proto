@@ -70,6 +70,10 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
     for sig in state.gen_typedefs_for.iter() {
         match sig.as_str() {
+            "func" => {
+                typedefs.push_str("\nusing std::function;");
+                includes.insert("#include <functional>".to_string());
+            }
             "i8" => {
                 typedefs.push_str("\ntypedef int8_t i8;");
                 includes.insert("#include <cstdint>".to_string());
@@ -226,13 +230,20 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             format!("Option<{sub_ty}>")
         }
         Ty::NamedType { name, .. } | Ty::Struct { name, .. } => name.clone(),
-        Ty::Func { .. } => {
-            format!("auto")
+        Ty::Func { params, ret, .. } => {
+            state.gen_typedefs_for.insert("func".into());
+            let param_ty_s = params
+                .iter()
+                .map(|pty| cpp_gen_ty(pty, state))
+                .collect::<Vec<String>>()
+                .join(", ");
+            format!("function<{}({param_ty_s})>", cpp_gen_ty(ret, state))
         }
         _ => {
             unreachable!(
-                "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
-                ty
+                "cpp::cpp_gen_ty(): ran into {} at {:?}, which should not occur.",
+                ty.as_str(),
+                ty.get_loc()
             )
         }
     }

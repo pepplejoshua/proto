@@ -1,50 +1,12 @@
-#include <cctype>
 #include <functional>
-#include <string>
-#include <iostream>
-#include <ostream>
-
-template<typename Fn>
-struct Defer {
-  Fn f;
-  Defer(Fn f) : f(f) {}
-  ~Defer() { f(); }
-};
-
-template<typename Fn>
-Defer<Fn> defer_func(Fn f) {
-  return Defer<Fn>(f);
-}
-
-#define DEFER_1(x, y) x##y
-#define DEFER_2(x, y) DEFER_1(x, y)
-#define DEFER_3(x)    DEFER_2(x, __COUNTER__)
-#define defer(code)   auto DEFER_3(_defer_) = defer_func([&](){code;})
+#include "t.h"
 
 using std::cout;
 using std::endl;
-using std::string;
 using std::function;
 
-struct Char {
-  char ch;
-
-  Char(char c): ch(c) {}
-  const string as_str() const {
-    return string(1, ch);
-  }
-
-  string operator+(const Char& other) {
-    return as_str() + other.as_str();
-  }
-};
-
-inline string proto_str(const Char ch) {
-  return ch.as_str();
-}
-
-string apply2(string start, function<string(char)> f) {
-  string res = "";
+str apply2(str start, function<str(char)> f) {
+  str res = "";
   for (auto ch : start) {
     res += f(ch);
   }
@@ -52,20 +14,25 @@ string apply2(string start, function<string(char)> f) {
   return res;
 }
 
-string capitalize(char c) {
+str capitalize(char c) {
   return Char(toupper(c)).as_str();
 }
 
 int main() {
-  const function<string(char)> double_char = [&](char c) -> string {
+  const function<str(char)> double_char = [&](char c) -> str {
     return Char(c) + Char(c);
   };
 
-  string a = "I am a string";
-  string b = apply2(a, capitalize);
-  string c =  apply2(a, double_char);
-  cout << "a is " << a << endl;
-  cout << "b is " << b << endl;
-  cout << "c is " << c << endl;
+  // str a = "I am a str";
+  // str b = apply2(a, capitalize);
+  // str c =  apply2(a, double_char);
+  // cout << "a is " << a << endl;
+  // cout << "b is " << b << endl;
+  // cout << "c is " << c << endl;
+
+  auto x = Str<12>("hello world!");
+  Slice<char> x_slice = x.make_slice(6, 11);
+  cout << proto_str(x) << endl;
+  cout << proto_str(x_slice) << endl;
   return 0;
 }

@@ -235,6 +235,26 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
         (Ty::Struct { name, .. }, Ty::Struct { name: b_name, .. }) => name == b_name,
         (Ty::NamedType { name, .. }, Ty::Struct { name: s_name, .. })
         | (Ty::Struct { name: s_name, .. }, Ty::NamedType { name, .. }) => name == s_name,
+        (
+            Ty::Func { params, ret, .. },
+            Ty::Func {
+                params: b_params,
+                ret: b_ret,
+                ..
+            },
+        ) => {
+            if params.len() != b_params.len() && !types_are_eq(ret, b_ret) {
+                return false;
+            }
+
+            for (pty, b_pty) in params.iter().zip(b_params.iter()) {
+                if !types_are_eq(pty, b_pty) {
+                    return false;
+                }
+            }
+
+            return true;
+        }
         (_, Ty::ErrorType { .. }) | (Ty::ErrorType { .. }, _) | _ => false,
     }
 }

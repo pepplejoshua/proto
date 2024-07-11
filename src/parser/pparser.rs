@@ -1149,6 +1149,73 @@ impl Parser {
                 let span = loc.combine(sub_ty.get_loc().clone());
                 Rc::new(Ty::Optional { sub_ty, loc: span })
             }
+            Token::BackSlash(loc) => {
+                // we will need to parse comma-separated types delimited by parenthesis
+                // and a return type to make the signature
+                let mut loc = loc;
+
+                let mut cur = self.cur_token();
+
+                if !matches!(cur, Token::LParen(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a left parenthesis to begin the list of parameter types.".to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let mut param_tys = vec![];
+                let mut saw_rparen = false;
+                while !self.is_at_eof() {
+                    cur = self.cur_token();
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rparen = true;
+                        break;
+                    }
+
+                    let param_ty = self.parse_type();
+
+                    cur = self.cur_token();
+
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rparen = true;
+                    } else if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a comma to separate parameter types or a right parenthesis to terminate the list of parameter types.".to_string(),
+                            cur.get_source_ref(),
+                            None,
+                        ))
+                    } else {
+                        self.advance();
+                    }
+
+                    param_tys.push(param_ty);
+
+                    if saw_rparen {
+                        break;
+                    }
+                }
+
+                if !saw_rparen {
+                    self.report_error(ParseError::Expected(
+                        "a right parenthesis to terminate the list of parameters.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                // parse expected return type
+                let ret_type = self.parse_type();
+                Rc::new(Ty::Func {
+                    params: param_tys,
+                    loc: loc.combine(ret_type.get_loc()),
+                    ret: ret_type,
+                })
+            }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));

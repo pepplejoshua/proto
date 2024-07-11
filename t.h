@@ -1,4 +1,115 @@
+#include <iostream>
+#include <string>
+#include <cstdlib>
+#include <cstdint>
 
+typedef uint64_t uint_pr;
+typedef std::string str;
+
+template <typename T>
+inline typename std::enable_if<std::is_arithmetic<T>::value, str>::type
+proto_str(T value) {
+    return std::to_string(value);
+}
+
+inline str proto_str(const str s) {
+    return "\"" + s + "\"";
+}
+
+inline str proto_str(const char c) {
+    return str(1, c);
+}
+
+inline str proto_str(const bool b) {
+    return b ? "true" : "false";
+}
+
+inline void panic(int line, const str sourcefile, const str msg) {
+    // should unwind the call stack and then show the error message
+    std::cout << sourcefile << ":" << line << ":" << " " << msg << std::endl;
+    std::exit(EXIT_FAILURE);
+}
+
+template<typename Fn>
+struct Defer {
+  Fn f;
+  Defer(Fn f) : f(f) {}
+  ~Defer() { f(); }
+};
+
+template<typename Fn>
+Defer<Fn> defer_func(Fn f) {
+  return Defer<Fn>(f);
+}
+
+#define DEFER_1(x, y) x##y
+#define DEFER_2(x, y) DEFER_1(x, y)
+#define DEFER_3(x)    DEFER_2(x, __COUNTER__)
+#define defer(code)   auto DEFER_3(_defer_) = defer_func([&](){code;})
+
+template<typename T>
+class Option {
+private:
+    T data;
+
+public:
+    enum {
+        Some,
+        None
+    } tag;
+
+    Option(T item) : data(item) {
+        tag = Some;
+    }
+
+    Option() : data() {
+        tag = None;
+    }
+
+    const bool is_some() const {
+        return tag == Some;
+    }
+
+    bool is_some() {
+        return tag == Some;
+    }
+
+    const bool is_none() const {
+        return tag == None;
+    }
+
+    bool is_none() {
+        return tag == None;
+    }
+
+    inline T& unwrap() {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+
+    inline const T& unwrap() const {
+        // should use a panic() function to fail if Option.is_none() is true
+        if (this->is_none()) {
+            panic(__LINE__, __FILE_NAME__, "attempted to unwrap an Option::None.");
+        }
+        return data;
+    }
+};
+
+template<typename T>
+inline str proto_str(const Option<T> op) {
+    str s = "";
+    if (op.is_some()) {
+        s += "some ";
+        s += proto_str(op.unwrap());
+    } else {
+        s = "none";
+    }
+    return s;
+}
 template<typename T>
 class Slice {
 private:
@@ -81,9 +192,13 @@ public:
     Array(std::initializer_list<T> init) {
         std::copy(init.begin(), init.end(), data);
     }
+    Array(const char* str) {
+        std::size_t length = std::min(std::strlen(str), static_cast<size_t>(N));
+        std::copy(str, str + length, data);
+    }
     Array() {}
 
-    T& operator[](uint_pr index) {
+    T& operator[](std::size_t index) {
         return data[index];
     }
 
@@ -186,4 +301,31 @@ inline str proto_str(const Array<T, N> arr) {
     }
     s += "]";
     return s;
+}
+inline void proto_println(const str s) {
+    std::cout << s << std::endl;
+}
+
+inline void proto_print(const str s) {
+    std::cout << s;
+}
+
+struct Char {
+  char ch;
+
+  Char(char c): ch(c) {}
+  const str as_str() const {
+    return str(1, ch);
+  }
+
+  str operator+(const Char& other) {
+    return as_str() + other.as_str();
+  }
+};
+
+template<uint_pr N>
+using Str = Array<char, N>;
+
+inline str proto_str(const Char ch) {
+  return ch.as_str();
 }
