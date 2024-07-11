@@ -226,6 +226,9 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             format!("Option<{sub_ty}>")
         }
         Ty::NamedType { name, .. } | Ty::Struct { name, .. } => name.clone(),
+        Ty::Func { .. } => {
+            format!("auto")
+        }
         _ => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {:?}, which should not occur.",
@@ -344,6 +347,30 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             } else {
                 format!("{{}}")
             }
+        }
+        TyExpr::Lambda {
+            params,
+            ret_ty,
+            body,
+        } => {
+            let ret_ty_s = cpp_gen_ty(ret_ty, state);
+            let params_s = params
+                .iter()
+                .map(|param| {
+                    format!(
+                        "{} {}",
+                        cpp_gen_ty(&param.given_ty, state),
+                        param.name.as_str()
+                    )
+                })
+                .collect::<Vec<String>>();
+            let params_s = params_s.join(", ");
+            let body_s = if !matches!(**body, TyIns::Block { code: _ }) {
+                format!(" {{ {} }}", cpp_gen_ins(body, state))
+            } else {
+                format!("\n{}", cpp_gen_ins(body, state))
+            };
+            format!("[&]({params_s}) -> {ret_ty_s}{body_s}")
         }
     }
 }

@@ -1,11 +1,15 @@
-fn hello() void {}
 
 fn main() int {
-    arr :: [1, 2, 3, 4, 5]
+    a :: 1 + 200
+    b :: \(num int) void {
+        println(`num is {num}`)
+    }
+    b(a)
+    c :: \() str {
+        return `{a}`
+    }
+    println(c())
 
-    b := 0
-    b += arr[4]
-
-    println(`b is {b}`)
+    d : str : 'a' + 'b';
     return 0
 }

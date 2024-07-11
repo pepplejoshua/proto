@@ -28,6 +28,7 @@ pub enum Token {
     Defer(Rc<SourceRef>),
 
     // operators
+    BackSlash(Rc<SourceRef>),
     Plus(Rc<SourceRef>),
     Minus(Rc<SourceRef>),
     Star(Rc<SourceRef>),
@@ -183,6 +184,7 @@ impl Token {
             | Token::StarAssign(src)
             | Token::SlashAssign(src)
             | Token::ModuloAssign(src)
+            | Token::BackSlash(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -288,6 +290,7 @@ impl Token {
             Token::StarAssign(_) => "*=".to_string(),
             Token::SlashAssign(_) => "/=".to_string(),
             Token::ModuloAssign(_) => "%=".to_string(),
+            Token::BackSlash(_) => "\\".to_string(),
         }
     }
 }

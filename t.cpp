@@ -1,3 +1,6 @@
+#include <cctype>
+#include <functional>
+#include <string>
 #include <iostream>
 #include <ostream>
 
@@ -18,31 +21,51 @@ Defer<Fn> defer_func(Fn f) {
 #define DEFER_3(x)    DEFER_2(x, __COUNTER__)
 #define defer(code)   auto DEFER_3(_defer_) = defer_func([&](){code;})
 
-struct A {
-  int n;
-  A& self = *this;
+using std::cout;
+using std::endl;
+using std::string;
+using std::function;
 
-  A(int num) {
-    n = num;
+struct Char {
+  char ch;
+
+  Char(char c): ch(c) {}
+  const string as_str() const {
+    return string(1, ch);
   }
 
-  void a() {
-    self.n = 300;
+  string operator+(const Char& other) {
+    return as_str() + other.as_str();
   }
 };
 
+inline string proto_str(const Char ch) {
+  return ch.as_str();
+}
+
+string apply2(string start, function<string(char)> f) {
+  string res = "";
+  for (auto ch : start) {
+    res += f(ch);
+  }
+
+  return res;
+}
+
+string capitalize(char c) {
+  return Char(toupper(c)).as_str();
+}
+
 int main() {
-    A x = A(3);
+  const function<string(char)> double_char = [&](char c) -> string {
+    return Char(c) + Char(c);
+  };
 
-    x.a();
-    defer(defer(std::cout << "Hello!\n";));
-    defer(std::cout << x.n << std::endl);
-    std::cout << "printing here" << std::endl;
-    defer(std::cout << "printing there" << std::endl);
-
-    for (int i = 0; i < 10; i = i + 1) {
-      std::cout << i << std::endl;
-    }
-
-    return 0;
+  string a = "I am a string";
+  string b = apply2(a, capitalize);
+  string c =  apply2(a, double_char);
+  cout << "a is " << a << endl;
+  cout << "b is " << b << endl;
+  cout << "c is " << c << endl;
+  return 0;
 }

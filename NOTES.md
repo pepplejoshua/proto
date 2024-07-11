@@ -10,12 +10,29 @@
 - Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
 - Add defer instruction. [DONE]
 - Add loops, continue, break. [DONE]
-- Add compound assignment expressions (+=, -=, *=, /=).
-- Add range expression.
+- Add compound assignment expressions (+=, -=, *=, /=). [DONE]
+- Add function expressions (lambdas).
+- Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
+```rs
+fn single_explicit() void do println("hello")
+fn single_implicit() do println("hello")
+fn multi_explicit() void {
+    s :: "hello"
+    println(s)
+}
+fn multi() {
+    s :: "hello"
+    println(s)
+}
+```
+- Allow declaring functions with `fn name() ret_ty {}` syntax within function blocks. Generate lambda assigned to a constant after checking. In the lambda, do not capture the environment. Functions declared this way are self-contained with no reference to outside scope. They are not closures.
 - Work on pointers and references.
+- Work on support for allocators (explicit or implicitly through context passing).
+- Add Vec<T> type for growable vectors. Requires an explicit allocator passed into it.
+- Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection.
 - Add functional methods (map, filter) to iterables.
-- Add Vec<T> type for growable vectors.
 - Consider if tuples are valuable to add (if I can implement them myself in C++)
+- Add range expression (they will need to be restricted for a few use cases)
 - Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
 - Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables.
 ```rs
@@ -49,7 +66,6 @@ fn main() int {
 }
 ```
 - Mutable/const function parameters
-- Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection.
 - Can SourceRef be made smaller, without affecting error reporting?
 - For literals like Strings, Slices, Arrays and Optional, instead of just generating the literal in C++, wrap it with the actual type. This will mean these expression nodes will carry their type with them. So the literals can be used in any instance (like printing a `some a` where a is an array) without a complaint about knowing the type to use.
 - Add support for traits.
@@ -62,7 +78,6 @@ fn main() int {
 - Function overloading?
 - Write something for blog about progress since last post.
 - Understand the implications of using smart pointers to deal with auto deallocation vs not.
-- Work on support for allocators (explicit or implicitly through context passing).
 - Can we avoid runtime pointer errors by combining lexical analysis with smart pointers, allocators and Option type.
 - Work on function call stack (maybe using context passing?)
 - Add panic(), and todo() statements.

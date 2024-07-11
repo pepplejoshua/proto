@@ -599,12 +599,7 @@ impl Parser {
         }
     }
 
-    fn parse_fn(&mut self) -> Ins {
-        let start = self.cur_token();
-        self.advance();
-
-        let fn_name = self.parse_identifier();
-
+    fn parse_fn_params(&mut self) -> Vec<FnParam> {
         let mut cur = self.cur_token();
 
         if !matches!(cur, Token::LParen(_)) {
@@ -613,12 +608,9 @@ impl Parser {
                 cur.get_source_ref(),
                 None,
             ));
-            return Ins::ErrorIns {
-                loc: start.get_source_ref().combine(fn_name.get_source_ref()),
-            };
+        } else {
+            self.advance();
         }
-
-        self.advance();
 
         let mut params = vec![];
         let mut saw_rparen = false;
@@ -668,6 +660,17 @@ impl Parser {
         } else {
             self.advance();
         }
+
+        params
+    }
+
+    fn parse_fn(&mut self) -> Ins {
+        let start = self.cur_token();
+        self.advance();
+
+        let fn_name = self.parse_identifier();
+
+        let params = self.parse_fn_params();
 
         let ret_type = self.parse_type();
         self.scope.push(ParseScope::Function);
@@ -1158,7 +1161,34 @@ impl Parser {
     }
 
     fn parse_expr(&mut self) -> Expr {
-        self.parse_optional_expr()
+        self.parse_lambda_expression()
+    }
+
+    fn parse_lambda_expression(&mut self) -> Expr {
+        let maybe_bckslsh = self.cur_token();
+        match maybe_bckslsh {
+            Token::BackSlash(loc) => {
+                // lambda expressions are written in the form:
+                // \([PARAMS]) ret_type {}
+                self.advance();
+
+                let params = self.parse_fn_params();
+
+                let ret_type = self.parse_type();
+                self.scope.push(ParseScope::Function);
+                let body = self.next_ins(false, false);
+                self.scope.pop();
+                let lambda_span = loc.combine(body.get_source_ref());
+
+                Expr::Lambda {
+                    params,
+                    ret_type,
+                    body: Box::new(body),
+                    loc: lambda_span,
+                }
+            }
+            _ => self.parse_optional_expr(),
+        }
     }
 
     fn parse_optional_expr(&mut self) -> Expr {

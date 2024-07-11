@@ -137,6 +137,12 @@ pub enum Expr {
         val: Option<Box<Expr>>,
         loc: Rc<SourceRef>,
     },
+    Lambda {
+        params: Vec<FnParam>,
+        ret_type: Rc<Ty>,
+        body: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -162,6 +168,7 @@ impl Expr {
             | Expr::AccessMember { loc, .. }
             | Expr::OptionalExpr { loc, .. }
             | Expr::InterpStr { loc, .. }
+            | Expr::Lambda { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -172,7 +179,8 @@ impl Expr {
             | Expr::InterpolatedString { .. }
             | Expr::Str { .. }
             | Expr::Char { .. }
-            | Expr::Bool { .. } => true,
+            | Expr::Bool { .. }
+            | Expr::Lambda { .. } => true,
             _ => false,
         }
     }
@@ -288,6 +296,26 @@ impl Expr {
                 None => format!("none"),
             },
             Expr::InterpStr { val, .. } => val.clone(),
+            Expr::Lambda {
+                params,
+                ret_type,
+                body,
+                ..
+            } => {
+                let params_str: Vec<String> = params
+                    .iter()
+                    .map(|fn_param| {
+                        format!("{} {}", fn_param.name.as_str(), fn_param.given_ty.as_str())
+                    })
+                    .collect();
+                let params_str = params_str.join(", ");
+                format!(
+                    "\\({}) {}\n{}",
+                    params_str,
+                    ret_type.as_str(),
+                    body.as_str()
+                )
+            }
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
         }
     }

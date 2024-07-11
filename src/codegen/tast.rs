@@ -73,6 +73,11 @@ pub enum TyExpr {
     OptionalExpr {
         val: Option<Box<TyExpr>>,
     },
+    Lambda {
+        params: Vec<TyFnParam>,
+        ret_ty: Rc<Ty>,
+        body: Box<TyIns>,
+    },
 }
 
 impl TyExpr {
@@ -168,6 +173,20 @@ impl TyExpr {
                 Some(v) => format!("some({})", v.as_str()),
                 None => format!("none"),
             },
+            TyExpr::Lambda {
+                params,
+                ret_ty,
+                body,
+            } => {
+                let params_str: Vec<String> = params
+                    .iter()
+                    .map(|fn_param| {
+                        format!("{} {}", fn_param.name.as_str(), fn_param.given_ty.as_str())
+                    })
+                    .collect();
+                let params_str = params_str.join(", ");
+                format!("\\({}) {}\n{}", params_str, ret_ty.as_str(), body.as_str())
+            }
         }
     }
 }

@@ -1533,6 +1533,154 @@ pub fn check_expr(
                 }),
             )
         }
+        Expr::Lambda {
+            params,
+            ret_type,
+            body,
+            loc,
+        } => {
+            // construct the function type and add it to the environment
+            let ret_ty = match type_is_valid(ret_type) {
+                Ok(_) => ret_type.clone(),
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType {
+                            loc: ret_type.get_loc(),
+                        })
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType {
+                            loc: ret_type.get_loc(),
+                        })
+                    }
+                },
+            };
+
+            if ret_ty.is_error_ty() {
+                return (
+                    Rc::new(Ty::ErrorType {
+                        loc: ret_ty.get_loc(),
+                    }),
+                    None,
+                );
+            }
+
+            let mut fn_type_params = vec![];
+            let mut pairs_to_register = vec![];
+            let mut has_error = false;
+            for param in params.into_iter() {
+                let p_ty = match type_is_valid(&param.given_ty) {
+                    Ok(_) => param.given_ty.clone(),
+                    Err((e, e_loc)) => match e {
+                        TypeValidErr::Invalid => {
+                            state.push_err(CheckerError::InvalidType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Rc::new(Ty::ErrorType {
+                                loc: param.given_ty.get_loc(),
+                            })
+                        }
+                        TypeValidErr::Incomplete => {
+                            state.push_err(CheckerError::IncompleteType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Rc::new(Ty::ErrorType {
+                                loc: param.given_ty.get_loc(),
+                            })
+                        }
+                    },
+                };
+                if p_ty.is_error_ty() {
+                    has_error = true;
+                }
+                fn_type_params.push(p_ty.clone());
+                pairs_to_register.push((
+                    param.name.as_str(),
+                    NameInfo {
+                        ty: Rc::new(RefCell::new((*p_ty).clone())),
+                        refs: vec![param.loc.clone()],
+                        is_const: true,
+                        is_initialized: true,
+                    },
+                ));
+            }
+
+            if has_error {
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            let fn_type = Rc::new(Ty::Func {
+                params: fn_type_params,
+                ret: ret_ty.clone(),
+                loc: loc.clone(),
+            });
+
+            // copy the current environment and preserve it so we can keep
+            // reset it back to it later
+            state.env.extend();
+            state.scope_stack.push(Scope::Func);
+
+            // add the pairs to the environment
+            let mut ty_params = vec![];
+            for (param_name, param_info) in pairs_to_register {
+                state.env.add(param_name.clone(), param_info.clone());
+                ty_params.push(TyFnParam {
+                    name: param_name,
+                    given_ty: Rc::new(param_info.ty.borrow().clone()),
+                });
+            }
+
+            // check the body
+            let old_enter_new_scope = state.enter_new_scope;
+            state.enter_new_scope = false;
+            let old_check_for_return = state.check_for_return;
+            state.check_for_return = true;
+            let new_body = if body.contains_sub_instructions() {
+                check_ins(body, &Some(ret_ty.clone()), state)
+            } else {
+                let ty_i = check_ins(body, &Some(ret_ty.clone()), state);
+                if !ret_ty.is_void() {
+                    state.push_err(CheckerError::Expected(
+                        format!(
+                            "3. a return statement with a value of type '{}'.",
+                            ret_ty.as_str()
+                        ),
+                        loc.clone(),
+                        None,
+                    ));
+                }
+                ty_i
+            };
+
+            if new_body.is_none() {
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            let new_body = new_body.unwrap();
+            // reset the scope info
+            state.enter_new_scope = old_enter_new_scope;
+            state.check_for_return = old_check_for_return;
+            state.scope_stack.pop();
+            state.env.pop();
+            (
+                fn_type,
+                Some(TyExpr::Lambda {
+                    params: ty_params,
+                    ret_ty: ret_type.clone(),
+                    body: Box::new(new_body),
+                }),
+            )
+        }
     }
 }
 
@@ -1764,14 +1912,16 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 return None;
             }
 
-            if state.is_in_x_scope(&Scope::Defer) {
-                if !ret_ty.is_void() {
-                    state.push_err(CheckerError::FunctionInDeferShouldReturnVoid {
-                        loc: ret_ty.get_loc(),
-                    });
-                    return None;
-                }
-            }
+            // NOTE: I don't think this is required since the function is
+            // not being called. Just declared. I should test this.
+            // if state.is_in_x_scope(&Scope::Defer) {
+            //     if !ret_ty.is_void() {
+            //         state.push_err(CheckerError::FunctionInDeferShouldReturnVoid {
+            //             loc: ret_ty.get_loc(),
+            //         });
+            //         return None;
+            //     }
+            // }
 
             let mut fn_type_params = vec![];
             let mut pairs_to_register = vec![];
