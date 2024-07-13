@@ -6,29 +6,18 @@ struct SourceFile {
     text: str;
 
     version :: 1;
-    struct DiagInfo {
-        error: str;
-        flat_index: uint;
-        col: uint;
-        snippet: str;
-        line: uint;
-    }
 
-    fn new() SourceFile {
-        return SourceFile.(
-            path: "",
-            text: ""
-        );
+    fn init(p str, t str) void {
+        self.path = p
+        self.text = t
     }
 }
 
 fn main() void {
     // since we allow defaults, we can focus on the
     // members we care about initializing
-    srcA := SourceFile.(
-        path: "srcA",
-        text: "textA",
-    );
-    srcB := SourceFile.new();
-    // alias DiagnosticInfo SourceFile.DiagInfo;
+    srcA := SourceFile(
+        "srcA",
+        "textA",
+    )
 }

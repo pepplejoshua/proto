@@ -1216,6 +1216,15 @@ impl Parser {
                     ret: ret_type,
                 })
             }
+            Token::Star(loc) => {
+                // we need to parse the type pointed to
+                let sub_ty = self.parse_type();
+
+                Rc::new(Ty::Pointer {
+                    loc: loc.combine(sub_ty.get_loc()),
+                    sub_ty,
+                })
+            }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
@@ -1498,6 +1507,23 @@ impl Parser {
                     expr: Box::new(rhs),
                     loc: un_span,
                 }
+            }
+            _ => self.parse_index_expr(),
+        }
+    }
+
+    fn parse_ptr_deref_or_addr_of(&mut self) -> Expr {
+        let op = self.cur_token();
+        match op {
+            Token::Star(_) => {
+                // pointer deref
+                todo!()
+            }
+            Token::Ampersand(_) => {
+                // taking address of another expression
+                let target = self.parse_index_expr();
+
+                todo!()
             }
             _ => self.parse_index_expr(),
         }

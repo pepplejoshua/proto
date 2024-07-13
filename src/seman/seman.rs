@@ -1701,6 +1701,8 @@ pub fn check_expr(
                 }),
             )
         }
+        Expr::DerefPtr { target, loc } => todo!(),
+        Expr::MakePtrFromAddrOf { target, loc } => todo!(),
     }
 }
 

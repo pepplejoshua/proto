@@ -5,14 +5,14 @@ input_file: src/parser/parser_inputs/slices.pr
 ---
 code_str_repr:
   - fn main() int
-  - "a :: [1, 2, 3];"
-  - "b : [int, _] = a;"
-  - "c : [int, 3] = b;"
-  - "d : [[int, 3], 2] = [a, b];"
-  - "e : [bool, 3] = [false, true, true];"
-  - "f_slice : [bool] = e[0:2];"
+  - "a :: [1, 2, 3]"
+  - "b : [int, _] = a"
+  - "c : [int, 3] = b"
+  - "d : [[int, 3], 2] = [a, b]"
+  - "e : [bool, 3] = [false, true, true]"
+  - "f_slice : [bool] = e[0:2]"
   - "// [false, true]"
-  - "g_slice :: d[0][0:1];"
+  - "g_slice :: d[0][0:1]"
   - "// [1]"
   - ""
 lexer_errors: []

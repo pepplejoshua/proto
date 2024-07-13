@@ -1,17 +1,12 @@
 struct Person {
-    name : str;
-    age : i8;
+    name : str
+    age : i8
 
     fn get_name() str {
-        return self.name;
+        return self.name
     }
 
     fn get_age() i8 {
         return self.age;
     }
 }
-
-p :: Person.(
-    name: "John",
-    age: 32,
-);

@@ -143,6 +143,14 @@ pub enum Expr {
         body: Box<Ins>,
         loc: Rc<SourceRef>,
     },
+    DerefPtr {
+        target: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    MakePtrFromAddrOf {
+        target: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -169,6 +177,8 @@ impl Expr {
             | Expr::OptionalExpr { loc, .. }
             | Expr::InterpStr { loc, .. }
             | Expr::Lambda { loc, .. }
+            | Expr::MakePtrFromAddrOf { loc, .. }
+            | Expr::DerefPtr { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -195,7 +205,10 @@ impl Expr {
             | Expr::GroupedExpr { .. }
             | Expr::IndexInto { .. }
             | Expr::AccessMember { .. } => 3,
-            Expr::BinOp { .. } | Expr::UnaryOp { .. } | Expr::TernaryConditional { .. } => 2,
+            Expr::BinOp { .. }
+            | Expr::UnaryOp { .. }
+            | Expr::TernaryConditional { .. }
+            | Expr::DerefPtr { .. } => 2,
             Expr::ErrorExpr { .. } | _ => unreachable!(
                 "expr::get_non_literal_ranking(): unexpected literal found: {:#?}",
                 self
@@ -316,6 +329,8 @@ impl Expr {
                     body.as_str()
                 )
             }
+            Expr::DerefPtr { target, .. } => format!("*{}", target.as_str()),
+            Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str()),
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
         }
     }

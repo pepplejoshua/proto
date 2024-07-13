@@ -22,7 +22,6 @@ int main() {
   const function<str(char)> double_char = [&](char c) -> str {
     return Char(c) + Char(c);
   };
-
   // str a = "I am a str";
   // str b = apply2(a, capitalize);
   // str c =  apply2(a, double_char);
@@ -34,5 +33,8 @@ int main() {
   Slice<char> x_slice = x.make_slice(6, 11);
   cout << proto_str(x) << endl;
   cout << proto_str(x_slice) << endl;
+
+  const function<str(char)>* dc = &double_char;
+  cout << (*dc)('a') << endl;
   return 0;
 }

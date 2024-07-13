@@ -122,7 +122,7 @@ public:
         // when you make a slice of a constant array, we make a copy of the array;
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
-        // grab data and unsafe cast it to a T*. this is Sparta!
+        // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
         T* start_copy = (T*)data;
         return Slice<T>(start_copy + start, end_exclusive - start, len());
     }
@@ -142,7 +142,7 @@ public:
         // when you make a slice of a constant array, we make a copy of the array;
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
-        // grab data and unsafe cast it to a T*. this is Sparta!
+        // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
         T* start_copy = (T*)data;
         return Slice<T>(start_copy, len() - start, len());
     }

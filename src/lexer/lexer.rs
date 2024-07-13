@@ -298,7 +298,6 @@ impl Lexer {
         let cur = self.src.cur_char();
 
         match cur {
-            // arithmetic operators
             '+' => {
                 let c = self.src.peek_char();
                 if c == '=' {
@@ -358,8 +357,6 @@ impl Lexer {
                 self.src.next_char();
                 Ok(Token::At(cur_ref.combine(self.src.get_ref())))
             }
-
-            // logical operators
             '!' => {
                 // if the next character is a '=', return a NotEqual operator
                 let c = self.src.peek_char();
@@ -380,10 +377,9 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(Token::And(cur_ref.combine(self.src.get_ref())));
                 }
-                // otherwise, return an error
-                Err(LexError::InvalidCharacter(
-                    cur_ref.combine(self.src.get_ref()),
-                ))
+                // otherwise, return an Ampersand operator
+                self.src.next_char();
+                Ok(Token::Ampersand(cur_ref.combine(self.src.get_ref())))
             }
             '|' => {
                 // if the next character is a '|', return a Or operator

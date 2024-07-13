@@ -58,7 +58,8 @@ pub enum Ty {
         name: String,
         loc: Rc<SourceRef>,
     },
-    Deferred {
+    Pointer {
+        sub_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     ErrorType {
@@ -116,6 +117,13 @@ impl Ty {
         }
     }
 
+    pub fn is_pointer(&self) -> bool {
+        match self {
+            Ty::Pointer { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn get_loc(&self) -> Rc<SourceRef> {
         match self {
             Ty::Signed { loc, .. }
@@ -130,7 +138,7 @@ impl Ty {
             | Ty::Optional { loc, .. }
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
-            | Ty::Deferred { loc }
+            | Ty::Pointer { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -149,7 +157,7 @@ impl Ty {
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
             | Ty::Optional { loc, .. }
-            | Ty::Deferred { loc }
+            | Ty::Pointer { loc, .. }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
@@ -200,8 +208,8 @@ impl Ty {
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
             Ty::Struct { name, .. } => name.clone(),
             Ty::NamedType { name, .. } => format!("{name}"),
+            Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
             Ty::ErrorType { .. } => "err!".into(),
-            Ty::Deferred { loc } => format!("<deferred>"),
         }
     }
 

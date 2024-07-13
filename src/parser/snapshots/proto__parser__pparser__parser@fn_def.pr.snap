@@ -4,18 +4,15 @@ expression: result
 input_file: src/parser/parser_inputs/fn_def.pr
 ---
 code_str_repr:
-  - "fn add(a i64, b i64) i64"
-  - "return [a + b];"
-  - ""
-  - "fn add(a i64, b i64) i64"
-  - "return [a + b];"
-  - ""
+  - fn do_nothing_() void
+  - return 1
   - fn do_nothing() void
   - ""
-  - fn do_nothing_() void
-  - return 1;
+  - "fn add(a i64, b i64) i64"
+  - "return [a + b]"
+  - ""
   - fn returns_nothing() void
-  - return;
+  - return
   - ""
 lexer_errors: []
 parser_errors: []

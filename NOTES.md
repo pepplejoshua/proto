@@ -10,8 +10,13 @@
 - Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
 - Add defer instruction. [DONE]
 - Add loops, continue, break. [DONE]
-- Add compound assignment expressions (+=, -=, *=, /=). [DONE]
-- Add function expressions (lambdas).
+- Add compound assignment expressions (+=, -=, *=, /=, %=). [DONE]
+- Add function expressions (lambdas). [DONE]
+- Work on pointers.
+- Add naive allocation (new and delete essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that).
+- Work on support for allocators (explicit or implicitly through context passing).
+- Add Vec<T> type for growable vectors. Requires an explicit allocator passed into it.
+- Add String type for growable strings. Requires an explicit allocator passed into it.
 - Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
 ```rs
 fn single_explicit() void do println("hello")
@@ -20,17 +25,14 @@ fn multi_explicit() void {
     s :: "hello"
     println(s)
 }
-fn multi() {
+fn multi_implicit() {
     s :: "hello"
     println(s)
 }
 ```
+- Improve typechecking of NamedTypes. Use type_is_valid more pervasively and check that NamedTypes exist in the current scope
 - Look into implementing my own Char and Str types. Use starting work in t.h
 - Allow declaring functions with `fn name() ret_ty {}` syntax within function blocks. Generate lambda assigned to a constant after checking. In the lambda, do not capture the environment. Functions declared this way are self-contained with no reference to outside scope. They are not closures.
-- Work on pointers and references.
-- Work on support for allocators (explicit or implicitly through context passing).
-- Add Vec<T> type for growable vectors. Requires an explicit allocator passed into it.
-- Add String type for growable strings. Requires an explicit allocator passed into it.
 - Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection.
 - Add functional methods (map, filter) to iterables.
 - Consider if tuples are valuable to add (if I can implement them myself in C++)
@@ -80,7 +82,7 @@ fn main() int {
 - Function overloading?
 - Write something for blog about progress since last post.
 - Understand the implications of using smart pointers to deal with auto deallocation vs not.
-- Can we avoid runtime pointer errors by combining lexical analysis with smart pointers, allocators and Option type.
+- Can we avoid runtime pointer errors by combining lexical analysis with smart pointers, allocators and using Option type for nullable pointers?
 - Work on function call stack (maybe using context passing?)
 - Add panic(), and todo() statements.
 - Support for enums.
@@ -94,3 +96,59 @@ fn main() int {
 - proto testing framework built in language?
 - Notebook support? 👀
 - 0.0.1 release?
+
+fn apply2arr(arr [int, 5], op \(int) int) [int, 5] {
+    i : uint = 0
+    new_arr : [int, 5] = [0, 0, 0, 0, 0]
+    for i < arr.len() : (i += 1) {
+        n := arr[i]
+        new_n :: op(n)
+        new_arr[i] = new_n
+    }
+
+    return new_arr
+}
+
+fn testLambdas() void {
+    arr := [1, 2, 3, 4, 5]
+    double_int :: \(n int) int return n * n;
+    new_arr := apply2arr(arr, double_int)
+    new_arr2 := apply2arr(arr, \(item int) int {
+        println(`received '{item}'`)
+        return (item + item) * item
+    })
+    println(`arr      = {arr}`)
+    println(`new_arr  = {new_arr}`)
+    println(`new_arr2 = {new_arr2}`)
+}
+
+struct IntNode {
+    val: int
+    next: ?*IntNode;
+
+    fn init(v int, n ?*IntNode) void {
+        self.val = v
+        self.next = n
+    }
+}
+
+struct Head {
+    num_of_nodes : uint
+    head : ?*IntNode
+
+    fn init() void {
+        head = none
+    }
+
+    fn find(v int) ?*IntNode {
+
+    }
+
+    fn insert(v int) bool {
+
+    }
+
+    fn delete(v int) bool {
+
+    }
+}

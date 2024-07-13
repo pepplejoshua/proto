@@ -4,12 +4,12 @@ expression: result
 input_file: src/parser/parser_inputs/consts_and_vars.pr
 ---
 code_str_repr:
-  - "a : i8 : 32;"
-  - "c := false;"
-  - "e : uint = 0;"
+  - "c := false"
+  - "e : uint = 0"
+  - "a : i8 : 32"
   - fn main() void
-  - "b := a;"
-  - "d :: !c;"
+  - "b := a"
+  - "d :: !c"
   - ""
 lexer_errors: []
 parser_errors: []

@@ -39,6 +39,7 @@ pub enum Token {
     StarAssign(Rc<SourceRef>),
     SlashAssign(Rc<SourceRef>),
     ModuloAssign(Rc<SourceRef>),
+    Ampersand(Rc<SourceRef>),
 
     // special characters
     At(Rc<SourceRef>),
@@ -185,6 +186,7 @@ impl Token {
             | Token::SlashAssign(src)
             | Token::ModuloAssign(src)
             | Token::BackSlash(src)
+            | Token::Ampersand(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -291,6 +293,7 @@ impl Token {
             Token::SlashAssign(_) => "/=".to_string(),
             Token::ModuloAssign(_) => "%=".to_string(),
             Token::BackSlash(_) => "\\".to_string(),
+            Token::Ampersand(_) => "&".to_string(),
         }
     }
 }
