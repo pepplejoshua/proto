@@ -255,6 +255,12 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
 
             return true;
         }
+        (
+            Ty::Pointer { sub_ty, .. },
+            Ty::Pointer {
+                sub_ty: b_sub_ty, ..
+            },
+        ) => types_are_eq(sub_ty, b_sub_ty),
         (_, Ty::ErrorType { .. }) | (Ty::ErrorType { .. }, _) | _ => false,
     }
 }
@@ -1701,8 +1707,68 @@ pub fn check_expr(
                 }),
             )
         }
-        Expr::DerefPtr { target, loc } => todo!(),
-        Expr::MakePtrFromAddrOf { target, loc } => todo!(),
+        Expr::DerefPtr { target, loc } => {
+            // we need to make sure target has a type of pointer. Then we can return
+            // its subtype
+            let (ty_targ, ty_targ_expr) = check_expr(target, &None, state);
+            if ty_targ.is_error_ty() {
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            if !ty_targ.is_pointer() {
+                state.push_err(CheckerError::CannotDerefNonPtrType {
+                    given_ty: ty_targ.as_str(),
+                    loc: target.get_source_ref(),
+                });
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            // get the subtype
+            if let Ty::Pointer { sub_ty, .. } = ty_targ.as_ref() {
+                let c_sub_ty = sub_ty.clone_loc(target.get_source_ref());
+                return (
+                    c_sub_ty,
+                    Some(TyExpr::DerefPtr {
+                        target: Box::new(ty_targ_expr.unwrap()),
+                    }),
+                );
+            } else {
+                unreachable!(
+                    "seman::check_expr(): Non-pointer type passed pointer check: {}({}).",
+                    ty_targ.as_str(),
+                    ty_targ.get_loc().as_str()
+                );
+            }
+        }
+        Expr::MakePtrFromAddrOf { target, loc } => {
+            // we need to make sure target is a non-ephemeral expression i.e. it has an address
+            // that can be taken and referred to.
+            if !target.has_address() {
+                state.push_err(CheckerError::CannotTakeAddressOfExpr {
+                    loc: target.get_source_ref(),
+                });
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            // check the target so we can determine the type of what we are taking an address of.
+            // we can then construct the type
+            let (ty_targ, ty_targ_expr) = check_expr(target, &None, state);
+            if ty_targ.is_error_ty() {
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            let n_ty = Rc::new(Ty::Pointer {
+                sub_ty: ty_targ.clone_loc(loc.clone()),
+                loc: loc.clone(),
+            });
+
+            (
+                n_ty,
+                Some(TyExpr::MakePtrFromAddrOf {
+                    target: Box::new(ty_targ_expr.unwrap()),
+                }),
+            )
+        }
     }
 }
 

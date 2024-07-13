@@ -595,6 +595,19 @@ impl SourceReporter {
                 let msg = format!("The type of the target of a for-in loop must be either a str, an array, or a slice but got '{given_ty}'. ");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::CannotDerefNonPtrType { given_ty, loc } => {
+                let msg = format!(
+                    "The target of a dereference operation must be a pointer but got '{given_ty}'."
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::CannotTakeAddressOfExpr { loc } => {
+                let msg =
+                    "Taking the address of an ephemeral (temporary) expression is not allowed."
+                        .to_string();
+                let tip = "Consider assigning the expression to a variable / constant, and then taking the address of that.".to_string();
+                self.report_with_ref(&loc, msg, Some(tip), false);
+            }
         }
     }
 

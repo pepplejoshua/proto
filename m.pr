@@ -1,9 +1,10 @@
 fn main() int {
-    a :: 1;
-    b : *int : &a;
-    c : int : *b;
+    a :: 1
+    b : *int : &a
+    c : int : *b
 
-    // println(`a = b? {}\nb points to address {b} which contains {*b}`)
+    println(`a = b? {a == c}`)
+    // println(`b points to address {b} which contains {*b}`)
 
     return 0
 }

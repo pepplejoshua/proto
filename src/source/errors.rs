@@ -217,6 +217,13 @@ pub enum CheckerError {
         given_ty: String,
         loc: Rc<SourceRef>,
     },
+    CannotDerefNonPtrType {
+        given_ty: String,
+        loc: Rc<SourceRef>,
+    },
+    CannotTakeAddressOfExpr {
+        loc: Rc<SourceRef>,
+    },
     TooManyErrors,
 }
 

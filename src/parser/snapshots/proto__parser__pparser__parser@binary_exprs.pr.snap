@@ -4,9 +4,9 @@ expression: result
 input_file: src/parser/parser_inputs/binary_exprs.pr
 ---
 code_str_repr:
-  - "a := [1 + 2]"
   - "b :: [3 * 5]"
   - "c :: [[a + [[b * a] / b]] - a]"
+  - "a := [1 + 2]"
 lexer_errors: []
 parser_errors: []
 parse_warning: []

@@ -239,6 +239,9 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
                 .join(", ");
             format!("function<{}({param_ty_s})>", cpp_gen_ty(ret, state))
         }
+        Ty::Pointer { sub_ty, .. } => {
+            format!("{}*", cpp_gen_ty(sub_ty, state))
+        }
         _ => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {} at {:?}, which should not occur.",
@@ -383,6 +386,8 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             };
             format!("[&]({params_s}) -> {ret_ty_s}{body_s}")
         }
+        TyExpr::DerefPtr { target } => format!("*{}", cpp_gen_expr(target, state)),
+        TyExpr::MakePtrFromAddrOf { target } => format!("&{}", cpp_gen_expr(target, state)),
     }
 }
 

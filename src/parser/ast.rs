@@ -195,6 +195,30 @@ impl Expr {
         }
     }
 
+    pub fn has_address(&self) -> bool {
+        match self {
+            Expr::Number { .. }
+            | Expr::Str { .. }
+            | Expr::InterpStr { .. }
+            | Expr::Char { .. }
+            | Expr::Bool { .. }
+            | Expr::BinOp { .. }
+            | Expr::UnaryOp { .. }
+            | Expr::CallFn { .. }
+            | Expr::StaticArray { .. }
+            | Expr::TernaryConditional { .. }
+            | Expr::OptionalExpr { .. }
+            | Expr::InterpolatedString { .. }
+            | Expr::Lambda { .. }
+            | Expr::MakePtrFromAddrOf { .. }
+            | Expr::ErrorExpr { .. }
+            | Expr::MakeSlice { .. } => false,
+            Expr::Ident { .. } | Expr::AccessMember { .. } | Expr::DerefPtr { .. } => true,
+            Expr::GroupedExpr { inner, .. } => inner.has_address(),
+            Expr::IndexInto { target, .. } => target.has_address(),
+        }
+    }
+
     pub fn get_non_literal_ranking(&self) -> usize {
         match self {
             Expr::Ident { .. } => 4,

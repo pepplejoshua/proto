@@ -4,16 +4,16 @@ expression: result
 input_file: src/parser/parser_inputs/fn_def.pr
 ---
 code_str_repr:
-  - fn do_nothing_() void
-  - return 1
-  - fn do_nothing() void
-  - ""
   - "fn add(a i64, b i64) i64"
   - "return [a + b]"
+  - ""
+  - fn do_nothing() void
   - ""
   - fn returns_nothing() void
   - return
   - ""
+  - fn do_nothing_() void
+  - return 1
 lexer_errors: []
 parser_errors: []
 parse_warning: []

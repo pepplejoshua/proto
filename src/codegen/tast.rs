@@ -78,6 +78,12 @@ pub enum TyExpr {
         ret_ty: Rc<Ty>,
         body: Box<TyIns>,
     },
+    DerefPtr {
+        target: Box<TyExpr>,
+    },
+    MakePtrFromAddrOf {
+        target: Box<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -187,6 +193,8 @@ impl TyExpr {
                 let params_str = params_str.join(", ");
                 format!("\\({}) {}\n{}", params_str, ret_ty.as_str(), body.as_str())
             }
+            TyExpr::DerefPtr { target } => format!("*{}", target.as_str()),
+            TyExpr::MakePtrFromAddrOf { target } => format!("&{}", target.as_str()),
         }
     }
 }

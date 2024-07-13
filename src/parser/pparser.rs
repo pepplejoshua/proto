@@ -1508,22 +1508,33 @@ impl Parser {
                     loc: un_span,
                 }
             }
-            _ => self.parse_index_expr(),
+            _ => self.parse_ptr_deref_or_addr_of(),
         }
     }
 
     fn parse_ptr_deref_or_addr_of(&mut self) -> Expr {
         let op = self.cur_token();
         match op {
-            Token::Star(_) => {
+            Token::Star(loc) => {
                 // pointer deref
-                todo!()
+                self.advance();
+                let target = self.parse_ptr_deref_or_addr_of();
+
+                Expr::DerefPtr {
+                    loc: loc.combine(target.get_source_ref()),
+                    target: Box::new(target),
+                }
             }
-            Token::Ampersand(_) => {
-                // taking address of another expression
+            Token::Ampersand(loc) => {
+                // taking address of another expression to make a ptr
+                // to that expression
+                self.advance();
                 let target = self.parse_index_expr();
 
-                todo!()
+                Expr::MakePtrFromAddrOf {
+                    loc: loc.combine(target.get_source_ref()),
+                    target: Box::new(target),
+                }
             }
             _ => self.parse_index_expr(),
         }

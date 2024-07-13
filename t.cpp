@@ -36,5 +36,6 @@ int main() {
 
   const function<str(char)>* dc = &double_char;
   cout << (*dc)('a') << endl;
+
   return 0;
 }
