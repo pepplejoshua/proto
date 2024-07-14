@@ -41,28 +41,28 @@ public:
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity - start);
     }
 
     inline const Slice<T> make_slice(uint_pr start, uint_pr end_exclusive) const {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity - start);
     }
 
     inline Slice<T> make_slice_from(uint_pr start) {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, length - start, arr_capacity);
+        return Slice<T>(this->start + start, length - start, arr_capacity - start);
     }
 
     inline const Slice<T> make_slice_from(uint_pr start) const {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, length - start, arr_capacity);
+        return Slice<T>(this->start + start, length - start, arr_capacity - start);
     }
 
     // Begin and end methods for range-based for loops
@@ -111,7 +111,7 @@ public:
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(data + start, end_exclusive - start, len());
+        return Slice<T>(data + start, end_exclusive - start, len() - start);
     }
 
     inline const Slice<T> make_slice(uint_pr start, uint_pr end_exclusive) const {
@@ -124,14 +124,14 @@ public:
         // OR UNSAFE HACK:
         // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
         T* start_copy = (T*)data;
-        return Slice<T>(start_copy + start, end_exclusive - start, len());
+        return Slice<T>(start_copy + start, end_exclusive - start, len() - start);
     }
 
     inline Slice<T> make_slice_from(uint_pr start) {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(data + start, len() - start, len());
+        return Slice<T>(data + start, len() - start, len() - start);
     }
 
     inline const Slice<T> make_slice_from(uint_pr start) const {
@@ -144,7 +144,7 @@ public:
         // OR UNSAFE HACK:
         // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
         T* start_copy = (T*)data;
-        return Slice<T>(start_copy, len() - start, len());
+        return Slice<T>(start_copy, len() - start, len() - start);
     }
 
     inline constexpr uint_pr len() const noexcept {

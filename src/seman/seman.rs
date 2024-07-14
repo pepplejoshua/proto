@@ -1829,10 +1829,14 @@ pub fn check_expr(
                     if args.len() > 1 {
                         // we cannot have more than 1 argument
                         state.push_err(CheckerError::Expected(
-                            format!("1 expression for initialization of newly allocated '{}' but found {}",
+                            format!(
+                                "1 expression to initialize newly allocated '{}' but found {} expressions.",
                                 ty.as_str(),
                                 args.len()
-                            ), loc.clone(), None));
+                            ),
+                            loc.clone(),
+                            None,
+                        ));
                         return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
@@ -1864,13 +1868,70 @@ pub fn check_expr(
                         }),
                     )
                 }
-                Ty::StaticArray { sub_ty, size, loc } => todo!(),
                 Ty::Slice { sub_ty, loc } => {
-                    // this will take the length and capacity of the backing array
-                    // since slices require a backing array. We will not allow this.
-                    // Instead, we will make a Vec<T> class built specifically for the
-                    // dynamic use case. The Vec<T> class will allocate and manage its
-                    // own memory.
+                    // this can take the length and capacity of the backing array
+                    // since slices require a backing array. This allows us overcome the
+                    // explicit need for a growable vector type
+                    if args.is_empty() {
+                        // we will use the default allocating slice
+                        let n_ty = Rc::new(Ty::Pointer {
+                            sub_ty: ty.clone_loc(loc.clone()),
+                            loc: loc.clone(),
+                        });
+                        return (
+                            n_ty.clone(),
+                            Some(TyExpr::SliceDefaultAlloc {
+                                inner_ty: ty.clone(),
+                            }),
+                        );
+                    }
+
+                    // we expect 1 argument which is the capacity of the the new slice
+                    // typed usize.
+                    if args.len() > 1 {
+                        // we cannot have more than 1 argument
+                        state.push_err(CheckerError::Expected(
+                            format!(
+                                "at most 1 expression, which is the capacity of the newly allocated '{}' but found {} expressions.",
+                                ty.as_str(),
+                                args.len()
+                            ),
+                            loc.clone(),
+                            None,
+                        ));
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let uint_ty = Ty::get_uint_ty(loc.clone());
+
+                    let (ty_cap, ty_cap_expr) = check_expr(&args[0], &Some(uint_ty.clone()), state);
+
+                    if ty_cap.is_error_ty() {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    if !types_are_eq(&ty, &uint_ty) {
+                        state.push_err(CheckerError::TypeMismatch {
+                            loc: args[0].get_source_ref(),
+                            expected: uint_ty.as_str(),
+                            found: ty_cap.as_str(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let n_ty = Rc::new(Ty::Pointer {
+                        sub_ty: ty.clone_loc(loc.clone()),
+                        loc: loc.clone(),
+                    });
+                    (
+                        n_ty.clone(),
+                        Some(TyExpr::SliceSizedAlloc {
+                            ty: ty.clone(),
+                            cap: Rc::new(ty_cap_expr.unwrap()),
+                        }),
+                    )
+                }
+                Ty::StaticArray { sub_ty, size, loc } => {
                     todo!()
                 }
                 Ty::Struct {

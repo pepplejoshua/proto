@@ -18,6 +18,12 @@ str capitalize(char c) {
   return Char(toupper(c)).as_str();
 }
 
+struct A{
+  int x;
+
+  A(int x): x{x} {}
+};
+
 int main() {
   const function<str(char)> double_char = [&](char c) -> str {
     return Char(c) + Char(c);
@@ -29,20 +35,29 @@ int main() {
   // cout << "b is " << b << endl;
   // cout << "c is " << c << endl;
 
-  auto x = Str<12>("hello world!");
-  Slice<char> x_slice = x.make_slice(6, 11);
-  cout << proto_str(x) << endl;
-  cout << proto_str(x_slice) << endl;
+  // auto x = Str<12>("hello world!");
+  // Slice<char> x_slice = x.make_slice(6, 11);
+  // cout << proto_str(x) << endl;
+  // cout << proto_str(x_slice) << endl;
 
-  auto s = Slice<int>(new int[10], 5, 10, true);
+  auto a = new Array<int, 5>({0, 0, 0, 0, 0});
+  // auto b = a->make_slice(0, 3);
+  auto b = Slice<int>();
 
-  for (auto i = 0; i < s.len(); i++) {
-    s[i] = i + 1;
+  cout << "a was: " << proto_str(*a) << endl;
+  cout << "b was: " << proto_str(b) << endl;
+
+  for (auto i = 0; i < 4; i++) {
+    cout << "appending " << i + 1 << " to b..." << endl;
+    b.append(i + 1);
+    cout << "a is:  " << proto_str(*a) << endl;
+    cout << "b is:  " << proto_str(b) << endl;
   }
 
-  for (auto n : s) {
-    cout << n << endl;
-  }
+  // auto y = (A*) malloc(sizeof(A) * 10);
+  // auto x = Slice<char>();
+
+  delete a;
 
   return 0;
 }

@@ -389,6 +389,8 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         TyExpr::DerefPtr { target } => format!("*{}", cpp_gen_expr(target, state)),
         TyExpr::MakePtrFromAddrOf { target } => format!("&{}", cpp_gen_expr(target, state)),
         TyExpr::NewAlloc { ty, args } => todo!(),
+        TyExpr::SliceDefaultAlloc { inner_ty } => todo!(),
+        TyExpr::SliceSizedAlloc { ty, cap } => todo!(),
     }
 }
 

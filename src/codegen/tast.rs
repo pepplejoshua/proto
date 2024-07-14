@@ -88,6 +88,13 @@ pub enum TyExpr {
         ty: Rc<Ty>,
         args: Vec<TyExpr>,
     },
+    SliceDefaultAlloc {
+        inner_ty: Rc<Ty>,
+    },
+    SliceSizedAlloc {
+        ty: Rc<Ty>,
+        cap: Rc<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -208,6 +215,10 @@ impl TyExpr {
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
+            }
+            TyExpr::SliceDefaultAlloc { inner_ty } => format!("new({})", inner_ty.as_str()),
+            TyExpr::SliceSizedAlloc { ty, cap } => {
+                format!("new({}, {})", ty.as_str(), cap.as_str())
             }
         }
     }

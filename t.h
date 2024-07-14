@@ -1,3 +1,4 @@
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <cstdlib>
@@ -114,27 +115,85 @@ template<typename T>
 class Slice {
 private:
     T* start;
-    bool allocates;
     uint_pr length;
     uint_pr arr_capacity;
+    bool allocates;
 
 public:
     Slice(T* s, uint_pr len, uint_pr cap)
-      : start(s), length(len), arr_capacity(cap), allocates(false) {}
-
-    Slice(T* s, uint_pr len, uint_pr cap, bool allocs)
-      : start(s), length(len), arr_capacity(cap), allocates(allocs) {
+      : start(s), length(len), arr_capacity(cap), allocates(false) {
+      // std::cout << "Slice(T* s, uint_pr len, uint_pr cap) constructor called\n";
     }
+
+    Slice(uint_pr cap)
+      : length(0), arr_capacity(cap), allocates(true) {
+      start = (T*) malloc(sizeof(T) * cap);
+      std::memset(start, 0, cap);
+      // std::cout << "Slice(uint_pr cap) constructor called\n";
+      // std::cout << "allocated memory for " << cap << " items...\n";
+    }
+
+    Slice() : length(0), arr_capacity(16), allocates(true) {
+      // start = new T[16];
+      start = (T*) malloc(sizeof(T) * 16);
+      std::memset(start, 0, 16);
+      // std::cout << "Slice() constructor called\n";
+      // std::cout << "allocated memory for 16 items...\n";
+    }
+
+    // Copy constructor
+    Slice(const Slice& other)
+      : start(other.start),  length(other.length),
+        arr_capacity(other.arr_capacity), allocates(false) {}
 
     ~Slice() {
       if (allocates) {
-        delete start;
-        std::cout << "cleaning up Slice" << std::endl;
+        free(start);
+        // std::cout << "cleaning up Slice" << std::endl;
       }
     }
 
     constexpr uint_pr len() const noexcept {
         return length;
+    }
+
+    constexpr uint_pr cap() const noexcept {
+        return arr_capacity;
+    }
+
+    void append(T item) {
+      if (length >= arr_capacity) {
+        // Double the current capacity and align to the next power of two
+        uint_pr new_capacity = next_power_of_two(arr_capacity * 2);
+        T* new_array = new T[new_capacity];
+        std::memcpy(new_array, start, arr_capacity * sizeof(T));
+
+        if (allocates) {
+            free(start);
+        }
+
+        start = new_array;
+        arr_capacity = new_capacity;
+        allocates = true;
+
+        std::cout << "allocated memory for " << arr_capacity << " items...\n";
+      }
+
+      start[length] = item;
+      length += 1;
+    }
+
+    // Helper function to find the next power of two
+    static uint_pr next_power_of_two(uint_pr n) {
+        if (n == 0) return 1;
+        n--;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        n |= n >> 32;
+        return n + 1;
     }
 
     T& operator[](uint_pr index) {

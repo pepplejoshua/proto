@@ -513,8 +513,9 @@ impl SourceReporter {
                 given,
                 arr_loc,
             } => {
-                let msg =
-                    format!("Static array was expected to have {exp} items but had {given} items.");
+                let msg = format!(
+                    "Static array was expected to have at most {exp} items but got {given} items."
+                );
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
             CheckerError::ConditionShouldBeTypedBool { given_ty, loc } => {
