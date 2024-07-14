@@ -84,6 +84,10 @@ pub enum TyExpr {
     MakePtrFromAddrOf {
         target: Box<TyExpr>,
     },
+    NewAlloc {
+        ty: Rc<Ty>,
+        args: Vec<TyExpr>,
+    },
 }
 
 impl TyExpr {
@@ -195,6 +199,16 @@ impl TyExpr {
             }
             TyExpr::DerefPtr { target } => format!("*{}", target.as_str()),
             TyExpr::MakePtrFromAddrOf { target } => format!("&{}", target.as_str()),
+            TyExpr::NewAlloc { ty, args } => {
+                format!(
+                    "new({}{})",
+                    ty.as_str(),
+                    args.iter()
+                        .map(|a| { a.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
         }
     }
 }
@@ -267,6 +281,9 @@ pub enum TyIns {
         cond: TyExpr,
         update: Box<TyIns>,
         block: Box<TyIns>,
+    },
+    Free {
+        target: Box<TyExpr>,
     },
 }
 
@@ -403,6 +420,7 @@ impl TyIns {
                     block.as_str()
                 )
             }
+            TyIns::Free { target } => format!("free({})", target.as_str()),
         }
     }
 }

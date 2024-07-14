@@ -114,11 +114,24 @@ template<typename T>
 class Slice {
 private:
     T* start;
+    bool allocates;
     uint_pr length;
     uint_pr arr_capacity;
 
 public:
-    Slice(T* s, uint_pr len, uint_pr cap) : start(s), length(len), arr_capacity(cap) {}
+    Slice(T* s, uint_pr len, uint_pr cap)
+      : start(s), length(len), arr_capacity(cap), allocates(false) {}
+
+    Slice(T* s, uint_pr len, uint_pr cap, bool allocs)
+      : start(s), length(len), arr_capacity(cap), allocates(allocs) {
+    }
+
+    ~Slice() {
+      if (allocates) {
+        delete start;
+        std::cout << "cleaning up Slice" << std::endl;
+      }
+    }
 
     constexpr uint_pr len() const noexcept {
         return length;

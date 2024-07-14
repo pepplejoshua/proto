@@ -608,6 +608,10 @@ impl SourceReporter {
                 let tip = "Consider assigning the expression to a variable / constant, and then taking the address of that.".to_string();
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
+            CheckerError::CannotFreeNonPtrType { given_ty, loc } => {
+                let msg = format!("Attempt to free a non-pointer type '{given_ty}'");
+                self.report_with_ref(&loc, msg, None, false);
+            }
         }
     }
 

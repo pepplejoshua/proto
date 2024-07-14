@@ -224,6 +224,10 @@ pub enum CheckerError {
     CannotTakeAddressOfExpr {
         loc: Rc<SourceRef>,
     },
+    CannotFreeNonPtrType {
+        given_ty: String,
+        loc: Rc<SourceRef>,
+    },
     TooManyErrors,
 }
 

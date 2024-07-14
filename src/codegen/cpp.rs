@@ -388,6 +388,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         }
         TyExpr::DerefPtr { target } => format!("*{}", cpp_gen_expr(target, state)),
         TyExpr::MakePtrFromAddrOf { target } => format!("&{}", cpp_gen_expr(target, state)),
+        TyExpr::NewAlloc { ty, args } => todo!(),
     }
 }
 
@@ -614,6 +615,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_ins(block, state)
             );
         }
+        TyIns::Free { target } => todo!(),
     }
     buf
 }

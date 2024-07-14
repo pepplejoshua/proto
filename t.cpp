@@ -34,10 +34,15 @@ int main() {
   cout << proto_str(x) << endl;
   cout << proto_str(x_slice) << endl;
 
-  auto t = new int(1);
+  auto s = Slice<int>(new int[10], 5, 10, true);
 
-  cout << *t << endl;
-  delete t;
+  for (auto i = 0; i < s.len(); i++) {
+    s[i] = i + 1;
+  }
+
+  for (auto n : s) {
+    cout << n << endl;
+  }
 
   return 0;
 }

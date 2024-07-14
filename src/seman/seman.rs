@@ -1770,7 +1770,123 @@ pub fn check_expr(
                 }),
             )
         }
-        Expr::NewAlloc { ty, args, loc } => todo!(),
+        Expr::NewAlloc { ty, args, loc } => {
+            // we need to make sure type is valid, and if it is:
+            // - a struct: we type check arguments and look for an init() on it then
+            // return a ptr to the struct type
+            // - an array: it can have the items to be inserted into the array after
+            // creation.
+            // - a scalar type: type check any init expr (has to be a single one)
+            let ty = match type_is_valid(ty) {
+                Ok(_) => ty.clone(),
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: ty.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType { loc: ty.get_loc() })
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: ty.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType { loc: ty.get_loc() })
+                    }
+                },
+            };
+
+            if ty.is_error_ty() {
+                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+            }
+
+            match ty.as_ref() {
+                Ty::Signed { loc, .. }
+                | Ty::Unsigned { loc, .. }
+                | Ty::Str { loc, .. }
+                | Ty::Char { loc }
+                | Ty::Void { loc }
+                | Ty::Bool { loc }
+                | Ty::Func { loc, .. }
+                | Ty::Optional { loc, .. }
+                | Ty::Pointer { loc, .. } => {
+                    // we will check to make sure there is 1 argument and then we will check
+                    // that expression with ty.
+                    if args.is_empty() {
+                        let n_ty = Rc::new(Ty::Pointer {
+                            sub_ty: ty.clone_loc(loc.clone()),
+                            loc: loc.clone(),
+                        });
+                        return (
+                            n_ty.clone(),
+                            Some(TyExpr::NewAlloc {
+                                ty: n_ty,
+                                args: vec![],
+                            }),
+                        );
+                    }
+                    if args.len() > 1 {
+                        // we cannot have more than 1 argument
+                        state.push_err(CheckerError::Expected(
+                            format!("1 expression for initialization of newly allocated '{}' but found {}",
+                                ty.as_str(),
+                                args.len()
+                            ), loc.clone(), None));
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    // now we can check the expression
+                    let (ty_init, ty_init_expr) = check_expr(&args[0], &Some(ty.clone()), state);
+
+                    if ty_init.is_error_ty() {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    if !types_are_eq(&ty, &ty_init) {
+                        state.push_err(CheckerError::TypeMismatch {
+                            loc: args[0].get_source_ref(),
+                            expected: ty.as_str(),
+                            found: ty_init.as_str(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let n_ty = Rc::new(Ty::Pointer {
+                        sub_ty: ty.clone_loc(loc.clone()),
+                        loc: loc.clone(),
+                    });
+                    (
+                        n_ty.clone(),
+                        Some(TyExpr::NewAlloc {
+                            ty: n_ty,
+                            args: vec![ty_init_expr.unwrap()],
+                        }),
+                    )
+                }
+                Ty::StaticArray { sub_ty, size, loc } => todo!(),
+                Ty::Slice { sub_ty, loc } => {
+                    // this will take the length and capacity of the backing array
+                    // since slices require a backing array. We will not allow this.
+                    // Instead, we will make a Vec<T> class built specifically for the
+                    // dynamic use case. The Vec<T> class will allocate and manage its
+                    // own memory.
+                    todo!()
+                }
+                Ty::Struct {
+                    name,
+                    fields,
+                    funcs,
+                    loc,
+                } => {
+                    todo!()
+                }
+                Ty::NamedType { name, loc } => {
+                    todo!()
+                }
+                Ty::ErrorType { loc } => unreachable!(),
+            }
+        }
     }
 }
 
@@ -2724,7 +2840,27 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 block: Box::new(new_body.unwrap()),
             })
         }
-        Ins::Free { target, loc } => todo!(),
+        Ins::Free { target, loc } => {
+            // we have to make sure target is of pointer type
+            let (ty_targ, ty_targ_expr) = check_expr(target, &None, state);
+
+            if ty_targ.is_error_ty() {
+                return None;
+            }
+
+            if !ty_targ.is_pointer() {
+                state.push_err(CheckerError::CannotFreeNonPtrType {
+                    given_ty: ty_targ.as_str(),
+                    loc: target.get_source_ref(),
+                });
+                return None;
+            }
+
+            // we can now return a free instruction
+            Some(TyIns::Free {
+                target: Box::new(ty_targ_expr.unwrap()),
+            })
+        }
     }
 }
 
