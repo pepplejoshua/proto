@@ -1,10 +1,31 @@
-fn main() int {
-    a :: 1
-    b : *int : &a
-    c : int : *b
+struct Node {
+    val : int
+    next : ?*Node
 
-    println(`a = b? {a == c}`)
-    // println(`b points to address {b} which contains {*b}`)
+    fn init(v int, n ?*Node) void {
+        val = v
+        next = n
+    }
+}
+
+fn main() int {
+    fifth := new(Node, 5, none)
+    defer free(fifth)
+    fourth := new(Node, 4, some fifth)
+    defer free(fourth)
+    third := new(Node, 3, some fourth)
+    defer free(third)
+    second := new(Node, 2, some third)
+    defer free(second)
+    head := new(Node, 1, some second)
+    defer free(head)
+
+    cur := some head
+    i := 1
+    for cur.is_some() : (i += 1) {
+        node :: cur.unwrap()
+        println(`{i}. {node.val}`)
+    }
 
     return 0
 }

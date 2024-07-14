@@ -329,3 +329,8 @@ using Str = Array<char, N>;
 inline str proto_str(const Char ch) {
   return ch.as_str();
 }
+
+template<typename T>
+inline str proto_str(const T* t) {
+  return "*<" + std::to_string(reinterpret_cast<uintptr_t>(t)) + ">";
+}

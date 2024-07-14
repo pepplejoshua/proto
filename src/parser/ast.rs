@@ -151,6 +151,11 @@ pub enum Expr {
         target: Box<Expr>,
         loc: Rc<SourceRef>,
     },
+    NewAlloc {
+        ty: Rc<Ty>,
+        args: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -179,6 +184,7 @@ impl Expr {
             | Expr::Lambda { loc, .. }
             | Expr::MakePtrFromAddrOf { loc, .. }
             | Expr::DerefPtr { loc, .. }
+            | Expr::NewAlloc { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -212,7 +218,8 @@ impl Expr {
             | Expr::Lambda { .. }
             | Expr::MakePtrFromAddrOf { .. }
             | Expr::ErrorExpr { .. }
-            | Expr::MakeSlice { .. } => false,
+            | Expr::MakeSlice { .. }
+            | Expr::NewAlloc { .. } => false,
             Expr::Ident { .. } | Expr::AccessMember { .. } | Expr::DerefPtr { .. } => true,
             Expr::GroupedExpr { inner, .. } => inner.has_address(),
             Expr::IndexInto { target, .. } => target.has_address(),
@@ -228,7 +235,8 @@ impl Expr {
             | Expr::MakeSlice { .. }
             | Expr::GroupedExpr { .. }
             | Expr::IndexInto { .. }
-            | Expr::AccessMember { .. } => 3,
+            | Expr::AccessMember { .. }
+            | Expr::NewAlloc { .. } => 3,
             Expr::BinOp { .. }
             | Expr::UnaryOp { .. }
             | Expr::TernaryConditional { .. }
@@ -329,7 +337,7 @@ impl Expr {
                 format!("{}.{}", target.as_str(), mem.as_str())
             }
             Expr::OptionalExpr { val, .. } => match val {
-                Some(v) => format!("some({})", v.as_str()),
+                Some(v) => format!("some {}", v.as_str()),
                 None => format!("none"),
             },
             Expr::InterpStr { val, .. } => val.clone(),
@@ -356,6 +364,16 @@ impl Expr {
             Expr::DerefPtr { target, .. } => format!("*{}", target.as_str()),
             Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str()),
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
+            Expr::NewAlloc { ty, args, .. } => {
+                format!(
+                    "new({}{})",
+                    ty.as_str(),
+                    args.iter()
+                        .map(|a| { a.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
         }
     }
 }
@@ -462,6 +480,10 @@ pub enum Ins {
         block: Box<Ins>,
         loc: Rc<SourceRef>,
     },
+    Free {
+        target: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
     ErrorIns {
         loc: Rc<SourceRef>,
     },
@@ -489,6 +511,7 @@ impl Ins {
             | Ins::RegLoop { loc, .. }
             | Ins::Break { loc }
             | Ins::Continue { loc }
+            | Ins::Free { loc, .. }
             | Ins::ErrorIns { loc, .. } => loc.clone(),
         }
     }
@@ -521,6 +544,7 @@ impl Ins {
             | Ins::InfiniteLoop { .. }
             | Ins::WhileLoop { .. }
             | Ins::RegLoop { .. }
+            | Ins::Free { .. }
             | Ins::ErrorIns { .. } => None,
         }
     }
@@ -721,6 +745,7 @@ impl Ins {
                     block.as_str()
                 )
             }
+            Ins::Free { target, .. } => format!("free({})", target.as_str()),
         }
     }
 }

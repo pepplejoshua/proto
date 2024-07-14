@@ -1046,7 +1046,8 @@ pub fn check_expr(
                         | Ty::Unsigned { .. }
                         | Ty::StaticArray { .. }
                         | Ty::Slice { .. }
-                        | Ty::Optional { .. } => Some(TyExpr::CallFn {
+                        | Ty::Optional { .. }
+                        | Ty::Pointer { .. } => Some(TyExpr::CallFn {
                             func: Box::new(TyExpr::Ident {
                                 name: "proto_str".to_string(),
                             }),
@@ -1769,6 +1770,7 @@ pub fn check_expr(
                 }),
             )
         }
+        Expr::NewAlloc { ty, args, loc } => todo!(),
     }
 }
 
@@ -2722,6 +2724,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 block: Box::new(new_body.unwrap()),
             })
         }
+        Ins::Free { target, loc } => todo!(),
     }
 }
 

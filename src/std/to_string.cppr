@@ -16,3 +16,8 @@ inline str proto_str(const char c) {
 inline str proto_str(const bool b) {
     return b ? "true" : "false";
 }
+
+template<typename T>
+inline str proto_str(const T* t) {
+  return "*<" + std::to_string(reinterpret_cast<uintptr_t>(t)) + ">";
+}

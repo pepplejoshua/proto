@@ -262,6 +262,7 @@ impl Parser {
         let cur = self.cur_token();
         let mut check_term = false;
         let ins = match cur {
+            Token::Identifier(name, ..) if name == "free" => self.parse_free(),
             Token::Defer(_) => self.parse_defer(),
             Token::Fn(_) => self.parse_fn(),
             Token::For(_) => self.parse_loop(),
@@ -311,6 +312,44 @@ impl Parser {
             }
         }
         ins
+    }
+
+    fn parse_free(&mut self) -> Ins {
+        let mut loc = self.cur_token().get_source_ref();
+        self.advance();
+
+        let mut cur = self.cur_token();
+        // look for (
+        if !matches!(cur, Token::LParen(_)) {
+            self.report_error(ParseError::Expected(
+                "a left parenthesis to begin argument section for free.".to_string(),
+                cur.get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
+        }
+
+        // we will parse a primary expression to free
+        let free_target = self.parse_primary();
+
+        // look for )
+        cur = self.cur_token();
+        if !matches!(cur, Token::RParen(_)) {
+            self.report_error(ParseError::Expected(
+                format!("a right parenthesis to end argument section for free.",),
+                cur.get_source_ref(),
+                None,
+            ));
+        } else {
+            loc = loc.combine(self.cur_token().get_source_ref());
+            self.advance();
+        }
+
+        Ins::Free {
+            loc,
+            target: Box::new(free_target),
+        }
     }
 
     fn parse_loop_control_ins(&mut self) -> Ins {
@@ -1272,7 +1311,7 @@ impl Parser {
         match op {
             Token::Some(loc) => {
                 self.advance();
-                let val = self.parse_ternary();
+                let val = self.parse_expr();
                 Expr::OptionalExpr {
                     loc: loc.combine(val.get_source_ref()),
                     val: Some(Box::new(val)),
@@ -1281,6 +1320,97 @@ impl Parser {
             Token::None(loc) => {
                 self.advance();
                 Expr::OptionalExpr { val: None, loc }
+            }
+            _ => self.parse_new_alloc(),
+        }
+    }
+
+    fn parse_new_alloc(&mut self) -> Expr {
+        let op = self.cur_token();
+
+        match op {
+            Token::Identifier(name, loc) if name == "new" => {
+                let mut loc = loc;
+                self.advance();
+                let mut cur = self.cur_token();
+                // look for (
+                if !matches!(cur, Token::LParen(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a left parenthesis to begin argument section for free.".to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let type_to_make = self.parse_type();
+                cur = self.cur_token();
+                if matches!(cur, Token::Comma(_)) {
+                    self.advance();
+                    // if there is a comma, we have arguments to parse for the construction
+                    // of the new type
+                    let mut args = vec![];
+                    let mut saw_rparen = false;
+                    while !self.is_at_eof() {
+                        cur = self.cur_token();
+
+                        // if we are not already at the end of the argument list,
+                        // parse an expression
+                        if !matches!(cur, Token::RParen(_)) {
+                            let arg = self.parse_expr();
+                            args.push(arg);
+                            cur = self.cur_token();
+                        }
+
+                        // check to see if we have reached the end of the argument
+                        // list
+                        if matches!(cur, Token::RParen(_)) {
+                            saw_rparen = true;
+                            break;
+                        }
+
+                        // arguments are to be comma separated
+                        if !matches!(cur, Token::Comma(_)) {
+                            self.report_error(ParseError::Expected("a comma to separate arguments or a right parenthesis to terminate function call.".to_string(), cur.get_source_ref(), None));
+                            break;
+                        }
+                        self.advance();
+                    }
+
+                    if saw_rparen {
+                        loc = loc.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    } else {
+                        self.report_error(ParseError::Expected(
+                            format!("a right parenthesis to end argument section for free.",),
+                            cur.get_source_ref(),
+                            None,
+                        ));
+                    }
+                    Expr::NewAlloc {
+                        ty: type_to_make,
+                        args,
+                        loc,
+                    }
+                } else {
+                    if matches!(cur, Token::RParen(_)) {
+                        loc = loc.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    } else {
+                        self.report_error(ParseError::Expected(
+                            format!("a right parenthesis to end argument section for free.",),
+                            cur.get_source_ref(),
+                            None,
+                        ));
+                    }
+
+                    Expr::NewAlloc {
+                        ty: type_to_make,
+                        args: vec![],
+                        loc,
+                    }
+                }
             }
             _ => self.parse_ternary(),
         }

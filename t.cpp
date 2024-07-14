@@ -34,8 +34,10 @@ int main() {
   cout << proto_str(x) << endl;
   cout << proto_str(x_slice) << endl;
 
-  const function<str(char)>* dc = &double_char;
-  cout << (*dc)('a') << endl;
+  auto t = new int(1);
+
+  cout << *t << endl;
+  delete t;
 
   return 0;
 }
