@@ -88,6 +88,10 @@ pub enum TyExpr {
         ty: Rc<Ty>,
         args: Vec<TyExpr>,
     },
+    NewArrayAlloc {
+        ty: Rc<Ty>,
+        init: Vec<TyExpr>,
+    },
     SliceDefaultAlloc {
         inner_ty: Rc<Ty>,
     },
@@ -207,18 +211,36 @@ impl TyExpr {
             TyExpr::DerefPtr { target } => format!("*{}", target.as_str()),
             TyExpr::MakePtrFromAddrOf { target } => format!("&{}", target.as_str()),
             TyExpr::NewAlloc { ty, args } => {
-                format!(
-                    "new({}{})",
-                    ty.as_str(),
-                    args.iter()
-                        .map(|a| { a.as_str() })
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
+                if args.is_empty() {
+                    format!("new({})", ty.as_str())
+                } else {
+                    format!(
+                        "new({}, {})",
+                        ty.as_str(),
+                        args.iter()
+                            .map(|a| { a.as_str() })
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
             }
             TyExpr::SliceDefaultAlloc { inner_ty } => format!("new({})", inner_ty.as_str()),
             TyExpr::SliceSizedAlloc { ty, cap } => {
                 format!("new({}, {})", ty.as_str(), cap.as_str())
+            }
+            TyExpr::NewArrayAlloc { ty, init } => {
+                if init.is_empty() {
+                    format!("new({})", ty.as_str())
+                } else {
+                    format!(
+                        "new({}, {})",
+                        ty.as_str(),
+                        init.iter()
+                            .map(|a| { a.as_str() })
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
             }
         }
     }

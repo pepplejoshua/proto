@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{borrow::BorrowMut, cell::RefCell, collections::HashMap, process::exit, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
 use crate::{
     codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
@@ -1802,15 +1802,15 @@ pub fn check_expr(
             }
 
             match ty.as_ref() {
-                Ty::Signed { loc, .. }
-                | Ty::Unsigned { loc, .. }
-                | Ty::Str { loc, .. }
-                | Ty::Char { loc }
-                | Ty::Void { loc }
-                | Ty::Bool { loc }
-                | Ty::Func { loc, .. }
-                | Ty::Optional { loc, .. }
-                | Ty::Pointer { loc, .. } => {
+                Ty::Signed { .. }
+                | Ty::Unsigned { .. }
+                | Ty::Str { .. }
+                | Ty::Char { .. }
+                | Ty::Void { .. }
+                | Ty::Bool { .. }
+                | Ty::Func { .. }
+                | Ty::Optional { .. }
+                | Ty::Pointer { .. } => {
                     // we will check to make sure there is 1 argument and then we will check
                     // that expression with ty.
                     if args.is_empty() {
@@ -1868,7 +1868,7 @@ pub fn check_expr(
                         }),
                     )
                 }
-                Ty::Slice { sub_ty, loc } => {
+                Ty::Slice { sub_ty, .. } => {
                     // this can take the length and capacity of the backing array
                     // since slices require a backing array. This allows us overcome the
                     // explicit need for a growable vector type
@@ -1931,19 +1931,169 @@ pub fn check_expr(
                         }),
                     )
                 }
-                Ty::StaticArray { sub_ty, size, loc } => {
-                    todo!()
+                Ty::StaticArray { sub_ty, size, .. } => {
+                    // arrays unlike slices have to be initialized completely, since they are static
+                    // (since we will explicitly need to pass an initializer list that is used to
+                    // init the underlying array, unlike Slices which will use an existing, initialized
+                    // buffer or malloc and memsets its own buffer, bypassing the need to initialize).
+
+                    // the array type has a size included with it, which we will use to verify
+                    // that the number of initialization items is correct
+                    let size_n = size.as_ref().unwrap().as_str().parse::<usize>();
+                    if size_n.is_err() {
+                        state.push_err(CheckerError::Expected(
+                            format!(""),
+                            size.as_ref().unwrap().get_source_ref(),
+                            None,
+                        ));
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    // the number of items we are expecting in args
+                    let size_n = size_n.unwrap();
+
+                    if args.len() != size_n {
+                        state.push_err(CheckerError::MismismatchStaticArrayLength {
+                            exp: size_n.to_string(),
+                            given: args.len().to_string(),
+                            arr_loc: loc.clone(),
+                        });
+                    }
+
+                    // now we can use the sub_ty of the array type to check each element in the
+                    // args list
+                    let expected_ty = sub_ty.clone();
+                    let mut has_error = false;
+                    let mut ty_args = vec![];
+                    for arg in args {
+                        let (ty_arg, ty_arg_expr) =
+                            check_expr(arg, &Some(expected_ty.clone()), state);
+
+                        if ty_arg.is_error_ty() {
+                            has_error = true;
+                            continue;
+                        }
+
+                        if !types_are_eq(&ty_arg, &expected_ty) {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: arg.get_source_ref(),
+                                expected: expected_ty.as_str(),
+                                found: ty_arg.as_str(),
+                            });
+                            has_error = true;
+                            continue;
+                        }
+
+                        ty_args.push(ty_arg_expr.unwrap());
+                    }
+
+                    if has_error {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let n_ty = Rc::new(Ty::Pointer {
+                        sub_ty: ty.clone_loc(loc.clone()),
+                        loc: loc.clone(),
+                    });
+                    (
+                        n_ty.clone(),
+                        Some(TyExpr::NewArrayAlloc {
+                            ty: ty.clone(),
+                            init: ty_args,
+                        }),
+                    )
                 }
-                Ty::Struct {
-                    name,
-                    fields,
-                    funcs,
-                    loc,
-                } => {
-                    todo!()
+                Ty::Struct { .. } => {
+                    unreachable!(
+                        "seman::check_expr(): a concrete struct type was somehow passed into new(): {}.",
+                        ty.get_loc().as_str()
+                    )
                 }
-                Ty::NamedType { name, loc } => {
-                    todo!()
+                Ty::NamedType { name, .. } => {
+                    // we will need to get the actual type that backs the named type
+                    let actual_ty_info = state.env.lookup(name);
+                    if actual_ty_info.is_none() {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: ty.get_loc(),
+                            type_name: name.clone(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    // we want to find the init() void function in the Struct
+                    let actual_ty_info = actual_ty_info.unwrap().clone();
+                    let actual_ty = &*actual_ty_info.ty.borrow();
+
+                    match actual_ty {
+                        Ty::Struct { funcs, .. } => {
+                            // look for init() func
+                            if !funcs.contains_key(&"init".to_string()) {
+                                state.push_err(CheckerError::StructHasNoInitFunction {
+                                    given_ty: name.clone(),
+                                    loc: ty.get_loc(),
+                                });
+                                return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                            }
+
+                            let init_fn = &funcs[&"init".to_string()];
+                            if let Ty::Func { params, ret, .. } = init_fn.as_ref() {
+                                // make sure ret equals the struct ty
+                                if !ret.is_void() {
+                                    state.push_err(CheckerError::TypeMismatch {
+                                        loc: ty.get_loc(),
+                                        expected: "void".into(),
+                                        found: ret.as_str(),
+                                    });
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                                }
+
+                                // check parameters
+                                let fn_arity = params.len();
+                                if fn_arity != args.len() {
+                                    state.push_err(CheckerError::IncorrectFunctionArity {
+                                        func: ty.as_str(),
+                                        exp: fn_arity,
+                                        given: args.len(),
+                                        loc_given: loc.clone(),
+                                    });
+                                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                                }
+
+                                let mut fn_ty_args = vec![];
+                                for (param_ty, arg) in params.iter().zip(args.iter()) {
+                                    let (arg_ty, arg_ty_expr) =
+                                        check_expr(arg, &Some(param_ty.clone()), state);
+
+                                    if !arg_ty.is_error_ty() && !types_are_eq(param_ty, &arg_ty) {
+                                        state.push_err(CheckerError::TypeMismatch {
+                                            loc: arg.get_source_ref(),
+                                            expected: param_ty.as_str(),
+                                            found: arg_ty.as_str(),
+                                        });
+                                    }
+                                    if let Some(arg_ty_expr) = arg_ty_expr {
+                                        fn_ty_args.push(arg_ty_expr);
+                                    }
+                                }
+                                let n_ty = Rc::new(Ty::Pointer {
+                                    sub_ty: ty.clone_loc(loc.clone()),
+                                    loc: loc.clone(),
+                                });
+                                (
+                                    n_ty.clone(),
+                                    Some(TyExpr::NewAlloc {
+                                        ty: ty.clone(),
+                                        args: fn_ty_args,
+                                    }),
+                                )
+                            } else {
+                                unreachable!(
+                                    "seman::check_expr(): found init with a non-function type."
+                                );
+                            }
+                        }
+                        _ => unreachable!(),
+                    }
                 }
                 Ty::ErrorType { loc } => unreachable!(),
             }

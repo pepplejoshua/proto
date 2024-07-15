@@ -1,31 +1,21 @@
-struct Node {
-    val : int
-    next : ?*Node
+struct A {
+    a : int
 
-    fn init(v int, n ?*Node) void {
-        val = v
-        next = n
+    fn init(aa int) void {
+        a = aa
     }
 }
 
 fn main() int {
-    fifth := new(Node, 5, none)
-    defer free(fifth)
-    fourth := new(Node, 4, some fifth)
-    defer free(fourth)
-    third := new(Node, 3, some fourth)
-    defer free(third)
-    second := new(Node, 2, some third)
-    defer free(second)
-    head := new(Node, 1, some second)
-    defer free(head)
+    int_s_ptr := new([int])
+    defer free(int_s_ptr)
+    a_ptr := new(A, 3)
+    defer free(a_ptr)
+    int_ptr := new(int)
+    defer free(int_ptr)
 
-    cur := some head
-    i := 1
-    for cur.is_some() : (i += 1) {
-        node :: cur.unwrap()
-        println(`{i}. {node.val}`)
-    }
+    println(`int_s_ptr := {int_s_ptr}`)
+    println(`*int_s_ptr = {*int_s_ptr}`)
 
     return 0
 }

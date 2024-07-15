@@ -1130,7 +1130,14 @@ impl Parser {
                 loc,
                 is_interp: false,
             }),
-            Token::Identifier(name, loc) => Rc::new(Ty::NamedType { name, loc }),
+            Token::Identifier(name, loc) => {
+                self.cur_deps.push(Dep {
+                    ty: DepTy::Struct,
+                    to: name.clone(),
+                    loc: loc.clone(),
+                });
+                Rc::new(Ty::NamedType { name, loc })
+            }
             Token::Void(loc) => Rc::new(Ty::Void { loc }),
             Token::LBracket(loc) => {
                 let sub_ty = self.parse_type();

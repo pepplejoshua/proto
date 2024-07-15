@@ -144,12 +144,38 @@ public:
     // Copy constructor
     Slice(const Slice& other)
       : start(other.start),  length(other.length),
-        arr_capacity(other.arr_capacity), allocates(false) {}
+        arr_capacity(other.arr_capacity), allocates(false) {
+      // if (other.start) {
+      //   // we need to copy the data
+      //   T* new_array = new T[arr_capacity];
+      //   std::memcpy(new_array, start, arr_capacity * sizeof(T));
+
+      //   if (allocates) {
+      //       free(start);
+      //   }
+
+      //   start = new_array;
+      //   allocates = true;
+
+      //   std::cout << "allocated memory for " << arr_capacity << " items...\n";
+      // }
+      std::cout << "Slice(const Slice& other) constructor called\n";
+    }
+
+    Slice& operator=(const Slice& other) {
+      if (this == &other) { return *this; }
+      std::cout << "operator=(const Slice& other) constructor called\n";
+      start = other.start;
+      length = other.length;
+      arr_capacity = other.arr_capacity;
+      allocates = false;
+      return *this;
+    }
 
     ~Slice() {
       if (allocates) {
         free(start);
-        // std::cout << "cleaning up Slice" << std::endl;
+        std::cout << "cleaning up Slice" << std::endl;
       }
     }
 
@@ -263,10 +289,6 @@ private:
 public:
     Array(std::initializer_list<T> init) {
         std::copy(init.begin(), init.end(), data);
-    }
-    Array(const char* str) {
-        std::size_t length = std::min(std::strlen(str), static_cast<size_t>(N));
-        std::copy(str, str + length, data);
     }
     Array() {}
 

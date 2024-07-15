@@ -14,11 +14,10 @@
 - Add function expressions (lambdas). [DONE]
 - Work on pointers. [DONE]
 - Make pointers printable (implement proto_str() for it). [DONE]
-- Add naive allocation (`new` and `del` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that).
+- Add naive allocation (`new` and `free` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that). Should new return a pointer or an optional pointer?
 - Add CFG to seman for checking validity of variable references (they have been initialized through all execution paths). Use Claude 3.5 Sonnet as a guide.
 - Make functions printable (generate a string in seman to show the type).
 - Work on support for allocators (explicit or implicitly through context passing).
-- Add Vec<T> type for growable vectors. Requires an explicit allocator passed into it.
 - Add String type for growable strings. Requires an explicit allocator passed into it.
 - Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
 ```rs
@@ -100,58 +99,34 @@ fn main() int {
 - Notebook support? 👀
 - 0.0.1 release?
 
-fn apply2arr(arr [int, 5], op \(int) int) [int, 5] {
-    i : uint = 0
-    new_arr : [int, 5] = [0, 0, 0, 0, 0]
-    for i < arr.len() : (i += 1) {
-        n := arr[i]
-        new_n :: op(n)
-        new_arr[i] = new_n
-    }
+struct Node {
+    val : int
+    next : ?*Node
 
-    return new_arr
-}
-
-fn testLambdas() void {
-    arr := [1, 2, 3, 4, 5]
-    double_int :: \(n int) int return n * n;
-    new_arr := apply2arr(arr, double_int)
-    new_arr2 := apply2arr(arr, \(item int) int {
-        println(`received '{item}'`)
-        return (item + item) * item
-    })
-    println(`arr      = {arr}`)
-    println(`new_arr  = {new_arr}`)
-    println(`new_arr2 = {new_arr2}`)
-}
-
-struct IntNode {
-    val: int
-    next: ?*IntNode;
-
-    fn init(v int, n ?*IntNode) void {
-        self.val = v
-        self.next = n
+    fn init(v int, n ?*Node) void {
+        val = v
+        next = n
     }
 }
 
-struct Head {
-    num_of_nodes : uint
-    head : ?*IntNode
+fn main() int {
+    fifth := new(Node, 5, none)
+    defer free(fifth)
+    fourth := new(Node, 4, some fifth)
+    defer free(fourth)
+    third := new(Node, 3, some fourth)
+    defer free(third)
+    second := new(Node, 2, some third)
+    defer free(second)
+    head := new(Node, 1, some second)
+    defer free(head)
 
-    fn init() void {
-        head = none
+    cur := some head
+    i := 1
+    for cur.is_some() : (i += 1) {
+        node :: cur.unwrap()
+        println(`{i}. {node.val}`)
     }
 
-    fn find(v int) ?*IntNode {
-
-    }
-
-    fn insert(v int) bool {
-
-    }
-
-    fn delete(v int) bool {
-
-    }
+    return 0
 }

@@ -365,14 +365,18 @@ impl Expr {
             Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str()),
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
             Expr::NewAlloc { ty, args, .. } => {
-                format!(
-                    "new({}{})",
-                    ty.as_str(),
-                    args.iter()
-                        .map(|a| { a.as_str() })
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
+                if args.is_empty() {
+                    format!("new({})", ty.as_str())
+                } else {
+                    format!(
+                        "new({}, {})",
+                        ty.as_str(),
+                        args.iter()
+                            .map(|a| { a.as_str() })
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
             }
         }
     }

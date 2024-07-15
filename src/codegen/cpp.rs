@@ -391,6 +391,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         TyExpr::NewAlloc { ty, args } => todo!(),
         TyExpr::SliceDefaultAlloc { inner_ty } => todo!(),
         TyExpr::SliceSizedAlloc { ty, cap } => todo!(),
+        TyExpr::NewArrayAlloc { ty, init } => todo!(),
     }
 }
 
