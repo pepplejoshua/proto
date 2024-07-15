@@ -61,7 +61,7 @@ public:
       if (length >= arr_capacity) {
         // Double the current capacity and align to the next power of two
         uint_pr new_capacity = next_power_of_two(arr_capacity * 2);
-        T* new_array = new T[new_capacity];
+        T* new_array = (T*) malloc(sizeof(T) * new_capacity);
         std::memcpy(new_array, start, arr_capacity * sizeof(T));
 
         if (allocates) {

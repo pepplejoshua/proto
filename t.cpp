@@ -3,32 +3,61 @@
 using std::cout;
 using std::endl;
 
-Slice<int> t() {
-  auto arr = Array<int, 5>({1, 2, 3, 4, 5});
-  return arr.make_slice_from(1);
+struct Pair {
+  char key; int count;
+
+  Pair(char k, int c) {
+    key = k;
+    count = c;
+  }
+};
+
+str proto_str(const Pair p) {
+  str s = "(";
+  s += p.key;
+  s += ", ";
+  s += proto_str(p.count);
+  s += ")";
+  return s;
+}
+
+Slice<Pair> compress(str og) {
+  auto compressed = Slice<Pair>();
+  int count = 1;
+
+  for (int i = 1; i < og.size(); ++i) {
+    if (og[i] == og[i-1]) {
+      count += 1;
+    } else {
+      compressed.append(Pair(og[i - 1], count));
+      count = 1;
+    }
+  }
+  compressed.append(Pair(og[og.size() - 1], count));
+  return compressed;
+}
+
+str decompress(Slice<Pair> compressed) {
+  str og = "";
+  for (auto p : compressed) {
+    og += str(p.count, p.key);
+  }
+
+  return og;
 }
 
 int main() {
-  // auto x = Str<12>("hello world!");
-  // Slice<char> x_slice = x.make_slice(6, 11);
-  // cout << proto_str(x) << endl;
-  // cout << proto_str(x_slice) << endl;
+  str og = "AABBBCCCC";
+  auto compressed = compress(og);
+  cout << "compressed: " << proto_str(compressed) << endl;
 
-  auto a = Array<int, 5>({0, 0, 0, 0, 0});
-  auto b = a.make_slice(0, 3);
-  auto c = a.make_slice_from(2);
+  str decompressed = decompress(compressed);
+  cout << "decompressed: " << decompressed << endl;
 
-  cout << "a was: " << proto_str(a) << endl;
-  cout << "b was: " << proto_str(b) << endl;
-  cout << "c was: " << proto_str(c) << endl;
-
-  for (auto i = 0; i < 4; i++) {
-    cout << "appending " << i + 1 << " to b and c..." << endl;
-    b.append(i + 1);
-    c.append(i + 1);
-    cout << "a is:  " << proto_str(a) << endl;
-    cout << "b is:  " << proto_str(b) << endl;
-    cout << "c is:  " << proto_str(c) << endl;
+  if (og == decompressed) {
+    cout << "compression successful!" << endl;
+  } else {
+    cout << "compression failed!" << endl;
   }
 
   return 0;

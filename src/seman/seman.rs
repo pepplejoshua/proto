@@ -234,7 +234,8 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
         ) => types_are_eq(sub_ty, b_sub_ty),
         (Ty::Struct { name, .. }, Ty::Struct { name: b_name, .. }) => name == b_name,
         (Ty::NamedType { name, .. }, Ty::Struct { name: s_name, .. })
-        | (Ty::Struct { name: s_name, .. }, Ty::NamedType { name, .. }) => name == s_name,
+        | (Ty::Struct { name: s_name, .. }, Ty::NamedType { name, .. })
+        | (Ty::NamedType { name, .. }, Ty::NamedType { name: s_name, .. }) => name == s_name,
         (
             Ty::Func { params, ret, .. },
             Ty::Func {
@@ -1470,9 +1471,22 @@ pub fn check_expr(
                                 sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
                                 loc: builtin_loc.clone(),
                             }),
-                            loc: builtin_loc,
+                            loc: builtin_loc.clone(),
                         }),
                     );
+
+                    if matches!(target_ty.as_ref(), Ty::Slice { .. }) {
+                        methods.insert(
+                            "append",
+                            Rc::new(Ty::Func {
+                                params: vec![sub_ty.clone_loc(builtin_loc.clone())],
+                                ret: Rc::new(Ty::Void {
+                                    loc: builtin_loc.clone(),
+                                }),
+                                loc: builtin_loc,
+                            }),
+                        );
+                    }
                     // check if it is one of the methods on the type
                     let mem_str = mem.as_str();
                     match methods.get(mem_str.as_str()) {

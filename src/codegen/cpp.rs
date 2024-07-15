@@ -257,8 +257,8 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         TyExpr::Integer { .. }
         | TyExpr::Char { .. }
         | TyExpr::Bool { .. }
-        | TyExpr::Ident { .. }
-        | TyExpr::UnaryOp { .. } => expr.as_str(),
+        | TyExpr::Ident { .. } => expr.as_str(),
+        TyExpr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), cpp_gen_expr(expr, state)),
         TyExpr::Str { .. } => {
             format!("str({})", expr.as_str())
         }
@@ -435,7 +435,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                     cpp_gen_expr(expr, state)
                 )
             } else {
-                format!("{}{} {name};", state.get_pad(), ty.as_str())
+                format!("{}{} {name};", state.get_pad(), cpp_gen_ty(ty, state))
             };
         }
         TyIns::Func {
@@ -471,7 +471,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             buf = format!("{}struct {name} {{\n", state.get_pad());
             state.indent();
             // write code for instance variable, self
-            buf.push_str(&format!("{}{name}& self = *this;\n", state.get_pad()));
+            // buf.push_str(&format!("{}{name}& self = *this;\n", state.get_pad()));
 
             // write all fields
             for f in fields {
@@ -639,7 +639,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             );
         }
         TyIns::Free { target } => {
-            buf = format!("delete {};", cpp_gen_expr(target, state));
+            buf = format!("{}delete {};", state.get_pad(), cpp_gen_expr(target, state));
         }
     }
     buf

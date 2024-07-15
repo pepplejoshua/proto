@@ -173,7 +173,7 @@ public:
       if (length >= arr_capacity) {
         // Double the current capacity and align to the next power of two
         uint_pr new_capacity = next_power_of_two(arr_capacity * 2);
-        T* new_array = new T[new_capacity];
+        T* new_array = (T*) malloc(sizeof(T) * new_capacity);
         std::memcpy(new_array, start, arr_capacity * sizeof(T));
 
         if (allocates) {
@@ -345,6 +345,23 @@ public:
     inline T* end() noexcept { return data + N; }
     inline const T* begin() const noexcept { return data; }
     inline const T* end() const noexcept { return data + N; }
+};
+
+template<typename Key, typename Value>
+class HashMap {
+
+private:
+  struct Entry {
+    Key key;
+    Value val;
+  };
+
+  Slice<Entry> entries;
+
+public:
+
+  static int hash(Key key) {
+  }
 };
 
 template<typename T>
