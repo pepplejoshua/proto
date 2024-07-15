@@ -93,7 +93,7 @@ pub enum TyExpr {
         init: Vec<TyExpr>,
     },
     SliceDefaultAlloc {
-        inner_ty: Rc<Ty>,
+        ty: Rc<Ty>,
     },
     SliceSizedAlloc {
         ty: Rc<Ty>,
@@ -224,7 +224,7 @@ impl TyExpr {
                     )
                 }
             }
-            TyExpr::SliceDefaultAlloc { inner_ty } => format!("new({})", inner_ty.as_str()),
+            TyExpr::SliceDefaultAlloc { ty } => format!("new({})", ty.as_str()),
             TyExpr::SliceSizedAlloc { ty, cap } => {
                 format!("new({}, {})", ty.as_str(), cap.as_str())
             }

@@ -5,12 +5,91 @@ private:
     T* start;
     uint_pr length;
     uint_pr arr_capacity;
+    bool allocates;
 
 public:
-    Slice(T* s, uint_pr len, uint_pr cap) : start(s), length(len), arr_capacity(cap) {}
+    Slice(T* s, uint_pr len, uint_pr cap)
+      : start(s), length(len), arr_capacity(cap), allocates(false) {
+      // std::cout << "Slice(T* s, uint_pr len, uint_pr cap) constructor called\n";
+    }
+
+    Slice(uint_pr cap)
+      : length(0), arr_capacity(cap), allocates(true) {
+      start = (T*) malloc(sizeof(T) * cap);
+      std::memset(start, 0, cap);
+      // std::cout << "Slice(uint_pr cap) constructor called\n";
+      // std::cout << "allocated memory for " << cap << " items...\n";
+    }
+
+    Slice() : Slice(16) {
+      // std::cout << "Slice() constructor called\n";
+    }
+
+    // Copy constructor
+    Slice(const Slice& other)
+      : start(other.start),  length(other.length),
+        arr_capacity(other.arr_capacity), allocates(false) {
+      // std::cout << "Slice(const Slice& other) constructor called\n";
+    }
+
+    Slice& operator=(const Slice& other) {
+      if (this == &other) { return *this; }
+      // std::cout << "operator=(const Slice& other) constructor called\n";
+      start = other.start;
+      length = other.length;
+      arr_capacity = other.arr_capacity;
+      allocates = false;
+      return *this;
+    }
+
+    ~Slice() {
+      if (allocates) {
+        free(start);
+        std::cout << "cleaning up Slice" << std::endl;
+      }
+    }
 
     constexpr uint_pr len() const noexcept {
         return length;
+    }
+
+    constexpr uint_pr cap() const noexcept {
+        return arr_capacity;
+    }
+
+    void append(T item) {
+      if (length >= arr_capacity) {
+        // Double the current capacity and align to the next power of two
+        uint_pr new_capacity = next_power_of_two(arr_capacity * 2);
+        T* new_array = new T[new_capacity];
+        std::memcpy(new_array, start, arr_capacity * sizeof(T));
+
+        if (allocates) {
+            free(start);
+        }
+
+        start = new_array;
+        arr_capacity = new_capacity;
+        allocates = true;
+
+        // std::cout << "allocated memory for " << arr_capacity << " items...\n";
+      }
+
+      start[length] = item;
+      length += 1;
+    }
+
+    // Helper function to find the next power of two
+    static uint_pr next_power_of_two(uint_pr n) {
+        if (n == 0) return 1;
+        n--;
+        n |= n >> 1;
+        n |= n >> 2;
+        n |= n >> 4;
+        n |= n >> 8;
+        n |= n >> 16;
+        n |= n >> 32;
+        return n + 1;
     }
 
     T& operator[](uint_pr index) {
@@ -122,9 +201,8 @@ public:
         // when you make a slice of a constant array, we make a copy of the array;
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
-        // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
-        T* start_copy = (T*)data;
-        return Slice<T>(start_copy + start, end_exclusive - start, len() - start);
+        // grab data and unsafe cast it to a T*. this is Sparta!
+        return Slice<T>((T*)data + start, end_exclusive - start, len() - start);
     }
 
     inline Slice<T> make_slice_from(uint_pr start) {
@@ -142,9 +220,8 @@ public:
         // when you make a slice of a constant array, we make a copy of the array;
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
-        // grab data and unsafe cast it to a T* with 0 heavy copying. this is Sparta!
-        T* start_copy = (T*)data;
-        return Slice<T>(start_copy, len() - start, len() - start);
+        // grab data and unsafe cast it to a T*. this is Sparta!
+        return Slice<T>((T*)data, len() - start, len() - start);
     }
 
     inline constexpr uint_pr len() const noexcept {

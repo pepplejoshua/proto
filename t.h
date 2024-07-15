@@ -133,38 +133,20 @@ public:
       // std::cout << "allocated memory for " << cap << " items...\n";
     }
 
-    Slice() : length(0), arr_capacity(16), allocates(true) {
-      // start = new T[16];
-      start = (T*) malloc(sizeof(T) * 16);
-      std::memset(start, 0, 16);
+    Slice() : Slice(16) {
       // std::cout << "Slice() constructor called\n";
-      // std::cout << "allocated memory for 16 items...\n";
     }
 
     // Copy constructor
     Slice(const Slice& other)
       : start(other.start),  length(other.length),
         arr_capacity(other.arr_capacity), allocates(false) {
-      // if (other.start) {
-      //   // we need to copy the data
-      //   T* new_array = new T[arr_capacity];
-      //   std::memcpy(new_array, start, arr_capacity * sizeof(T));
-
-      //   if (allocates) {
-      //       free(start);
-      //   }
-
-      //   start = new_array;
-      //   allocates = true;
-
-      //   std::cout << "allocated memory for " << arr_capacity << " items...\n";
-      // }
-      std::cout << "Slice(const Slice& other) constructor called\n";
+      // std::cout << "Slice(const Slice& other) constructor called\n";
     }
 
     Slice& operator=(const Slice& other) {
       if (this == &other) { return *this; }
-      std::cout << "operator=(const Slice& other) constructor called\n";
+      // std::cout << "operator=(const Slice& other) constructor called\n";
       start = other.start;
       length = other.length;
       arr_capacity = other.arr_capacity;
@@ -175,7 +157,7 @@ public:
     ~Slice() {
       if (allocates) {
         free(start);
-        std::cout << "cleaning up Slice" << std::endl;
+        // std::cout << "cleaning up Slice" << std::endl;
       }
     }
 
@@ -202,7 +184,7 @@ public:
         arr_capacity = new_capacity;
         allocates = true;
 
-        std::cout << "allocated memory for " << arr_capacity << " items...\n";
+        // std::cout << "allocated memory for " << arr_capacity << " items...\n";
       }
 
       start[length] = item;
@@ -250,28 +232,28 @@ public:
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity - start);
     }
 
     inline const Slice<T> make_slice(uint_pr start, uint_pr end_exclusive) const {
         if (start >= length || end_exclusive > length || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity);
+        return Slice<T>(this->start + start, end_exclusive - start, arr_capacity - start);
     }
 
     inline Slice<T> make_slice_from(uint_pr start) {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, length - start, arr_capacity);
+        return Slice<T>(this->start + start, length - start, arr_capacity - start);
     }
 
     inline const Slice<T> make_slice_from(uint_pr start) const {
         if (start >= length) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(this->start + start, length - start, arr_capacity);
+        return Slice<T>(this->start + start, length - start, arr_capacity - start);
     }
 
     // Begin and end methods for range-based for loops
@@ -320,7 +302,7 @@ public:
         if (start >= N || end_exclusive > N || start >= end_exclusive) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(data + start, end_exclusive - start, len());
+        return Slice<T>(data + start, end_exclusive - start, len() - start);
     }
 
     inline const Slice<T> make_slice(uint_pr start, uint_pr end_exclusive) const {
@@ -332,15 +314,14 @@ public:
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
         // grab data and unsafe cast it to a T*. this is Sparta!
-        T* start_copy = (T*)data;
-        return Slice<T>(start_copy + start, end_exclusive - start, len());
+        return Slice<T>((T*)data + start, end_exclusive - start, len() - start);
     }
 
     inline Slice<T> make_slice_from(uint_pr start) {
         if (start >= N) {
             panic(__LINE__, __FILE__, "Invalid slice bounds");
         }
-        return Slice<T>(data + start, len() - start, len());
+        return Slice<T>(data + start, len() - start, len() - start);
     }
 
     inline const Slice<T> make_slice_from(uint_pr start) const {
@@ -352,8 +333,7 @@ public:
         // std::copy(data, data + len(), start_copy);
         // OR UNSAFE HACK:
         // grab data and unsafe cast it to a T*. this is Sparta!
-        T* start_copy = (T*)data;
-        return Slice<T>(start_copy, len() - start, len());
+        return Slice<T>((T*)data, len() - start, len() - start);
     }
 
     inline constexpr uint_pr len() const noexcept {
@@ -426,5 +406,5 @@ inline str proto_str(const Char ch) {
 
 template<typename T>
 inline str proto_str(const T* t) {
-  return "*<" + std::to_string(reinterpret_cast<uintptr_t>(t)) + ">";
+  return "*Ptr<" + std::to_string(reinterpret_cast<uintptr_t>(t)) + ">";
 }

@@ -7,15 +7,14 @@ struct A {
 }
 
 fn main() int {
-    int_s_ptr := new([int])
-    defer free(int_s_ptr)
+    int_s := new([int])
     a_ptr := new(A, 3)
     defer free(a_ptr)
     int_ptr := new(int)
     defer free(int_ptr)
 
-    println(`int_s_ptr := {int_s_ptr}`)
-    println(`*int_s_ptr = {*int_s_ptr}`)
+    println(`int_s := {int_s}`)
+    println(`A a.a := {(*a_ptr).a}`)
 
     return 0
 }

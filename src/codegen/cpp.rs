@@ -388,10 +388,30 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         }
         TyExpr::DerefPtr { target } => format!("*{}", cpp_gen_expr(target, state)),
         TyExpr::MakePtrFromAddrOf { target } => format!("&{}", cpp_gen_expr(target, state)),
-        TyExpr::NewAlloc { ty, args } => todo!(),
-        TyExpr::SliceDefaultAlloc { inner_ty } => todo!(),
-        TyExpr::SliceSizedAlloc { ty, cap } => todo!(),
-        TyExpr::NewArrayAlloc { ty, init } => todo!(),
+        TyExpr::NewAlloc { ty, args } => {
+            format!(
+                "new {}({})",
+                cpp_gen_ty(ty, state),
+                args.iter()
+                    .map(|arg| { cpp_gen_expr(arg, state) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
+        TyExpr::SliceDefaultAlloc { ty } => format!("{}()", cpp_gen_ty(ty, state)),
+        TyExpr::SliceSizedAlloc { ty, cap } => {
+            format!("{}({})", cpp_gen_ty(ty, state), cpp_gen_expr(cap, state))
+        }
+        TyExpr::NewArrayAlloc { ty, init } => {
+            format!(
+                "{}({{{}}})",
+                cpp_gen_ty(ty, state),
+                init.iter()
+                    .map(|expr| { cpp_gen_expr(expr, state) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
     }
 }
 
@@ -618,7 +638,9 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_ins(block, state)
             );
         }
-        TyIns::Free { target } => todo!(),
+        TyIns::Free { target } => {
+            buf = format!("delete {};", cpp_gen_expr(target, state));
+        }
     }
     buf
 }

@@ -1311,6 +1311,57 @@ pub fn check_expr(
             });
 
             match target_ty.as_ref() {
+                Ty::NamedType { name, .. } => {
+                    // we will get the underlying type and then check that
+                    let n_info = state.env.lookup(name);
+
+                    if n_info.is_none() {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: target_ty.get_loc(),
+                            type_name: name.clone(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    // we want to find the init() void function in the Struct
+                    let actual_ty_info = n_info.unwrap().clone();
+                    let actual_ty = &*actual_ty_info.ty.borrow();
+
+                    match actual_ty {
+                        Ty::Struct { fields, funcs, .. } => {
+                            // we will check fields, assoc_funcs and methods
+                            let field_ty = fields.get(&mem.as_str());
+                            if let Some(field_ty) = field_ty {
+                                return (
+                                    field_ty.clone(),
+                                    Some(TyExpr::AccessMember {
+                                        target: Box::new(target_ty_expr.unwrap()),
+                                        mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                    }),
+                                );
+                            }
+
+                            let func_ty = funcs.get(&mem.as_str());
+                            if let Some(func_ty) = func_ty {
+                                return (
+                                    func_ty.clone(),
+                                    Some(TyExpr::AccessMember {
+                                        target: Box::new(target_ty_expr.unwrap()),
+                                        mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                    }),
+                                );
+                            }
+
+                            state.push_err(CheckerError::MemberDoesNotExist {
+                                given_ty: target_ty.as_str(),
+                                mem: mem.as_str(),
+                                loc: loc.clone(),
+                            });
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                        }
+                        _ => unreachable!(),
+                    }
+                }
                 Ty::Struct { fields, funcs, .. } => {
                     // we will check fields, assoc_funcs and methods
                     let field_ty = fields.get(&mem.as_str());
@@ -1821,7 +1872,7 @@ pub fn check_expr(
                         return (
                             n_ty.clone(),
                             Some(TyExpr::NewAlloc {
-                                ty: n_ty,
+                                ty: ty.clone(),
                                 args: vec![],
                             }),
                         );
@@ -1863,7 +1914,7 @@ pub fn check_expr(
                     (
                         n_ty.clone(),
                         Some(TyExpr::NewAlloc {
-                            ty: n_ty,
+                            ty: ty.clone(),
                             args: vec![ty_init_expr.unwrap()],
                         }),
                     )
@@ -1874,15 +1925,10 @@ pub fn check_expr(
                     // explicit need for a growable vector type
                     if args.is_empty() {
                         // we will use the default allocating slice
-                        let n_ty = Rc::new(Ty::Pointer {
-                            sub_ty: ty.clone_loc(loc.clone()),
-                            loc: loc.clone(),
-                        });
+                        let n_ty = ty.clone_loc(loc.clone());
                         return (
                             n_ty.clone(),
-                            Some(TyExpr::SliceDefaultAlloc {
-                                inner_ty: ty.clone(),
-                            }),
+                            Some(TyExpr::SliceDefaultAlloc { ty: ty.clone() }),
                         );
                     }
 
@@ -1919,10 +1965,7 @@ pub fn check_expr(
                         return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
                     }
 
-                    let n_ty = Rc::new(Ty::Pointer {
-                        sub_ty: ty.clone_loc(loc.clone()),
-                        loc: loc.clone(),
-                    });
+                    let n_ty = ty.clone_loc(loc.clone());
                     (
                         n_ty.clone(),
                         Some(TyExpr::SliceSizedAlloc {
