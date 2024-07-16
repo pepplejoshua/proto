@@ -6,9 +6,10 @@ fn main() int {
     hmap : {str, str} = {
         "name": "joshua",
         "age": `{my_age}`,
-        `{label}`: `{sex}`
+        label: sex
     }
 
-    println(`hmap := {hmap}`)
+    println(`{hmap}`)
+
     return 0
 }

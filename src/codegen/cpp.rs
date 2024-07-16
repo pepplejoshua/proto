@@ -40,6 +40,7 @@ impl State {
 const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
 const OPTION_CODE: &str = include_str!("../std/option.cppr");
 const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
+const HMAP: &str = include_str!("../std/hmap.cppr");
 const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
 const PROTO_PRINT_CODE: &str = include_str!("../std/print.cppr");
 const PROTO_DEFER_CODE: &str = include_str!("../std/defer.cppr");
@@ -119,6 +120,37 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 typedefs.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
             }
+            "hmap" => {
+                if !has_panic_fn {
+                    if !state.gen_typedefs_for.contains("str") {
+                        typedefs.push_str("\ntypedef std::string str;");
+                        includes.insert("#include <string>".to_string());
+                    }
+                    // for exit and EXIT_FAILURE
+                    includes.insert("#include <cstdlib>".to_string());
+                    // for cout and endl
+                    includes.insert("#include <iostream>".to_string());
+                    buf.push_str(PANIC_FUNCTION.trim_end());
+                    has_panic_fn = true;
+                }
+
+                if !has_option_class {
+                    buf.push_str(OPTION_CODE.trim_end());
+                    has_option_class = true;
+                }
+
+                if !state.gen_typedefs_for.contains("uint") {
+                    let plat_size = Ty::get_platform_size();
+                    includes.insert("#include <cstdint>".to_string());
+                    if plat_size == 64 {
+                        typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                    } else {
+                        typedefs.push_str("\ntypedef uint32_t uint_pr;");
+                    }
+                }
+                includes.insert("#include <map>".to_string());
+                buf.push_str(HMAP.trim_end());
+            }
             "array" | "slice" => {
                 if !has_panic_fn {
                     if !state.gen_typedefs_for.contains("str") {
@@ -140,8 +172,13 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
 
                 if !has_array_class {
                     if !state.gen_typedefs_for.contains("uint") {
-                        typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                        let plat_size = Ty::get_platform_size();
                         includes.insert("#include <cstdint>".to_string());
+                        if plat_size == 64 {
+                            typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                        } else {
+                            typedefs.push_str("\ntypedef uint32_t uint_pr;");
+                        }
                     }
                     buf.push_str(SLICE_AND_ARRAY_CODE.trim_end());
                     has_array_class = true;
@@ -243,7 +280,13 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             format!("{}*", cpp_gen_ty(sub_ty, state))
         }
         Ty::HashMap { key_ty, val_ty, .. } => {
-            todo!()
+            state.gen_typedefs_for.insert("hmap".into());
+            state.uses_defer = true;
+            format!(
+                "HashMap<{}, {}>",
+                cpp_gen_ty(key_ty, state),
+                cpp_gen_ty(val_ty, state)
+            )
         }
         _ => {
             unreachable!(
@@ -415,7 +458,22 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
-        TyExpr::HashMap { pairs } => todo!(),
+        TyExpr::HashMap { pairs } => {
+            format!(
+                "{{ {} }}",
+                pairs
+                    .iter()
+                    .map(|pair| {
+                        format!(
+                            "{{ {}, {} }}",
+                            cpp_gen_expr(&pair.key, state),
+                            cpp_gen_expr(&pair.val, state)
+                        )
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
     }
 }
 
@@ -678,7 +736,7 @@ pub fn cpp_gen_top_level(file_mod: &TyFileModule) -> Result<String, String> {
             file_path.to_str().unwrap(),
             "-o",
             exe_path.to_str().unwrap(),
-            "-std=c++11",
+            "-std=c++17",
         ])
         .output();
 

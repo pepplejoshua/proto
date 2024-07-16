@@ -177,6 +177,7 @@ fn type_is_valid(ty: &Ty) -> Result<(), (TypeValidErr, Rc<SourceRef>)> {
             None => Err((TypeValidErr::Incomplete, loc.clone())),
         },
         Ty::Slice { sub_ty, .. } | Ty::Optional { sub_ty, .. } => type_is_valid(sub_ty),
+        Ty::HashMap { key_ty, val_ty, .. } => type_is_valid(key_ty).and(type_is_valid(val_ty)),
         Ty::ErrorType { loc } => Err((TypeValidErr::Invalid, loc.clone())),
         _ => Ok(()),
     }
@@ -262,6 +263,14 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
                 sub_ty: b_sub_ty, ..
             },
         ) => types_are_eq(sub_ty, b_sub_ty),
+        (
+            Ty::HashMap { key_ty, val_ty, .. },
+            Ty::HashMap {
+                key_ty: b_key_ty,
+                val_ty: b_val_ty,
+                ..
+            },
+        ) => types_are_eq(key_ty, b_key_ty) && types_are_eq(val_ty, b_val_ty),
         (_, Ty::ErrorType { .. }) | (Ty::ErrorType { .. }, _) | _ => false,
     }
 }
@@ -1048,7 +1057,8 @@ pub fn check_expr(
                         | Ty::StaticArray { .. }
                         | Ty::Slice { .. }
                         | Ty::Optional { .. }
-                        | Ty::Pointer { .. } => Some(TyExpr::CallFn {
+                        | Ty::Pointer { .. }
+                        | Ty::HashMap { .. } => Some(TyExpr::CallFn {
                             func: Box::new(TyExpr::Ident {
                                 name: "proto_str".to_string(),
                             }),

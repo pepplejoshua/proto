@@ -1980,13 +1980,13 @@ impl Parser {
                 let mut pairs = vec![];
                 while !self.is_at_eof() {
                     let mut cur = self.cur_token();
-                    if !matches!(cur, Token::RBracket(_)) {
+                    if !matches!(cur, Token::RCurly(_)) {
                         let pair = self.parse_hashmap_pair();
                         pairs.push(pair);
                         cur = self.cur_token();
                     }
 
-                    if matches!(cur, Token::RBracket(_)) {
+                    if matches!(cur, Token::RCurly(_)) {
                         saw_rcurly = true;
                         break;
                     }
@@ -2005,7 +2005,7 @@ impl Parser {
                     self.advance();
                 } else {
                     self.report_error(ParseError::Expected(
-                        "a right bracket (]) to terminate the static array.".to_string(),
+                        "a right curly brace (}) to terminate the hashmap.".to_string(),
                         self.cur_token().get_source_ref(),
                         None,
                     ));

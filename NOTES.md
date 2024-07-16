@@ -14,6 +14,8 @@
 - Work on pointers. [DONE]
 - Make pointers printable (implement proto_str() for it). [DONE]
 - Add naive allocation (`new` and `free` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that). [DONE]
+- Add tuples, which will also be used in for-in loops with hashmap targets.
+- Add range expression (they will need to be restricted for a few use cases).
 - Add hashmaps.
 - Look into how comparator function can be implemented for the types used in hashmaps.
 - Make self's type to be a pointer to the current type. This will stop C++
@@ -34,7 +36,6 @@ from implicitly removing its generated copy constructor.
 - Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection. This will allow the implementation of of typeid as a type.
 - Add functional methods (map, filter) to iterables.
 - Consider if tuples are valuable to add (if I can implement them myself in C++)
-- Add range expression (they will need to be restricted for a few use cases)
 - Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
 - Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
 ```rs

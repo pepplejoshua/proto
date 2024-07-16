@@ -1,16 +1,11 @@
 #include "t.h"
-#include <map>
 
 using std::cout;
 using std::endl;
-using std::map;
 
 int main() {
-  map<str, int> m = {{"hello", 2}};
-
-  for (auto p : m) {
-    cout << p.first << " " << p.second << endl;
-  }
+  HashMap<str, int> a = {{"hello", 1}, {"hi", 2}};
+  cout << proto_str(a) << endl;
 
   return 0;
 }
