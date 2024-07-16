@@ -41,7 +41,7 @@ public:
     return get(key).is_some();
   }
 
-  str as_str() const {
+  str as_str() {
     str s = "{ ";
     auto i = 0;
     for (const auto& [key, val] : *this) {
@@ -85,6 +85,6 @@ public:
 
 // Overload for types with an as_str() method
 template <typename T>
-inline auto proto_str(const T& t) -> typename std::enable_if<has_as_str<T>::value, str>::type {
+inline auto proto_str(T& t) -> typename std::enable_if<has_as_str<T>::value, str>::type {
     return t.as_str();
 }

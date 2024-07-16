@@ -110,7 +110,7 @@ impl Ty {
 
     pub fn is_indexable(&self) -> bool {
         match self {
-            Ty::Str { .. } | Ty::StaticArray { .. } | Ty::Slice { .. } => true,
+            Ty::Str { .. } | Ty::StaticArray { .. } | Ty::Slice { .. } | Ty::HashMap { .. } => true,
             _ => false,
         }
     }

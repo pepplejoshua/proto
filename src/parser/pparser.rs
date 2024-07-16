@@ -430,14 +430,48 @@ impl Parser {
         match (&expr, cur) {
             // iterator loop
             (_, Token::In(_)) => {
-                // report error for expr if it is not an Expr::Ident {..}
-                if !matches!(expr, Expr::Ident { .. }) {
+                // determine if we have a destructure syntax instead
+                if let Expr::StaticArray { vals, loc: arr_loc } = &expr {
+                    // make sure it is a proper destructure syntax:
+                    // [Ident, Ident]
+                    if vals.len() != 2 {
+                        // report error for destructure syntax since we expect a
+                        // max of 2 expressions in it for loops
+                        self.report_error(ParseError::Expected(
+                            "2 expressions in the destructure list to name the loop variables."
+                                .into(),
+                            arr_loc.clone(),
+                            None,
+                        ));
+
+                        // check the expressions in the destructure list are both
+                        // expressions
+                        if !matches!(&vals[0], Expr::Ident { .. }) {
+                            self.report_error(ParseError::Expected(
+                                "an identifier in destructure list to name the first loop variable.".into(),
+                                vals[0].get_source_ref(),
+                                None,
+                            ));
+                        }
+
+                        if !matches!(&vals[0], Expr::Ident { .. }) {
+                            self.report_error(ParseError::Expected(
+                                "an identifier in destructure list to name the second loop variable.".into(),
+                                vals[0].get_source_ref(),
+                                None,
+                            ));
+                        }
+                    } else {
+                    }
+                } else if !matches!(&expr, Expr::Ident { .. }) {
+                    // report error for expr if it is not an Expr::Ident {..}
                     self.report_error(ParseError::Expected(
-                        "an identifier to name the loop variable.".into(),
+                        "an identifier or a destructure list of identifiers to name the loop variable(s).".into(),
                         expr.get_source_ref(),
                         None,
                     ));
                 }
+
                 // skip over the Token::In
                 self.advance();
                 // parse the iteration target

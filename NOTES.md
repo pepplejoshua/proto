@@ -14,9 +14,8 @@
 - Work on pointers. [DONE]
 - Make pointers printable (implement proto_str() for it). [DONE]
 - Add naive allocation (`new` and `free` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that). [DONE]
-- Add tuples, which will also be used in for-in loops with hashmap targets.
+- Add hashmaps. Implement methods and [] indexing.
 - Add range expression (they will need to be restricted for a few use cases).
-- Add hashmaps.
 - Look into how comparator function can be implemented for the types used in hashmaps.
 - Make self's type to be a pointer to the current type. This will stop C++
 from implicitly removing its generated copy constructor.

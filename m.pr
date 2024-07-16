@@ -9,6 +9,10 @@ fn main() int {
         label: sex
     }
 
+    for [key, value] in hmap {
+        println(key + ": " + value)
+    }
+
     println(`{hmap}`)
 
     return 0

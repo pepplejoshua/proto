@@ -330,6 +330,11 @@ pub enum TyIns {
         target: TyExpr,
         block: Box<TyIns>,
     },
+    ForInLoopDestructured {
+        vars: Vec<String>,
+        target: TyExpr,
+        block: Box<TyIns>,
+    },
     WhileLoop {
         cond: TyExpr,
         block: Box<TyIns>,
@@ -460,6 +465,19 @@ impl TyIns {
             TyIns::Continue => "continue".into(),
             TyIns::ForInLoop { var, target, block } => {
                 format!("for {var} in {}\n{}", target.as_str(), block.as_str())
+            }
+            TyIns::ForInLoopDestructured {
+                vars,
+                target,
+                block,
+            } => {
+                format!(
+                    "for [{}, {}] in {}\n{}",
+                    vars[0].as_str(),
+                    vars[1].as_str(),
+                    target.as_str(),
+                    block.as_str()
+                )
             }
             TyIns::WhileLoop { cond, block } => {
                 format!("for {}\n{}", cond.as_str(), block.as_str())

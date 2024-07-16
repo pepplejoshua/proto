@@ -3070,47 +3070,108 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 return None;
             }
 
-            // now we can grab the type of the loop constant
-            let loop_var_ty = match ty_targ.as_ref() {
-                Ty::Str { .. } => Ty::Char {
-                    loc: loop_var.get_source_ref(),
-                },
-                Ty::StaticArray { sub_ty, loc, .. } | Ty::Slice { sub_ty, loc } => {
-                    let n_sub_ty = sub_ty.clone_loc(loop_var.get_source_ref());
-                    (*n_sub_ty).clone()
-                }
-                _ => unreachable!("seman::check_ins(): Unexpected indexable type in for-in loop."),
-            };
-
-            // create new scope to add loop variable and check loop body with
+            // create new scope to add loop variable(s) and check loop body with
             state.env.extend();
             state.scope_stack.push(Scope::Loop);
             let old_enter_new_scope = state.enter_new_scope;
             state.enter_new_scope = false;
-            let loop_var_info = NameInfo {
-                ty: Rc::new(RefCell::new(loop_var_ty)),
-                refs: vec![loop_var.get_source_ref()],
-                is_const: true,
-                is_initialized: true,
-            };
-            state.env.add(loop_var.as_str(), loop_var_info);
 
-            let new_body = check_ins(block, &None, state);
+            let mut is_destructured = false;
+            match loop_var {
+                Expr::Ident { name, loc } => {
+                    // now we can grab the type of the loop constant
+                    let loop_var_ty = match ty_targ.as_ref() {
+                        Ty::Str { .. } => Ty::Char {
+                            loc: loop_var.get_source_ref(),
+                        },
+                        Ty::StaticArray { sub_ty, loc, .. } | Ty::Slice { sub_ty, loc } => {
+                            let n_sub_ty = sub_ty.clone_loc(loop_var.get_source_ref());
+                            (*n_sub_ty).clone()
+                        }
+                        Ty::HashMap { .. } => {
+                            state.push_err(CheckerError::Expected("a destructure list of 2 identifiers to bind the keys and values of the hashmap.".to_string(), loc.clone(), None));
+                            return None;
+                        }
+                        _ => unreachable!(
+                            "seman::check_ins(): Unexpected indexable type in for-in loop."
+                        ),
+                    };
 
-            if new_body.is_none() {
-                return None;
+                    let loop_var_info = NameInfo {
+                        ty: Rc::new(RefCell::new(loop_var_ty)),
+                        refs: vec![loop_var.get_source_ref()],
+                        is_const: true,
+                        is_initialized: true,
+                    };
+                    state.env.add(loop_var.as_str(), loop_var_info);
+
+                    let new_body = check_ins(block, &None, state);
+
+                    if new_body.is_none() {
+                        return None;
+                    }
+
+                    // exit scope after checks
+                    state.enter_new_scope = old_enter_new_scope;
+                    state.scope_stack.pop();
+                    state.env.pop();
+
+                    Some(TyIns::ForInLoop {
+                        var: loop_var.as_str(),
+                        target: ty_targ_expr.unwrap(),
+                        block: Box::new(new_body.unwrap()),
+                    })
+                }
+                Expr::StaticArray { vals, loc } => {
+                    is_destructured = true;
+                    let (f_loop_var_ty, s_loop_var_ty) = match ty_targ.as_ref() {
+                        Ty::HashMap { key_ty, val_ty, .. } => {
+                            let n_key_ty = key_ty.clone_loc(vals[0].get_source_ref());
+                            let n_val_ty = val_ty.clone_loc(vals[1].get_source_ref());
+                            ((*n_key_ty).clone(), (*n_val_ty).clone())
+                        }
+                        _ => {
+                            state.push_err(CheckerError::Expected("a hashmap to be the target of the for-in loop, given the destructure list.".to_string(), loc.clone(), None));
+                            return None;
+                        }
+                    };
+
+                    let f_loop_var_info = NameInfo {
+                        ty: Rc::new(RefCell::new(f_loop_var_ty)),
+                        refs: vec![vals[0].get_source_ref()],
+                        is_const: true,
+                        is_initialized: true,
+                    };
+
+                    let s_loop_var_info = NameInfo {
+                        ty: Rc::new(RefCell::new(s_loop_var_ty)),
+                        refs: vec![vals[1].get_source_ref()],
+                        is_const: true,
+                        is_initialized: true,
+                    };
+
+                    state.env.add(vals[0].as_str(), f_loop_var_info);
+                    state.env.add(vals[1].as_str(), s_loop_var_info);
+
+                    let new_body = check_ins(block, &None, state);
+
+                    if new_body.is_none() {
+                        return None;
+                    }
+
+                    // exit scope after checks
+                    state.enter_new_scope = old_enter_new_scope;
+                    state.scope_stack.pop();
+                    state.env.pop();
+
+                    Some(TyIns::ForInLoopDestructured {
+                        vars: vec![vals[0].as_str(), vals[1].as_str()],
+                        target: ty_targ_expr.unwrap(),
+                        block: Box::new(new_body.unwrap()),
+                    })
+                }
+                _ => unreachable!(),
             }
-
-            // exit scope after checks
-            state.enter_new_scope = old_enter_new_scope;
-            state.scope_stack.pop();
-            state.env.pop();
-
-            Some(TyIns::ForInLoop {
-                var: loop_var.as_str(),
-                target: ty_targ_expr.unwrap(),
-                block: Box::new(new_body.unwrap()),
-            })
         }
         Ins::InfiniteLoop { block, loc } => {
             // we simply have to enter a new scope and check the body

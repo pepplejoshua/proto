@@ -674,6 +674,20 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                 cpp_gen_ins(block, state)
             );
         }
+        TyIns::ForInLoopDestructured {
+            vars,
+            target,
+            block,
+        } => {
+            buf = format!(
+                "{}for (const auto [{}, {}] : {})\n{}",
+                state.get_pad(),
+                vars[0],
+                vars[1],
+                cpp_gen_expr(target, state),
+                cpp_gen_ins(block, state)
+            )
+        }
         TyIns::WhileLoop { cond, block } => {
             buf = format!(
                 "{}while ({})\n{}",
