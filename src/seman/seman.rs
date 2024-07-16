@@ -3,7 +3,7 @@
 use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
 
 use crate::{
-    codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyIns},
+    codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyHashMapPair, TyIns},
     parser::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType},
     source::{
         errors::CheckerError,
@@ -483,9 +483,9 @@ pub fn check_expr(
                                         loc: item.get_source_ref(),
                                     });
                                     had_item_error = true;
-                                } else {
-                                    item_ty_exprs.push(item_ty_expr.unwrap());
                                 }
+
+                                item_ty_exprs.push(item_ty_expr.unwrap());
                             }
 
                             if had_item_error {
@@ -507,7 +507,7 @@ pub fn check_expr(
                             )
                         }
                         _ => {
-                            state.push_err(CheckerError::StaticArrayTypeInferenceFailed {
+                            state.push_err(CheckerError::StaticArrayTypeCheckFailed {
                                 given_ty: ty.as_str(),
                                 arr_loc: loc.clone(),
                             });
@@ -520,7 +520,7 @@ pub fn check_expr(
                     // type of the first item as the type and making sure all the other
                     // items are of the same type. This means there has to be at least
                     // 1 item in the array
-                    if vals.len() == 0 {
+                    if vals.is_empty() {
                         state.push_err(CheckerError::CannotInferTypeOfEmptyArray {
                             loc: loc.clone(),
                         });
@@ -2060,6 +2060,9 @@ pub fn check_expr(
                         }),
                     )
                 }
+                Ty::HashMap { key_ty, val_ty, .. } => {
+                    todo!()
+                }
                 Ty::Struct { .. } => {
                     unreachable!(
                         "seman::check_expr(): a concrete struct type was somehow passed into new(): {}.",
@@ -2153,6 +2156,152 @@ pub fn check_expr(
                     }
                 }
                 Ty::ErrorType { loc } => unreachable!(),
+            }
+        }
+        Expr::HashMap { pairs, loc } => {
+            match context_ty {
+                Some(context_ty) => match context_ty.as_ref() {
+                    Ty::HashMap { key_ty, val_ty, .. } => {
+                        let expected_key_ty = key_ty.clone();
+                        let expected_val_ty = val_ty.clone();
+                        let mut pair_ty_exprs = vec![];
+                        let mut had_error = false;
+                        for pair in pairs {
+                            let (ty_key, ty_key_expr) =
+                                check_expr(&pair.key, &Some(expected_key_ty.clone()), state);
+                            let (ty_val, ty_val_expr) =
+                                check_expr(&pair.val, &Some(expected_val_ty.clone()), state);
+
+                            if ty_key.is_error_ty() || ty_val.is_error_ty() {
+                                had_error = true;
+                                continue;
+                            }
+
+                            if !types_are_eq(&expected_key_ty, &ty_key) {
+                                state.push_err(CheckerError::TypeMismatch {
+                                    loc: pair.key.get_source_ref(),
+                                    expected: expected_key_ty.as_str(),
+                                    found: ty_key.as_str(),
+                                });
+                                had_error = true;
+                                continue;
+                            }
+
+                            if !types_are_eq(&expected_val_ty, &ty_val) {
+                                state.push_err(CheckerError::TypeMismatch {
+                                    loc: pair.val.get_source_ref(),
+                                    expected: expected_val_ty.as_str(),
+                                    found: ty_val.as_str(),
+                                });
+                                had_error = true;
+                                continue;
+                            }
+
+                            pair_ty_exprs.push(TyHashMapPair {
+                                key: ty_key_expr.unwrap(),
+                                val: ty_val_expr.unwrap(),
+                            });
+                        }
+
+                        if had_error {
+                            return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                        }
+
+                        (
+                            Rc::new(Ty::HashMap {
+                                key_ty: expected_key_ty,
+                                val_ty: expected_val_ty,
+                                loc: loc.clone(),
+                            }),
+                            Some(TyExpr::HashMap {
+                                pairs: pair_ty_exprs,
+                            }),
+                        )
+                    }
+                    _ => {
+                        state.push_err(CheckerError::StaticArrayTypeCheckFailed {
+                            given_ty: context_ty.as_str(),
+                            arr_loc: loc.clone(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+                },
+                None => {
+                    // we will use the type of the first pair to check all the pairs
+                    // and type the hashmap
+                    if pairs.is_empty() {
+                        state.push_err(CheckerError::CannotInferTypeOfEmptyHashMap {
+                            loc: loc.clone(),
+                        });
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let (expected_key_ty, first_ty_key_expr) =
+                        check_expr(&pairs[0].key, context_ty, state);
+                    let (expected_val_ty, first_ty_val_expr) =
+                        check_expr(&pairs[0].val, context_ty, state);
+                    if expected_key_ty.is_error_ty() || expected_val_ty.is_error_ty() {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    let mut had_error = false;
+                    let mut pair_ty_exprs = vec![TyHashMapPair {
+                        key: first_ty_key_expr.unwrap(),
+                        val: first_ty_val_expr.unwrap(),
+                    }];
+                    for index in 1..pairs.len() {
+                        let cur_pair = &pairs[index];
+                        let (cur_key_ty, cur_key_ty_expr) =
+                            check_expr(&cur_pair.key, context_ty, state);
+                        let (cur_val_ty, cur_val_ty_expr) =
+                            check_expr(&cur_pair.val, context_ty, state);
+
+                        if cur_key_ty.is_error_ty() || cur_val_ty.is_error_ty() {
+                            had_error = true;
+                            continue;
+                        }
+
+                        if !types_are_eq(&expected_key_ty, &cur_key_ty) {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: cur_pair.key.get_source_ref(),
+                                expected: expected_key_ty.as_str(),
+                                found: cur_key_ty.as_str(),
+                            });
+                            had_error = true;
+                            continue;
+                        }
+
+                        if !types_are_eq(&expected_val_ty, &cur_val_ty) {
+                            state.push_err(CheckerError::TypeMismatch {
+                                loc: cur_pair.val.get_source_ref(),
+                                expected: expected_val_ty.as_str(),
+                                found: cur_val_ty.as_str(),
+                            });
+                            had_error = true;
+                            continue;
+                        }
+
+                        pair_ty_exprs.push(TyHashMapPair {
+                            key: cur_key_ty_expr.unwrap(),
+                            val: cur_val_ty_expr.unwrap(),
+                        });
+                    }
+
+                    if had_error {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    (
+                        Rc::new(Ty::HashMap {
+                            key_ty: expected_key_ty,
+                            val_ty: expected_val_ty,
+                            loc: loc.clone(),
+                        }),
+                        Some(TyExpr::HashMap {
+                            pairs: pair_ty_exprs,
+                        }),
+                    )
+                }
             }
         }
     }

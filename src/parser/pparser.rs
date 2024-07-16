@@ -12,7 +12,7 @@ use crate::{
     types::signature::Ty,
 };
 
-use super::ast::{BinOpType, Expr, FileModule, Ins, UnaryOpType};
+use super::ast::{BinOpType, Expr, FileModule, HashMapPair, Ins, UnaryOpType};
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum ParseScope {
     TopLevel,
@@ -1271,6 +1271,41 @@ impl Parser {
                     sub_ty,
                 })
             }
+            Token::LCurly(loc) => {
+                let mut loc = loc;
+                // we are parsing the type of a hashmap
+                let key_ty = self.parse_type();
+
+                let mut cur = self.cur_token();
+                if !matches!(cur, Token::Comma(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a comma to separate the key and value types of the hashmap type."
+                            .to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let val_ty = self.parse_type();
+                cur = self.cur_token();
+                if !matches!(cur, Token::RCurly(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a right curly brace (}) to terminate the hashmap type.".to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(cur.get_source_ref());
+                    self.advance();
+                }
+                Rc::new(Ty::HashMap {
+                    key_ty,
+                    val_ty,
+                    loc,
+                })
+            }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
@@ -1853,6 +1888,23 @@ impl Parser {
         lhs
     }
 
+    fn parse_hashmap_pair(&mut self) -> HashMapPair {
+        let key = self.parse_expr();
+        let cur = self.cur_token();
+        if !matches!(cur, Token::Colon(_)) {
+            self.report_error(ParseError::Expected(
+                "a colon to separate the key and value expressions.".to_string(),
+                cur.get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
+        }
+        let val = self.parse_expr();
+
+        HashMapPair { key, val }
+    }
+
     fn parse_identifier(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur {
@@ -1920,6 +1972,46 @@ impl Parser {
                     inner: Box::new(inner_expr),
                     loc: i_expr_span,
                 }
+            }
+            Token::LCurly(loc) => {
+                self.advance();
+                // we will parse HashMapPairs till we see a right curly brace
+                let mut saw_rcurly = false;
+                let mut pairs = vec![];
+                while !self.is_at_eof() {
+                    let mut cur = self.cur_token();
+                    if !matches!(cur, Token::RBracket(_)) {
+                        let pair = self.parse_hashmap_pair();
+                        pairs.push(pair);
+                        cur = self.cur_token();
+                    }
+
+                    if matches!(cur, Token::RBracket(_)) {
+                        saw_rcurly = true;
+                        break;
+                    }
+
+                    // pairs are to be comma separated
+                    if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected("a comma to separate hashmap pairs or a right curly brace (}) to terminate the hashmap.".to_string(), cur.get_source_ref(), None));
+                        break;
+                    }
+                    self.advance();
+                }
+
+                let mut span = loc;
+                if saw_rcurly {
+                    span = span.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                } else {
+                    self.report_error(ParseError::Expected(
+                        "a right bracket (]) to terminate the static array.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                }
+
+                Expr::HashMap { pairs, loc: span }
             }
             Token::LBracket(loc) => {
                 self.advance();

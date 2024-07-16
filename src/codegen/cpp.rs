@@ -242,6 +242,9 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
         Ty::Pointer { sub_ty, .. } => {
             format!("{}*", cpp_gen_ty(sub_ty, state))
         }
+        Ty::HashMap { key_ty, val_ty, .. } => {
+            todo!()
+        }
         _ => {
             unreachable!(
                 "cpp::cpp_gen_ty(): ran into {} at {:?}, which should not occur.",
@@ -412,6 +415,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
+        TyExpr::HashMap { pairs } => todo!(),
     }
 }
 

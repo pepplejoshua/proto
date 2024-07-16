@@ -58,6 +58,18 @@ impl UnaryOpType {
 }
 
 #[derive(Debug, Clone)]
+pub struct HashMapPair {
+    pub key: Expr,
+    pub val: Expr,
+}
+
+impl HashMapPair {
+    pub fn as_str(&self) -> String {
+        format!("{} : {}", self.key.as_str(), self.val.as_str())
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Number {
         val: String,
@@ -156,6 +168,10 @@ pub enum Expr {
         args: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
+    HashMap {
+        pairs: Vec<HashMapPair>,
+        loc: Rc<SourceRef>,
+    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -185,6 +201,7 @@ impl Expr {
             | Expr::MakePtrFromAddrOf { loc, .. }
             | Expr::DerefPtr { loc, .. }
             | Expr::NewAlloc { loc, .. }
+            | Expr::HashMap { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
         }
     }
@@ -219,6 +236,7 @@ impl Expr {
             | Expr::MakePtrFromAddrOf { .. }
             | Expr::ErrorExpr { .. }
             | Expr::MakeSlice { .. }
+            | Expr::HashMap { .. }
             | Expr::NewAlloc { .. } => false,
             Expr::Ident { .. } | Expr::AccessMember { .. } | Expr::DerefPtr { .. } => true,
             Expr::GroupedExpr { inner, .. } => inner.has_address(),
@@ -232,6 +250,7 @@ impl Expr {
             Expr::CallFn { .. }
             | Expr::OptionalExpr { .. }
             | Expr::StaticArray { .. }
+            | Expr::HashMap { .. }
             | Expr::MakeSlice { .. }
             | Expr::GroupedExpr { .. }
             | Expr::IndexInto { .. }
@@ -377,6 +396,16 @@ impl Expr {
                             .join(", ")
                     )
                 }
+            }
+            Expr::HashMap { pairs, .. } => {
+                format!(
+                    "{{ {} }}",
+                    pairs
+                        .iter()
+                        .map(|pair| { pair.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
         }
     }

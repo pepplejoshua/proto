@@ -486,7 +486,11 @@ impl SourceReporter {
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::CannotInferTypeOfEmptyArray { loc } => {
-                let msg = "Unable to infer type of empty static array from context.".to_string();
+                let msg = "Unable to infer type of empty static array without context.".to_string();
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::CannotInferTypeOfEmptyHashMap { loc } => {
+                let msg = "Unable to infer type of empty hashmap without context.".to_string();
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::MismatchingStaticArrayItemTypes {
@@ -497,9 +501,9 @@ impl SourceReporter {
                 let msg = format!("Static array has an inferred type of '{expected_ty}' and this item has a type of '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::StaticArrayTypeInferenceFailed { given_ty, arr_loc } => {
+            CheckerError::StaticArrayTypeCheckFailed { given_ty, arr_loc } => {
                 let msg =
-                    format!("Static array's type is incompatible with the given type '{given_ty}'");
+                    format!("Static Array type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
             CheckerError::NonConstantNumberSizeForStaticArray { loc } => {
@@ -612,6 +616,10 @@ impl SourceReporter {
             CheckerError::CannotFreeNonPtrType { given_ty, loc } => {
                 let msg = format!("Attempt to free a non-pointer type '{given_ty}'");
                 self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::HashMapTypeCheckFailed { given_ty, arr_loc } => {
+                let msg = format!("HashMap type is incompatible with the given type '{given_ty}'");
+                self.report_with_ref(&arr_loc, msg, None, false);
             }
         }
     }

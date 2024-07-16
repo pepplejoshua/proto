@@ -140,12 +140,15 @@ pub enum CheckerError {
     CannotInferTypeOfEmptyArray {
         loc: Rc<SourceRef>,
     },
+    CannotInferTypeOfEmptyHashMap {
+        loc: Rc<SourceRef>,
+    },
     MismatchingStaticArrayItemTypes {
         expected_ty: String,
         given_ty: String,
         loc: Rc<SourceRef>,
     },
-    StaticArrayTypeInferenceFailed {
+    StaticArrayTypeCheckFailed {
         given_ty: String,
         arr_loc: Rc<SourceRef>,
     },
@@ -227,6 +230,10 @@ pub enum CheckerError {
     CannotFreeNonPtrType {
         given_ty: String,
         loc: Rc<SourceRef>,
+    },
+    HashMapTypeCheckFailed {
+        given_ty: String,
+        arr_loc: Rc<SourceRef>,
     },
     TooManyErrors,
 }

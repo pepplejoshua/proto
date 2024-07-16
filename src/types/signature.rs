@@ -62,6 +62,11 @@ pub enum Ty {
         sub_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
+    HashMap {
+        key_ty: Rc<Ty>,
+        val_ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
     ErrorType {
         loc: Rc<SourceRef>,
     },
@@ -139,6 +144,7 @@ impl Ty {
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
             | Ty::Pointer { loc, .. }
+            | Ty::HashMap { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -158,6 +164,7 @@ impl Ty {
             | Ty::NamedType { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::Pointer { loc, .. }
+            | Ty::HashMap { loc, .. }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
@@ -209,6 +216,9 @@ impl Ty {
             Ty::Struct { name, .. } => name.clone(),
             Ty::NamedType { name, .. } => format!("{name}"),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
+            Ty::HashMap { key_ty, val_ty, .. } => {
+                format!("{{{}, {}}}", key_ty.as_str(), val_ty.as_str())
+            }
             Ty::ErrorType { .. } => "err!".into(),
         }
     }

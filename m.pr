@@ -1,79 +1,14 @@
-// Run Length Encoding
-// compress(): takes a string and returns a slice of pairs, where each
-// pair contains a character and the number of times it appears
-// consecutively.
-struct Pair {
-    key : char
-    count : int
-
-    fn init(k char, c int) void {
-        key = k
-        count = c
-    }
-
-    fn as_str() str {
-        return `({key}, {count})`
-    }
-}
-
-fn compress(og str) [Pair] {
-    compressed := new([Pair])
-
-    count := 1
-    for (i : uint = 1; i < og.len(); i += 1) {
-        if og[i] == og[i - 1] {
-            count += 1
-        } else {
-            compressed.append(Pair(og[i-1], count))
-            count = 1
-        }
-    }
-    compressed.append(Pair(og[og.len() - 1], count))
-    return compressed
-}
-
-// decompress(): function takes the compressed data and reconstructs
-// the original string.
-fn decompress(compressed [Pair]) str {
-    dup :: \(c char, count int) str {
-        s := ""
-        i := 0
-        for i < count : (i += 1) {
-            s += c
-        }
-        return s
-    }
-
-    og := ""
-    for pair in compressed {
-        og += dup(pair.key, pair.count)
-    }
-
-    return og
-}
-
 fn main() int {
-    original := "AABBBCCCCDDDDD"
-    println(`original: {original}`)
-    compressed := compress(original)
-    print("[")
-    i : uint = 0
-    for i < compressed.len() : (i += 1) {
-        pair := compressed[i]
-        print(`{pair.as_str()}`)
-        if i + 1 < compressed.len() {
-            print(", ")
-        }
-    }
-    println("]")
+    my_age :: 25
+    label :: "sex"
+    sex :: "male"
 
-    decompressed := decompress(compressed)
-    println(`decompressed: {decompressed}`)
-
-    if original == decompressed {
-        println(`compression successful!`)
-    } else {
-        println(`compression failed.`)
+    hmap : {str, str} = {
+        "name": "joshua",
+        "age": `{my_age}`,
+        `{label}`: `{sex}`
     }
+
+    println(`hmap := {hmap}`)
     return 0
 }

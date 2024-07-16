@@ -56,6 +56,7 @@ fn main() int {
     original := "AABBBCCCCDDDDD"
     println(`original: {original}`)
     compressed := compress(original)
+
     print("[")
     i : uint = 0
     for i < compressed.len() : (i += 1) {

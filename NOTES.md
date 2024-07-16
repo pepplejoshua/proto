@@ -14,7 +14,12 @@
 - Work on pointers. [DONE]
 - Make pointers printable (implement proto_str() for it). [DONE]
 - Add naive allocation (`new` and `free` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that). [DONE]
-- Add using for struct.
+- Add hashmaps.
+- Look into how comparator function can be implemented for the types used in hashmaps.
+- Make self's type to be a pointer to the current type. This will stop C++
+from implicitly removing its generated copy constructor.
+- Allow access members on pointers of types that have members. Compile to PtrAccessMember expression.
+- Add using for struct composing other structs.
 - Add option for user to provide deinit() void function on structs to handle clean up of internal resources. How does this interact with al locators?
 - Report an error if a struct field refers to itself unwrap by another types
 - Should new return a pointer or an optional pointer?

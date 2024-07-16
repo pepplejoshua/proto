@@ -7,6 +7,18 @@ use crate::{
 };
 
 #[derive(Debug, Clone)]
+pub struct TyHashMapPair {
+    pub key: TyExpr,
+    pub val: TyExpr,
+}
+
+impl TyHashMapPair {
+    pub fn as_str(&self) -> String {
+        format!("{} : {}", self.key.as_str(), self.val.as_str())
+    }
+}
+
+#[derive(Debug, Clone)]
 pub enum TyExpr {
     Integer {
         val: String,
@@ -98,6 +110,9 @@ pub enum TyExpr {
     SliceSizedAlloc {
         ty: Rc<Ty>,
         cap: Rc<TyExpr>,
+    },
+    HashMap {
+        pairs: Vec<TyHashMapPair>,
     },
 }
 
@@ -241,6 +256,16 @@ impl TyExpr {
                             .join(", ")
                     )
                 }
+            }
+            TyExpr::HashMap { pairs } => {
+                format!(
+                    "{{ {} }}",
+                    pairs
+                        .iter()
+                        .map(|pair| { pair.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
         }
     }
