@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc};
+use std::{cell::RefCell, collections::HashMap, process::exit, rc::Rc, sync::Once};
 
 use crate::{
     codegen::tast::{TyExpr, TyFileModule, TyFnParam, TyHashMapPair, TyIns},
@@ -142,22 +142,41 @@ impl State {
     }
 }
 
-// static BUILTIN_INIT: Once = Once::new();
-// static mut BUILTIN_HASHMAP: Option<HashMap<&'static str, HashMap<&'static str, Ty>>> = None;
+static BUILTIN_INIT: Once = Once::new();
+static mut BUILTIN_HASHMAP: Option<HashMap<&'static str, Rc<Ty>>> = None;
 
-// fn init_builtins() {
-//     let mut m = HashMap::new();
-//     unsafe {
-//         BUILTIN_HASHMAP = Some(m);
-//     }
-// }
+fn init_builtins() {
+    let mut m = HashMap::new();
+    let builtin_loc = Rc::new(SourceRef {
+        file: Rc::new("__proto_gen_builtins__".to_string()),
+        start_line: 0,
+        start_col: 0,
+        end_line: 0,
+        end_col: 0,
+        flat_start: 0,
+        flat_end: 0,
+    });
+    m.insert(
+        "make_char",
+        Rc::new(Ty::Func {
+            params: vec![Ty::get_int_ty(builtin_loc.clone())],
+            ret: Rc::new(Ty::Char {
+                loc: builtin_loc.clone(),
+            }),
+            loc: builtin_loc.clone(),
+        }),
+    );
+    unsafe {
+        BUILTIN_HASHMAP = Some(m);
+    }
+}
 
-// fn get_builtin_methods() -> &'static HashMap<&'static str, HashMap<&'static str, Ty>> {
-//     unsafe {
-//         BUILTIN_INIT.call_once(init_builtins);
-//         BUILTIN_HASHMAP.as_ref().unwrap()
-//     }
-// }
+fn get_builtin_methods() -> &'static HashMap<&'static str, Rc<Ty>> {
+    unsafe {
+        BUILTIN_INIT.call_once(init_builtins);
+        BUILTIN_HASHMAP.as_ref().unwrap()
+    }
+}
 
 enum TypeValidErr {
     Invalid,
@@ -586,6 +605,13 @@ pub fn check_expr(
             }
         }
         Expr::Ident { name, loc } => {
+            // look into builtins first
+            let builtins = get_builtin_methods();
+            if builtins.get(&name.as_ref()).is_some() {
+                let ty = builtins[&name.as_ref()].clone();
+                return (ty, Some(TyExpr::BuiltinIdent { name: name.clone() }));
+            }
+
             let i_ty = state.env.lookup(name);
             match i_ty {
                 Some(info) => {
@@ -885,6 +911,8 @@ pub fn check_expr(
                             fn_ty_args.push(arg_ty_expr);
                         }
                     }
+
+                    // determine if the func_ty_expr is an TyExpr::BuiltinIdent
                     (
                         ret.clone_loc(loc.clone()),
                         Some(TyExpr::CallFn {

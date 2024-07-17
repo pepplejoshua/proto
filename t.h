@@ -510,3 +510,9 @@ template <typename T>
 inline auto proto_str(T& t) -> typename std::enable_if<!has_as_str<T>::value, str>::type {
     return "<unprintable>";
 }
+
+#ifdef MAKE_CHAR
+inline char make_char(int num) {
+    return char(num);
+}
+#endif

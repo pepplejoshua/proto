@@ -1,0 +1,5 @@
+#ifdef MAKE_CHAR
+char make_char(int num) {
+    return char(num);
+}
+#endif

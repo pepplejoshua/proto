@@ -35,6 +35,9 @@ pub enum TyExpr {
     Ident {
         name: String,
     },
+    BuiltinIdent {
+        name: String,
+    },
     BinOp {
         op: BinOpType,
         lhs: Box<TyExpr>,
@@ -131,6 +134,7 @@ impl TyExpr {
                 }
             ),
             TyExpr::Ident { name } => name.clone(),
+            TyExpr::BuiltinIdent { name } => name.clone(),
             TyExpr::BinOp { op, lhs, rhs } => {
                 format!("[{} {} {}]", lhs.as_str(), op.as_str(), rhs.as_str())
             }

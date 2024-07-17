@@ -1,4 +1,4 @@
-// Lempel–Ziv–Welch compression algorithm
+// Lempel–Ziv–Welch compression/decompression algorithm
 fn compress(uncompressed str) [int] {
     dict_size := 256; dict : {str, int} = {}
     for (i := 0; i < dict_size; i += 1) {

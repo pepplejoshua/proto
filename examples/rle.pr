@@ -1,4 +1,4 @@
-// Run Length Encoding
+// Run Length Encoding compression/decompression algorithm
 // compress(): takes a string and returns a slice of pairs, where each
 // pair contains a character and the number of times it appears
 // consecutively.

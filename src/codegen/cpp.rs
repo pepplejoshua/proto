@@ -8,6 +8,7 @@ use super::tast::{TyExpr, TyFileModule, TyIns};
 pub struct State {
     in_count: usize,
     gen_typedefs_for: HashSet<String>,
+    builtins_used: HashSet<String>,
     uses_str_interpolation: bool,
     uses_print_ins: bool,
     uses_defer: bool,
@@ -21,6 +22,7 @@ impl State {
             uses_str_interpolation: false,
             uses_print_ins: false,
             uses_defer: false,
+            builtins_used: HashSet::new(),
         }
     }
 
@@ -44,6 +46,7 @@ const HMAP: &str = include_str!("../std/hmap.cppr");
 const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
 const PROTO_PRINT_CODE: &str = include_str!("../std/print.cppr");
 const PROTO_DEFER_CODE: &str = include_str!("../std/defer.cppr");
+const PROTO_BUILTINS_CODE: &str = include_str!("../std/builtins.cppr");
 
 pub fn cpp_gen_call_stack_tracker(state: &mut State) -> String {
     todo!()
@@ -207,6 +210,15 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
         };
     }
 
+    if !state.builtins_used.is_empty() {
+        buf.push('\n');
+        for builtin_name in state.builtins_used.iter() {
+            buf.push_str(&format!("#define {}\n", builtin_name.to_uppercase()));
+        }
+
+        buf.push_str(PROTO_BUILTINS_CODE);
+    }
+
     if state.uses_print_ins {
         // provides cout, endl
         includes.insert("#include <iostream>".to_string());
@@ -304,6 +316,10 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
         | TyExpr::Char { .. }
         | TyExpr::Bool { .. }
         | TyExpr::Ident { .. } => expr.as_str(),
+        TyExpr::BuiltinIdent { name, .. } => {
+            state.builtins_used.insert(name.clone());
+            name.clone()
+        }
         TyExpr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), cpp_gen_expr(expr, state)),
         TyExpr::Str { .. } => {
             format!("str({})", expr.as_str())
