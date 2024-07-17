@@ -1250,6 +1250,32 @@ pub fn check_expr(
                 return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
             }
 
+            // handle the case where the target's type is a hashmap
+            if let Ty::HashMap { key_ty, val_ty, .. } = target_ty.as_ref() {
+                // we will use the key type to check the index expression
+                let key_ty = (*key_ty).clone();
+                let (index_ty, index_ty_expr) = check_expr(index, &Some(key_ty.clone()), state);
+                if index_ty.is_error_ty() {
+                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                }
+                if !types_are_eq(&key_ty, &index_ty) {
+                    state.push_err(CheckerError::TypeMismatch {
+                        loc: index.get_source_ref(),
+                        expected: key_ty.as_str(),
+                        found: index_ty.as_str(),
+                    });
+                    return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                }
+
+                return (
+                    val_ty.clone_loc(loc.clone()),
+                    Some(TyExpr::IndexInto {
+                        target: Box::new(target_ty_expr.unwrap()),
+                        index: Box::new(index_ty_expr.unwrap()),
+                    }),
+                );
+            }
+
             let (index_ty, index_ty_expr) =
                 check_expr(index, &Some(Ty::get_uint_ty(index.get_source_ref())), state);
             if index_ty.is_error_ty() {
@@ -1403,6 +1429,70 @@ pub fn check_expr(
                         loc: loc.clone(),
                     });
                     (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                }
+                Ty::HashMap { key_ty, val_ty, .. } => {
+                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
+                        "len",
+                        Rc::new(Ty::Func {
+                            params: vec![],
+                            ret: Ty::get_uint_ty(builtin_loc.clone()),
+                            loc: builtin_loc.clone(),
+                        }),
+                    )]);
+
+                    methods.insert(
+                        "get",
+                        Rc::new(Ty::Func {
+                            params: vec![key_ty.clone_loc(builtin_loc.clone())],
+                            ret: Rc::new(Ty::Optional {
+                                sub_ty: val_ty.clone_loc(builtin_loc.clone()),
+                                loc: builtin_loc.clone(),
+                            }),
+                            loc: builtin_loc.clone(),
+                        }),
+                    );
+                    methods.insert(
+                        "insert",
+                        Rc::new(Ty::Func {
+                            params: vec![
+                                key_ty.clone_loc(builtin_loc.clone()),
+                                val_ty.clone_loc(builtin_loc.clone()),
+                            ],
+                            ret: Rc::new(Ty::Void {
+                                loc: builtin_loc.clone(),
+                            }),
+                            loc: builtin_loc.clone(),
+                        }),
+                    );
+                    methods.insert(
+                        "contains",
+                        Rc::new(Ty::Func {
+                            params: vec![key_ty.clone_loc(builtin_loc.clone())],
+                            ret: Rc::new(Ty::Bool {
+                                loc: builtin_loc.clone(),
+                            }),
+                            loc: builtin_loc.clone(),
+                        }),
+                    );
+                    // check if it is one of the methods on the type
+                    let mem_str = mem.as_str();
+                    match methods.get(mem_str.as_str()) {
+                        Some(meth_ty) => (
+                            meth_ty.clone(),
+                            Some(TyExpr::AccessMember {
+                                target: Box::new(target_ty_expr.unwrap()),
+                                mem: Box::new(TyExpr::Ident { name: mem_str }),
+                            }),
+                        ),
+                        None => {
+                            state.push_err(CheckerError::MemberDoesNotExist {
+                                given_ty: target_ty.as_str(),
+                                mem: mem_str,
+                                loc: loc.clone(),
+                            });
+                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                        }
+                    }
                 }
                 Ty::Str { .. } => {
                     let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(

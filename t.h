@@ -369,6 +369,10 @@ public:
     return contents[key];
   }
 
+  void insert(Key k, Value v) {
+    contents.insert({k, v});
+  }
+
   Option<Value> get(Key key) {
     const auto exists = contents.find(key);
     if (exists == contents.end()) {

@@ -11,6 +11,10 @@ public:
       return contents.size();
   }
 
+  void insert(Key k, Value v) {
+    contents.insert({k, v});
+  }
+
   Value& operator[](Key key) {
     return contents[key];
   }
@@ -43,7 +47,7 @@ public:
 
   str as_str() {
     str s = "{ ";
-    auto i = 0;
+    int i = 0;
     for (const auto& [key, val] : *this) {
       defer(i += 1);
       s += "(";

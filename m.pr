@@ -9,11 +9,16 @@ fn main() int {
         label: sex
     }
 
+    println(hmap["name"])
+    println(`hmap.get('non-existent'): {hmap.get("non-existent")}`)
+    hmap.insert("country", "nigeria")
+    println(`country is in hmap: {hmap.contains("country")}`)
+
     for [key, value] in hmap {
         println(key + ": " + value)
     }
 
-    println(`{hmap}`)
+    println(`{hmap} contains {hmap.len()} pairs`)
 
     return 0
 }

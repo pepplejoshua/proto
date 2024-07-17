@@ -6,6 +6,7 @@ using std::endl;
 int main() {
   HashMap<str, int> a = {{"hello", 1}, {"hi", 2}};
   cout << proto_str(a) << endl;
+  cout << proto_str(a.contains("non-existent")) << endl;
 
   return 0;
 }
