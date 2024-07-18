@@ -119,6 +119,8 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     typedefs.push_str("\ntypedef uint32_t uint_pr;");
                 }
             }
+            "f32" => typedefs.push_str("\ntypedef float f32;"),
+            "f64" => typedefs.push_str("\ntypedef double f64;"),
             "str" => {
                 typedefs.push_str("\ntypedef std::string str;");
                 includes.insert("#include <string>".to_string());
@@ -206,7 +208,7 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                     has_option_class = true;
                 }
             }
-            _ => unreachable!(),
+            _ => unreachable!("unknown sig: {sig}"),
         };
     }
 
@@ -237,6 +239,15 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
             header.push_str(&buf);
         }
         header.push('\n');
+    } else {
+        if !typedefs.is_empty() {
+            header.push_str(&typedefs);
+        }
+        if !buf.is_empty() {
+            header.push('\n');
+            header.push_str(&buf);
+        }
+        header.push('\n');
     }
     header
 }
@@ -246,6 +257,10 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
         Ty::Char { .. } | Ty::Bool { .. } | Ty::Void { .. } => ty.as_str(),
         Ty::Str { .. } => {
             state.gen_typedefs_for.insert("str".to_string());
+            ty.as_str()
+        }
+        Ty::Float { size, loc } => {
+            state.gen_typedefs_for.insert(ty.as_str());
             ty.as_str()
         }
         Ty::Signed { is_int, .. } => {
@@ -313,6 +328,7 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
 pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
     match expr {
         TyExpr::Integer { .. }
+        | TyExpr::Decimal { .. }
         | TyExpr::Char { .. }
         | TyExpr::Bool { .. }
         | TyExpr::Ident { .. } => expr.as_str(),

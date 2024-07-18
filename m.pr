@@ -1,68 +1,8 @@
-// Lempel–Ziv–Welch compression algorithm
-fn compress(uncompressed str) [int] {
-    dict_size := 256; dict : {str, int} = {}
-    for (i := 0; i < dict_size; i += 1) {
-        dict.insert(`{make_char(i)}`, i)
-    }
-    res := new([int]); w := ""
-    for ch in uncompressed {
-        wc :: w + ch
-        if dict.contains(wc) {
-            w = wc
-        } else {
-            res.append(dict[w])
-            dict.insert(wc, dict_size)
-            dict_size += 1
-            w = `{ch}`
-        }
-    }
-    if w.len() > 0 { res.append(dict[w]) }
-    return res
-}
-
-fn decompress(compressed [int]) ?str {
-    dict_size := 256; dict : {int, str} = {}
-    for (i := 0; i < dict_size; i += 1) {
-        dict.insert(i, `{make_char(i)}`)
-    }
-    w := `{make_char(compressed[0])}`;
-    res := w
-    for (i : uint = 1; i < compressed.len(); i += 1) {
-        k :: compressed[i]
-        entry := ""
-        if dict.contains(k) {
-            entry = dict[k]
-        } else if k == dict_size {
-            entry = w + w[0]
-        } else {
-            return none
-        }
-
-        res += entry
-        dict[dict_size] = w + entry[0]
-        dict_size += 1
-        w = entry
-    }
-
-    return some res
-}
-
 fn main() int {
-    half :: "ABABABABABABABABABABABABABABABC"
-    println(`{a.len()}`)
-    uncompressed :: half + half
-    compressed := compress(uncompressed)
-    decompressed :: decompress(compressed)
-    println(`uncompressed: {uncompressed}, len: {uncompressed.len()}`)
-    println(`compressed:   {compressed}, len: {compressed.len()}`)
+    decimal : f32 : 0.123456
+    double_dec : f64 : 3.143_321
 
-    if decompressed.is_some() {
-        decomp :: decompressed.unwrap()
-        println(`uncompressed: {decomp}, len: {decomp.len()}`)
-        println("decompression successful!")
-    } else {
-        println("decompression failed.")
-    }
-
+    println(`decimal: {decimal}`)
+    println(`double_dec: {double_dec}`)
     return 0
 }

@@ -7,8 +7,8 @@ struct Pair {
     count : int
 
     fn init(k char, c int) void {
-        key = k
-        count = c
+        self.key = k
+        self.count = c
     }
 
     fn as_str() str {

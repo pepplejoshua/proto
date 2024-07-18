@@ -8,6 +8,8 @@
 
 typedef uint64_t uint_pr;
 typedef std::string str;
+typedef float f32;
+typedef double f64;
 
 template <typename T>
 inline typename std::enable_if<std::is_arithmetic<T>::value, str>::type
@@ -503,12 +505,6 @@ public:
 template <typename T>
 inline auto proto_str(T& t) -> typename std::enable_if<has_as_str<T>::value, str>::type {
     return t.as_str();
-}
-
-// Fallback for other types (e.g., for demonstration)
-template <typename T>
-inline auto proto_str(T& t) -> typename std::enable_if<!has_as_str<T>::value, str>::type {
-    return "<unprintable>";
 }
 
 #ifdef MAKE_CHAR

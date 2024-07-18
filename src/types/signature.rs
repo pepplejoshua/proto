@@ -17,6 +17,10 @@ pub enum Ty {
         is_uint: bool,
         loc: Rc<SourceRef>,
     },
+    Float {
+        size: u8,
+        loc: Rc<SourceRef>,
+    },
     Str {
         loc: Rc<SourceRef>,
         is_interp: bool,
@@ -73,6 +77,13 @@ pub enum Ty {
 }
 
 impl Ty {
+    pub fn is_float_ty(&self) -> bool {
+        match self {
+            Ty::Float { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn is_num_ty(&self) -> bool {
         match self {
             Ty::Signed { .. } | Ty::Unsigned { .. } => true,
@@ -145,6 +156,7 @@ impl Ty {
             | Ty::NamedType { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
+            | Ty::Float { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -165,6 +177,7 @@ impl Ty {
             | Ty::Optional { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
+            | Ty::Float { loc, .. }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
@@ -187,6 +200,9 @@ impl Ty {
                 } else {
                     format!("u{size}")
                 }
+            }
+            Ty::Float { size, loc } => {
+                format!("f{size}")
             }
             Ty::Str { .. } => "str".into(),
             Ty::Char { .. } => "char".into(),

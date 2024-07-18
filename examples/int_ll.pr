@@ -1,7 +1,7 @@
 struct Node {
     val : int; next : ?*Node
     fn init(v int, n ?*Node) void {
-        val = v; next = n
+        self.val = v; self.next = n
     }
 }
 

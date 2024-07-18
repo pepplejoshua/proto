@@ -5,10 +5,9 @@ using std::cout;
 using std::endl;
 
 int main() {
-  HashMap<str, int> a = {{"hello", 1}, {"hi", 2}};
-  cout << proto_str(a) << endl;
-  cout << proto_str(a.contains("non-existent")) << endl;
+  f32 a = 1.234;
+  f64 b = 2.345;
 
-  cout << make_char(87) << endl;
+  cout << proto_str(a) << endl;
   return 0;
 }

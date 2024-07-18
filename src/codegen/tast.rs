@@ -23,6 +23,9 @@ pub enum TyExpr {
     Integer {
         val: String,
     },
+    Decimal {
+        val: String,
+    },
     Str {
         val: String,
     },
@@ -122,7 +125,7 @@ pub enum TyExpr {
 impl TyExpr {
     pub fn as_str(&self) -> String {
         match self {
-            TyExpr::Integer { val } => val.clone(),
+            TyExpr::Integer { val } | TyExpr::Decimal { val } => val.clone(),
             TyExpr::Str { val } => format!("\"{val}\""),
             TyExpr::Char { val } => format!("'{val}'"),
             TyExpr::Bool { val } => format!(

@@ -75,6 +75,7 @@ pub enum Token {
 
     // literals
     NumberLiteral(String, Rc<SourceRef>),
+    DecimalLiteral(String, Rc<SourceRef>),
     Identifier(String, Rc<SourceRef>),
     CharLiteral(Rc<SourceRef>, char),
     SingleLineStringLiteral(Rc<SourceRef>, String),
@@ -93,6 +94,8 @@ pub enum Token {
     U32(Rc<SourceRef>),
     U64(Rc<SourceRef>),
     UInt(Rc<SourceRef>),
+    F32(Rc<SourceRef>),
+    F64(Rc<SourceRef>),
     Bool(Rc<SourceRef>),
     Void(Rc<SourceRef>),
     Char(Rc<SourceRef>),
@@ -155,6 +158,7 @@ impl Token {
             | Token::SingleLineStringLiteral(src, _)
             | Token::MultiLineStringFragment(src, _)
             | Token::NumberLiteral(_, src)
+            | Token::DecimalLiteral(_, src)
             | Token::Struct(src)
             | Token::I8(src)
             | Token::I16(src)
@@ -166,6 +170,8 @@ impl Token {
             | Token::U32(src)
             | Token::U64(src)
             | Token::UInt(src)
+            | Token::F32(src)
+            | Token::F64(src)
             | Token::Bool(src)
             | Token::Char(src)
             | Token::Str(src)
@@ -254,6 +260,7 @@ impl Token {
             Token::Dot(_) => ".".into(),
             Token::Identifier(name, _) => name.clone(),
             Token::NumberLiteral(num, _) => num.to_string(),
+            Token::DecimalLiteral(dec, _) => dec.to_string(),
             Token::I8(_) => "i8".into(),
             Token::I16(_) => "i16".into(),
             Token::I32(_) => "i32".into(),
@@ -264,6 +271,8 @@ impl Token {
             Token::U32(_) => "u32".into(),
             Token::U64(_) => "u64".into(),
             Token::UInt(_) => "uint".into(),
+            Token::F32(_) => "f32".into(),
+            Token::F64(_) => "f64".into(),
             Token::Bool(_) => "bool".into(),
             Token::Char(_) => "char".into(),
             Token::Str(_) => "str".into(),

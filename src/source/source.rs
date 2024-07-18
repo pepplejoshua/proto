@@ -279,6 +279,10 @@ impl SourceReporter {
                 );
                 self.report_with_ref(src, msg, Some(tip), false);
             }
+            LexError::DecimalLiteralWithMultipleDecimalPoints(src) => {
+                let msg = "Decimal literal contains more than 1 decimal point.".to_string();
+                self.report_with_ref(src, msg, None, false);
+            }
         }
     }
 
@@ -395,7 +399,11 @@ impl SourceReporter {
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!("Failed to convert Number<'{}'> to i32.", number);
+                let msg = format!("Failed to convert '{}' to i32.", number);
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::DecimalTypeDefaultInferenceFailed { loc, number } => {
+                let msg = format!("Failed to convert '{}' to f32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
             CheckerError::NumberTypeInferenceFailed {
@@ -405,6 +413,17 @@ impl SourceReporter {
             } => {
                 let msg = format!(
                     "Number '{}' is not compatible with the given type '{}'.",
+                    number, given_type
+                );
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            CheckerError::DecimalTypeInferenceFailed {
+                loc,
+                number,
+                given_type,
+            } => {
+                let msg = format!(
+                    "Decimal '{}' is not compatible with the given type '{}'.",
                     number, given_type
                 );
                 self.report_with_ref(&loc, msg, None, false);

@@ -1158,6 +1158,8 @@ impl Parser {
                 // 64 bit platform
                 Ty::get_uint_ty(loc)
             }
+            Token::F32(loc) => Rc::new(Ty::Float { size: 32, loc }),
+            Token::F64(loc) => Rc::new(Ty::Float { size: 64, loc }),
             Token::Char(loc) => Rc::new(Ty::Char { loc }),
             Token::Bool(loc) => Rc::new(Ty::Bool { loc }),
             Token::Str(loc) => Rc::new(Ty::Str {
@@ -1971,6 +1973,10 @@ impl Parser {
             Token::NumberLiteral(num, src) => {
                 self.advance();
                 Expr::Number { val: num, loc: src }
+            }
+            Token::DecimalLiteral(dec, src) => {
+                self.advance();
+                Expr::Decimal { val: dec, loc: src }
             }
             Token::SingleLineStringLiteral(loc, str) => {
                 self.advance();

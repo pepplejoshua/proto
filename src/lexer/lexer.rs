@@ -280,6 +280,8 @@ impl Lexer {
             "u32" => Ok(Token::U32(combined_ref)),
             "u64" => Ok(Token::U64(combined_ref)),
             "uint" => Ok(Token::UInt(combined_ref)),
+            "f32" => Ok(Token::F32(combined_ref)),
+            "f64" => Ok(Token::F64(combined_ref)),
             "bool" => Ok(Token::Bool(combined_ref)),
             "char" => Ok(Token::Char(combined_ref)),
             "str" => Ok(Token::Str(combined_ref)),
@@ -567,6 +569,7 @@ impl Lexer {
 
         // read all characters that are digits
         let mut end_ref;
+        let mut decimal_point_count = 0;
         loop {
             let c = self.src.next_char();
             end_ref = self.src.get_ref();
@@ -575,16 +578,24 @@ impl Lexer {
             } else if c == '_' {
                 // ignore underscores
                 continue;
+            } else if c == '.' {
+                decimal_point_count += 1;
+                number.push(c);
             } else {
                 break;
             }
         }
 
         let combined_ref = cur_ref.combine(end_ref);
-
-        // TODO: if the next character is a '.', try to lex a float
-
-        Ok(Token::NumberLiteral(number, combined_ref))
+        if decimal_point_count == 0 {
+            Ok(Token::NumberLiteral(number, combined_ref))
+        } else if decimal_point_count == 1 {
+            Ok(Token::DecimalLiteral(number, combined_ref))
+        } else {
+            Err(LexError::DecimalLiteralWithMultipleDecimalPoints(
+                combined_ref,
+            ))
+        }
     }
 }
 

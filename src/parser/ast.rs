@@ -75,6 +75,10 @@ pub enum Expr {
         val: String,
         loc: Rc<SourceRef>,
     },
+    Decimal {
+        val: String,
+        loc: Rc<SourceRef>,
+    },
     Str {
         val: String,
         loc: Rc<SourceRef>,
@@ -181,6 +185,7 @@ impl Expr {
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Expr::Number { loc, .. }
+            | Expr::Decimal { loc, .. }
             | Expr::Str { loc, .. }
             | Expr::Char { loc, .. }
             | Expr::Bool { loc, .. }
@@ -209,6 +214,7 @@ impl Expr {
     pub fn is_literal(&self) -> bool {
         match self {
             Expr::Number { .. }
+            | Expr::Decimal { .. }
             | Expr::InterpolatedString { .. }
             | Expr::Str { .. }
             | Expr::Char { .. }
@@ -221,6 +227,7 @@ impl Expr {
     pub fn has_address(&self) -> bool {
         match self {
             Expr::Number { .. }
+            | Expr::Decimal { .. }
             | Expr::Str { .. }
             | Expr::InterpStr { .. }
             | Expr::Char { .. }
@@ -269,7 +276,7 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Number { val, .. } => val.clone(),
+            Expr::Number { val, .. } | Expr::Decimal { val, .. } => val.clone(),
             Expr::Str { val, .. } => format!("\"{val}\""),
             Expr::Char { val, .. } => format!("'{val}'"),
             Expr::Bool { val, .. } => {

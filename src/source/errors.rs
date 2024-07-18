@@ -12,6 +12,7 @@ pub enum LexError {
     EmptyCharacterLiteral(Rc<SourceRef>),
     UnterminatedCharacterLiteral(Rc<SourceRef>),
     UnterminatedStringLiteral(Rc<SourceRef>),
+    DecimalLiteralWithMultipleDecimalPoints(Rc<SourceRef>),
 }
 
 #[derive(Debug, Clone)]
@@ -78,7 +79,16 @@ pub enum CheckerError {
         loc: Rc<SourceRef>,
         number: String,
     },
+    DecimalTypeDefaultInferenceFailed {
+        loc: Rc<SourceRef>,
+        number: String,
+    },
     NumberTypeInferenceFailed {
+        loc: Rc<SourceRef>,
+        number: String,
+        given_type: String,
+    },
+    DecimalTypeInferenceFailed {
         loc: Rc<SourceRef>,
         number: String,
         given_type: String,

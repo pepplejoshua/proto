@@ -14,41 +14,13 @@
 - Work on pointers. [DONE]
 - Make pointers printable (implement proto_str() for it). [DONE]
 - Add naive allocation (`new` and `free` essentially). To be removed when allocators are good (and replaced with a NaiveAllocator that uses that). [DONE]
-- Add hashmaps. Implement methods and [] indexing.
+- Add hashmaps. Implement methods and [] indexing. [DONE]
+- Add floats and doubles.
 - Add range expression (they will need to be restricted for a few use cases).
-- Look into how comparator function can be implemented for the types used in hashmaps.
-- Make self's type to be a pointer to the current type. This will stop C++
-from implicitly removing its generated copy constructor.
-- Allow access members on pointers of types that have members. Compile to PtrAccessMember expression.
-- Add using for struct composing other structs.
-- Add option for user to provide deinit() void function on structs to handle clean up of internal resources. How does this interact with al locators?
-- Report an error if a struct field refers to itself unwrap by another types
-- Should new return a pointer or an optional pointer?
-- Add CFG to seman for checking validity of variable references (they have been initialized through all execution paths). Use Claude 3.5 Sonnet as a guide.
-- Make functions printable (generate a string in seman to show the type).
-- Work on support for allocators (explicit or implicitly through context passing).
-- Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
-- Add String type for growable strings. Requires an explicit allocator passed into it.
-- Improve typechecking of NamedTypes. Use type_is_valid more pervasively and check that NamedTypes exist in the current scope
-- Look into implementing my own Char and Str types. Use starting work in t.h
-- Allow declaring functions with `fn name() ret_ty {}` syntax within function blocks. Generate lambda assigned to a constant after checking. In the lambda, do not capture the environment. Functions declared this way are self-contained with no reference to outside scope. They are not closures.
-- Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection. This will allow the implementation of of typeid as a type.
-- Add functional methods (map, filter) to iterables.
 - Consider if tuples are valuable to add (if I can implement them myself in C++)
-- Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
-- Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
-```rs
-fn single_explicit() void do println("hello")
-fn single_implicit() do println("hello")
-fn multi_explicit() void {
-    s :: "hello"
-    println(s)
-}
-fn multi_implicit() {
-    s :: "hello"
-    println(s)
-}
-```
+- Make self's type to be a pointer to the current type. This will stop C++ from implicitly removing its generated copy constructor.
+- Allow access members on pointers of types that have members. Compile to PtrAccessMember expression. It will work well with the self-as-pointer change.
+- Remove direct access to fields and methods within structs. All access to internal data should go through self. This will help when I implement const methods since I can make just self const and use it to determine whether fields can be mutated, and also if a non-const function can be called.
 - Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables.
 ```rs
 struct Node {
@@ -81,6 +53,35 @@ fn main() int {
 }
 ```
 - Mutable/const function parameters
+- Look into how comparator function can be implemented for the types used in hashmaps.
+- Add using for struct composing other structs.
+- Add option for user to provide deinit() void function on structs to handle clean up of internal resources. How does this interact with allocators?
+- Report an error if a struct field refers to itself unwrap by another types
+- Should new return a pointer or an optional pointer?
+- Add CFG to seman for checking validity of variable references (they have been initialized through all execution paths). Use Claude 3.5 Sonnet as a guide.
+- Make functions printable (generate a string in seman to show the type).
+- Work on support for allocators (explicit or implicitly through context passing).
+- Explore how untyped integers can be used (by containing a pointer to the originating expression) in typechecking where we don't have context of use early. so `a :: 1` will be untyped int until `b : u8 : a + 1`, where it can be enforced to be typed u8, with the 1 expression checked again.
+- Add String type for growable strings. Requires an explicit allocator passed into it.
+- Improve typechecking of NamedTypes. Use type_is_valid more pervasively and check that NamedTypes exist in the current scope
+- Look into implementing my own Char and Str types. Use starting work in t.h
+- Allow declaring functions with `fn name() ret_ty {}` syntax within function blocks. Generate lambda assigned to a constant after checking. In the lambda, do not capture the environment. Functions declared this way are self-contained with no reference to outside scope. They are not closures.
+- Work on type tables. Ty will be just type information. Which will be tracked by the type table using type IDs generated from hashes. This will restrict the number of types generated in a program to one instance per type. The program will now have type instances which hold a type id for the actual type and the SourceRef of the type instance. They will be heavily used while types themselves will be stored in the type table. This type table can get generated alongside user code. To allow introspection. This will allow the implementation of of typeid as a type.
+- Add functional methods (map, filter) to iterables.
+- Reimplement variables and constants within structs differently. Maybe restrict access to fields to only through self? This will help with distinguishing between methods and assoc functions. This can probably also help with mutability rule checking for methods. Since instead of marking all fields as const, we would just mark self as const.
+- Add do keyword for single statement functions / lambdas (non-block). This will allow forgoing a void type for the function since I can check for `{` or `do` to determine whether to just parse the body, or to parse a type, and then parse a body.
+```rs
+fn single_explicit() void do println("hello")
+fn single_implicit() do println("hello")
+fn multi_explicit() void {
+    s :: "hello"
+    println(s)
+}
+fn multi_implicit() {
+    s :: "hello"
+    println(s)
+}
+```
 - Can SourceRef be made smaller, without affecting error reporting?
 - For literals like Strings, Slices, Arrays and Optional, instead of just generating the literal in C++, wrap it with the actual type. This will mean these expression nodes will carry their type with them. So the literals can be used in any instance (like printing a `some a` where a is an array) without a complaint about knowing the type to use.
 - Add support for traits.

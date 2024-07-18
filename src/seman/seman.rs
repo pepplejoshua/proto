@@ -220,6 +220,7 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
                 ..
             },
         ) => *size == *b_size && *is_uint == *b_is_uint,
+        (Ty::Float { size, .. }, Ty::Float { size: b_size, .. }) => *size == *b_size,
         (Ty::Bool { .. }, Ty::Bool { .. })
         | (Ty::Str { .. }, Ty::Str { .. })
         | (Ty::Char { .. }, Ty::Char { .. })
@@ -300,23 +301,102 @@ pub fn check_expr(
     state: &mut State,
 ) -> (Rc<Ty>, Option<TyExpr>) {
     match e {
+        Expr::Decimal { val, loc } => match context_ty {
+            Some(ty) => {
+                if ty.is_float_ty() {
+                    let val_is_err = match ty.as_ref() {
+                        Ty::Float { size, loc } => {
+                            match size {
+                                32 => {
+                                    val.parse::<f32>().is_err()
+                                }
+                                64 => {
+                                    val.parse::<f64>().is_err()
+                                }
+                                _ => unreachable!(
+                                    "seman::check_expr(): unexpected float size {} in number inference.",
+                                    size
+                                )
+                            }
+                        }
+                        _ => unreachable!(
+                            "seman::check_expr(): unexpected type {} in number inference.",
+                            ty.as_str()
+                        ),
+                    };
+
+                    if val_is_err {
+                        state.push_err(CheckerError::DecimalTypeInferenceFailed {
+                            loc: loc.clone(),
+                            number: val.clone(),
+                            given_type: ty.as_str(),
+                        });
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                    } else {
+                        (
+                            ty.clone_loc(loc.clone()),
+                            Some(TyExpr::Decimal { val: val.clone() }),
+                        )
+                    }
+                } else {
+                    // make sure val is valid f32 and return the right type
+                    // else return error
+                    let val_is_err = val.parse::<f32>().is_err();
+
+                    if val_is_err {
+                        state.push_err(CheckerError::DecimalTypeDefaultInferenceFailed {
+                            loc: loc.clone(),
+                            number: val.clone(),
+                        });
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                    } else {
+                        (
+                            Rc::new(Ty::Float {
+                                size: 32,
+                                loc: loc.clone(),
+                            }),
+                            Some(TyExpr::Decimal { val: val.clone() }),
+                        )
+                    }
+                }
+            }
+            None => {
+                let val_is_err = val.parse::<f32>().is_err();
+
+                if val_is_err {
+                    state.push_err(CheckerError::DecimalTypeDefaultInferenceFailed {
+                        loc: loc.clone(),
+                        number: val.clone(),
+                    });
+                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                } else {
+                    (
+                        Rc::new(Ty::Float {
+                            size: 32,
+                            loc: loc.clone(),
+                        }),
+                        Some(TyExpr::Decimal { val: val.clone() }),
+                    )
+                }
+            }
+        },
         Expr::Number { val, loc } => match context_ty {
             Some(ty) => {
                 if ty.is_num_ty() {
-                    let val_is_err = match ty.as_ref() {
+                    let (val_is_err, is_float) = match ty.as_ref() {
                         Ty::Signed { size, is_int, loc } => {
                             match size {
                                 8 => {
-                                    val.parse::<i8>().is_err()
+                                    (val.parse::<i8>().is_err(), false)
                                 }
                                 16 => {
-                                    val.parse::<i16>().is_err()
+                                    (val.parse::<i16>().is_err(), false)
                                 }
                                 32 => {
-                                    val.parse::<i32>().is_err()
+                                    (val.parse::<i32>().is_err(), false)
                                 }
                                 64 => {
-                                    val.parse::<i64>().is_err()
+                                    (val.parse::<i64>().is_err(), false)
                                 }
                                 _ => unreachable!(
                                     "seman::check_expr(): unexpected signed size {} in number inference.",
@@ -327,19 +407,33 @@ pub fn check_expr(
                         Ty::Unsigned { size, is_uint, loc } => {
                             match size {
                                 8 => {
-                                    val.parse::<u8>().is_err()
+                                    (val.parse::<u8>().is_err(), false)
                                 }
                                 16 => {
-                                    val.parse::<u16>().is_err()
+                                    (val.parse::<u16>().is_err(), false)
                                 }
                                 32 => {
-                                    val.parse::<u32>().is_err()
+                                    (val.parse::<u32>().is_err(), false)
                                 }
                                 64 => {
-                                    val.parse::<u64>().is_err()
+                                    (val.parse::<u64>().is_err(), false)
                                 }
                                 _ => unreachable!(
                                     "seman::check_expr(): unexpected unsigned size {} in number inference.",
+                                    size
+                                )
+                            }
+                        }
+                        Ty::Float { size, loc } => {
+                            match size {
+                                32 => {
+                                    (val.parse::<f32>().is_err(), true)
+                                }
+                                64 => {
+                                    (val.parse::<f64>().is_err(), true)
+                                }
+                                _ => unreachable!(
+                                    "seman::check_expr(): unexpected float size {} in number inference.",
                                     size
                                 )
                             }
@@ -358,10 +452,17 @@ pub fn check_expr(
                         });
                         (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
                     } else {
-                        (
-                            ty.clone_loc(loc.clone()),
-                            Some(TyExpr::Integer { val: val.clone() }),
-                        )
+                        if is_float {
+                            (
+                                ty.clone_loc(loc.clone()),
+                                Some(TyExpr::Decimal { val: val.clone() }),
+                            )
+                        } else {
+                            (
+                                ty.clone_loc(loc.clone()),
+                                Some(TyExpr::Integer { val: val.clone() }),
+                            )
+                        }
                     }
                 } else {
                     // make sure val is valid isize and return the right type
@@ -1086,6 +1187,7 @@ pub fn check_expr(
                         | Ty::Slice { .. }
                         | Ty::Optional { .. }
                         | Ty::Pointer { .. }
+                        | Ty::Float { .. }
                         | Ty::HashMap { .. } => Some(TyExpr::CallFn {
                             func: Box::new(TyExpr::Ident {
                                 name: "proto_str".to_string(),
@@ -1997,6 +2099,7 @@ pub fn check_expr(
             match ty.as_ref() {
                 Ty::Signed { .. }
                 | Ty::Unsigned { .. }
+                | Ty::Float { .. }
                 | Ty::Str { .. }
                 | Ty::Char { .. }
                 | Ty::Void { .. }
