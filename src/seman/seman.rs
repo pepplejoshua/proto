@@ -1504,6 +1504,7 @@ pub fn check_expr(
                                     Some(TyExpr::AccessMember {
                                         target: Box::new(target_ty_expr.unwrap()),
                                         mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                        is_self_access: false,
                                     }),
                                 );
                             }
@@ -1515,6 +1516,7 @@ pub fn check_expr(
                                     Some(TyExpr::AccessMember {
                                         target: Box::new(target_ty_expr.unwrap()),
                                         mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                        is_self_access: false,
                                     }),
                                 );
                             }
@@ -1530,6 +1532,12 @@ pub fn check_expr(
                     }
                 }
                 Ty::Struct { fields, funcs, .. } => {
+                    let is_self = if let Expr::Ident { name, loc } = target.as_ref() {
+                        name == "self"
+                    } else {
+                        false
+                    };
+
                     // we will check fields, assoc_funcs and methods
                     let field_ty = fields.get(&mem.as_str());
                     if let Some(field_ty) = field_ty {
@@ -1538,6 +1546,7 @@ pub fn check_expr(
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                is_self_access: is_self,
                             }),
                         );
                     }
@@ -1549,6 +1558,7 @@ pub fn check_expr(
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                                is_self_access: is_self,
                             }),
                         );
                     }
@@ -1612,6 +1622,7 @@ pub fn check_expr(
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem_str }),
+                                is_self_access: false,
                             }),
                         ),
                         None => {
@@ -1647,6 +1658,7 @@ pub fn check_expr(
                                         mem_str
                                     },
                                 }),
+                                is_self_access: false,
                             }),
                         ),
                         None => {
@@ -1725,6 +1737,7 @@ pub fn check_expr(
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem_str }),
+                                is_self_access: false,
                             }),
                         ),
                         None => {
@@ -1777,6 +1790,7 @@ pub fn check_expr(
                             Some(TyExpr::AccessMember {
                                 target: Box::new(target_ty_expr.unwrap()),
                                 mem: Box::new(TyExpr::Ident { name: mem_str }),
+                                is_self_access: false,
                             }),
                         ),
                         None => {

@@ -426,12 +426,20 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                 cpp_gen_expr(index, state)
             )
         }
-        TyExpr::AccessMember { target, mem } => {
-            format!(
-                "{}.{}",
-                cpp_gen_expr(target, state),
-                cpp_gen_expr(mem, state)
-            )
+        TyExpr::AccessMember {
+            target,
+            mem,
+            is_self_access,
+        } => {
+            if *is_self_access {
+                format!("this->{}", cpp_gen_expr(mem, state))
+            } else {
+                format!(
+                    "{}.{}",
+                    cpp_gen_expr(target, state),
+                    cpp_gen_expr(mem, state)
+                )
+            }
         }
         TyExpr::OptionalExpr { val } => {
             if let Some(v) = val {
@@ -564,8 +572,6 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
         } => {
             buf = format!("{}struct {name} {{\n", state.get_pad());
             state.indent();
-            // write code for instance variable, self
-            // buf.push_str(&format!("{}{name}& self = *this;\n", state.get_pad()));
 
             // write all fields
             for f in fields {

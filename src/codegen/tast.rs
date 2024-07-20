@@ -87,6 +87,7 @@ pub enum TyExpr {
     AccessMember {
         target: Box<TyExpr>,
         mem: Box<TyExpr>,
+        is_self_access: bool,
     },
     OptionalExpr {
         val: Option<Box<TyExpr>>,
@@ -209,7 +210,7 @@ impl TyExpr {
             TyExpr::IndexInto { target, index } => {
                 format!("{}[{}]", target.as_str(), index.as_str())
             }
-            TyExpr::AccessMember { target, mem } => {
+            TyExpr::AccessMember { target, mem, .. } => {
                 format!("{}.{}", target.as_str(), mem.as_str())
             }
             TyExpr::OptionalExpr { val } => match val {

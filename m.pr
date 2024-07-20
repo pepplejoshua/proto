@@ -1,8 +1,12 @@
-fn main() int {
-    decimal : f32 : 0.123456
-    double_dec : f64 : 3.143_321
+struct A {
+    num : int
 
-    println(`decimal: {decimal}`)
-    println(`double_dec: {double_dec}`)
+    fn init(n int) void {
+        self.num = n
+    }
+}
+
+
+fn main() int {
     return 0
 }
