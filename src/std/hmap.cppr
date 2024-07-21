@@ -45,7 +45,7 @@ public:
     return get(key).is_some();
   }
 
-  str as_str() {
+  const str as_str() const {
     str s = "{ ";
     int i = 0;
     for (const auto& [key, val] : *this) {
