@@ -2960,6 +2960,9 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 is_initialized: true,
             };
             state.env.add("self".into(), self_info.clone());
+            // this scope is temporary, only used for checking fields. Since accessing
+            // fields without self is not allowed, it will be popped after checking fields
+            state.env.extend();
 
             let mut ty_fs = vec![];
             for f in fields {
@@ -2985,6 +2988,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                     ty_fs.push(ty_f);
                 }
             }
+
+            state.env.pop();
 
             let mut ty_fns = vec![];
             for func in funcs {

@@ -4,6 +4,10 @@ struct A {
     fn init(n int) void {
         self.num = n
     }
+
+    fn s() int {
+        return self.num
+    }
 }
 
 
