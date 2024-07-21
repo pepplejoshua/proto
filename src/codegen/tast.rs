@@ -302,6 +302,7 @@ pub enum TyIns {
         name: String,
         params: Vec<TyFnParam>,
         ret_ty: Rc<Ty>,
+        is_const_method: bool,
         body: Box<TyIns>,
     },
     Struct {
@@ -406,6 +407,7 @@ impl TyIns {
                 params,
                 ret_ty,
                 body,
+                is_const_method,
             } => {
                 let params_str = params
                     .iter()
@@ -413,7 +415,8 @@ impl TyIns {
                     .collect::<Vec<String>>();
                 let params_str = params_str.join(", ");
                 format!(
-                    "fn {name}({params_str}) {}\n{}",
+                    "{}fn {name}({params_str}) {}\n{}",
+                    if *is_const_method { "const " } else { "" },
                     ret_ty.as_str(),
                     body.as_str()
                 )

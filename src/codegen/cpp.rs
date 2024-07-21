@@ -547,6 +547,7 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             params,
             ret_ty,
             body,
+            is_const_method,
         } => {
             let ret_ty_s = cpp_gen_ty(ret_ty, state);
             let params_s = params
@@ -565,7 +566,12 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
             } else {
                 format!("\n{}", cpp_gen_ins(body, state))
             };
-            buf = format!("{}{ret_ty_s} {name}({params_s}){body_s}\n", state.get_pad());
+            buf = format!(
+                "{}{}{ret_ty_s} {name}({params_s}){}{body_s}\n",
+                state.get_pad(),
+                if *is_const_method { "const " } else { "" },
+                if *is_const_method { " const" } else { "" },
+            );
         }
         TyIns::Struct {
             name,

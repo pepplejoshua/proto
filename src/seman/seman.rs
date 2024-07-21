@@ -2699,6 +2699,8 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             ret_type,
             body,
             loc,
+            is_const,
+            ..
         } => {
             // make sure name is not taken
             let fn_info = state.env.lookup(&name.as_str());
@@ -2852,16 +2854,44 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
 
             let new_body = new_body.unwrap();
 
+            let is_const_method = if *is_const {
+                // determine if we are inside a method:
+                let mut fn_count_to_struct = 0;
+                let mut in_struct = false;
+
+                for scope in state.scope_stack.iter().rev() {
+                    if matches!(scope, Scope::Func) {
+                        fn_count_to_struct += 1;
+                        continue;
+                    }
+
+                    if matches!(scope, Scope::Struct) {
+                        in_struct = true;
+                        break;
+                    }
+                }
+
+                if in_struct && fn_count_to_struct == 1 {
+                    true
+                } else {
+                    false
+                }
+            } else {
+                false
+            };
+
             // reset the scope info
             state.enter_new_scope = old_enter_new_scope;
             state.check_for_return = old_check_for_return;
             state.scope_stack.pop();
             state.env.pop();
+
             Some(TyIns::Func {
                 name: name.as_str(),
                 params: ty_params,
                 ret_ty: ret_type.clone(),
                 body: Box::new(new_body),
+                is_const_method,
             })
         }
         Ins::IfConditional {
@@ -2993,6 +3023,15 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
 
             let mut ty_fns = vec![];
             for func in funcs {
+                // determine if it is a const function. if it is make self const for the check
+                let is_const = if let Ins::DeclFunc { is_const, .. } = func {
+                    let self_inst = state.env.shallow_lookup("self").unwrap();
+                    self_inst.is_const = *is_const;
+                    *is_const
+                } else {
+                    false
+                };
+
                 let ty_fn = check_ins(func, &None, state);
 
                 if let Some(ty_fn) = ty_fn {

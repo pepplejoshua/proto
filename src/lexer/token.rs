@@ -26,6 +26,7 @@ pub enum Token {
     Some(Rc<SourceRef>),
     None(Rc<SourceRef>),
     Defer(Rc<SourceRef>),
+    Const(Rc<SourceRef>),
 
     // operators
     BackSlash(Rc<SourceRef>),
@@ -119,6 +120,7 @@ impl Token {
             | Token::If(src)
             | Token::Else(src)
             | Token::For(src)
+            | Token::Const(src)
             | Token::Plus(src)
             | Token::Minus(src)
             | Token::Star(src)
@@ -216,6 +218,7 @@ impl Token {
                 | Token::At(_)
                 | Token::SingleLineComment(_, _)
                 | Token::Fn(_)
+                | Token::Const(_)
         )
     }
 
@@ -303,6 +306,7 @@ impl Token {
             Token::ModuloAssign(_) => "%=".to_string(),
             Token::BackSlash(_) => "\\".to_string(),
             Token::Ampersand(_) => "&".to_string(),
+            Token::Const(_) => "const".to_string(),
         }
     }
 }

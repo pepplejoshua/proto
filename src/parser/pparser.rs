@@ -262,9 +262,13 @@ impl Parser {
         let cur = self.cur_token();
         let mut check_term = false;
         let ins = match cur {
+            Token::Const(_) => {
+                self.advance();
+                self.parse_fn(true)
+            }
             Token::Identifier(name, ..) if name == "free" => self.parse_free(),
             Token::Defer(_) => self.parse_defer(),
-            Token::Fn(_) => self.parse_fn(),
+            Token::Fn(_) => self.parse_fn(false),
             Token::For(_) => self.parse_loop(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
@@ -737,7 +741,7 @@ impl Parser {
         params
     }
 
-    fn parse_fn(&mut self) -> Ins {
+    fn parse_fn(&mut self, is_const: bool) -> Ins {
         let start = self.cur_token();
         self.advance();
 
@@ -756,6 +760,7 @@ impl Parser {
             params,
             ret_type,
             body: Box::new(body),
+            is_const,
             loc: fn_span,
         }
     }

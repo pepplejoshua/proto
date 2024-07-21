@@ -5,7 +5,8 @@ struct A {
         self.num = n
     }
 
-    fn s() int {
+    const fn s() int {
+        // self.num = 3
         return self.num
     }
 }
@@ -13,7 +14,7 @@ struct A {
 
 fn main() int {
     a :: new(A, 300); defer free(a)
-    println(`{a.num}`)
+    println(`{a}`)
 
     b :: some 1
     println(`{b.unwrap()}`)

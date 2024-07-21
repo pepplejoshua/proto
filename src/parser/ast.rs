@@ -443,6 +443,7 @@ pub enum Ins {
         name: Expr,
         params: Vec<FnParam>,
         ret_type: Rc<Ty>,
+        is_const: bool,
         body: Box<Ins>,
         loc: Rc<SourceRef>,
     },
@@ -631,6 +632,7 @@ impl Ins {
                 params,
                 ret_type,
                 body,
+                is_const,
                 ..
             } => {
                 let params_str: Vec<String> = params
@@ -641,7 +643,8 @@ impl Ins {
                     .collect();
                 let params_str = params_str.join(", ");
                 let mut buf = format!(
-                    "fn {}({params_str}) {}\n{}",
+                    "{}fn {}({params_str}) {}\n{}",
+                    if *is_const { "const " } else { "" },
                     name.as_str(),
                     ret_type.as_str(),
                     body.as_str()
