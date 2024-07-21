@@ -430,13 +430,15 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
             target,
             mem,
             is_self_access,
+            is_ptr,
         } => {
             if *is_self_access {
                 format!("this->{}", cpp_gen_expr(mem, state))
             } else {
                 format!(
-                    "{}.{}",
+                    "{}{}{}",
                     cpp_gen_expr(target, state),
+                    if *is_ptr { "->" } else { "." },
                     cpp_gen_expr(mem, state)
                 )
             }

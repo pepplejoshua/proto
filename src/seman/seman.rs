@@ -295,6 +295,277 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
     }
 }
 
+fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
+    let builtin_loc = Rc::new(SourceRef {
+        file: Rc::new("__proto_gen_builtins__".to_string()),
+        start_line: 0,
+        start_col: 0,
+        end_line: 0,
+        end_col: 0,
+        flat_start: 0,
+        flat_end: 0,
+    });
+
+    match target_ty {
+        Ty::Pointer { sub_ty, loc } => {
+            if sub_ty.is_pointer() {
+                return Rc::new(Ty::ErrorType { loc: loc.clone() });
+            }
+
+            check_for_member(sub_ty, mem, state)
+        }
+        Ty::NamedType { name, loc } => {
+            // we will get the underlying type and then check that
+            let n_info = state.env.lookup(name);
+
+            if n_info.is_none() {
+                state.push_err(CheckerError::InvalidType {
+                    loc: target_ty.get_loc(),
+                    type_name: name.clone(),
+                });
+                return Rc::new(Ty::ErrorType { loc: loc.clone() });
+            }
+
+            // we want to find the init() void function in the Struct
+            let actual_ty_info = n_info.unwrap().clone();
+            let actual_ty = &*actual_ty_info.ty.borrow();
+
+            check_for_member(actual_ty, mem, state)
+        }
+        Ty::Struct {
+            fields, funcs, loc, ..
+        } => {
+            // we will check fields, assoc_funcs and methods
+            let field_ty = fields.get(mem);
+            if let Some(field_ty) = field_ty {
+                return field_ty.clone();
+            }
+
+            let func_ty = funcs.get(mem);
+            if let Some(func_ty) = func_ty {
+                return func_ty.clone();
+            }
+
+            state.push_err(CheckerError::MemberDoesNotExist {
+                given_ty: target_ty.as_str(),
+                mem: mem.to_string(),
+                loc: loc.clone(),
+            });
+            Rc::new(Ty::ErrorType { loc: loc.clone() })
+        }
+        Ty::HashMap {
+            key_ty,
+            val_ty,
+            loc,
+        } => {
+            let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
+                "len",
+                Rc::new(Ty::Func {
+                    params: vec![],
+                    ret: Ty::get_uint_ty(builtin_loc.clone()),
+                    loc: builtin_loc.clone(),
+                }),
+            )]);
+
+            methods.insert(
+                "get",
+                Rc::new(Ty::Func {
+                    params: vec![key_ty.clone_loc(builtin_loc.clone())],
+                    ret: Rc::new(Ty::Optional {
+                        sub_ty: val_ty.clone_loc(builtin_loc.clone()),
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+            methods.insert(
+                "insert",
+                Rc::new(Ty::Func {
+                    params: vec![
+                        key_ty.clone_loc(builtin_loc.clone()),
+                        val_ty.clone_loc(builtin_loc.clone()),
+                    ],
+                    ret: Rc::new(Ty::Void {
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+            methods.insert(
+                "contains",
+                Rc::new(Ty::Func {
+                    params: vec![key_ty.clone_loc(builtin_loc.clone())],
+                    ret: Rc::new(Ty::Bool {
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+            // check if it is one of the methods on the type
+            match methods.get(mem) {
+                Some(meth_ty) => meth_ty.clone(),
+                None => {
+                    state.push_err(CheckerError::MemberDoesNotExist {
+                        given_ty: target_ty.as_str(),
+                        mem: mem.to_string(),
+                        loc: loc.clone(),
+                    });
+                    Rc::new(Ty::ErrorType { loc: loc.clone() })
+                }
+            }
+        }
+        Ty::Str { loc, .. } => {
+            let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
+                "len",
+                Rc::new(Ty::Func {
+                    params: vec![],
+                    ret: Ty::get_uint_ty(builtin_loc.clone()),
+                    loc: builtin_loc,
+                }),
+            )]);
+            // check if it is one of the methods on the type
+            match methods.get(mem) {
+                Some(meth_ty) => meth_ty.clone(),
+                None => {
+                    state.push_err(CheckerError::MemberDoesNotExist {
+                        given_ty: "str".into(),
+                        mem: mem.to_string(),
+                        loc: loc.clone(),
+                    });
+                    Rc::new(Ty::ErrorType { loc: loc.clone() })
+                }
+            }
+        }
+        Ty::StaticArray { sub_ty, loc, .. } | Ty::Slice { sub_ty, loc } => {
+            let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
+                "len",
+                Rc::new(Ty::Func {
+                    params: vec![],
+                    ret: Ty::get_uint_ty(builtin_loc.clone()),
+                    loc: builtin_loc.clone(),
+                }),
+            )]);
+            methods.insert(
+                "get",
+                Rc::new(Ty::Func {
+                    params: vec![Ty::get_uint_ty(builtin_loc.clone())],
+                    ret: Rc::new(Ty::Optional {
+                        sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+            methods.insert(
+                "make_slice",
+                Rc::new(Ty::Func {
+                    params: vec![
+                        Ty::get_uint_ty(builtin_loc.clone()),
+                        Ty::get_uint_ty(builtin_loc.clone()),
+                    ],
+                    ret: Rc::new(Ty::Slice {
+                        sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+            methods.insert(
+                "make_slice_from",
+                Rc::new(Ty::Func {
+                    params: vec![Ty::get_uint_ty(builtin_loc.clone())],
+                    ret: Rc::new(Ty::Slice {
+                        sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
+                        loc: builtin_loc.clone(),
+                    }),
+                    loc: builtin_loc.clone(),
+                }),
+            );
+
+            if matches!(target_ty, Ty::Slice { .. }) {
+                methods.insert(
+                    "append",
+                    Rc::new(Ty::Func {
+                        params: vec![sub_ty.clone_loc(builtin_loc.clone())],
+                        ret: Rc::new(Ty::Void {
+                            loc: builtin_loc.clone(),
+                        }),
+                        loc: builtin_loc,
+                    }),
+                );
+            }
+            // check if it is one of the methods on the type
+            match methods.get(mem) {
+                Some(meth_ty) => meth_ty.clone(),
+                None => {
+                    state.push_err(CheckerError::MemberDoesNotExist {
+                        given_ty: target_ty.as_str(),
+                        mem: mem.to_string(),
+                        loc: loc.clone(),
+                    });
+                    Rc::new(Ty::ErrorType { loc: loc.clone() })
+                }
+            }
+        }
+        Ty::Optional { sub_ty, loc } => {
+            let mut methods = HashMap::from([
+                (
+                    "is_some",
+                    Rc::new(Ty::Func {
+                        params: vec![],
+                        ret: Rc::new(Ty::Bool {
+                            loc: builtin_loc.clone(),
+                        }),
+                        loc: builtin_loc.clone(),
+                    }),
+                ),
+                (
+                    "is_none",
+                    Rc::new(Ty::Func {
+                        params: vec![],
+                        ret: Rc::new(Ty::Bool {
+                            loc: builtin_loc.clone(),
+                        }),
+                        loc: builtin_loc.clone(),
+                    }),
+                ),
+            ]);
+            methods.insert(
+                "unwrap",
+                Rc::new(Ty::Func {
+                    params: vec![],
+                    ret: sub_ty.clone_loc(builtin_loc.clone()),
+                    loc: builtin_loc,
+                }),
+            );
+
+            // check if it is one of the methods on the type
+            match methods.get(mem) {
+                Some(meth_ty) => meth_ty.clone(),
+                None => {
+                    state.push_err(CheckerError::MemberDoesNotExist {
+                        given_ty: target_ty.as_str(),
+                        mem: mem.to_string(),
+                        loc: loc.clone(),
+                    });
+                    Rc::new(Ty::ErrorType {
+                        loc: target_ty.get_loc(),
+                    })
+                }
+            }
+        }
+        _ => {
+            state.push_err(CheckerError::AccessMemberOpCannotBePerformedOnType {
+                given_ty: target_ty.as_str(),
+                loc: target_ty.get_loc(),
+            });
+            Rc::new(Ty::ErrorType {
+                loc: target_ty.get_loc(),
+            })
+        }
+    }
+}
+
 pub fn check_expr(
     e: &Expr,
     context_ty: &Option<Rc<Ty>>,
@@ -1477,340 +1748,28 @@ pub fn check_expr(
                 flat_end: 0,
             });
 
-            match target_ty.as_ref() {
-                Ty::NamedType { name, .. } => {
-                    // we will get the underlying type and then check that
-                    let n_info = state.env.lookup(name);
-
-                    if n_info.is_none() {
-                        state.push_err(CheckerError::InvalidType {
-                            loc: target_ty.get_loc(),
-                            type_name: name.clone(),
-                        });
-                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
-                    }
-
-                    // we want to find the init() void function in the Struct
-                    let actual_ty_info = n_info.unwrap().clone();
-                    let actual_ty = &*actual_ty_info.ty.borrow();
-
-                    match actual_ty {
-                        Ty::Struct { fields, funcs, .. } => {
-                            // we will check fields, assoc_funcs and methods
-                            let field_ty = fields.get(&mem.as_str());
-                            if let Some(field_ty) = field_ty {
-                                return (
-                                    field_ty.clone(),
-                                    Some(TyExpr::AccessMember {
-                                        target: Box::new(target_ty_expr.unwrap()),
-                                        mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                                        is_self_access: false,
-                                    }),
-                                );
-                            }
-
-                            let func_ty = funcs.get(&mem.as_str());
-                            if let Some(func_ty) = func_ty {
-                                return (
-                                    func_ty.clone(),
-                                    Some(TyExpr::AccessMember {
-                                        target: Box::new(target_ty_expr.unwrap()),
-                                        mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                                        is_self_access: false,
-                                    }),
-                                );
-                            }
-
-                            state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: target_ty.as_str(),
-                                mem: mem.as_str(),
-                                loc: loc.clone(),
-                            });
-                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                        }
-                        _ => unreachable!(),
-                    }
-                }
-                Ty::Struct { fields, funcs, .. } => {
-                    let is_self = if let Expr::Ident { name, loc } = target.as_ref() {
-                        name == "self"
-                    } else {
-                        false
-                    };
-
-                    // we will check fields, assoc_funcs and methods
-                    let field_ty = fields.get(&mem.as_str());
-                    if let Some(field_ty) = field_ty {
-                        return (
-                            field_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                                is_self_access: is_self,
-                            }),
-                        );
-                    }
-
-                    let func_ty = funcs.get(&mem.as_str());
-                    if let Some(func_ty) = func_ty {
-                        return (
-                            func_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                                is_self_access: is_self,
-                            }),
-                        );
-                    }
-
-                    state.push_err(CheckerError::MemberDoesNotExist {
-                        given_ty: target_ty.as_str(),
-                        mem: mem.as_str(),
-                        loc: loc.clone(),
-                    });
-                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                }
-                Ty::HashMap { key_ty, val_ty, .. } => {
-                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
-                        "len",
-                        Rc::new(Ty::Func {
-                            params: vec![],
-                            ret: Ty::get_uint_ty(builtin_loc.clone()),
-                            loc: builtin_loc.clone(),
-                        }),
-                    )]);
-
-                    methods.insert(
-                        "get",
-                        Rc::new(Ty::Func {
-                            params: vec![key_ty.clone_loc(builtin_loc.clone())],
-                            ret: Rc::new(Ty::Optional {
-                                sub_ty: val_ty.clone_loc(builtin_loc.clone()),
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-                    methods.insert(
-                        "insert",
-                        Rc::new(Ty::Func {
-                            params: vec![
-                                key_ty.clone_loc(builtin_loc.clone()),
-                                val_ty.clone_loc(builtin_loc.clone()),
-                            ],
-                            ret: Rc::new(Ty::Void {
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-                    methods.insert(
-                        "contains",
-                        Rc::new(Ty::Func {
-                            params: vec![key_ty.clone_loc(builtin_loc.clone())],
-                            ret: Rc::new(Ty::Bool {
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-                    // check if it is one of the methods on the type
-                    let mem_str = mem.as_str();
-                    match methods.get(mem_str.as_str()) {
-                        Some(meth_ty) => (
-                            meth_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem_str }),
-                                is_self_access: false,
-                            }),
-                        ),
-                        None => {
-                            state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: target_ty.as_str(),
-                                mem: mem_str,
-                                loc: loc.clone(),
-                            });
-                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                        }
-                    }
-                }
-                Ty::Str { .. } => {
-                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
-                        "len",
-                        Rc::new(Ty::Func {
-                            params: vec![],
-                            ret: Ty::get_uint_ty(builtin_loc.clone()),
-                            loc: builtin_loc,
-                        }),
-                    )]);
-                    // check if it is one of the methods on the type
-                    let mem_str = mem.as_str();
-                    match methods.get(mem_str.as_str()) {
-                        Some(meth_ty) => (
-                            meth_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident {
-                                    name: if mem_str == "len" {
-                                        "size".into()
-                                    } else {
-                                        mem_str
-                                    },
-                                }),
-                                is_self_access: false,
-                            }),
-                        ),
-                        None => {
-                            state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: "str".into(),
-                                mem: mem_str,
-                                loc: loc.clone(),
-                            });
-                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                        }
-                    }
-                }
-                Ty::StaticArray { sub_ty, .. } | Ty::Slice { sub_ty, .. } => {
-                    let mut methods: HashMap<&str, Rc<Ty>> = HashMap::from([(
-                        "len",
-                        Rc::new(Ty::Func {
-                            params: vec![],
-                            ret: Ty::get_uint_ty(builtin_loc.clone()),
-                            loc: builtin_loc.clone(),
-                        }),
-                    )]);
-                    methods.insert(
-                        "get",
-                        Rc::new(Ty::Func {
-                            params: vec![Ty::get_uint_ty(builtin_loc.clone())],
-                            ret: Rc::new(Ty::Optional {
-                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-                    methods.insert(
-                        "make_slice",
-                        Rc::new(Ty::Func {
-                            params: vec![
-                                Ty::get_uint_ty(builtin_loc.clone()),
-                                Ty::get_uint_ty(builtin_loc.clone()),
-                            ],
-                            ret: Rc::new(Ty::Slice {
-                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-                    methods.insert(
-                        "make_slice_from",
-                        Rc::new(Ty::Func {
-                            params: vec![Ty::get_uint_ty(builtin_loc.clone())],
-                            ret: Rc::new(Ty::Slice {
-                                sub_ty: sub_ty.clone_loc(builtin_loc.clone()),
-                                loc: builtin_loc.clone(),
-                            }),
-                            loc: builtin_loc.clone(),
-                        }),
-                    );
-
-                    if matches!(target_ty.as_ref(), Ty::Slice { .. }) {
-                        methods.insert(
-                            "append",
-                            Rc::new(Ty::Func {
-                                params: vec![sub_ty.clone_loc(builtin_loc.clone())],
-                                ret: Rc::new(Ty::Void {
-                                    loc: builtin_loc.clone(),
-                                }),
-                                loc: builtin_loc,
-                            }),
-                        );
-                    }
-                    // check if it is one of the methods on the type
-                    let mem_str = mem.as_str();
-                    match methods.get(mem_str.as_str()) {
-                        Some(meth_ty) => (
-                            meth_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem_str }),
-                                is_self_access: false,
-                            }),
-                        ),
-                        None => {
-                            state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: target_ty.as_str(),
-                                mem: mem_str,
-                                loc: loc.clone(),
-                            });
-                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                        }
-                    }
-                }
-                Ty::Optional { sub_ty, .. } => {
-                    let mut methods = HashMap::from([
-                        (
-                            "is_some",
-                            Rc::new(Ty::Func {
-                                params: vec![],
-                                ret: Rc::new(Ty::Bool {
-                                    loc: builtin_loc.clone(),
-                                }),
-                                loc: builtin_loc.clone(),
-                            }),
-                        ),
-                        (
-                            "is_none",
-                            Rc::new(Ty::Func {
-                                params: vec![],
-                                ret: Rc::new(Ty::Bool {
-                                    loc: builtin_loc.clone(),
-                                }),
-                                loc: builtin_loc.clone(),
-                            }),
-                        ),
-                    ]);
-                    methods.insert(
-                        "unwrap",
-                        Rc::new(Ty::Func {
-                            params: vec![],
-                            ret: sub_ty.clone_loc(builtin_loc.clone()),
-                            loc: builtin_loc,
-                        }),
-                    );
-
-                    // check if it is one of the methods on the type
-                    let mem_str = mem.as_str();
-                    match methods.get(mem_str.as_str()) {
-                        Some(meth_ty) => (
-                            meth_ty.clone(),
-                            Some(TyExpr::AccessMember {
-                                target: Box::new(target_ty_expr.unwrap()),
-                                mem: Box::new(TyExpr::Ident { name: mem_str }),
-                                is_self_access: false,
-                            }),
-                        ),
-                        None => {
-                            state.push_err(CheckerError::MemberDoesNotExist {
-                                given_ty: target_ty.as_str(),
-                                mem: mem_str,
-                                loc: loc.clone(),
-                            });
-                            (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                        }
-                    }
-                }
-                _ => {
-                    state.push_err(CheckerError::AccessMemberOpCannotBePerformedOnType {
-                        given_ty: target_ty.as_str(),
-                        loc: target.get_source_ref(),
-                    });
-                    (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
-                }
+            let mem_ty = check_for_member(target_ty.as_ref(), &mem.as_str(), state);
+            if mem_ty.is_error_ty() {
+                return (mem_ty, None);
             }
+
+            let is_self = if let Expr::Ident { name, loc } = target.as_ref() {
+                name == "self"
+            } else {
+                false
+            };
+
+            let is_ptr = target_ty.is_pointer();
+
+            (
+                mem_ty,
+                Some(TyExpr::AccessMember {
+                    target: Box::new(target_ty_expr.unwrap()),
+                    mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                    is_self_access: is_self,
+                    is_ptr,
+                }),
+            )
         }
         Expr::OptionalExpr { val, loc } => {
             let (v_ty, v_ty_expr) = match (context_ty, val) {

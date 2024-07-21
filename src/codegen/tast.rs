@@ -88,6 +88,7 @@ pub enum TyExpr {
         target: Box<TyExpr>,
         mem: Box<TyExpr>,
         is_self_access: bool,
+        is_ptr: bool,
     },
     OptionalExpr {
         val: Option<Box<TyExpr>>,

@@ -8,5 +8,11 @@ struct A {
 
 
 fn main() int {
+    a :: new(A, 300); defer free(a)
+    println(`{a.num}`)
+
+    b :: some 1
+    println(`{b.unwrap()}`)
+
     return 0
 }
