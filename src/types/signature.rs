@@ -38,6 +38,7 @@ pub enum Ty {
         params: Vec<Rc<Ty>>,
         ret: Rc<Ty>,
         loc: Rc<SourceRef>,
+        is_const: bool,
     },
     StaticArray {
         sub_ty: Rc<Ty>,

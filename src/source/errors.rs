@@ -216,6 +216,9 @@ pub enum CheckerError {
         target: String,
         loc: Rc<SourceRef>,
     },
+    CannotAccessNonConstFuncOnConstTarget {
+        loc: Rc<SourceRef>,
+    },
     CannotReturnFromInsideADeferIns {
         loc: Rc<SourceRef>,
     },

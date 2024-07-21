@@ -164,6 +164,7 @@ fn init_builtins() {
                 loc: builtin_loc.clone(),
             }),
             loc: builtin_loc.clone(),
+            is_const: false,
         }),
     );
     unsafe {
@@ -295,7 +296,14 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
     }
 }
 
-fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
+fn can_access_method(target_is_const: bool, method: &Ty) -> bool {
+    match method {
+        Ty::Func { is_const, .. } => target_is_const == *is_const,
+        _ => unreachable!(),
+    }
+}
+
+fn check_for_member(target_is_const: bool, target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
     let builtin_loc = Rc::new(SourceRef {
         file: Rc::new("__proto_gen_builtins__".to_string()),
         start_line: 0,
@@ -312,7 +320,12 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                 return Rc::new(Ty::ErrorType { loc: loc.clone() });
             }
 
-            check_for_member(sub_ty, mem, state)
+            check_for_member(
+                target_is_const,
+                &sub_ty.clone_loc(target_ty.get_loc()),
+                mem,
+                state,
+            )
         }
         Ty::NamedType { name, loc } => {
             // we will get the underlying type and then check that
@@ -330,7 +343,12 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
             let actual_ty_info = n_info.unwrap().clone();
             let actual_ty = &*actual_ty_info.ty.borrow();
 
-            check_for_member(actual_ty, mem, state)
+            check_for_member(
+                target_is_const,
+                &actual_ty.clone_loc(target_ty.get_loc()),
+                mem,
+                state,
+            )
         }
         Ty::Struct {
             fields, funcs, loc, ..
@@ -343,7 +361,15 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
 
             let func_ty = funcs.get(mem);
             if let Some(func_ty) = func_ty {
-                return func_ty.clone();
+                // determine if we are accessing a non-const function on a const type
+                if can_access_method(target_is_const, func_ty) {
+                    return func_ty.clone();
+                } else {
+                    state.push_err(CheckerError::CannotAccessNonConstFuncOnConstTarget {
+                        loc: target_ty.get_loc(),
+                    });
+                    return Rc::new(Ty::ErrorType { loc: loc.clone() });
+                }
             }
 
             state.push_err(CheckerError::MemberDoesNotExist {
@@ -364,6 +390,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                     params: vec![],
                     ret: Ty::get_uint_ty(builtin_loc.clone()),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             )]);
 
@@ -376,6 +403,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             );
             methods.insert(
@@ -389,6 +417,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: false,
                 }),
             );
             methods.insert(
@@ -399,11 +428,21 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             );
             // check if it is one of the methods on the type
             match methods.get(mem) {
-                Some(meth_ty) => meth_ty.clone(),
+                Some(meth_ty) => {
+                    if can_access_method(target_is_const, meth_ty) {
+                        meth_ty.clone()
+                    } else {
+                        state.push_err(CheckerError::CannotAccessNonConstFuncOnConstTarget {
+                            loc: target_ty.get_loc(),
+                        });
+                        Rc::new(Ty::ErrorType { loc: loc.clone() })
+                    }
+                }
                 None => {
                     state.push_err(CheckerError::MemberDoesNotExist {
                         given_ty: target_ty.as_str(),
@@ -421,6 +460,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                     params: vec![],
                     ret: Ty::get_uint_ty(builtin_loc.clone()),
                     loc: builtin_loc,
+                    is_const: true,
                 }),
             )]);
             // check if it is one of the methods on the type
@@ -443,6 +483,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                     params: vec![],
                     ret: Ty::get_uint_ty(builtin_loc.clone()),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             )]);
             methods.insert(
@@ -454,6 +495,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             );
             methods.insert(
@@ -468,6 +510,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             );
             methods.insert(
@@ -479,6 +522,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                         loc: builtin_loc.clone(),
                     }),
                     loc: builtin_loc.clone(),
+                    is_const: true,
                 }),
             );
 
@@ -491,12 +535,22 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                             loc: builtin_loc.clone(),
                         }),
                         loc: builtin_loc,
+                        is_const: false,
                     }),
                 );
             }
             // check if it is one of the methods on the type
             match methods.get(mem) {
-                Some(meth_ty) => meth_ty.clone(),
+                Some(meth_ty) => {
+                    if can_access_method(target_is_const, meth_ty) {
+                        meth_ty.clone()
+                    } else {
+                        state.push_err(CheckerError::CannotAccessNonConstFuncOnConstTarget {
+                            loc: target_ty.get_loc(),
+                        });
+                        Rc::new(Ty::ErrorType { loc: loc.clone() })
+                    }
+                }
                 None => {
                     state.push_err(CheckerError::MemberDoesNotExist {
                         given_ty: target_ty.as_str(),
@@ -517,6 +571,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                             loc: builtin_loc.clone(),
                         }),
                         loc: builtin_loc.clone(),
+                        is_const: true,
                     }),
                 ),
                 (
@@ -527,6 +582,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                             loc: builtin_loc.clone(),
                         }),
                         loc: builtin_loc.clone(),
+                        is_const: true,
                     }),
                 ),
             ]);
@@ -536,6 +592,7 @@ fn check_for_member(target_ty: &Ty, mem: &str, state: &mut State) -> Rc<Ty> {
                     params: vec![],
                     ret: sub_ty.clone_loc(builtin_loc.clone()),
                     loc: builtin_loc,
+                    is_const: true,
                 }),
             );
 
@@ -1256,7 +1313,9 @@ pub fn check_expr(
                         unreachable!("seman::check_expr(): found init with a non-function type.");
                     }
                 }
-                Ty::Func { params, ret, loc } => {
+                Ty::Func {
+                    params, ret, loc, ..
+                } => {
                     let fn_arity = params.len();
                     if fn_arity != args.len() {
                         state.push_err(CheckerError::IncorrectFunctionArity {
@@ -1465,6 +1524,11 @@ pub fn check_expr(
                             }),
                             args: vec![new_ty_expr.unwrap()],
                         }),
+                        Ty::NamedType { name, .. } => todo!(),
+                        Ty::Struct { funcs, .. } => {
+                            // make sure there is an as_str() function on the struct
+                            todo!()
+                        }
                         _ => {
                             unreachable!(
                                 "seman::check_expr(): {:#?} in string interpolation.",
@@ -1748,7 +1812,31 @@ pub fn check_expr(
                 flat_end: 0,
             });
 
-            let mem_ty = check_for_member(target_ty.as_ref(), &mem.as_str(), state);
+            // determine if we are accessing a non-const function on a const type
+            let mut target_is_const = false;
+            let mut cur = target;
+            loop {
+                match cur.as_ref() {
+                    Expr::Ident { name, .. } => {
+                        // check the environment to see if it is modifiable
+                        // we will need to check the body and update the struct type under the name
+                        // as we get new information (fields, associated functions and methods)
+                        let name_info = state.env.lookup(&name).unwrap();
+                        target_is_const = name_info.is_const;
+                        break;
+                    }
+                    _ => {
+                        break;
+                    }
+                }
+            }
+
+            let mem_ty = check_for_member(
+                target_is_const,
+                &target_ty.clone_loc(target.get_source_ref()),
+                &mem.as_str(),
+                state,
+            );
             if mem_ty.is_error_ty() {
                 return (mem_ty, None);
             }
@@ -1759,15 +1847,13 @@ pub fn check_expr(
                 false
             };
 
-            let is_ptr = target_ty.is_pointer();
-
             (
                 mem_ty,
                 Some(TyExpr::AccessMember {
                     target: Box::new(target_ty_expr.unwrap()),
                     mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
                     is_self_access: is_self,
-                    is_ptr,
+                    is_ptr: target_ty.is_pointer(),
                 }),
             )
         }
@@ -1918,6 +2004,7 @@ pub fn check_expr(
                 params: fn_type_params,
                 ret: ret_ty.clone(),
                 loc: loc.clone(),
+                is_const: false,
             });
 
             // copy the current environment and preserve it so we can keep
@@ -2344,7 +2431,7 @@ pub fn check_expr(
                                     loc: loc.clone(),
                                 });
                                 (
-                                    n_ty.clone(),
+                                    n_ty,
                                     Some(TyExpr::NewAlloc {
                                         ty: ty.clone(),
                                         args: fn_ty_args,
@@ -2802,6 +2889,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 params: fn_type_params,
                 ret: ret_ty.clone(),
                 loc: loc.clone(),
+                is_const: *is_const,
             }));
 
             let fn_info = NameInfo {
@@ -3144,6 +3232,7 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                         depth += 1;
                     }
                     Expr::AccessMember { target, mem, loc } => {
+                        // TODO: determine if the mem is a const struct field.
                         cur = target;
                         depth += 1;
                     }

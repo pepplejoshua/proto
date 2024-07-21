@@ -602,6 +602,14 @@ impl SourceReporter {
                 let msg = format!("'{target}' is immutable and cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            CheckerError::CannotAccessNonConstFuncOnConstTarget { loc } => {
+                let msg = format!(
+                    "The target of this method access is a const, while the method is non-const."
+                );
+                let tip =
+                    "Mark the method as const if it does not mutate the instance.".to_string();
+                self.report_with_ref(&loc, msg, Some(tip), false);
+            }
             CheckerError::CannotReturnFromInsideADeferIns { loc } => {
                 let msg = format!("Returning from inside a defer instruction is not allowed.");
                 self.report_with_ref(&loc, msg, None, false);

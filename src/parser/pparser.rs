@@ -1301,6 +1301,7 @@ impl Parser {
                     params: param_tys,
                     loc: loc.combine(ret_type.get_loc()),
                     ret: ret_type,
+                    is_const: false,
                 })
             }
             Token::Star(loc) => {

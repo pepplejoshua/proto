@@ -5,19 +5,22 @@ struct A {
         self.num = n
     }
 
-    const fn s() int {
-        // self.num = 3
-        return self.num
+    fn update(n int) void {
+        self.num = n
+    }
+
+    const fn as_str() str {
+        return `A {{ num: {self.num} }`;
     }
 }
 
 
 fn main() int {
     a :: new(A, 300); defer free(a)
-    println(`{a}`)
+    println(a.as_str()) // error
 
-    b :: some 1
-    println(`{b.unwrap()}`)
+    aa := A(120)
+    aa.update(1) // error
 
     return 0
 }
