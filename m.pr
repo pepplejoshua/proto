@@ -17,10 +17,11 @@ struct A {
 
 fn main() int {
     a :: new(A, 300); defer free(a)
-    println(a.as_str()) // error
+    println(a.as_str())
 
     aa := A(120)
-    aa.update(1) // error
+    aa.update(1)
+    println(aa.as_str())
 
     return 0
 }

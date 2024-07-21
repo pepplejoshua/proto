@@ -298,7 +298,15 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
 
 fn can_access_method(target_is_const: bool, method: &Ty) -> bool {
     match method {
-        Ty::Func { is_const, .. } => target_is_const == *is_const,
+        Ty::Func { is_const, .. } => {
+            if target_is_const {
+                // target is const and method is const, it can be accessed
+                // if method is not const, it can't be accessed
+                *is_const
+            } else {
+                true
+            }
+        }
         _ => unreachable!(),
     }
 }

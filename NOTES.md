@@ -19,10 +19,10 @@
 - Make self's type to be a pointer to the current type. This will stop C++ from implicitly removing its generated copy constructor. [DONE. Instead of this, I keep the seman pass for struct the same. I detect the use of self.some_member and set a flag and generate this->some_member for C++]
 - Allow access members on pointers of types that have members. Compile to PtrAccessMember expression. [DONE]
 - Remove direct access to fields and methods within structs. All access to internal data should go through self. This will help when I implement const methods since I can make just self const and use it to determine whether fields can be mutated, and also if a non-const function can be called. [DONE]
-- For interpolated string, check if complex types contain a struct and that struct provides an as_str() str function.
+- For interpolated string, check if complex types contain a struct and that struct provides an as_str() str function. Generalize the checking and resolution like
 - Add range expression (they will need to be restricted for a few use cases).
 - Consider if tuples are valuable to add (if I can implement them myself in C++)
-- Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables.
+- Decide on mutability rule checking for methods. A const instance of a struct cannot call a non const member function. A non-const function can call const and non-const functions. This will require a way to also specify that a function does not mutate the self instance or any instance variables. [DONE]
 ```rs
 struct Node {
     n : int;
@@ -53,6 +53,7 @@ fn main() int {
     return 0;
 }
 ```
+- Prevent assignment of addressable consts to variables.
 - Mutable/const function parameters
 - Look into how comparator function can be implemented for the types used in hashmaps.
 - Add using for struct composing other structs.
