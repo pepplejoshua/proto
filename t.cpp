@@ -2,31 +2,47 @@
 #include "t.h"
 
 using std::cout;
-using std::endl;
+// using std::endl;
 
-typedef PoolAllocator<char> CharAllocator;
-
-Slice<char*> do_things(CharAllocator& pool) {
-  auto sl = Slice<char*>(pool.num_of_allocatable_items());
-  const int start = 65;
-  for (int i = 0; i < pool.num_of_allocatable_items(); i++) {
-    auto ch = make_char(start + i);
-    Option<char *> dyn_ch = pool.allocate(ch);
-    if (dyn_ch.is_none()) {
-      cout << i + 1 << ". Cannot allocate char.\n";
-    } else {
-      sl.append(dyn_ch.unwrap());
-    }
+struct A {
+  A() {}
+  const void do_stuff(str a) const {
+    cout << "A does stuff with " << a << "..\n";
   }
-  return sl;
+};
+
+struct B {
+  int b;
+
+  B(int _b) : b(_b) {}
+  void do_stuff(str a) {
+    cout << "B(" << b << ") does stuff with " << a << "..\n";
+  }
+};
+
+template<typename Type>
+struct TraitX {
+private:
+  Type* inst;
+
+public:
+  explicit TraitX(Type* i) : inst(i) {}
+
+  void do_stuff(str a) {
+    inst->do_stuff(a);
+  }
+};
+
+template<typename Type>
+void do_something(TraitX<Type> x) {
+  x.do_stuff("some string");
 }
 
 int main() {
-  auto alloc = CharAllocator(13);
-  auto sl = do_things(alloc);
+  A a;
+  B b(420);
+  do_something(TraitX<A>(&a));
+  do_something(TraitX<B>(&b));
 
-  for (auto ch : sl) {
-    cout << *ch << endl;
-  }
   return 0;
 }

@@ -602,18 +602,18 @@ public:
 };
 
 template<typename Type>
-class PoolAllocator {
+class PoolBumpAllocator {
 private:
   BumpAllocator bump_alo;
   uint_pr num_of_items;
 
 public:
-  explicit PoolAllocator<Type>(uint_pr count) :
+  explicit PoolBumpAllocator<Type>(uint_pr count) :
     num_of_items(count),
     bump_alo(sizeof(Type) * count) {
   }
 
-  ~PoolAllocator() {
+  ~PoolBumpAllocator() {
     bump_alo.deinit();
   }
 

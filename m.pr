@@ -1,3 +1,34 @@
+trait X {
+    fn do_stuff(str a) void;
+}
+
+struct A[X] {
+    fn init() void {}
+    fn do_stuff(a str) void {
+        println("A does stuff with " + a);
+    }
+}
+
+struct B[X] {
+    b : int
+
+    fn init(_b int) {
+        self.b = _b
+    }
+    fn do_stuff(a str) void {
+        println(`B({b}) does stuff with ` + a)
+    }
+}
+
+fn do_something(x X) void {
+    x.do_stuff("some string")
+}
+
 fn main() int {
+    a :: A()
+    b :: B(420)
+
+    do_something(a as X)
+    do_something(b)
     return 0
 }
