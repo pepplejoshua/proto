@@ -1,6 +1,8 @@
+#include <cstddef>
 #include <cstring>
 #include <initializer_list>
 #include <iostream>
+#include <memory>
 #include <string>
 #include <cstdlib>
 #include <cstdint>
@@ -512,3 +514,85 @@ inline char make_char(int num) {
     return char(num);
 }
 #endif
+
+class BumpAllocator {
+private:
+  void* memory;
+  void* cur;
+  uint_pr capacity;
+
+public:
+  explicit BumpAllocator(uint_pr cap) {
+    capacity = cap;
+    memory = malloc(cap);
+    cur = memory;
+  }
+
+  ~BumpAllocator() {
+    if (capacity != 0) {
+      deinit();
+    }
+  }
+
+  void deinit() {
+    capacity = 0;
+    free(memory);
+    std::cout << "cleaned up bump allocator..." << std::endl;
+  }
+
+  template<typename Type>
+  Option<Type*> allocate(std::initializer_list<Type> init) {
+    int type_size = sizeof(Type);
+    int align_size = alignof(Type);
+    std::size_t available_space = static_cast<std::size_t>((char*)memory + capacity - (char*)cur);
+
+    void* aligned = cur;
+    if (std::align(align_size, type_size, aligned, available_space)) {
+        if ((char*)aligned + type_size <= (char*)memory + capacity) {
+            // Allocation successful
+            Type* result = new (aligned) Type(init);  // Placement new for exception safety
+            cur = (char*)aligned + type_size;
+
+            std::cout << "allocated: " << type_size << " bytes with an alignment of " << align_size << std::endl;
+            std::cout << "used:      " << used() << "/" << capacity << " bytes\n\n";
+
+            return Option<Type*>(result);
+        }
+    }
+    return {};
+  }
+
+  template<typename Type>
+  Option<Type*> allocate(Type init) {
+    int type_size = sizeof(Type);
+    int align_size = alignof(Type);
+    std::size_t available_space = static_cast<std::size_t>((char*)memory + capacity - (char*)cur);
+
+    void* aligned = cur;
+    if (std::align(align_size, type_size, aligned, available_space)) {
+        if ((char*)aligned + type_size <= (char*)memory + capacity) {
+            // Allocation successful
+            Type* result = new (aligned) Type(init);  // Placement new for exception safety
+            cur = (char*)aligned + type_size;
+
+            std::cout << "allocated: " << type_size << " bytes with an alignment of " << align_size << std::endl;
+            std::cout << "used:      " << used() << "/" << capacity << " bytes\n\n";
+
+            return Option<Type*>(result);
+        }
+    }
+    return {};
+  }
+
+  void reset() {
+    cur = memory;
+  }
+
+  uint_pr used() const {
+    return (char *)cur - (char *)memory;
+  }
+
+  uint_pr available() const {
+    return capacity - used();
+  }
+};
