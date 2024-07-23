@@ -595,4 +595,60 @@ public:
   uint_pr available() const {
     return capacity - used();
   }
+
+  uint_pr cap() const {
+    return capacity;
+  }
+};
+
+template<typename Type>
+class PoolAllocator {
+private:
+  BumpAllocator bump_alo;
+  uint_pr num_of_items;
+
+public:
+  explicit PoolAllocator<Type>(uint_pr count) :
+    num_of_items(count),
+    bump_alo(sizeof(Type) * count) {
+  }
+
+  ~PoolAllocator() {
+    bump_alo.deinit();
+  }
+
+  void deinit() {
+    bump_alo.deinit();
+  }
+
+  Option<Type *> allocate(std::initializer_list<Type> init) {
+    return bump_alo.allocate<Type>(init);
+  }
+
+  Option<Type *> allocate(Type init) {
+    return bump_alo.allocate<Type>(init);
+  }
+
+  void reset() {
+    bump_alo.reset();
+  }
+
+  uint_pr used() const {
+    return bump_alo.used();
+  }
+
+  uint_pr available() const {
+    return bump_alo.available();
+  }
+
+  uint_pr cap() const {
+    return bump_alo.cap();
+  }
+
+  uint_pr num_of_allocatable_items() const {
+    return num_of_items;
+  }
+};
+
+class ArenaAllocator {
 };

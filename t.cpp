@@ -4,26 +4,29 @@
 using std::cout;
 using std::endl;
 
-void do_things(BumpAllocator& bump_alo) {
-  Slice<int*> alloc(5);
-  for (int i = 0; i < alloc.cap(); i++) {
-    Option<int*> a = bump_alo.allocate<int>(300);
-    if (a.is_none()) {
-      cout << i + 1 << ". Error allocating\n";
+typedef PoolAllocator<char> CharAllocator;
+
+Slice<char*> do_things(CharAllocator& pool) {
+  auto sl = Slice<char*>(pool.num_of_allocatable_items());
+  const int start = 65;
+  for (int i = 0; i < pool.num_of_allocatable_items(); i++) {
+    auto ch = make_char(start + i);
+    Option<char *> dyn_ch = pool.allocate(ch);
+    if (dyn_ch.is_none()) {
+      cout << i + 1 << ". Cannot allocate char.\n";
     } else {
-      alloc.append(a.unwrap());
+      sl.append(dyn_ch.unwrap());
     }
   }
-
-  Option<Array<char, 5> *> arr = bump_alo.allocate<Array<char, 5>>({'a', 'b', 'c', 'd', 'e'});
-  auto array = arr.unwrap();
-  cout << proto_str(*array) << endl;
+  return sl;
 }
 
 int main() {
-  // allocate 1KB
-  auto bump_alo = BumpAllocator(1024);
-  do_things(bump_alo);
-  cout << "HERE" << endl;
+  auto alloc = CharAllocator(13);
+  auto sl = do_things(alloc);
+
+  for (auto ch : sl) {
+    cout << *ch << endl;
+  }
   return 0;
 }
