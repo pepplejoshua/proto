@@ -1,5 +1,5 @@
 trait X {
-    fn do_stuff(str a) void;
+    fn do_stuff(a str) void;
 }
 
 struct A[X] {

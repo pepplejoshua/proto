@@ -371,6 +371,10 @@ impl SourceReporter {
                 let msg = format!("Cyclical dependency detected: '{}'.", cycle);
                 self.report_with_ref(&src, msg, None, false);
             }
+            ParseError::ParsedInstructionIsNotAllowedAtThisLevel { level, src } => {
+                let msg = format!("This instruction is not allowed inside a {level} body.");
+                self.report_with_ref(&src, msg, None, false);
+            }
         }
     }
 

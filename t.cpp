@@ -6,7 +6,7 @@ using std::cout;
 
 struct A {
   A() {}
-  const void do_stuff(str a) const {
+  void do_stuff(str a) {
     cout << "A does stuff with " << a << "..\n";
   }
 };

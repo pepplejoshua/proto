@@ -27,6 +27,7 @@ pub enum Token {
     None(Rc<SourceRef>),
     Defer(Rc<SourceRef>),
     Const(Rc<SourceRef>),
+    Trait(Rc<SourceRef>),
 
     // operators
     BackSlash(Rc<SourceRef>),
@@ -195,6 +196,7 @@ impl Token {
             | Token::ModuloAssign(src)
             | Token::BackSlash(src)
             | Token::Ampersand(src)
+            | Token::Trait(src)
             | Token::Println(src) => src.clone(),
         }
     }
@@ -218,6 +220,7 @@ impl Token {
                 | Token::At(_)
                 | Token::SingleLineComment(_, _)
                 | Token::Fn(_)
+                | Token::Trait(_)
                 | Token::Const(_)
         )
     }
@@ -307,6 +310,7 @@ impl Token {
             Token::BackSlash(_) => "\\".to_string(),
             Token::Ampersand(_) => "&".to_string(),
             Token::Const(_) => "const".to_string(),
+            Token::Trait(_) => "trait".to_string(),
         }
     }
 }

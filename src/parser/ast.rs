@@ -447,6 +447,18 @@ pub enum Ins {
         body: Box<Ins>,
         loc: Rc<SourceRef>,
     },
+    DeclFuncDefinition {
+        name: Expr,
+        params: Vec<FnParam>,
+        ret_type: Rc<Ty>,
+        is_const: bool,
+        loc: Rc<SourceRef>,
+    },
+    DeclTrait {
+        name: Expr,
+        func_defs: Vec<Ins>,
+        loc: Rc<SourceRef>,
+    },
     DeclStruct {
         name: Expr,
         fields: Vec<Ins>,
@@ -539,6 +551,8 @@ impl Ins {
             | Ins::AssignTo { loc, .. }
             | Ins::Return { loc, .. }
             | Ins::DeclFunc { loc, .. }
+            | Ins::DeclFuncDefinition { loc, .. }
+            | Ins::DeclTrait { loc, .. }
             | Ins::SingleLineComment { loc, .. }
             | Ins::ExprIns { loc, .. }
             | Ins::DeclStruct { loc, .. }
@@ -570,6 +584,8 @@ impl Ins {
             | Ins::DeclVar { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclStruct { name, .. }
+            | Ins::DeclTrait { name, .. }
+            | Ins::DeclFuncDefinition { name, .. }
             | Ins::DeclModule { name, .. } => Some(name.as_str()),
             Ins::Block { .. }
             | Ins::Defer { .. }
@@ -651,6 +667,28 @@ impl Ins {
                 );
                 buf
             }
+            Ins::DeclFuncDefinition {
+                name,
+                params,
+                ret_type,
+                is_const,
+                ..
+            } => {
+                let params_str: Vec<String> = params
+                    .iter()
+                    .map(|fn_param| {
+                        format!("{} {}", fn_param.name.as_str(), fn_param.given_ty.as_str())
+                    })
+                    .collect();
+                let params_str = params_str.join(", ");
+                let mut buf = format!(
+                    "{}fn {}({params_str}) {}",
+                    if *is_const { "const " } else { "" },
+                    name.as_str(),
+                    ret_type.as_str(),
+                );
+                buf
+            }
             Ins::Block { code, .. } => {
                 let mut buf = String::new();
                 for instruc in code {
@@ -673,6 +711,22 @@ impl Ins {
                 format!("{}", expr.as_str())
             }
             Ins::ErrorIns { .. } => format!("[ErrIns]"),
+            Ins::DeclTrait {
+                name, func_defs, ..
+            } => {
+                let mut buf = vec![format!("trait {}", name.as_str())];
+                if !func_defs.is_empty() {
+                    buf.push(format!(
+                        "\n{}",
+                        func_defs
+                            .iter()
+                            .map(|f| f.as_str())
+                            .collect::<Vec<String>>()
+                            .join("\n")
+                    ))
+                }
+                buf.join("\n")
+            }
             Ins::DeclStruct {
                 name,
                 fields,

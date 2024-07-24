@@ -270,6 +270,7 @@ impl Parser {
             Token::Defer(_) => self.parse_defer(),
             Token::Fn(_) => self.parse_fn(false),
             Token::For(_) => self.parse_loop(),
+            Token::Trait(_) => self.parse_trait(),
             Token::Struct(_) => self.parse_struct(),
             Token::Mod(_) => self.parse_module(),
             Token::Print(_) | Token::Println(_) => {
@@ -316,6 +317,91 @@ impl Parser {
             }
         }
         ins
+    }
+
+    fn parse_trait(&mut self) -> Ins {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance();
+
+        let trait_name = self.parse_identifier();
+
+        // we want to find a {
+        if !matches!(self.cur_token(), Token::LCurly(_)) {
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a left curly brace ({{) to start the body of the trait '{}'.",
+                    trait_name.as_str()
+                ),
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
+        }
+
+        // parse trait functions
+        let mut trait_fn_defs = vec![];
+        let mut saw_rcurly = false;
+        while !self.is_at_eof() {
+            if matches!(self.cur_token(), Token::RCurly(_)) {
+                saw_rcurly = true;
+                span = span.combine(self.cur_token().get_source_ref());
+                break;
+            }
+
+            let mut trait_fn_span = self.cur_token().get_source_ref();
+            let trait_fn_is_const = if matches!(self.cur_token(), Token::Const(_)) {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
+            if !matches!(self.cur_token(), Token::Fn(_)) {
+                self.report_error(ParseError::Expected(
+                    format!(
+                        "a left curly brace ({{) to start the body of the trait '{}'.",
+                        trait_name.as_str()
+                    ),
+                    self.cur_token().get_source_ref(),
+                    None,
+                ));
+            } else {
+                trait_fn_span = trait_fn_span.combine(self.cur_token().get_source_ref());
+                self.advance();
+            }
+
+            let (fn_name, params, ret_type) = self.parse_fn_def_info();
+            trait_fn_span = trait_fn_span.combine(ret_type.get_loc());
+            let fn_def_ins = Ins::DeclFuncDefinition {
+                name: fn_name,
+                params,
+                ret_type,
+                is_const: trait_fn_is_const,
+                loc: trait_fn_span,
+            };
+
+            trait_fn_defs.push(fn_def_ins);
+        }
+
+        if !saw_rcurly {
+            self.report_error(ParseError::Expected(
+                format!(
+                    "a right curly brace (}}) to terminate the body of the trait '{}'.",
+                    trait_name.as_str()
+                ),
+                self.cur_token().get_source_ref(),
+                None,
+            ));
+        } else {
+            self.advance();
+        }
+
+        Ins::DeclTrait {
+            name: trait_name,
+            func_defs: trait_fn_defs,
+            loc: span,
+        }
     }
 
     fn parse_free(&mut self) -> Ins {
@@ -741,15 +827,20 @@ impl Parser {
         params
     }
 
+    fn parse_fn_def_info(&mut self) -> (Expr, Vec<FnParam>, Rc<Ty>) {
+        let fn_name = self.parse_identifier();
+        let params = self.parse_fn_params();
+        let ret_type = self.parse_type();
+
+        (fn_name, params, ret_type)
+    }
+
     fn parse_fn(&mut self, is_const: bool) -> Ins {
         let start = self.cur_token();
         self.advance();
 
-        let fn_name = self.parse_identifier();
+        let (fn_name, params, ret_type) = self.parse_fn_def_info();
 
-        let params = self.parse_fn_params();
-
-        let ret_type = self.parse_type();
         self.scope.push(ParseScope::Function);
         let body = self.next_ins(false, false);
         self.scope.pop();
@@ -807,7 +898,10 @@ impl Parser {
                 Ins::ErrorIns { .. } => continue,
                 _ => {
                     // report error for unexpected Ins at this level
-                    todo!()
+                    self.report_error(ParseError::ParsedInstructionIsNotAllowedAtThisLevel {
+                        level: "struct".to_string(),
+                        src: ins.get_source_ref(),
+                    });
                 }
             }
         }

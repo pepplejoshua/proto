@@ -31,6 +31,7 @@ pub enum ParseError {
     UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
     ReturnInstructionOutsideFunction(Rc<SourceRef>),
     CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
+    ParsedInstructionIsNotAllowedAtThisLevel { level: String, src: Rc<SourceRef> },
     TooManyErrors(Rc<SourceRef>),
 }
 
@@ -51,6 +52,7 @@ impl ParseError {
             | ParseError::ReturnInstructionOutsideFunction(src)
             | ParseError::TooManyErrors(src)
             | ParseError::CyclicalDependencyBetweenNodes { src, .. }
+            | ParseError::ParsedInstructionIsNotAllowedAtThisLevel { src, .. }
             | ParseError::NoVariableAtCurrentScope(src) => src.clone(),
         }
     }

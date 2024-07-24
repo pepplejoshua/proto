@@ -6,4 +6,4 @@ bool char
 return mod
 struct _ print println
 some none defer
-f32 f64 const
+f32 f64 const trait
