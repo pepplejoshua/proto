@@ -305,6 +305,12 @@ pub enum TyIns {
         is_const_method: bool,
         body: Box<TyIns>,
     },
+    TraitFuncDefinition {
+        name: String,
+        params: Vec<TyFnParam>,
+        ret_ty: Rc<Ty>,
+        is_const: bool,
+    },
     Struct {
         name: String,
         fields: Vec<TyIns>,
@@ -419,6 +425,23 @@ impl TyIns {
                     if *is_const_method { "const " } else { "" },
                     ret_ty.as_str(),
                     body.as_str()
+                )
+            }
+            TyIns::TraitFuncDefinition {
+                name,
+                params,
+                ret_ty,
+                is_const,
+            } => {
+                let params_str = params
+                    .iter()
+                    .map(|fn_param| format!("{} {}", fn_param.name, fn_param.given_ty.as_str()))
+                    .collect::<Vec<String>>();
+                let params_str = params_str.join(", ");
+                format!(
+                    "{}fn {name}({params_str}) {}",
+                    if *is_const { "const " } else { "" },
+                    ret_ty.as_str(),
                 )
             }
             TyIns::Block { code } => {

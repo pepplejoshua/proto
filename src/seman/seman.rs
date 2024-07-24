@@ -67,7 +67,7 @@ pub enum Scope {
     Loop,
     Defer,
     Mod,
-    Method,
+    Trait,
 }
 
 impl Scope {
@@ -2836,17 +2836,6 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
                 return None;
             }
 
-            // NOTE: I don't think this is required since the function is
-            // not being called. Just declared. I should test this.
-            // if state.is_in_x_scope(&Scope::Defer) {
-            //     if !ret_ty.is_void() {
-            //         state.push_err(CheckerError::FunctionInDeferShouldReturnVoid {
-            //             loc: ret_ty.get_loc(),
-            //         });
-            //         return None;
-            //     }
-            // }
-
             let mut fn_type_params = vec![];
             let mut pairs_to_register = vec![];
             let mut has_error = false;
@@ -3043,6 +3032,125 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             Some(TyIns::IfConditional {
                 comb: new_conds_and_code,
             })
+        }
+        Ins::DeclFuncDefinition {
+            name,
+            params,
+            ret_type,
+            is_const,
+            loc,
+        } => {
+            let fn_info = state.env.shallow_lookup(&name.as_str());
+            if fn_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: name.get_source_ref(),
+                    name: name.as_str(),
+                });
+                return None;
+            }
+
+            // construct the function definition type and add it to the environment
+            let ret_ty = match type_is_valid(ret_type) {
+                Ok(_) => ret_type.clone(),
+                Err((e, e_loc)) => match e {
+                    TypeValidErr::Invalid => {
+                        state.push_err(CheckerError::InvalidType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType {
+                            loc: ret_type.get_loc(),
+                        })
+                    }
+                    TypeValidErr::Incomplete => {
+                        state.push_err(CheckerError::IncompleteType {
+                            loc: e_loc,
+                            type_name: ret_type.as_str(),
+                        });
+                        Rc::new(Ty::ErrorType {
+                            loc: ret_type.get_loc(),
+                        })
+                    }
+                },
+            };
+
+            if ret_ty.is_error_ty() {
+                return None;
+            }
+
+            let mut fn_type_params = vec![];
+            let mut has_error = false;
+            let mut ty_params = vec![];
+            for param in params.into_iter() {
+                let p_ty = match type_is_valid(&param.given_ty) {
+                    Ok(_) => param.given_ty.clone(),
+                    Err((e, e_loc)) => match e {
+                        TypeValidErr::Invalid => {
+                            state.push_err(CheckerError::InvalidType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Rc::new(Ty::ErrorType {
+                                loc: param.given_ty.get_loc(),
+                            })
+                        }
+                        TypeValidErr::Incomplete => {
+                            state.push_err(CheckerError::IncompleteType {
+                                loc: e_loc,
+                                type_name: param.given_ty.as_str(),
+                            });
+                            Rc::new(Ty::ErrorType {
+                                loc: param.given_ty.get_loc(),
+                            })
+                        }
+                    },
+                };
+                if p_ty.is_error_ty() {
+                    has_error = true;
+                }
+                fn_type_params.push(p_ty.clone());
+                ty_params.push(TyFnParam {
+                    name: param.name.as_str(),
+                    given_ty: p_ty.clone(),
+                });
+            }
+
+            if has_error {
+                return None;
+            }
+
+            let fn_type = Rc::new(RefCell::new(Ty::Func {
+                params: fn_type_params,
+                ret: ret_ty.clone(),
+                loc: loc.clone(),
+                is_const: *is_const,
+            }));
+
+            let fn_info = NameInfo {
+                ty: fn_type,
+                refs: vec![loc.clone()],
+                is_const: true,
+                is_initialized: true,
+            };
+            state.env.add(name.as_str(), fn_info);
+
+            if state.is_in_x_scope(&Scope::Trait) {
+                Some(TyIns::TraitFuncDefinition {
+                    name: name.as_str(),
+                    params: ty_params,
+                    ret_ty: ret_type.clone(),
+                    is_const: *is_const,
+                })
+            } else {
+                unreachable!("Function Definition AST outside trait")
+            }
+        }
+        Ins::DeclTrait {
+            name,
+            func_defs,
+            loc,
+        } => {
+            todo!()
         }
         Ins::DeclStruct {
             name,

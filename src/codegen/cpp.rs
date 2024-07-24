@@ -559,8 +559,8 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
                         param.name.as_str()
                     )
                 })
-                .collect::<Vec<String>>();
-            let params_s = params_s.join(", ");
+                .collect::<Vec<String>>()
+                .join(", ");
             let body_s = if !matches!(**body, TyIns::Block { code: _ }) {
                 format!(" {{ {} }}", cpp_gen_ins(body, state))
             } else {
@@ -762,6 +762,40 @@ pub fn cpp_gen_ins(ins: &TyIns, state: &mut State) -> String {
         }
         TyIns::Free { target } => {
             buf = format!("{}delete {};", state.get_pad(), cpp_gen_expr(target, state));
+        }
+        TyIns::TraitFuncDefinition {
+            name,
+            params,
+            ret_ty,
+            is_const,
+        } => {
+            let params_s = params
+                .iter()
+                .map(|param| {
+                    format!(
+                        "{} {}",
+                        cpp_gen_ty(&param.given_ty, state),
+                        param.name.as_str()
+                    )
+                })
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            let arg_s = params
+                .iter()
+                .map(|param| format!("{}", param.name.as_str()))
+                .collect::<Vec<String>>()
+                .join(", ");
+
+            buf = format!(
+                "{}{}{name}({params_s}) {{\n",
+                state.get_pad(),
+                cpp_gen_ty(ret_ty, state),
+            );
+            state.indent();
+            buf.push_str(&format!("return inst->{name}({arg_s});"));
+            state.dedent();
+            buf.push_str("}\n");
         }
     }
     buf
