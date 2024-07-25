@@ -254,7 +254,10 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
                 sub_ty: b_sub_ty, ..
             },
         ) => types_are_eq(sub_ty, b_sub_ty),
-        (Ty::Struct { name, .. }, Ty::Struct { name: b_name, .. }) => name == b_name,
+        (Ty::Trait { name, .. }, Ty::Trait { name: b_name, .. })
+        | (Ty::NamedType { name, .. }, Ty::Trait { name: b_name, .. })
+        | (Ty::Trait { name, .. }, Ty::NamedType { name: b_name, .. })
+        | (Ty::Struct { name, .. }, Ty::Struct { name: b_name, .. }) => name == b_name,
         (Ty::NamedType { name, .. }, Ty::Struct { name: s_name, .. })
         | (Ty::Struct { name: s_name, .. }, Ty::NamedType { name, .. })
         | (Ty::NamedType { name, .. }, Ty::NamedType { name: s_name, .. }) => name == s_name,
@@ -2368,6 +2371,13 @@ pub fn check_expr(
                         ty.get_loc().as_str()
                     )
                 }
+                Ty::Trait { .. } => {
+                    unreachable!(
+                        "seman::check_expr(): a concrete trait type was somehow passed into new(): {}.",
+                        ty.get_loc().as_str()
+                    )
+                }
+                Ty::TraitImpl { .. } => todo!(),
                 Ty::NamedType { name, .. } => {
                     // we will need to get the actual type that backs the named type
                     let actual_ty_info = state.env.lookup(name);
@@ -3150,6 +3160,23 @@ pub fn check_ins(i: &Ins, context_ty: &Option<Rc<Ty>>, state: &mut State) -> Opt
             func_defs,
             loc,
         } => {
+            // we will need to check the body and update the struct type under the name
+            // as we get new information (fields, associated functions and methods)
+            let name_info = state.env.lookup(&name.as_str());
+            if name_info.is_some() {
+                state.push_err(CheckerError::NameAlreadyDefined {
+                    loc: loc.clone(),
+                    name: name.as_str(),
+                });
+                return None;
+            }
+
+            let mut trait_ty = Rc::new(RefCell::new(Ty::Trait {
+                name: name.as_str(),
+                funcs: HashMap::new(),
+                loc: loc.clone(),
+            }));
+
             todo!()
         }
         Ins::DeclStruct {

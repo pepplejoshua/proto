@@ -26,7 +26,7 @@ enum ParseScope {
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum DepTy {
     Func,
-    Struct,
+    ComplexTy,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -788,10 +788,18 @@ impl Parser {
             let param_name = self.parse_identifier();
             let param_ty = self.parse_type();
 
+            let param_span = param_ty.get_loc().combine(param_name.get_source_ref());
+            params.push(FnParam {
+                name: param_name,
+                given_ty: param_ty,
+                loc: param_span,
+            });
+
             cur = self.cur_token();
 
             if matches!(cur, Token::RParen(_)) {
                 saw_rparen = true;
+                break;
             } else if !matches!(cur, Token::Comma(_)) {
                 self.report_error(ParseError::Expected(
                     "a comma to separate parameters or a right parenthesis to terminate the list of parameters.".to_string(),
@@ -800,17 +808,6 @@ impl Parser {
                 ))
             } else {
                 self.advance();
-            }
-
-            let param_span = param_ty.get_loc().combine(param_name.get_source_ref());
-            params.push(FnParam {
-                name: param_name,
-                given_ty: param_ty,
-                loc: param_span,
-            });
-
-            if saw_rparen {
-                break;
             }
         }
 
@@ -1267,7 +1264,7 @@ impl Parser {
             }),
             Token::Identifier(name, loc) => {
                 self.cur_deps.push(Dep {
-                    ty: DepTy::Struct,
+                    ty: DepTy::ComplexTy,
                     to: name.clone(),
                     loc: loc.clone(),
                 });
@@ -1406,6 +1403,60 @@ impl Parser {
                     loc: loc.combine(sub_ty.get_loc()),
                     sub_ty,
                 })
+            }
+            Token::Impl(loc) => {
+                // look for [
+                let mut loc = loc;
+                if !matches!(self.cur_token(), Token::LBracket(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a left bracket ([) to begin the trait identifier section.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let mut saw_rbracket = false;
+                let mut trait_ids = vec![];
+                while !self.is_at_eof() {
+                    let mut cur = self.cur_token();
+                    if matches!(cur, Token::RBracket(_)) {
+                        saw_rbracket = true;
+                        break;
+                    }
+
+                    let id = self.parse_identifier();
+                    trait_ids.push(id);
+
+                    cur = self.cur_token();
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rbracket = true;
+                        break;
+                    } else if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a comma to separate trait identifiers or a right bracket (]) to terminate the list of trait identifiers.".to_string(),
+                            cur.get_source_ref(),
+                            None,
+                        ))
+                    } else {
+                        self.advance();
+                    }
+                }
+
+                if !saw_rbracket {
+                    self.report_error(ParseError::Expected(
+                        "a right bracket (]) to terminate the list of trait identifiers."
+                            .to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                Rc::new(Ty::TraitImpl { trait_ids, loc })
             }
             Token::LCurly(loc) => {
                 let mut loc = loc;

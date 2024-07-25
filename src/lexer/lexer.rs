@@ -265,6 +265,7 @@ impl Lexer {
             "return" => Ok(Token::Return(combined_ref)),
             "pub" => Ok(Token::Pub(combined_ref)),
             "const" => Ok(Token::Const(combined_ref)),
+            "impl" => Ok(Token::Impl(combined_ref)),
             "trait" => Ok(Token::Trait(combined_ref)),
             "print" => Ok(Token::Print(combined_ref)),
             "println" => Ok(Token::Println(combined_ref)),

@@ -1,5 +1,9 @@
 trait X {
-    fn do_stuff(a str) void;
+    fn do_stuff(a str) void
+}
+
+trait Y {
+    fn do_other_thing() void
 }
 
 struct A[X] {
@@ -9,7 +13,7 @@ struct A[X] {
     }
 }
 
-struct B[X] {
+struct B[X, Y] {
     b : int
 
     fn init(_b int) {
@@ -18,11 +22,19 @@ struct B[X] {
     fn do_stuff(a str) void {
         println(`B({b}) does stuff with ` + a)
     }
+    fn do_thing() void {
+        println(`B({b}) is doing thing`)
+    }
 }
 
-fn do_something(x X) void {
+fn do_something(x impl[X]) void {
     x.do_stuff("some string")
 }
+
+// fn do_2_things(x impl[X, Y]) void {
+//    x.do_stuff("some string")
+//    x.do_thing()
+// }
 
 fn main() int {
     a :: A()
@@ -30,5 +42,7 @@ fn main() int {
 
     do_something(a as X)
     do_something(b)
+    // do_2_things(b)
+
     return 0
 }

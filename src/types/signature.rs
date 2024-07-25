@@ -59,6 +59,15 @@ pub enum Ty {
         funcs: HashMap<String, Rc<Ty>>,
         loc: Rc<SourceRef>,
     },
+    Trait {
+        name: String,
+        funcs: HashMap<String, Rc<Ty>>,
+        loc: Rc<SourceRef>,
+    },
+    TraitImpl {
+        trait_ids: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
     NamedType {
         name: String,
         loc: Rc<SourceRef>,
@@ -155,6 +164,8 @@ impl Ty {
             | Ty::Optional { loc, .. }
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
+            | Ty::Trait { loc, .. }
+            | Ty::TraitImpl { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
             | Ty::Float { loc, .. }
@@ -175,6 +186,8 @@ impl Ty {
             | Ty::Slice { loc, .. }
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
+            | Ty::Trait { loc, .. }
+            | Ty::TraitImpl { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
@@ -231,6 +244,17 @@ impl Ty {
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
             Ty::Struct { name, .. } => name.clone(),
+            Ty::Trait { name, .. } => name.clone(),
+            Ty::TraitImpl { trait_ids, .. } => {
+                format!(
+                    "impl[{}]",
+                    trait_ids
+                        .iter()
+                        .map(|tr| { tr.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
             Ty::NamedType { name, .. } => format!("{name}"),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
             Ty::HashMap { key_ty, val_ty, .. } => {
