@@ -1,9 +1,85 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use std::{borrow::BorrowMut, collections::HashMap, rc::Rc};
-
 use crate::{parser::ast::Expr, source::source::SourceRef};
+use std::sync::atomic::AtomicUsize;
+use std::{
+    borrow::BorrowMut,
+    collections::{BTreeMap, HashMap},
+    rc::Rc,
+};
+
+pub type TypeId = usize;
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub enum TypeDef {
+    Signed {
+        size: u8,
+        is_int: bool,
+    },
+    Unsigned {
+        size: u8,
+        is_uint: bool,
+    },
+    Float {
+        size: u8,
+    },
+    Str {
+        is_interp: bool,
+    },
+    Char,
+    Void,
+    Bool,
+    Func {
+        params: Vec<TypeId>,
+        ret: TypeId,
+        is_const: bool,
+    },
+    StaticArray {
+        sub_ty: TypeId,
+        size: Option<usize>,
+    },
+    Slice {
+        sub_ty: TypeId,
+    },
+    Optional {
+        sub_ty: TypeId,
+    },
+    Struct {
+        name: String,
+        fields: BTreeMap<String, TypeId>,
+        funcs: BTreeMap<String, TypeId>,
+    },
+    Trait {
+        name: String,
+        funcs: BTreeMap<String, TypeId>,
+    },
+    TraitImpl {
+        trait_ids: Vec<String>,
+    },
+    NamedType {
+        name: String,
+    },
+    Pointer {
+        sub_ty: TypeId,
+    },
+    HashMap {
+        key_ty: TypeId,
+        val_ty: TypeId,
+    },
+    ErrorType,
+}
+
+pub struct TypeInst {
+    pub id: TypeId,
+    pub loc: Option<Rc<SourceRef>>,
+}
+
+pub struct TypeTable {
+    types: HashMap<TypeDef, TypeId>,
+    definitions: Vec<TypeDef>,
+    next_id: AtomicUsize,
+}
 
 #[derive(Debug, Clone)]
 pub enum Ty {
