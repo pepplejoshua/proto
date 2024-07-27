@@ -2,7 +2,7 @@
 #include "t.h"
 
 using std::cout;
-using std::endl;
+// using std::endl;
 
 struct A {
   A() {}
@@ -53,14 +53,6 @@ template<typename Type>
 struct TraitX_Y : public TraitX<Type>, TraitY<Type> {
 public:
   explicit TraitX_Y(Type *i) : TraitX<Type>(i), TraitY<Type>(i) {}
-
-  void do_stuff(str a) {
-    return TraitX<Type>::do_stuff(a);
-  }
-
-  void do_thing() {
-    return TraitY<Type>::do_thing();
-  }
 };
 
 template<typename Type>
@@ -80,7 +72,6 @@ int main() {
   do_something(TraitX<A>(&a));
   do_something(TraitX<B>(&b));
   do_2_things(TraitX_Y<B>(&b));
-  cout << sizeof(TraitX_Y<B>(&b)) << endl;
 
   return 0;
 }

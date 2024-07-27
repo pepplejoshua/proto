@@ -9,8 +9,10 @@ use std::{
     rc::Rc,
 };
 
+// the id for a type
 pub type TypeId = usize;
 
+// this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
     Signed {
@@ -31,6 +33,10 @@ pub enum TypeDef {
     Void,
     Bool,
     Func {
+        params: Vec<TypeId>,
+        ret: TypeId,
+    },
+    Method {
         params: Vec<TypeId>,
         ret: TypeId,
         is_const: bool,
@@ -55,10 +61,7 @@ pub enum TypeDef {
         funcs: BTreeMap<String, TypeId>,
     },
     TraitImpl {
-        trait_ids: Vec<String>,
-    },
-    NamedType {
-        name: String,
+        trait_ids: Vec<TypeId>,
     },
     Pointer {
         sub_ty: TypeId,
@@ -70,6 +73,7 @@ pub enum TypeDef {
     ErrorType,
 }
 
+// an instance of a type definition
 pub struct TypeInst {
     pub id: TypeId,
     pub loc: Option<Rc<SourceRef>>,
@@ -78,7 +82,52 @@ pub struct TypeInst {
 pub struct TypeTable {
     types: HashMap<TypeDef, TypeId>,
     definitions: Vec<TypeDef>,
+    named_types: HashMap<String, TypeId>,
     next_id: AtomicUsize,
+}
+
+impl TypeTable {
+    pub fn new() -> TypeTable {
+        return TypeTable {
+            types: HashMap::new(),
+            definitions: vec![],
+            named_types: HashMap::new(),
+            next_id: AtomicUsize::new(0),
+        };
+    }
+
+    pub fn add_new_def(&mut self, ty_def: TypeDef) -> TypeId {
+        if let Some(&id) = self.types.get(&ty_def) {
+            id
+        } else {
+            let id = self
+                .next_id
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            self.types.insert(ty_def.clone(), id);
+            self.definitions.push(ty_def.clone());
+
+            match ty_def {
+                TypeDef::Struct { name, .. } | TypeDef::Trait { name, .. } => {
+                    self.named_types.insert(name.clone(), id);
+                }
+                _ => {}
+            }
+
+            id
+        }
+    }
+
+    pub fn type_id_exists(&self, id: TypeId) -> bool {
+        self.definitions.get(id).is_some()
+    }
+
+    pub fn get_type_def_for_id(&self, id: TypeId) -> Option<&TypeDef> {
+        self.definitions.get(id)
+    }
+
+    pub fn get_id_for_named_type(&self, name: &str) -> Option<TypeId> {
+        self.named_types.get(name).copied()
+    }
 }
 
 #[derive(Debug, Clone)]
