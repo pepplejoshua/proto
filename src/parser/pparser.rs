@@ -1263,7 +1263,7 @@ impl Parser {
     fn parse_type_inst(&mut self) -> TypeInst {
         let cur = self.cur_token();
         self.advance();
-        let ty_inst = match cur {
+        match cur {
             Token::Bool(loc) => make_inst(1, loc),
             Token::Char(loc) => make_inst(2, loc),
             Token::Void(loc) => make_inst(3, loc),
@@ -1348,13 +1348,135 @@ impl Parser {
                     }
                 }
             }
+            Token::QuestionMark(loc) => {
+                let sub_ty_inst = self.parse_type_inst();
+                let span = sub_ty_inst.loc.combine(loc);
+                let opt_inst = self.type_table.add_new_type_def(TypeDef::Optional {
+                    sub_ty: sub_ty_inst.id,
+                });
+                make_inst(opt_inst, span)
+            }
+            Token::Star(loc) => {
+                let sub_ty_inst = self.parse_type_inst();
+                let span = sub_ty_inst.loc.combine(loc);
+                let ptr_inst = self.type_table.add_new_type_def(TypeDef::Pointer {
+                    sub_ty: sub_ty_inst.id,
+                });
+                make_inst(ptr_inst, span)
+            }
+            Token::LCurly(loc) => {
+                let mut loc = loc;
+                // we are parsing the type of a hashmap
+                let key_ty_inst = self.parse_type_inst();
+
+                let mut cur = self.cur_token();
+                if !matches!(cur, Token::Comma(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a comma to separate the key and value types of the hashmap type."
+                            .to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let val_ty_inst = self.parse_type_inst();
+                cur = self.cur_token();
+                if !matches!(cur, Token::RCurly(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a right curly brace (}) to terminate the hashmap type.".to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(cur.get_source_ref());
+                    self.advance();
+                }
+                let hmap_inst_id = self.type_table.add_new_type_def(TypeDef::HashMap {
+                    key_ty: key_ty_inst.id,
+                    val_ty: val_ty_inst.id,
+                });
+
+                make_inst(hmap_inst_id, loc)
+            }
+            Token::BackSlash(loc) => {
+                // we will need to parse comma-separated types delimited by parenthesis
+                // and a return type to make the signature
+                let mut loc = loc;
+
+                let mut cur = self.cur_token();
+
+                if !matches!(cur, Token::LParen(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a left parenthesis to begin the list of parameter types.".to_string(),
+                        cur.get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let mut param_ty_ids = vec![];
+                let mut saw_rparen = false;
+                while !self.is_at_eof() {
+                    cur = self.cur_token();
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rparen = true;
+                        break;
+                    }
+
+                    let param_ty_inst = self.parse_type_inst();
+
+                    cur = self.cur_token();
+
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rparen = true;
+                    } else if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a comma to separate parameter types or a right parenthesis to terminate the list of parameter types.".to_string(),
+                            cur.get_source_ref(),
+                            None,
+                        ))
+                    } else {
+                        self.advance();
+                    }
+
+                    param_ty_ids.push(param_ty_inst.id);
+
+                    if saw_rparen {
+                        break;
+                    }
+                }
+
+                if !saw_rparen {
+                    self.report_error(ParseError::Expected(
+                        "a right parenthesis to terminate the list of parameters.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                // parse expected return type
+                let ret_ty_inst = self.parse_type_inst();
+                let fn_inst_id = self.type_table.add_new_type_def(TypeDef::Func {
+                    params: param_ty_ids,
+                    ret: ret_ty_inst.id,
+                });
+                make_inst(fn_inst_id, loc)
+            }
+            Token::Impl(loc) => {
+                todo!()
+            }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
                 make_inst(0, cur.get_source_ref())
             }
-        };
-        ty_inst
+        }
     }
 
     fn parse_type(&mut self) -> Rc<Ty> {

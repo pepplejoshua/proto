@@ -76,11 +76,11 @@ pub enum TypeDef {
 // an instance of a type definition
 pub struct TypeInst {
     pub id: TypeId,
-    pub loc: Option<Rc<SourceRef>>,
+    pub loc: Rc<SourceRef>,
 }
 
 pub fn make_inst(id: TypeId, loc: Rc<SourceRef>) -> TypeInst {
-    TypeInst { id, loc: Some(loc) }
+    TypeInst { id, loc }
 }
 
 pub struct TypeTable {
