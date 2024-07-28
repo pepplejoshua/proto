@@ -9,7 +9,7 @@ use crate::{
         errors::{LexError, ParseError, ParseWarning},
         source::{SourceRef, SourceReporter},
     },
-    types::signature::Ty,
+    types::signature::{make_inst, Ty, TypeDef, TypeId, TypeInst, TypeTable},
 };
 
 use super::ast::{BinOpType, Expr, FileModule, HashMapPair, Ins, UnaryOpType};
@@ -42,6 +42,7 @@ pub struct Parser {
     pub parse_errs: Vec<ParseError>,
     pub parse_warns: Vec<ParseWarning>,
     pub file_mod: FileModule,
+    pub type_table: TypeTable,
     cur_deps: Vec<Dep>,
     scope: Vec<ParseScope>,
     lexed_token: Option<Token>,
@@ -55,13 +56,70 @@ impl Parser {
             parse_errs: Vec::new(),
             parse_warns: Vec::new(),
             file_mod: FileModule::new(),
+            type_table: TypeTable::new(),
             scope: vec![ParseScope::TopLevel],
             lexed_token: None,
             cur_deps: vec![],
         };
 
+        p.init_type_table();
         p.advance();
         p
+    }
+
+    fn init_type_table(&mut self) {
+        // 0
+        self.type_table.add_new_type_def(TypeDef::ErrorType);
+        // 1
+        self.type_table.add_new_type_def(TypeDef::Bool);
+        // 2
+        self.type_table.add_new_type_def(TypeDef::Char);
+        // 3
+        self.type_table.add_new_type_def(TypeDef::Void);
+
+        // i8 = 4, u8 = 5
+        // i16 = 6, u16 = 7
+        // i32 = 8, u32 = 9
+        // i64 = 10, u64 = 11
+        let int_sizes = [8, 16, 32, 64];
+        for size in int_sizes {
+            self.type_table.add_new_type_def(TypeDef::Signed {
+                size,
+                is_int: false,
+            });
+            self.type_table.add_new_type_def(TypeDef::Unsigned {
+                size,
+                is_uint: false,
+            });
+        }
+        let platform_size = if std::mem::size_of::<usize>() == 8 {
+            64
+        } else {
+            32
+        };
+        // 12
+        self.type_table.add_new_type_def(TypeDef::Signed {
+            size: platform_size,
+            is_int: true,
+        });
+        // 13
+        self.type_table.add_new_type_def(TypeDef::Unsigned {
+            size: platform_size,
+            is_uint: true,
+        });
+        // 14
+        self.type_table
+            .add_new_type_def(TypeDef::Float { size: 32 });
+        // 15
+        self.type_table
+            .add_new_type_def(TypeDef::Float { size: 64 });
+
+        // TODO: eliminate the need for this
+        // 16 and 17
+        self.type_table
+            .add_new_type_def(TypeDef::Str { is_interp: false });
+        self.type_table
+            .add_new_type_def(TypeDef::Str { is_interp: true });
     }
 
     fn advance(&mut self) {
@@ -1200,6 +1258,103 @@ impl Parser {
             code,
             loc: block_loc,
         }
+    }
+
+    fn parse_type_inst(&mut self) -> TypeInst {
+        let cur = self.cur_token();
+        self.advance();
+        let ty_inst = match cur {
+            Token::Bool(loc) => make_inst(1, loc),
+            Token::Char(loc) => make_inst(2, loc),
+            Token::Void(loc) => make_inst(3, loc),
+            Token::I8(loc) => make_inst(4, loc),
+            Token::U8(loc) => make_inst(5, loc),
+            Token::I16(loc) => make_inst(6, loc),
+            Token::U16(loc) => make_inst(7, loc),
+            Token::I32(loc) => make_inst(8, loc),
+            Token::U32(loc) => make_inst(9, loc),
+            Token::I64(loc) => make_inst(10, loc),
+            Token::U64(loc) => make_inst(11, loc),
+            Token::Int(loc) => make_inst(12, loc),
+            Token::UInt(loc) => make_inst(13, loc),
+            Token::F32(loc) => make_inst(14, loc),
+            Token::F64(loc) => make_inst(15, loc),
+            Token::Str(loc) => make_inst(16, loc),
+            Token::Identifier(name, loc) => {
+                // check the type table for the actual type, if any
+                todo!()
+            }
+            Token::LBracket(loc) => {
+                let sub_ty_inst = self.parse_type_inst();
+
+                match self.cur_token() {
+                    Token::Comma(_) => {
+                        self.advance();
+                        // check for an underscore or parse an expr for the size of the
+                        // array.
+                        let static_size = match self.cur_token() {
+                            Token::Underscore(_) => {
+                                self.advance();
+                                None
+                            }
+                            Token::NumberLiteral(num, loc) => {
+                                todo!()
+                            }
+                            _ => {
+                                self.report_error(ParseError::Expected(
+                                    "a constant uint literal to specify the size of the static array type or '_' to require it to be inferred."
+                                        .to_string(),
+                                    self.cur_token().get_source_ref(),
+                                    None,
+                                ));
+                                self.advance();
+                                None
+                            }
+                        };
+                        let mut span = loc;
+
+                        if !matches!(self.cur_token(), Token::RBracket(_)) {
+                            self.report_error(ParseError::Expected(
+                                "a right bracket (]) to terminate the static array type."
+                                    .to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        } else {
+                            span = span.combine(self.cur_token().get_source_ref());
+                            self.advance()
+                        }
+                        let arr_id = self.type_table.add_new_type_def(TypeDef::StaticArray {
+                            sub_ty: sub_ty_inst.id,
+                            size: static_size,
+                        });
+                        make_inst(arr_id, span)
+                    }
+                    Token::RBracket(rbrac_loc) => {
+                        self.advance();
+                        let span = loc.combine(rbrac_loc);
+                        let slice_id = self.type_table.add_new_type_def(TypeDef::Slice {
+                            sub_ty: sub_ty_inst.id,
+                        });
+                        make_inst(slice_id, loc)
+                    }
+                    _ => {
+                        self.report_error(ParseError::Expected(
+                            "a right bracket (]) to terminate the slice type or a comma to separate the type and size of the static array type.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                        make_inst(0, self.cur_token().get_source_ref())
+                    }
+                }
+            }
+            _ => {
+                // TODO: is it wise to advance the cursor here?
+                self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
+                make_inst(0, cur.get_source_ref())
+            }
+        };
+        ty_inst
     }
 
     fn parse_type(&mut self) -> Rc<Ty> {

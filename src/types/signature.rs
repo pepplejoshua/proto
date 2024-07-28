@@ -79,6 +79,10 @@ pub struct TypeInst {
     pub loc: Option<Rc<SourceRef>>,
 }
 
+pub fn make_inst(id: TypeId, loc: Rc<SourceRef>) -> TypeInst {
+    TypeInst { id, loc: Some(loc) }
+}
+
 pub struct TypeTable {
     types: HashMap<TypeDef, TypeId>,
     definitions: Vec<TypeDef>,
@@ -96,7 +100,7 @@ impl TypeTable {
         };
     }
 
-    pub fn add_new_def(&mut self, ty_def: TypeDef) -> TypeId {
+    pub fn add_new_type_def(&mut self, ty_def: TypeDef) -> TypeId {
         if let Some(&id) = self.types.get(&ty_def) {
             id
         } else {
@@ -121,11 +125,11 @@ impl TypeTable {
         self.definitions.get(id).is_some()
     }
 
-    pub fn get_type_def_for_id(&self, id: TypeId) -> Option<&TypeDef> {
+    pub fn get_type_def_using_id(&self, id: TypeId) -> Option<&TypeDef> {
         self.definitions.get(id)
     }
 
-    pub fn get_id_for_named_type(&self, name: &str) -> Option<TypeId> {
+    pub fn get_id_using_name(&self, name: &str) -> Option<TypeId> {
         self.named_types.get(name).copied()
     }
 }
