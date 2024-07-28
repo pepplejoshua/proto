@@ -2,7 +2,7 @@
 #include "t.h"
 
 using std::cout;
-// using std::endl;
+using std::endl;
 
 struct A {
   A() {}
@@ -67,11 +67,20 @@ void do_2_things(TraitX_Y<Type> x) {
 }
 
 int main() {
-  A a;
-  B b(420);
-  do_something(TraitX<A>(&a));
-  do_something(TraitX<B>(&b));
-  do_2_things(TraitX_Y<B>(&b));
+  // A a;
+  // B b(420);
+  // do_something(TraitX<A>(&a));
+  // do_something(TraitX<B>(&b));
+  // do_2_things(TraitX_Y<B>(&b));
 
+  Int<int> a(300);
+  Int<int> b(120);
+  cout << (a + b).as_str() << endl;
+
+  Float<float> c(300.243);
+  cout << c.as_str() << endl;
+
+  Char d('a');
+  cout << d * Int<int>(10) << endl;
   return 0;
 }

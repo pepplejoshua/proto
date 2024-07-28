@@ -462,26 +462,6 @@ inline void proto_print(const str s) {
     std::cout << s;
 }
 
-struct Char {
-  char ch;
-
-  Char(char c): ch(c) {}
-  const str as_str() const {
-    return str(1, ch);
-  }
-
-  str operator+(const Char& other) {
-    return as_str() + other.as_str();
-  }
-};
-
-template<uint_pr N>
-using Str = Array<char, N>;
-
-inline str proto_str(const Char ch) {
-  return ch.as_str();
-}
-
 template<typename T>
 inline str proto_str(const T* t) {
   return "*Ptr<" + std::to_string(reinterpret_cast<uintptr_t>(t)) + ">";
@@ -652,3 +632,107 @@ public:
 
 class ArenaAllocator {
 };
+
+template<typename IntType>
+class Int {
+private:
+  IntType num;
+
+public:
+  Int() : num(0) {}
+  Int(IntType n) : num(n) {}
+
+  Int operator+(const Int& n) const {
+    return Int(this->num + n.num);
+  }
+
+  Int operator*(const Int& n) const  {
+    return Int(this->num * n.num);
+  }
+
+  Int operator/(const Int& n) const  {
+    return Int(this->num / n.num);
+  }
+
+  Int operator%(const Int& n) const  {
+    return Int(this->num % n.num);
+  }
+
+  bool operator>(const Int& n) const {
+    return this->num > n.num;
+  }
+
+  bool operator<(const Int& n) const {
+    return this->num < n.num;
+  }
+
+  str as_str() const  {
+    return std::to_string(num);
+  }
+};
+
+template<typename FloatType>
+class Float {
+private:
+  FloatType num;
+
+public:
+  Float() : num(0) {}
+  Float(FloatType n) : num(n) {}
+
+  template<typename IntType>
+  Float(IntType int_n) : num((FloatType) int_n) {}
+
+  Float operator+(const Float& n) const {
+    return Float(this->num + n.num);
+  }
+
+  Float operator*(const Float& n) const  {
+    return Float(this->num * n.num);
+  }
+
+  Float operator/(const Float& n) const  {
+    return Float(this->num / n.num);
+  }
+
+  Float operator%(const Float& n) const  {
+    return Float(this->num % n.num);
+  }
+
+  str as_str() const  {
+    return std::to_string(num);
+  }
+};
+
+struct Char {
+private:
+  char c;
+
+public:
+  Char() : c('\0') {}
+  Char(char ch) : c(ch) {}
+  template<typename IntType>
+  Char(IntType ascii) : c(char(ascii)) {}
+
+  str operator+(const Char& ch) const {
+    return this->as_str() + ch.as_str();
+  }
+
+  template<typename IntType>
+  str operator*(const Int<IntType>& count) const  {
+    str buf = "";
+    Int<IntType> iters = 0;
+    while (iters < count) {
+      buf += c;
+      iters = iters + 1;
+    }
+
+    return buf;
+  }
+
+  str as_str() const  {
+    return str(1, c);
+  }
+};
+
+// using Str = Array<char, N>;
