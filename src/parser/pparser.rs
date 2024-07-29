@@ -62,64 +62,8 @@ impl Parser {
             cur_deps: vec![],
         };
 
-        p.init_type_table();
         p.advance();
         p
-    }
-
-    fn init_type_table(&mut self) {
-        // 0
-        self.type_table.add_new_type_def(TypeDef::ErrorType);
-        // 1
-        self.type_table.add_new_type_def(TypeDef::Bool);
-        // 2
-        self.type_table.add_new_type_def(TypeDef::Char);
-        // 3
-        self.type_table.add_new_type_def(TypeDef::Void);
-
-        // i8 = 4, u8 = 5
-        // i16 = 6, u16 = 7
-        // i32 = 8, u32 = 9
-        // i64 = 10, u64 = 11
-        let int_sizes = [8, 16, 32, 64];
-        for size in int_sizes {
-            self.type_table.add_new_type_def(TypeDef::Signed {
-                size,
-                is_int: false,
-            });
-            self.type_table.add_new_type_def(TypeDef::Unsigned {
-                size,
-                is_uint: false,
-            });
-        }
-        let platform_size = if std::mem::size_of::<usize>() == 8 {
-            64
-        } else {
-            32
-        };
-        // 12
-        self.type_table.add_new_type_def(TypeDef::Signed {
-            size: platform_size,
-            is_int: true,
-        });
-        // 13
-        self.type_table.add_new_type_def(TypeDef::Unsigned {
-            size: platform_size,
-            is_uint: true,
-        });
-        // 14
-        self.type_table
-            .add_new_type_def(TypeDef::Float { size: 32 });
-        // 15
-        self.type_table
-            .add_new_type_def(TypeDef::Float { size: 64 });
-
-        // TODO: eliminate the need for this
-        // 16 and 17
-        self.type_table
-            .add_new_type_def(TypeDef::Str { is_interp: false });
-        self.type_table
-            .add_new_type_def(TypeDef::Str { is_interp: true });
     }
 
     fn advance(&mut self) {
@@ -1264,22 +1208,108 @@ impl Parser {
         let cur = self.cur_token();
         self.advance();
         match cur {
-            Token::Bool(loc) => make_inst(1, loc),
-            Token::Char(loc) => make_inst(2, loc),
-            Token::Void(loc) => make_inst(3, loc),
-            Token::I8(loc) => make_inst(4, loc),
-            Token::U8(loc) => make_inst(5, loc),
-            Token::I16(loc) => make_inst(6, loc),
-            Token::U16(loc) => make_inst(7, loc),
-            Token::I32(loc) => make_inst(8, loc),
-            Token::U32(loc) => make_inst(9, loc),
-            Token::I64(loc) => make_inst(10, loc),
-            Token::U64(loc) => make_inst(11, loc),
-            Token::Int(loc) => make_inst(12, loc),
-            Token::UInt(loc) => make_inst(13, loc),
-            Token::F32(loc) => make_inst(14, loc),
-            Token::F64(loc) => make_inst(15, loc),
-            Token::Str(loc) => make_inst(16, loc),
+            Token::Bool(loc) => make_inst(self.type_table.add_new_type_def(TypeDef::Bool), loc),
+            Token::Char(loc) => make_inst(self.type_table.add_new_type_def(TypeDef::Char), loc),
+            Token::Void(loc) => make_inst(self.type_table.add_new_type_def(TypeDef::Void), loc),
+            Token::I8(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Signed {
+                    size: 8,
+                    is_int: false,
+                }),
+                loc,
+            ),
+            Token::I16(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Signed {
+                    size: 16,
+                    is_int: false,
+                }),
+                loc,
+            ),
+            Token::I32(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Signed {
+                    size: 32,
+                    is_int: false,
+                }),
+                loc,
+            ),
+            Token::I64(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Signed {
+                    size: 64,
+                    is_int: false,
+                }),
+                loc,
+            ),
+            Token::Int(loc) => {
+                let platform_size = if std::mem::size_of::<usize>() == 8 {
+                    64
+                } else {
+                    32
+                };
+                make_inst(
+                    self.type_table.add_new_type_def(TypeDef::Signed {
+                        size: platform_size,
+                        is_int: true,
+                    }),
+                    loc,
+                )
+            }
+            Token::U8(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Unsigned {
+                    size: 8,
+                    is_uint: false,
+                }),
+                loc,
+            ),
+            Token::U16(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Unsigned {
+                    size: 16,
+                    is_uint: false,
+                }),
+                loc,
+            ),
+            Token::U32(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Unsigned {
+                    size: 32,
+                    is_uint: false,
+                }),
+                loc,
+            ),
+            Token::U64(loc) => make_inst(
+                self.type_table.add_new_type_def(TypeDef::Unsigned {
+                    size: 64,
+                    is_uint: false,
+                }),
+                loc,
+            ),
+            Token::UInt(loc) => {
+                let platform_size = if std::mem::size_of::<usize>() == 8 {
+                    64
+                } else {
+                    32
+                };
+                make_inst(
+                    self.type_table.add_new_type_def(TypeDef::Unsigned {
+                        size: platform_size,
+                        is_uint: true,
+                    }),
+                    loc,
+                )
+            }
+            Token::F32(loc) => make_inst(
+                self.type_table
+                    .add_new_type_def(TypeDef::Float { size: 32 }),
+                loc,
+            ),
+            Token::F64(loc) => make_inst(
+                self.type_table
+                    .add_new_type_def(TypeDef::Float { size: 64 }),
+                loc,
+            ),
+            Token::Str(loc) => make_inst(
+                self.type_table
+                    .add_new_type_def(TypeDef::Str { is_interp: false }),
+                loc,
+            ),
             Token::Identifier(name, loc) => {
                 // check the type table for the actual type, if any
                 todo!()
@@ -1469,12 +1499,70 @@ impl Parser {
                 make_inst(fn_inst_id, loc)
             }
             Token::Impl(loc) => {
-                todo!()
+                // look for [
+                let mut loc = loc;
+                if !matches!(self.cur_token(), Token::LBracket(_)) {
+                    self.report_error(ParseError::Expected(
+                        "a left bracket ([) to begin the trait identifier section.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    self.advance();
+                }
+
+                let mut saw_rbracket = false;
+                let mut trait_ids = vec![];
+                while !self.is_at_eof() {
+                    let mut cur = self.cur_token();
+                    if matches!(cur, Token::RBracket(_)) {
+                        saw_rbracket = true;
+                        break;
+                    }
+
+                    let trait_inst = self.parse_type_inst();
+                    trait_ids.push(trait_inst.id);
+
+                    cur = self.cur_token();
+                    if matches!(cur, Token::RParen(_)) {
+                        saw_rbracket = true;
+                        break;
+                    } else if !matches!(cur, Token::Comma(_)) {
+                        self.report_error(ParseError::Expected(
+                            "a comma to separate trait identifiers or a right bracket (]) to terminate the list of trait identifiers.".to_string(),
+                            cur.get_source_ref(),
+                            None,
+                        ))
+                    } else {
+                        self.advance();
+                    }
+                }
+
+                if !saw_rbracket {
+                    self.report_error(ParseError::Expected(
+                        "a right bracket (]) to terminate the list of trait identifiers."
+                            .to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                let trait_impl_inst = self
+                    .type_table
+                    .add_new_type_def(TypeDef::TraitImpl { trait_ids });
+
+                make_inst(trait_impl_inst, loc)
             }
             _ => {
                 // TODO: is it wise to advance the cursor here?
                 self.report_error(ParseError::CannotParseAType(cur.get_source_ref()));
-                make_inst(0, cur.get_source_ref())
+                make_inst(
+                    self.type_table.add_new_type_def(TypeDef::ErrorType),
+                    cur.get_source_ref(),
+                )
             }
         }
     }

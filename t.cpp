@@ -81,6 +81,12 @@ int main() {
   cout << c.as_str() << endl;
 
   Char d('a');
-  cout << d * Int<int>(10) << endl;
+  str d_str = d * Int<int>(10);
+  cout << d_str << endl;
+
+  Str<6> e("this is a sequence of characters");
+
+  cout << sizeof(Int<int>) << endl;
+  // cout << "abcd" + "efgh" << endl;
   return 0;
 }
