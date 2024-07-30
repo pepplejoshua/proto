@@ -953,6 +953,11 @@ impl Parser {
 
         let struct_name = self.parse_identifier();
 
+        // look to see if we are implementing a trait
+        if matches!(self.cur_token(), Token::LBracket(_)) {
+            todo!()
+        }
+
         self.scope.push(ParseScope::Struct);
         let (fields, ood_funcs, struct_span) = self.parse_struct_block();
         self.scope.pop();
@@ -1312,7 +1317,17 @@ impl Parser {
             ),
             Token::Identifier(name, loc) => {
                 // check the type table for the actual type, if any
-                todo!()
+                let id = self.type_table.get_id_using_name(&name);
+                if let Some(id) = id {
+                    make_inst(id, loc)
+                } else {
+                    // we have not encountered this name yet, so we can forward declare it
+                    // and allow the user declare it later
+                    let ident_id = self
+                        .type_table
+                        .add_new_type_def(TypeDef::ForwardDeclared { name });
+                    make_inst(ident_id, loc)
+                }
             }
             Token::LBracket(loc) => {
                 let sub_ty_inst = self.parse_type_inst();

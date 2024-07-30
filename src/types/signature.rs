@@ -15,6 +15,9 @@ pub type TypeId = usize;
 // this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
+    ForwardDeclared {
+        name: String,
+    },
     Signed {
         size: u8,
         is_int: bool,
@@ -111,7 +114,9 @@ impl TypeTable {
             self.definitions.push(ty_def.clone());
 
             match ty_def {
-                TypeDef::Struct { name, .. } | TypeDef::Trait { name, .. } => {
+                TypeDef::Struct { name, .. }
+                | TypeDef::Trait { name, .. }
+                | TypeDef::ForwardDeclared { name } => {
                     self.named_types.insert(name.clone(), id);
                 }
                 _ => {}

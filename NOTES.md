@@ -57,9 +57,8 @@ fn main() int {
 - Mutable/const function parameters
 - Look into how comparator function can be implemented for the types used in hashmaps.
 - Add using for struct composing other structs.
-- Add option for user to provide deinit() void function on structs to handle clean up of internal resources. How does this interact with allocators?
-- Report an error if a struct field refers to itself unwrap by another types
-- Should new return a pointer or an optional pointer?
+- Report an error if a struct field refers to itself unwrapped by another types
+- Should new return a pointer or an optional pointer? Allocators will return an optional pointer.
 - Add CFG to seman for checking validity of variable references (they have been initialized through all execution paths). Use Claude 3.5 Sonnet as a guide.
 - Make functions printable (generate a string in seman to show the type).
 - Work on support for allocators (explicit or implicitly through context passing).

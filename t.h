@@ -734,15 +734,3 @@ public:
     return str(1, c);
   }
 };
-
-template<uint_pr N>
-struct Str {
-private:
-  Array<Char, N> contents;
-
-public:
-  Str() : contents({}) {}
-  Str(const char seq[N]) {
-    // std::copy(seq, seq + N, )
-  }
-};
