@@ -67,17 +67,16 @@ void do_2_things(TraitX_Y<Type> x) {
 }
 
 int main() {
-  Array<B, 5> b({
-    B(1),
-    B(2),
-    B(3),
-    B(4),
-    B(5),
-
+  Array<str, 5> arr({
+    "this",
+    "is",
+    "an",
+    "array of",
+    "strs"
   });
 
-  for (const auto& [index, s] : enumerate(&b)) {
-    cout << index + 1 << ". " << s.b << endl;
+  for (const auto& [index, s] : arr.enumerate()) {
+    cout << index + 1 << ". " << s << endl;
   }
 
   return 0;

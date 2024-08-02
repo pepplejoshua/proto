@@ -54,6 +54,31 @@ Defer<Fn> defer_func(Fn f) {
 #define DEFER_3(x)    DEFER_2(x, __COUNTER__)
 #define defer(code)   auto DEFER_3(_defer_) = defer_func([&](){code;})
 
+template <typename InnerType>
+class Enum {
+private:
+  InnerType* start;
+  InnerType* end_;
+  uint_pr index = 0;
+
+public:
+  explicit Enum(InnerType* s, InnerType* e) : start(s), end_(e) {}
+  class Iterator {
+  private:
+    uint_pr index;
+    InnerType* item;
+
+  public:
+    Iterator(uint_pr in, InnerType* i) : index(in), item(i) {}
+    std::pair<uint_pr, InnerType&> operator*() const { return {index, *item}; }
+    Iterator& operator++() { index++; item++; return *this; }
+    bool operator!=(const Iterator& i) { return item != i.item; }
+  };
+
+  Iterator begin() const { return Iterator(0, start); };
+  Iterator end() const { return Iterator(static_cast<uint_pr>(-1), end_); };
+};
+
 template<typename T>
 class Option {
 private:
@@ -137,6 +162,10 @@ public:
       std::memset(start, 0, cap);
       // std::cout << "Slice(uint_pr cap) constructor called\n";
       // std::cout << "allocated memory for " << cap << " items...\n";
+    }
+
+    Enum<T> enumerate() const {
+      return Enum(start, start + length);
     }
 
     Slice() : Slice(16) {
@@ -277,6 +306,10 @@ private:
 public:
     explicit Array(std::initializer_list<T> init) {
       std::copy(init.begin(), init.end(), data);
+    }
+
+    Enum<T> enumerate() const {
+      return Enum<T>((T*)data + 0, (T*)data + N);
     }
 
     T& operator[](std::size_t index) {
@@ -736,7 +769,7 @@ public:
 
 class Range {
 private:
-uint_pr start, end_excl;
+  uint_pr start, end_excl;
 
 public:
   Range(uint_pr s, uint_pr e) : start(s), end_excl(e) {}
@@ -755,53 +788,3 @@ public:
   Iterator begin() const { return Iterator(start); }
   Iterator end() const { return Iterator(end_excl); }
 };
-
-template <typename  Container>
-class Enumerate {
-private:
-  Container* c;
-
-public:
-  Enumerate(Container* container) : c(container) {}
-
-  template<typename Iterator>
-  class IterWrapper {
-  private:
-    Iterator iter;
-    uint_pr index;
-
-  public:
-    using iterator_category = std::forward_iterator_tag;
-    using value_type = std::pair<size_t, decltype(*std::declval<Iterator>())>;
-    using difference_type = std::ptrdiff_t;
-    using pointer = value_type*;
-    using reference = value_type&;
-
-    IterWrapper(Iterator it, uint_pr in) : iter(it), index(in) {}
-    auto operator*() -> value_type {
-      return {index, *iter};
-    }
-    IterWrapper& operator++() {
-      ++iter; ++index; return *this;
-    }
-    bool operator!=(const IterWrapper& iw) const {
-      std::cout << "self.index = " << index << std::endl;
-      std::cout << "  iw.index = " << iw.index << std::endl;
-      std::cout << "self.iter = " << iter << std::endl;
-      std::cout << "  iw.iter = " << iw.iter << std::endl;
-      return iter != iw.iter;
-    }
-  };
-
-  auto begin() -> IterWrapper<decltype(std::begin(std::declval<Container&>()))> {
-    return {c->begin(), 0};
-  }
-  auto end() -> IterWrapper<decltype(std::end(std::declval<Container&>()))> {
-    return {c->end(), static_cast<uint_pr>(-1) };
-  }
-};
-
-template <typename Container>
-Enumerate<Container> enumerate(Container *c) {
-  return Enumerate(c);
-}
