@@ -272,13 +272,12 @@ public:
 template<typename T, uint_pr N>
 class Array {
 private:
-    T data[N] = {};
+    T data[N];
 
 public:
-    Array(std::initializer_list<T> init) {
-        std::copy(init.begin(), init.end(), data);
+    explicit Array(std::initializer_list<T> init) {
+      std::copy(init.begin(), init.end(), data);
     }
-    Array() {}
 
     T& operator[](std::size_t index) {
         return data[index];
@@ -734,3 +733,75 @@ public:
     return str(1, c);
   }
 };
+
+class Range {
+private:
+uint_pr start, end_excl;
+
+public:
+  Range(uint_pr s, uint_pr e) : start(s), end_excl(e) {}
+
+  class Iterator {
+  private:
+    uint_pr value;
+
+  public:
+    Iterator(uint_pr val) : value(val) {}
+    uint_pr operator*() const { return value; }
+    Iterator& operator++() { value++; return *this; }
+    bool operator!=(const Iterator& i) { return value != i.value; }
+  };
+
+  Iterator begin() const { return Iterator(start); }
+  Iterator end() const { return Iterator(end_excl); }
+};
+
+template <typename  Container>
+class Enumerate {
+private:
+  Container* c;
+
+public:
+  Enumerate(Container* container) : c(container) {}
+
+  template<typename Iterator>
+  class IterWrapper {
+  private:
+    Iterator iter;
+    uint_pr index;
+
+  public:
+    using iterator_category = std::forward_iterator_tag;
+    using value_type = std::pair<size_t, decltype(*std::declval<Iterator>())>;
+    using difference_type = std::ptrdiff_t;
+    using pointer = value_type*;
+    using reference = value_type&;
+
+    IterWrapper(Iterator it, uint_pr in) : iter(it), index(in) {}
+    auto operator*() -> value_type {
+      return {index, *iter};
+    }
+    IterWrapper& operator++() {
+      ++iter; ++index; return *this;
+    }
+    bool operator!=(const IterWrapper& iw) const {
+      std::cout << "self.index = " << index << std::endl;
+      std::cout << "  iw.index = " << iw.index << std::endl;
+      std::cout << "self.iter = " << iter << std::endl;
+      std::cout << "  iw.iter = " << iw.iter << std::endl;
+      return iter != iw.iter;
+    }
+  };
+
+  auto begin() -> IterWrapper<decltype(std::begin(std::declval<Container&>()))> {
+    return {c->begin(), 0};
+  }
+  auto end() -> IterWrapper<decltype(std::end(std::declval<Container&>()))> {
+    return {c->end(), static_cast<uint_pr>(-1) };
+  }
+};
+
+template <typename Container>
+Enumerate<Container> enumerate(Container *c) {
+  return Enumerate(c);
+}

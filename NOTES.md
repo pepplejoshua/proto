@@ -54,7 +54,8 @@ fn main() int {
 }
 ```
 - Prevent assignment of addressable consts to variables.
-- Mutable/const function parameters
+- Work on builtin functions. They start with @.
+- Mutable/const function parameters.
 - Look into how comparator function can be implemented for the types used in hashmaps.
 - Add using for struct composing other structs.
 - Report an error if a struct field refers to itself unwrapped by another types

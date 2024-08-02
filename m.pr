@@ -1,4 +1,3 @@
 fn main() int {
-    println(`hello {3}`)
     return 0
 }

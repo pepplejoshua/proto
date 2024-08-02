@@ -67,26 +67,18 @@ void do_2_things(TraitX_Y<Type> x) {
 }
 
 int main() {
-  // A a;
-  // B b(420);
-  // do_something(TraitX<A>(&a));
-  // do_something(TraitX<B>(&b));
-  // do_2_things(TraitX_Y<B>(&b));
+  Array<B, 5> b({
+    B(1),
+    B(2),
+    B(3),
+    B(4),
+    B(5),
 
-  Int<int> a(300);
-  Int<int> b(120);
-  cout << (a + b).as_str() << endl;
+  });
 
-  Float<float> c(300.243);
-  cout << c.as_str() << endl;
+  for (const auto& [index, s] : enumerate(&b)) {
+    cout << index + 1 << ". " << s.b << endl;
+  }
 
-  Char d('a');
-  str d_str = d * Int<int>(10);
-  cout << d_str << endl;
-
-  Str<6> e("this is a sequence of characters");
-
-  cout << sizeof(Int<int>) << endl;
-  // cout << "abcd" + "efgh" << endl;
   return 0;
 }

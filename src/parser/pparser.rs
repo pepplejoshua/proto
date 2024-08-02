@@ -882,9 +882,17 @@ impl Parser {
                     }
                     fields.push(ins);
                 }
-                Ins::DeclFunc { name, .. } => {
+                Ins::DeclFunc { name, loc, .. } => {
                     let ins_id = ins.get_id().unwrap();
-                    ood.insert(ins_id, self.cur_deps.clone());
+                    let mut cur_deps = self.cur_deps.clone();
+                    if name.as_str() != "init" {
+                        cur_deps.push(Dep {
+                            ty: DepTy::Func,
+                            to: "init".to_string(),
+                            loc: loc.clone(),
+                        });
+                    }
+                    ood.insert(ins_id, cur_deps);
                     self.cur_deps.clear();
                     funcs.push(ins);
                 }
