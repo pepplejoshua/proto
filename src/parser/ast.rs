@@ -454,11 +454,6 @@ pub enum Ins {
         is_const: bool,
         loc: Rc<SourceRef>,
     },
-    DeclTrait {
-        name: Expr,
-        func_defs: Vec<Ins>,
-        loc: Rc<SourceRef>,
-    },
     DeclStruct {
         name: Expr,
         fields: Vec<Ins>,
@@ -552,7 +547,6 @@ impl Ins {
             | Ins::Return { loc, .. }
             | Ins::DeclFunc { loc, .. }
             | Ins::DeclFuncDefinition { loc, .. }
-            | Ins::DeclTrait { loc, .. }
             | Ins::SingleLineComment { loc, .. }
             | Ins::ExprIns { loc, .. }
             | Ins::DeclStruct { loc, .. }
@@ -584,7 +578,6 @@ impl Ins {
             | Ins::DeclVar { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclStruct { name, .. }
-            | Ins::DeclTrait { name, .. }
             | Ins::DeclFuncDefinition { name, .. }
             | Ins::DeclModule { name, .. } => Some(name.as_str()),
             Ins::Block { .. }
@@ -711,22 +704,6 @@ impl Ins {
                 format!("{}", expr.as_str())
             }
             Ins::ErrorIns { .. } => format!("[ErrIns]"),
-            Ins::DeclTrait {
-                name, func_defs, ..
-            } => {
-                let mut buf = vec![format!("trait {}", name.as_str())];
-                if !func_defs.is_empty() {
-                    buf.push(format!(
-                        "\n{}",
-                        func_defs
-                            .iter()
-                            .map(|f| f.as_str())
-                            .collect::<Vec<String>>()
-                            .join("\n")
-                    ))
-                }
-                buf.join("\n")
-            }
             Ins::DeclStruct {
                 name,
                 fields,

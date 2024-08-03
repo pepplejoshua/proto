@@ -15,9 +15,6 @@ pub type TypeId = usize;
 // this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
-    ForwardDeclared {
-        name: String,
-    },
     Signed {
         size: u8,
         is_int: bool,
@@ -114,9 +111,7 @@ impl TypeTable {
             self.definitions.push(ty_def.clone());
 
             match ty_def {
-                TypeDef::Struct { name, .. }
-                | TypeDef::Trait { name, .. }
-                | TypeDef::ForwardDeclared { name } => {
+                TypeDef::Struct { name, .. } | TypeDef::Trait { name, .. } => {
                     self.named_types.insert(name.clone(), id);
                 }
                 _ => {}
@@ -193,15 +188,6 @@ pub enum Ty {
         funcs: HashMap<String, Rc<Ty>>,
         loc: Rc<SourceRef>,
     },
-    Trait {
-        name: String,
-        funcs: HashMap<String, Rc<Ty>>,
-        loc: Rc<SourceRef>,
-    },
-    TraitImpl {
-        trait_ids: Vec<Expr>,
-        loc: Rc<SourceRef>,
-    },
     NamedType {
         name: String,
         loc: Rc<SourceRef>,
@@ -213,6 +199,10 @@ pub enum Ty {
     HashMap {
         key_ty: Rc<Ty>,
         val_ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    Tuple {
+        sub_tys: Vec<Ty>,
         loc: Rc<SourceRef>,
     },
     ErrorType {
@@ -298,11 +288,10 @@ impl Ty {
             | Ty::Optional { loc, .. }
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
-            | Ty::Trait { loc, .. }
-            | Ty::TraitImpl { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
             | Ty::Float { loc, .. }
+            | Ty::Tuple { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
         }
     }
@@ -320,12 +309,11 @@ impl Ty {
             | Ty::Slice { loc, .. }
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
-            | Ty::Trait { loc, .. }
-            | Ty::TraitImpl { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::Pointer { loc, .. }
             | Ty::HashMap { loc, .. }
             | Ty::Float { loc, .. }
+            | Ty::Tuple { loc, .. }
             | Ty::ErrorType { loc } => {
                 let b_loc = loc.borrow_mut();
                 *b_loc = n_loc;
@@ -378,21 +366,24 @@ impl Ty {
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
             Ty::Struct { name, .. } => name.clone(),
-            Ty::Trait { name, .. } => name.clone(),
-            Ty::TraitImpl { trait_ids, .. } => {
-                format!(
-                    "impl[{}]",
-                    trait_ids
-                        .iter()
-                        .map(|tr| { tr.as_str() })
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            }
             Ty::NamedType { name, .. } => format!("{name}"),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
             Ty::HashMap { key_ty, val_ty, .. } => {
                 format!("{{{}, {}}}", key_ty.as_str(), val_ty.as_str())
+            }
+            Ty::Tuple { sub_tys, .. } => {
+                if sub_tys.len() == 1 {
+                    format!("({},)", sub_tys[0].as_str())
+                } else {
+                    format!(
+                        "({})",
+                        sub_tys
+                            .iter()
+                            .map(|ty| { ty.as_str() })
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    )
+                }
             }
             Ty::ErrorType { .. } => "err!".into(),
         }
