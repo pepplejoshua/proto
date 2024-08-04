@@ -1,3 +1,6 @@
 fn main() int {
+    a : (int, bool, str) = (1, true, "hello there")
+
+
     return 0
 }

@@ -67,17 +67,7 @@ void do_2_things(TraitX_Y<Type> x) {
 }
 
 int main() {
-  Array<str, 5> arr({
-    "this",
-    "is",
-    "an",
-    "array of",
-    "strs"
-  });
-
-  for (const auto& [index, s] : arr.enumerate()) {
-    cout << index + 1 << ". " << s << endl;
-  }
-
+  Tuple<int, bool, str, B> tuple(1, true, "hello there", B(12));
+  cout << tuple.get<2>() << endl;
   return 0;
 }

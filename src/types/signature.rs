@@ -202,7 +202,7 @@ pub enum Ty {
         loc: Rc<SourceRef>,
     },
     Tuple {
-        sub_tys: Vec<Ty>,
+        sub_tys: Vec<Rc<Ty>>,
         loc: Rc<SourceRef>,
     },
     ErrorType {

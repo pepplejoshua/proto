@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <map>
+#include <tuple>
 
 typedef uint64_t uint_pr;
 typedef std::string str;
@@ -787,4 +788,22 @@ public:
 
   Iterator begin() const { return Iterator(start); }
   Iterator end() const { return Iterator(end_excl); }
+};
+
+template<typename... Types>
+class Tuple {
+private:
+  std::tuple<Types...> data;
+
+public:
+  Tuple(Types... args) : data(std::move(args)...) {}
+
+  template<size_t Index>
+  auto& get() {
+    return std::get<Index>(data);
+  }
+
+  constexpr uint_pr len() const {
+    return sizeof...(Types);
+  }
 };

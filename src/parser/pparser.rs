@@ -1333,6 +1333,42 @@ impl Parser {
                     sub_ty,
                 })
             }
+            Token::LParen(loc) => {
+                let mut loc = loc;
+                let mut sub_tys = vec![];
+                let mut saw_rparen = false;
+                while !self.is_at_eof() {
+                    let ty = self.parse_type();
+                    sub_tys.push(ty);
+                    if matches!(self.cur_token(), Token::RParen(_)) {
+                        saw_rparen = true;
+                        break;
+                    }
+
+                    if matches!(self.cur_token(), Token::Comma(_)) {
+                        self.advance();
+                    } else {
+                        self.report_error(ParseError::Expected(
+                            "a right parenthesis ')' to terminate the tuple type or a comma to separate the sub types of the tuple type.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    }
+                }
+
+                if !saw_rparen {
+                    self.report_error(ParseError::Expected(
+                        "a right parenthesis ')' to terminate the tuple type.".to_string(),
+                        self.cur_token().get_source_ref(),
+                        None,
+                    ));
+                } else {
+                    loc = loc.combine(self.cur_token().get_source_ref());
+                    self.advance();
+                }
+
+                Rc::new(Ty::Tuple { sub_tys, loc })
+            }
             Token::LCurly(loc) => {
                 let mut loc = loc;
                 // we are parsing the type of a hashmap
@@ -2021,10 +2057,46 @@ impl Parser {
                 Expr::Bool { val: false, loc }
             }
             Token::LParen(_) => {
-                self.advance();
                 let inner_expr = self.parse_expr();
                 let mut i_expr_span = cur.get_source_ref().combine(inner_expr.get_source_ref());
-                if !matches!(self.cur_token(), Token::RParen(_)) {
+
+                if matches!(self.cur_token(), Token::Comma(_)) {
+                    let mut sub_exprs = vec![inner_expr];
+                    let mut saw_rparen = false;
+                    self.advance();
+                    while !self.is_at_eof() {
+                        let sub_expr = self.parse_expr();
+                        sub_exprs.push(sub_expr);
+
+                        if matches!(self.cur_token(), Token::RParen(_)) {
+                            saw_rparen = true;
+                            break;
+                        }
+
+                        if matches!(self.cur_token(), Token::Comma(_)) {
+                            self.advance();
+                        } else {
+                            self.report_error(ParseError::Expected(
+                                "a right parenthesis ')' to terminate the tuple or a comma to separate the sub expressions of the tuple.".to_string(),
+                                self.cur_token().get_source_ref(),
+                                None,
+                            ));
+                        }
+                    }
+
+                    let mut loc = i_expr_span;
+                    if !saw_rparen {
+                        self.report_error(ParseError::Expected(
+                            "a right parenthesis ')' to terminate the tuple.".to_string(),
+                            self.cur_token().get_source_ref(),
+                            None,
+                        ));
+                    } else {
+                        loc = loc.combine(self.cur_token().get_source_ref());
+                        self.advance();
+                    }
+                    return Expr::Tuple { sub_exprs, loc };
+                } else if !matches!(self.cur_token(), Token::RParen(_)) {
                     self.report_error(ParseError::Expected(
                         "a right parenthesis to terminate grouped expression.".to_string(),
                         self.cur_token().get_source_ref(),

@@ -119,6 +119,10 @@ pub enum Expr {
         vals: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
+    Tuple {
+        sub_exprs: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
     GroupedExpr {
         inner: Box<Expr>,
         loc: Rc<SourceRef>,
@@ -194,6 +198,7 @@ impl Expr {
             | Expr::CallFn { loc, .. }
             | Expr::UnaryOp { loc, .. }
             | Expr::StaticArray { loc, .. }
+            | Expr::Tuple { loc, .. }
             | Expr::GroupedExpr { loc, .. }
             | Expr::TernaryConditional { loc, .. }
             | Expr::InterpolatedString { loc, .. }
@@ -236,6 +241,7 @@ impl Expr {
             | Expr::UnaryOp { .. }
             | Expr::CallFn { .. }
             | Expr::StaticArray { .. }
+            | Expr::Tuple { .. }
             | Expr::TernaryConditional { .. }
             | Expr::OptionalExpr { .. }
             | Expr::InterpolatedString { .. }
@@ -257,6 +263,7 @@ impl Expr {
             Expr::CallFn { .. }
             | Expr::OptionalExpr { .. }
             | Expr::StaticArray { .. }
+            | Expr::Tuple { .. }
             | Expr::HashMap { .. }
             | Expr::MakeSlice { .. }
             | Expr::GroupedExpr { .. }
@@ -307,6 +314,16 @@ impl Expr {
                     .collect::<Vec<String>>()
                     .join(", ")
             ),
+            Expr::Tuple { sub_exprs, .. } => {
+                format!(
+                    "({items})",
+                    items = sub_exprs
+                        .iter()
+                        .map(|item| { item.as_str() })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
             Expr::GroupedExpr { inner, .. } => format!("({})", inner.as_str()),
             Expr::TernaryConditional {
                 cond,
