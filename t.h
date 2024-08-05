@@ -803,7 +803,24 @@ public:
     return std::get<Index>(data);
   }
 
-  constexpr uint_pr len() const {
+  constexpr static uint_pr len() {
     return sizeof...(Types);
   }
+
+  // Helper function to concatenate strings with a separator
+  template<std::size_t... Is>
+  str proto_str_helper_tuple(std::index_sequence<Is...>) {
+      str content = "(";
+      ((content += (Is == 0 ? "" : ", ") + proto_str(std::get<Is>(data))), ...);
+      content += ")";
+      return content;
+  }
+
+  str as_str() {
+      return proto_str_helper_tuple(std::make_index_sequence<len()>{});
+  }
 };
+template<typename... Types>
+str proto_str(Tuple<Types...>& tuple) {
+  return tuple.as_str();
+}

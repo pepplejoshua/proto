@@ -1,10 +1,6 @@
 fn main() int {
-    a := (123, false, "123")
-    num :: a.0
-    boolean :: a.1
-    string :: a.2
-
-    println(`({num}, {boolean}, {string})`)
+    a := [('a', false), ('b', true), ('c', false)]
+    println(`({a})`)
 
     return 0
 }

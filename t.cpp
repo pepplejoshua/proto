@@ -75,7 +75,6 @@ void show_tuple(Tuple<int, bool, str, B> tup) {
 
 int main() {
   Tuple<int, bool, str, B> tuple(1, true, "hello there", B(12));
-  cout << tuple.get<2>() << endl;
-  show_tuple({1, false, "something", B(1)});
+  cout << proto_str(tuple) << endl;
   return 0;
 }
