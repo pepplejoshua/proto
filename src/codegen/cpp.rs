@@ -551,6 +551,13 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
+        TyExpr::TupleAccess { target, index } => {
+            format!(
+                "{}.get<{}>()",
+                cpp_gen_expr(target, state),
+                cpp_gen_expr(index, state)
+            )
+        }
     }
 }
 

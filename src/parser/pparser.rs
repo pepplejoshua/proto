@@ -1968,7 +1968,7 @@ impl Parser {
                     match cur {
                         // Struct Member Access
                         _ => {
-                            let member = self.parse_identifier();
+                            let member = self.parse_primary();
                             let mem_acc_span =
                                 lhs.get_source_ref().combine(member.get_source_ref());
                             lhs = Expr::AccessMember {

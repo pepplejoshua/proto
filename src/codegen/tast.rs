@@ -93,6 +93,10 @@ pub enum TyExpr {
         is_self_access: bool,
         is_ptr: bool,
     },
+    TupleAccess {
+        target: Box<TyExpr>,
+        index: Box<TyExpr>,
+    },
     OptionalExpr {
         val: Option<Box<TyExpr>>,
     },
@@ -221,6 +225,9 @@ impl TyExpr {
             }
             TyExpr::IndexInto { target, index } => {
                 format!("{}[{}]", target.as_str(), index.as_str())
+            }
+            TyExpr::TupleAccess { target, index } => {
+                format!("{}.{}", target.as_str(), index.as_str())
             }
             TyExpr::AccessMember { target, mem, .. } => {
                 format!("{}.{}", target.as_str(), mem.as_str())

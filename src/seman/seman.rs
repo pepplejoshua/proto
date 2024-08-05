@@ -336,6 +336,31 @@ fn check_for_member(target_is_const: bool, target_ty: &Ty, mem: &str, state: &mu
     });
 
     match target_ty {
+        Ty::Tuple { sub_tys, loc } => {
+            // try to convert the mem into a usize
+            let mem_usize = mem.parse::<usize>();
+            if mem_usize.is_err() {
+                state.push_err(CheckerError::MemberDoesNotExist {
+                    given_ty: target_ty.as_str(),
+                    mem: mem.to_string(),
+                    loc: loc.clone(),
+                });
+                return Rc::new(Ty::ErrorType { loc: loc.clone() });
+            }
+
+            let mem_usize = mem_usize.unwrap();
+            if mem_usize >= sub_tys.len() {
+                state.push_err(CheckerError::MemberDoesNotExist {
+                    given_ty: target_ty.as_str(),
+                    mem: mem.to_string(),
+                    loc: loc.clone(),
+                });
+                return Rc::new(Ty::ErrorType { loc: loc.clone() });
+            }
+
+            let sub_ty = sub_tys[mem_usize].clone_loc(loc.clone());
+            sub_ty
+        }
         Ty::Pointer { sub_ty, loc } => {
             if sub_ty.is_pointer() {
                 return Rc::new(Ty::ErrorType { loc: loc.clone() });
@@ -1868,15 +1893,25 @@ pub fn check_expr(
                 false
             };
 
-            (
-                mem_ty,
-                Some(TyExpr::AccessMember {
-                    target: Box::new(target_ty_expr.unwrap()),
-                    mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
-                    is_self_access: is_self,
-                    is_ptr: target_ty.is_pointer(),
-                }),
-            )
+            if matches!(target_ty.as_ref(), Ty::Tuple { .. }) {
+                (
+                    mem_ty,
+                    Some(TyExpr::TupleAccess {
+                        target: Box::new(target_ty_expr.unwrap()),
+                        index: Box::new(TyExpr::Integer { val: mem.as_str() }),
+                    }),
+                )
+            } else {
+                (
+                    mem_ty,
+                    Some(TyExpr::AccessMember {
+                        target: Box::new(target_ty_expr.unwrap()),
+                        mem: Box::new(TyExpr::Ident { name: mem.as_str() }),
+                        is_self_access: is_self,
+                        is_ptr: target_ty.is_pointer(),
+                    }),
+                )
+            }
         }
         Expr::OptionalExpr { val, loc } => {
             let (v_ty, v_ty_expr) = match (context_ty, val) {
