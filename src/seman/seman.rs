@@ -243,6 +243,19 @@ pub fn types_are_eq(a: &Ty, b: &Ty) -> bool {
             }
         }
         (
+            Ty::Tuple { sub_tys, .. },
+            Ty::Tuple {
+                sub_tys: b_sub_tys, ..
+            },
+        ) => {
+            let mut all_pass = true;
+            for (a, b) in sub_tys.iter().zip(b_sub_tys.iter()) {
+                all_pass = types_are_eq(a, b);
+            }
+
+            all_pass
+        }
+        (
             Ty::Slice { sub_ty, .. },
             Ty::Slice {
                 sub_ty: b_sub_ty, ..
@@ -2601,6 +2614,84 @@ pub fn check_expr(
                         }),
                         Some(TyExpr::HashMap {
                             pairs: pair_ty_exprs,
+                        }),
+                    )
+                }
+            }
+        }
+        Expr::Tuple { sub_exprs, loc } => {
+            // if there is a context_ty, we will use it to check the tuple
+            // otherwise, we will just check the sub expressions
+            match context_ty {
+                Some(ty) => match ty.as_ref() {
+                    Ty::Tuple { sub_tys, loc } => {
+                        if sub_exprs.len() != sub_tys.len() {
+                            state.push_err(CheckerError::Expected(
+                                "".to_string(),
+                                loc.clone(),
+                                None,
+                            ));
+                            return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                        }
+
+                        let mut found_err = false;
+                        let mut ty_sub_exprs = vec![];
+                        for (sub_expr, sub_ty) in sub_exprs.iter().zip(sub_tys.iter()) {
+                            let (s_expr_ty, s_ty_expr) =
+                                check_expr(sub_expr, &Some(sub_ty.clone()), state);
+                            if s_expr_ty.is_error_ty() {
+                                found_err = true;
+                                continue;
+                            }
+
+                            ty_sub_exprs.push(s_ty_expr.unwrap());
+                        }
+
+                        if found_err {
+                            return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                        }
+
+                        (
+                            ty.clone_loc(loc.clone()),
+                            Some(TyExpr::Tuple {
+                                sub_exprs: ty_sub_exprs,
+                            }),
+                        )
+                    }
+                    _ => {
+                        state.push_err(CheckerError::TupleTypeCheckFailed {
+                            given_ty: ty.as_str(),
+                            tup_loc: loc.clone(),
+                        });
+                        (Rc::new(Ty::ErrorType { loc: loc.clone() }), None)
+                    }
+                },
+                None => {
+                    let mut found_err = false;
+                    let mut ty_sub_exprs = vec![];
+                    let mut sub_tys = vec![];
+                    for sub_expr in sub_exprs.iter() {
+                        let (s_expr_ty, s_ty_expr) = check_expr(sub_expr, &None, state);
+                        if s_expr_ty.is_error_ty() {
+                            found_err = true;
+                            continue;
+                        }
+
+                        ty_sub_exprs.push(s_ty_expr.unwrap());
+                        sub_tys.push(s_expr_ty);
+                    }
+
+                    if found_err {
+                        return (Rc::new(Ty::ErrorType { loc: loc.clone() }), None);
+                    }
+
+                    (
+                        Rc::new(Ty::Tuple {
+                            sub_tys,
+                            loc: loc.clone(),
+                        }),
+                        Some(TyExpr::Tuple {
+                            sub_exprs: ty_sub_exprs,
                         }),
                     )
                 }

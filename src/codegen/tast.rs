@@ -68,6 +68,9 @@ pub enum TyExpr {
     StaticArray {
         vals: Vec<TyExpr>,
     },
+    Tuple {
+        sub_exprs: Vec<TyExpr>,
+    },
     InterpolatedString {
         parts: Vec<TyExpr>,
     },
@@ -156,6 +159,14 @@ impl TyExpr {
                     .collect::<Vec<String>>()
                     .join(", ");
                 format!("[{items_str}]")
+            }
+            TyExpr::Tuple { sub_exprs } => {
+                let items_str = sub_exprs
+                    .iter()
+                    .map(|item| item.as_str())
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("({items_str})")
             }
             TyExpr::GroupedExpr { inner } => format!("({})", inner.as_str()),
             TyExpr::TernaryConditional {

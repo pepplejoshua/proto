@@ -2056,9 +2056,10 @@ impl Parser {
                 self.advance();
                 Expr::Bool { val: false, loc }
             }
-            Token::LParen(_) => {
+            Token::LParen(loc) => {
+                self.advance();
                 let inner_expr = self.parse_expr();
-                let mut i_expr_span = cur.get_source_ref().combine(inner_expr.get_source_ref());
+                let mut i_expr_span = loc.combine(inner_expr.get_source_ref());
 
                 if matches!(self.cur_token(), Token::Comma(_)) {
                     let mut sub_exprs = vec![inner_expr];

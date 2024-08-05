@@ -529,6 +529,10 @@ impl SourceReporter {
                     format!("Static Array type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
+            CheckerError::TupleTypeCheckFailed { given_ty, tup_loc } => {
+                let msg = format!("Tuple type is incompatible with the given type '{given_ty}'");
+                self.report_with_ref(&tup_loc, msg, None, false);
+            }
             CheckerError::NonConstantNumberSizeForStaticArray { loc } => {
                 let msg =
                     "Static Arrays require a constant usize number as its size or _ to infer the size."

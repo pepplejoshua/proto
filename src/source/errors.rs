@@ -164,6 +164,10 @@ pub enum CheckerError {
         given_ty: String,
         arr_loc: Rc<SourceRef>,
     },
+    TupleTypeCheckFailed {
+        given_ty: String,
+        tup_loc: Rc<SourceRef>,
+    },
     OptionalTypeInferenceFailed {
         given_ty: String,
         opt_loc: Rc<SourceRef>,

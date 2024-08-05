@@ -516,6 +516,7 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
+        TyExpr::Tuple { sub_exprs } => todo!(),
     }
 }
 
