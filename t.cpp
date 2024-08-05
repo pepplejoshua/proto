@@ -15,6 +15,9 @@ struct B {
   int b;
 
   B(int _b) : b(_b) {}
+  str as_str() const {
+    return "B(" + proto_str(b) + ")";
+  }
   void do_stuff(str a) {
     cout << "B(" << b << ") does stuff with " << a << "..\n";
   }
@@ -66,8 +69,13 @@ void do_2_things(TraitX_Y<Type> x) {
   x.do_thing();
 }
 
+void show_tuple(Tuple<int, bool, str, B> tup) {
+  cout << "(" << tup.get<0>() << ", " << tup.get<1>() << ", " << tup.get<2>() << ", " << tup.get<3>().as_str() << ")\n";
+}
+
 int main() {
   Tuple<int, bool, str, B> tuple(1, true, "hello there", B(12));
   cout << tuple.get<2>() << endl;
+  show_tuple({1, false, "something", B(1)});
   return 0;
 }

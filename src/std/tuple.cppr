@@ -1,0 +1,17 @@
+template<typename... Types>
+class Tuple {
+private:
+  std::tuple<Types...> data;
+
+public:
+  Tuple(Types... args) : data(std::move(args)...) {}
+
+  template<uint_pr Index>
+  auto& get() {
+    return std::get<Index>(data);
+  }
+
+  constexpr uint_pr len() const {
+    return sizeof...(Types);
+  }
+};

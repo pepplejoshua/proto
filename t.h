@@ -798,7 +798,7 @@ private:
 public:
   Tuple(Types... args) : data(std::move(args)...) {}
 
-  template<size_t Index>
+  template<uint_pr Index>
   auto& get() {
     return std::get<Index>(data);
   }

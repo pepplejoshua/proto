@@ -43,6 +43,7 @@ const PANIC_FUNCTION: &str = include_str!("../std/panic.cppr");
 const OPTION_CODE: &str = include_str!("../std/option.cppr");
 const SLICE_AND_ARRAY_CODE: &str = include_str!("../std/slice_and_array.cppr");
 const HMAP: &str = include_str!("../std/hmap.cppr");
+const TUPLE: &str = include_str!("../std/tuple.cppr");
 const PROTO_STRINGIFY_CODE: &str = include_str!("../std/to_string.cppr");
 const PROTO_PRINT_CODE: &str = include_str!("../std/print.cppr");
 const PROTO_DEFER_CODE: &str = include_str!("../std/defer.cppr");
@@ -155,6 +156,19 @@ pub fn cpp_gen_typedefs(state: &mut State) -> String {
                 }
                 includes.insert("#include <map>".to_string());
                 buf.push_str(HMAP.trim_end());
+            }
+            "tuple" => {
+                if !state.gen_typedefs_for.contains("uint") {
+                    let plat_size = Ty::get_platform_size();
+                    includes.insert("#include <cstdint>".to_string());
+                    if plat_size == 64 {
+                        typedefs.push_str("\ntypedef uint64_t uint_pr;");
+                    } else {
+                        typedefs.push_str("\ntypedef uint32_t uint_pr;");
+                    }
+                }
+                includes.insert("#include <tuple>".to_string());
+                buf.push_str(TUPLE.trim_end());
             }
             "array" | "slice" => {
                 if !has_panic_fn {
@@ -292,6 +306,17 @@ pub fn cpp_gen_ty(ty: &Ty, state: &mut State) -> String {
             state.gen_typedefs_for.insert("slice".into());
             let sub_ty = cpp_gen_ty(sub_ty, state);
             format!("Option<{sub_ty}>")
+        }
+        Ty::Tuple { sub_tys, .. } => {
+            state.gen_typedefs_for.insert("tuple".into());
+            format!(
+                "Tuple<{}>",
+                sub_tys
+                    .iter()
+                    .map(|ty| { cpp_gen_ty(ty, state) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
         }
         Ty::NamedType { name, .. } | Ty::Struct { name, .. } => name.clone(),
         Ty::Func { params, ret, .. } => {
@@ -516,7 +541,16 @@ pub fn cpp_gen_expr(expr: &TyExpr, state: &mut State) -> String {
                     .join(", ")
             )
         }
-        TyExpr::Tuple { sub_exprs } => todo!(),
+        TyExpr::Tuple { sub_exprs } => {
+            format!(
+                "{{ {} }}",
+                sub_exprs
+                    .iter()
+                    .map(|item| { cpp_gen_expr(item, state) })
+                    .collect::<Vec<String>>()
+                    .join(", ")
+            )
+        }
     }
 }
 
