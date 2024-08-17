@@ -1,11 +1,11 @@
-use super::token::Token;
+use super::token::{SrcToken, Token, TokenType};
 use crate::source::{errors::LexError, source::SourceFile};
 
 #[allow(dead_code)]
 pub struct Lexer {
     pub src: SourceFile,
-    last_lexed: Option<Token>,
-    queue: Vec<Token>,
+    last_lexed: Option<SrcToken>,
+    queue: Vec<SrcToken>,
 }
 
 #[allow(dead_code)]
@@ -31,12 +31,11 @@ impl Lexer {
         }
     }
 
-    fn lex_comment(&mut self) -> Result<Token, LexError> {
+    fn lex_comment(&mut self) -> Result<SrcToken, LexError> {
         let start = self.src.cur_char();
-        let mut content = String::from(start);
         let mut span = self.src.get_ref();
         // skip both '/' characters
-        content.push(self.src.next_char());
+        self.src.next_char();
         span = span.combine(self.src.get_ref());
         self.src.next_char();
 
@@ -45,17 +44,20 @@ impl Lexer {
             span = span.combine(self.src.get_ref());
             self.src.next_char();
             if cur != '\n' {
-                content.push(cur);
                 continue;
             } else {
                 break;
             }
         }
-        Ok(Token::SingleLineComment(span, content))
+
+        Ok(SrcToken {
+            ty: TokenType::Comment,
+            loc: span,
+        })
     }
 
     // try to lex the next possible token
-    pub fn next_token(&mut self) -> Result<Token, LexError> {
+    pub fn next_token(&mut self) -> Result<SrcToken, LexError> {
         if !self.queue.is_empty() {
             let tok = self.queue.remove(0);
             self.last_lexed = Some(tok.clone());
@@ -73,13 +75,16 @@ impl Lexer {
 
         // if we reached the end of the file, return EOF
         if c == '\0' {
-            return Ok(Token::Eof(self.src.get_ref()));
+            return Ok(SrcToken {
+                ty: TokenType::Eof,
+                loc: self.src.get_ref(),
+            });
         }
         let maybe_token = match c {
             '`' => self.lex_interpolated_string(),
             // operators
             '+' | '-' | '*' | '/' | '%' | '!' | '=' | '<' | '>' | '(' | ')' | '{' | '}' | '['
-            | ']' | ',' | '.' | ':' | ';' | '@' | '|' | '&' | '?' | '\\' => self.lex_operator(),
+            | ']' | ',' | '.' | ':' | ';' | '@' | '&' | '?' | '\\' => self.lex_operator(),
             // numbers
             _ if c.is_ascii_digit() => self.lex_number(),
             // identifiers | keywords
@@ -105,11 +110,14 @@ impl Lexer {
         maybe_token
     }
 
-    fn lex_interpolated_string(&mut self) -> Result<Token, LexError> {
+    fn lex_interpolated_string(&mut self) -> Result<SrcToken, LexError> {
         let mut span = self.src.get_ref();
         self.src.next_char(); // consume initial backtick
         span = span.combine(self.src.get_ref());
-        let bt = Token::BackTick(span.clone());
+        let bt = SrcToken {
+            ty: TokenType::BackTick,
+            loc: span.clone(),
+        };
         let mut parts = vec![];
 
         let mut buf = String::new();
@@ -122,10 +130,16 @@ impl Lexer {
                     span = self.src.get_ref();
                     self.src.next_char();
                     span = span.combine(self.src.get_ref());
-                    if !buf.is_empty() {
-                        parts.push(Token::InterpStrLiteral(buf_span.clone(), buf.clone()))
+                    if buf_span.flat_end - buf_span.flat_start > 1 {
+                        parts.push(SrcToken {
+                            ty: TokenType::InterpolatedStringFragment,
+                            loc: buf_span.clone(),
+                        });
                     }
-                    parts.push(Token::BackTick(span.clone()));
+                    parts.push(SrcToken {
+                        ty: TokenType::BackTick,
+                        loc: span.clone(),
+                    });
                     break;
                 }
                 '{' => {
@@ -133,22 +147,26 @@ impl Lexer {
                         // we can escape the { character and add it to the buf
                         self.src.next_char();
                         self.src.next_char();
-                        buf.push('{');
                         buf_span = buf_span.combine(self.src.get_ref());
                         continue;
                     }
 
                     // store whatever we have in buf and reset it
                     span = span.combine(self.src.get_ref());
-                    if !buf.is_empty() {
-                        parts.push(Token::InterpStrLiteral(buf_span.clone(), buf.clone()));
-                        buf.clear();
+                    if buf_span.flat_end - buf_span.flat_start > 1 {
+                        parts.push(SrcToken {
+                            ty: TokenType::InterpolatedStringFragment,
+                            loc: buf_span.clone(),
+                        });
                     }
 
                     let mut lcurly_span = self.src.get_ref();
                     self.src.next_char();
                     lcurly_span = lcurly_span.combine(self.src.get_ref());
-                    let lcurly = Token::LCurly(lcurly_span);
+                    let lcurly = SrcToken {
+                        ty: TokenType::LCurly,
+                        loc: lcurly_span,
+                    };
                     parts.push(lcurly);
 
                     // from this point till we see a }, we will call next_token() to read
@@ -158,12 +176,12 @@ impl Lexer {
                     while !self.src.is_eof() {
                         if let Ok(tok) = self.next_token() {
                             span = span.combine(tok.get_source_ref());
-                            let saw_lcurly = matches!(tok, Token::LCurly(_));
+                            let saw_lcurly = matches!(tok.ty, TokenType::LCurly);
                             if saw_lcurly {
                                 // we have nested interpolated strings with code sections
                                 num_of_lcurly += 1;
                             }
-                            saw_rcurly = matches!(tok, Token::RCurly(_));
+                            saw_rcurly = matches!(tok.ty, TokenType::RCurly);
                             parts.push(tok);
                             if saw_rcurly {
                                 if num_of_lcurly == 1 {
@@ -183,7 +201,6 @@ impl Lexer {
                     buf_span = self.src.get_ref();
                 }
                 _ => {
-                    buf.push(c);
                     self.src.next_char();
                     buf_span = buf_span.combine(self.src.get_ref());
                 }
@@ -230,7 +247,7 @@ impl Lexer {
     // it might turn out to be either a:
     // - keyword
     // - identifier
-    fn lex_potential_identifier(&mut self) -> Result<Token, LexError> {
+    fn lex_potential_identifier(&mut self) -> Result<SrcToken, LexError> {
         let mut id = String::new();
         let c_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -249,56 +266,154 @@ impl Lexer {
         }
 
         let combined_ref = c_ref.combine(end_ref);
+        let id = &self.src.text[combined_ref.flat_start..combined_ref.flat_end];
         // check if the identifier is a keyword
-        match id.as_str() {
-            "fn" => Ok(Token::Fn(combined_ref)),
-            "let" => Ok(Token::Let(combined_ref)),
-            "mut" => Ok(Token::Mut(combined_ref)),
-            "if" => Ok(Token::If(combined_ref)),
-            "else" => Ok(Token::Else(combined_ref)),
-            "for" => Ok(Token::For(combined_ref)),
-            "in" => Ok(Token::In(combined_ref)),
-            "true" => Ok(Token::True(combined_ref)),
-            "false" => Ok(Token::False(combined_ref)),
-            "break" => Ok(Token::Break(combined_ref)),
-            "continue" => Ok(Token::Continue(combined_ref)),
-            "return" => Ok(Token::Return(combined_ref)),
-            "pub" => Ok(Token::Pub(combined_ref)),
-            "const" => Ok(Token::Const(combined_ref)),
-            "impl" => Ok(Token::Impl(combined_ref)),
-            "trait" => Ok(Token::Trait(combined_ref)),
-            "print" => Ok(Token::Print(combined_ref)),
-            "println" => Ok(Token::Println(combined_ref)),
-            "some" => Ok(Token::Some(combined_ref)),
-            "none" => Ok(Token::None(combined_ref)),
-            "defer" => Ok(Token::Defer(combined_ref)),
-
-            "i8" => Ok(Token::I8(combined_ref)),
-            "i16" => Ok(Token::I16(combined_ref)),
-            "i32" => Ok(Token::I32(combined_ref)),
-            "i64" => Ok(Token::I64(combined_ref)),
-            "int" => Ok(Token::Int(combined_ref)),
-            "u8" => Ok(Token::U8(combined_ref)),
-            "u16" => Ok(Token::U16(combined_ref)),
-            "u32" => Ok(Token::U32(combined_ref)),
-            "u64" => Ok(Token::U64(combined_ref)),
-            "uint" => Ok(Token::UInt(combined_ref)),
-            "f32" => Ok(Token::F32(combined_ref)),
-            "f64" => Ok(Token::F64(combined_ref)),
-            "bool" => Ok(Token::Bool(combined_ref)),
-            "char" => Ok(Token::Char(combined_ref)),
-            "str" => Ok(Token::Str(combined_ref)),
-            "type" => Ok(Token::Type(combined_ref)),
-            "void" => Ok(Token::Void(combined_ref)),
-            "struct" => Ok(Token::Struct(combined_ref)),
-            "mod" => Ok(Token::Mod(combined_ref)),
-            "_" => Ok(Token::Underscore(combined_ref)),
-            _ => Ok(Token::Identifier(id, combined_ref)),
+        match id {
+            "fn" => Ok(SrcToken {
+                ty: TokenType::Fn,
+                loc: combined_ref,
+            }),
+            "if" => Ok(SrcToken {
+                ty: TokenType::If,
+                loc: combined_ref,
+            }),
+            "else" => Ok(SrcToken {
+                ty: TokenType::Else,
+                loc: combined_ref,
+            }),
+            "for" => Ok(SrcToken {
+                ty: TokenType::For,
+                loc: combined_ref,
+            }),
+            "in" => Ok(SrcToken {
+                ty: TokenType::In,
+                loc: combined_ref,
+            }),
+            "true" => Ok(SrcToken {
+                ty: TokenType::True,
+                loc: combined_ref,
+            }),
+            "false" => Ok(SrcToken {
+                ty: TokenType::False,
+                loc: combined_ref,
+            }),
+            "break" => Ok(SrcToken {
+                ty: TokenType::Break,
+                loc: combined_ref,
+            }),
+            "continue" => Ok(SrcToken {
+                ty: TokenType::Continue,
+                loc: combined_ref,
+            }),
+            "return" => Ok(SrcToken {
+                ty: TokenType::Return,
+                loc: combined_ref,
+            }),
+            "const" => Ok(SrcToken {
+                ty: TokenType::Const,
+                loc: combined_ref,
+            }),
+            "print" => Ok(SrcToken {
+                ty: TokenType::Print,
+                loc: combined_ref,
+            }),
+            "println" => Ok(SrcToken {
+                ty: TokenType::Println,
+                loc: combined_ref,
+            }),
+            "none" => Ok(SrcToken {
+                ty: TokenType::None,
+                loc: combined_ref,
+            }),
+            "defer" => Ok(SrcToken {
+                ty: TokenType::Defer,
+                loc: combined_ref,
+            }),
+            "i8" => Ok(SrcToken {
+                ty: TokenType::I8,
+                loc: combined_ref,
+            }),
+            "i16" => Ok(SrcToken {
+                ty: TokenType::I16,
+                loc: combined_ref,
+            }),
+            "i32" => Ok(SrcToken {
+                ty: TokenType::I32,
+                loc: combined_ref,
+            }),
+            "i64" => Ok(SrcToken {
+                ty: TokenType::I64,
+                loc: combined_ref,
+            }),
+            "int" => Ok(SrcToken {
+                ty: TokenType::Int,
+                loc: combined_ref,
+            }),
+            "u8" => Ok(SrcToken {
+                ty: TokenType::U8,
+                loc: combined_ref,
+            }),
+            "u16" => Ok(SrcToken {
+                ty: TokenType::U16,
+                loc: combined_ref,
+            }),
+            "u32" => Ok(SrcToken {
+                ty: TokenType::U32,
+                loc: combined_ref,
+            }),
+            "u64" => Ok(SrcToken {
+                ty: TokenType::U64,
+                loc: combined_ref,
+            }),
+            "uint" => Ok(SrcToken {
+                ty: TokenType::UInt,
+                loc: combined_ref,
+            }),
+            "f32" => Ok(SrcToken {
+                ty: TokenType::F32,
+                loc: combined_ref,
+            }),
+            "f64" => Ok(SrcToken {
+                ty: TokenType::F64,
+                loc: combined_ref,
+            }),
+            "bool" => Ok(SrcToken {
+                ty: TokenType::Bool,
+                loc: combined_ref,
+            }),
+            "char" => Ok(SrcToken {
+                ty: TokenType::Char,
+                loc: combined_ref,
+            }),
+            "str" => Ok(SrcToken {
+                ty: TokenType::Str,
+                loc: combined_ref,
+            }),
+            "type" => Ok(SrcToken {
+                ty: TokenType::Type,
+                loc: combined_ref,
+            }),
+            "void" => Ok(SrcToken {
+                ty: TokenType::Void,
+                loc: combined_ref,
+            }),
+            "struct" => Ok(SrcToken {
+                ty: TokenType::Struct,
+                loc: combined_ref,
+            }),
+            "_" => Ok(SrcToken {
+                ty: TokenType::Underscore,
+                loc: combined_ref,
+            }),
+            _ => Ok(SrcToken {
+                ty: TokenType::Identifier,
+                loc: combined_ref,
+            }),
         }
     }
 
     // lex an operator
-    fn lex_operator(&mut self) -> Result<Token, LexError> {
+    fn lex_operator(&mut self) -> Result<SrcToken, LexError> {
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
 
@@ -308,30 +423,48 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::PlusAssign(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::PlusAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
-                Ok(Token::Plus(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Plus,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '-' => {
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::MinusAssign(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::MinusAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
-                Ok(Token::Minus(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Minus,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '*' => {
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::StarAssign(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::StarAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
-                Ok(Token::Star(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Star,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '/' => {
                 // if the next character is a '/', lex a comment
@@ -342,25 +475,40 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::SlashAssign(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::SlashAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
-                Ok(Token::Slash(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Slash,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '%' => {
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::ModuloAssign(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::ModuloAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
-                Ok(Token::Modulo(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Modulo,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
 
             '@' => {
                 self.src.next_char();
-                Ok(Token::At(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::At,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '!' => {
                 // if the next character is a '=', return a NotEqual operator
@@ -368,36 +516,24 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::NotEqual(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::NotEqual,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 // otherwise, return a Not operator
                 self.src.next_char();
-                Ok(Token::Not(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Not,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '&' => {
-                // if the next character is a '&', return a And operator
-                let c = self.src.peek_char();
-                if c == '&' {
-                    self.src.next_char();
-                    self.src.next_char();
-                    return Ok(Token::And(cur_ref.combine(self.src.get_ref())));
-                }
-                // otherwise, return an Ampersand operator
                 self.src.next_char();
-                Ok(Token::Ampersand(cur_ref.combine(self.src.get_ref())))
-            }
-            '|' => {
-                // if the next character is a '|', return a Or operator
-                let c = self.src.peek_char();
-                if c == '|' {
-                    self.src.next_char();
-                    self.src.next_char();
-                    return Ok(Token::Or(cur_ref.combine(self.src.get_ref())));
-                }
-                // otherwise, return an error
-                Err(LexError::InvalidCharacter(
-                    cur_ref.combine(self.src.get_ref()),
-                ))
+                return Ok(SrcToken {
+                    ty: TokenType::Ampersand,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '=' => {
                 // if the next character is a '=', return a Equal operator
@@ -405,11 +541,17 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::Equal(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::Equal,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 // otherwise, return a Assign operator
                 self.src.next_char();
-                Ok(Token::Assign(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Assign,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '<' => {
                 // if the next character is a '=', return a LessEqual operator
@@ -417,11 +559,17 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::LessEqual(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::LessEqual,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 // otherwise, return a Less operator
                 self.src.next_char();
-                Ok(Token::Less(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Less,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '>' => {
                 // if the next character is a '=', return a GreaterEqual operator
@@ -429,67 +577,108 @@ impl Lexer {
                 if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
-                    return Ok(Token::GreaterEqual(cur_ref.combine(self.src.get_ref())));
+                    return Ok(SrcToken {
+                        ty: TokenType::GreaterEqual,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 // otherwise, return a Greater operator
                 self.src.next_char();
-                Ok(Token::Greater(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Greater,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             ':' => {
                 self.src.next_char();
-                Ok(Token::Colon(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Colon,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '(' => {
                 self.src.next_char();
-                Ok(Token::LParen(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::LParen,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             ')' => {
                 self.src.next_char();
-                Ok(Token::RParen(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::RParen,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '{' => {
                 self.src.next_char();
-                Ok(Token::LCurly(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::LCurly,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '}' => {
                 self.src.next_char();
-                Ok(Token::RCurly(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::RCurly,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '[' => {
                 self.src.next_char();
-                Ok(Token::LBracket(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::LBracket,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             ']' => {
                 self.src.next_char();
-                Ok(Token::RBracket(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::RBracket,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             ',' => {
                 self.src.next_char();
-                Ok(Token::Comma(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Comma,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '.' => {
                 self.src.next_char();
-                Ok(Token::Dot(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Dot,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             ';' => {
                 self.src.next_char();
-                Ok(Token::Semicolon(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::Semicolon,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '?' => {
                 self.src.next_char();
-                Ok(Token::QuestionMark(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::QuestionMark,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             '\\' => {
                 self.src.next_char();
-                Ok(Token::BackSlash(cur_ref.combine(self.src.get_ref())))
+                return Ok(SrcToken {
+                    ty: TokenType::BackSlash,
+                    loc: cur_ref.combine(self.src.get_ref()),
+                });
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
         }
     }
 
-    fn lex_string(&mut self) -> Result<Token, LexError> {
+    fn lex_string(&mut self) -> Result<SrcToken, LexError> {
         let mut span = self.src.get_ref();
-        let mut content = String::new();
 
         // read all characters until terminating "
         // if a new line is encountered, return an error
@@ -501,17 +690,8 @@ impl Lexer {
                 break;
             } else if c == '\\' {
                 // if the next character is a ", add it to the content
-                let c = self.src.next_char();
+                self.src.next_char();
                 span = span.combine(self.src.get_ref());
-                if c == '"' {
-                    content.push('"');
-                } else {
-                    // otherwise, add the escape character
-                    content.push('\\');
-                    content.push(c);
-                }
-            } else {
-                content.push(c);
             }
         }
 
@@ -521,15 +701,16 @@ impl Lexer {
         } else {
             self.src.next_char();
             span = span.combine(self.src.get_ref());
-            Ok(Token::SingleLineStringLiteral(span, content))
+            Ok(SrcToken {
+                ty: TokenType::String,
+                loc: span,
+            })
         }
     }
 
     // try to lex a character
-    fn lex_char(&mut self) -> Result<Token, LexError> {
+    fn lex_char(&mut self) -> Result<SrcToken, LexError> {
         let mut span = self.src.get_ref();
-        let mut content = String::new();
-
         // read single character
         let c = self.src.next_char();
         span = span.combine(self.src.get_ref());
@@ -541,15 +722,6 @@ impl Lexer {
             // if the next character is a ', add it to the content
             let c = self.src.next_char();
             span = span.combine(self.src.get_ref());
-            if c == '\'' {
-                content.push('\'');
-            } else {
-                // otherwise, add the escape character
-                content.push('\\');
-                content.push(c);
-            }
-        } else {
-            content.push(c);
         }
 
         // if the next character is not a ', return an error
@@ -561,10 +733,13 @@ impl Lexer {
 
         self.src.next_char();
         span = span.combine(self.src.get_ref());
-        Ok(Token::CharLiteral(span, content.chars().next().unwrap()))
+        Ok(SrcToken {
+            ty: TokenType::Character,
+            loc: span,
+        })
     }
 
-    fn lex_number(&mut self) -> Result<Token, LexError> {
+    fn lex_number(&mut self) -> Result<SrcToken, LexError> {
         let mut number = String::new();
         let cur_ref = self.src.get_ref();
         let cur = self.src.cur_char();
@@ -589,11 +764,20 @@ impl Lexer {
             }
         }
 
+        // TODO: there is bug where a user can enter a decimal with no mantissa
+        // provided: `12323.`
+
         let combined_ref = cur_ref.combine(end_ref);
         if decimal_point_count == 0 {
-            Ok(Token::NumberLiteral(number, combined_ref))
+            return Ok(SrcToken {
+                ty: TokenType::Integer,
+                loc: combined_ref,
+            });
         } else if decimal_point_count == 1 {
-            Ok(Token::DecimalLiteral(number, combined_ref))
+            return Ok(SrcToken {
+                ty: TokenType::Decimal,
+                loc: combined_ref,
+            });
         } else {
             Err(LexError::DecimalLiteralWithMultipleDecimalPoints(
                 combined_ref,
@@ -629,12 +813,12 @@ fn test_lexer() {
                 panic!("error lexing: {token:?}");
             }
             let token = token.unwrap();
-            if let Token::Eof(_) = token {
+            if let TokenType::Eof = token.ty {
                 break;
             }
             res.stringified_tokens.push(format!(
                 "{} at {}",
-                token.as_str(),
+                token.as_str(&lexer.src),
                 token.get_source_ref().as_str()
             ));
         }

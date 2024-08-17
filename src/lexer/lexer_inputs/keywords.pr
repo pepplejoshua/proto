@@ -1,9 +1,8 @@
-fn mut if else for
+fn if else for
 void true false
 i8 i16 i32 i64 int
 u8 u16 u32 u64 uint
-bool char
-return mod
+f32 f64 bool char return
 struct _ print println
-some none defer
-f32 f64 const trait
+none defer
+const

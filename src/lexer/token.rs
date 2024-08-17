@@ -99,14 +99,18 @@ pub enum TokenType {
 
 #[allow(unused)]
 #[derive(Debug, Clone)]
-pub struct X {
-    ty: TokenType,
-    loc: Rc<SourceRef>,
+pub struct SrcToken {
+    pub ty: TokenType,
+    pub loc: Rc<SourceRef>,
 }
 
 #[allow(unused)]
-impl X {
-    pub fn as_str(self: &X, src: &SourceFile) -> String {
+impl SrcToken {
+    pub fn get_source_ref(self: &SrcToken) -> Rc<SourceRef> {
+        return self.loc.clone();
+    }
+
+    pub fn as_str(self: &SrcToken, src: &SourceFile) -> String {
         match self.ty {
             TokenType::Fn => "fn".to_string(),
             TokenType::If => "if".to_string(),
