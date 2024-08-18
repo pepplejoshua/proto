@@ -237,7 +237,7 @@ pub struct SourceReporter {
 
 use crate::pastel::pastel;
 
-use super::errors::{CheckerError, LexError, ParseError, ParseWarning};
+use super::errors::{CheckerError, LexError, ParseError};
 
 #[allow(dead_code)]
 impl SourceReporter {

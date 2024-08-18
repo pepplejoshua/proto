@@ -59,18 +59,6 @@ impl ParseError {
 }
 
 #[derive(Debug, Clone)]
-pub struct ParseWarning {
-    pub msg: String,
-    pub src: Rc<SourceRef>,
-}
-
-impl ParseWarning {
-    pub fn get_warning_src(&self) -> Rc<SourceRef> {
-        self.src.clone()
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum CheckerError {
     TypeMismatch {
         loc: Rc<SourceRef>,

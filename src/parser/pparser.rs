@@ -1,15 +1,15 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, f64::consts::PI, iter::MapWhile, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{
     lexer::{lexer::Lexer, token::Token},
     parser::ast::FnParam,
     source::{
-        errors::{LexError, ParseError, ParseWarning},
+        errors::{LexError, ParseError},
         source::{SourceRef, SourceReporter},
     },
-    types::signature::{make_inst, Ty, TypeDef, TypeId, TypeInst, TypeTable},
+    types::signature::Ty,
 };
 
 use super::ast::{BinOpType, Expr, FileModule, HashMapPair, Ins, UnaryOpType};
@@ -40,9 +40,7 @@ pub struct Parser {
     pub lexer: Lexer,
     pub lex_errs: Vec<LexError>,
     pub parse_errs: Vec<ParseError>,
-    pub parse_warns: Vec<ParseWarning>,
     pub file_mod: FileModule,
-    pub type_table: TypeTable,
     cur_deps: Vec<Dep>,
     scope: Vec<ParseScope>,
     lexed_token: Option<Token>,
@@ -54,9 +52,7 @@ impl Parser {
             lexer,
             lex_errs: Vec::new(),
             parse_errs: Vec::new(),
-            parse_warns: Vec::new(),
             file_mod: FileModule::new(),
-            type_table: TypeTable::new(),
             scope: vec![ParseScope::TopLevel],
             lexed_token: None,
             cur_deps: vec![],
@@ -88,29 +84,6 @@ impl Parser {
 
     fn report_error(&mut self, err: ParseError) {
         self.parse_errs.push(err);
-
-        if self.parse_errs.len() > 10 {
-            let reporter = SourceReporter::new(self.lexer.src.clone());
-            for err in self.lex_errs.iter() {
-                reporter.report_lexer_error(err);
-            }
-
-            for err in self.parse_errs.iter() {
-                reporter.report_parser_error(err.clone());
-            }
-
-            for warn in self.parse_warns.iter() {
-                reporter.report_parser_warning(warn.clone());
-            }
-
-            let too_many_errs = ParseError::TooManyErrors(self.cur_token().get_source_ref());
-            reporter.report_parser_error(too_many_errs);
-            std::process::exit(1);
-        }
-    }
-
-    fn report_warning(&mut self, err: ParseWarning) {
-        self.parse_warns.push(err);
 
         if self.parse_errs.len() > 10 {
             let reporter = SourceReporter::new(self.lexer.src.clone());
