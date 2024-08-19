@@ -92,10 +92,21 @@ pub enum Expr {
     Identifier {
         loc: Rc<SourceRef>,
     },
+    UnaryOp {
+        op: UnaryOpType,
+        expr: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
     BinOp {
         op: BinOpType,
         left: Box<Expr>,
         right: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    ConditionalExpr {
+        cond: Box<Expr>,
+        then: Box<Expr>,
+        otherwise: Box<Expr>,
         loc: Rc<SourceRef>,
     },
     CallFn {
@@ -103,11 +114,7 @@ pub enum Expr {
         args: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
-    UnaryOp {
-        op: UnaryOpType,
-        expr: Box<Expr>,
-        loc: Rc<SourceRef>,
-    },
+
     GroupedExpr {
         inner: Box<Expr>,
         loc: Rc<SourceRef>,
@@ -158,9 +165,10 @@ impl Expr {
             | Expr::Char { loc }
             | Expr::Bool { loc }
             | Expr::Identifier { loc }
-            | Expr::BinOp { loc, .. }
-            | Expr::CallFn { loc, .. }
             | Expr::UnaryOp { loc, .. }
+            | Expr::BinOp { loc, .. }
+            | Expr::ConditionalExpr { loc, .. }
+            | Expr::CallFn { loc, .. }
             | Expr::GroupedExpr { loc, .. }
             | Expr::IndexInto { loc, .. }
             | Expr::AccessMember { loc, .. }
@@ -181,6 +189,7 @@ impl Expr {
             | Expr::Char { loc }
             | Expr::Bool { loc }
             | Expr::Identifier { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str(src)),
             Expr::BinOp {
                 op,
                 left,
@@ -192,12 +201,24 @@ impl Expr {
                 op.as_str(),
                 right.as_str(src)
             ),
+            Expr::ConditionalExpr {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => {
+                format!(
+                    "{} ? {} : {}",
+                    cond.as_str(src),
+                    then.as_str(src),
+                    otherwise.as_str(src)
+                )
+            }
             Expr::CallFn { func, args, .. } => {
                 let args_str: Vec<String> = args.iter().map(|arg| arg.as_str(src)).collect();
                 let args_str = args_str.join(", ");
                 format!("{}({args_str})", func.as_str(src))
             }
-            Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str(src)),
             Expr::GroupedExpr { inner, .. } => format!("({})", inner.as_str(src)),
             Expr::IndexInto { target, index, .. } => {
                 format!("{}[{}]", target.as_str(src), index.as_str(src))

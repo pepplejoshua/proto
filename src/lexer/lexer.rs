@@ -375,6 +375,14 @@ impl Lexer {
                 ty: TokenType::Struct,
                 loc: combined_ref,
             }),
+            "and" => Ok(SrcToken {
+                ty: TokenType::And,
+                loc: combined_ref,
+            }),
+            "or" => Ok(SrcToken {
+                ty: TokenType::Or,
+                loc: combined_ref,
+            }).
             "_" => Ok(SrcToken {
                 ty: TokenType::Underscore,
                 loc: combined_ref,

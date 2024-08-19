@@ -1,10 +1,11 @@
-use std::{f64::consts::PI, process::exit, rc::Rc};
+use std::rc::Rc;
 
 use crate::{
     lexer::{
         lexer::Lexer,
         token::{SrcToken, TokenType},
     },
+    parser::ast::UnaryOpType,
     source::{
         errors::{LexError, ParseError},
         source::{SourceRef, SourceReporter},
@@ -343,7 +344,7 @@ impl Parser {
     }
 
     fn parse_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        if let Some(lhs) = lhs {
+        if lhs.is_some() {
             self.parse_ternary(lhs)
         } else {
             self.parse_lambda_expr()
@@ -382,45 +383,244 @@ impl Parser {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Some => {
-                todo!()
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                (
+                    Expr::OptionalExpr {
+                        loc: cur.get_source_ref().combine(val.get_source_ref()),
+                        val: Some(Box::new(val)),
+                    },
+                    vdeps,
+                )
             }
             TokenType::None => {
-                todo!()
+                self.advance();
+                (
+                    Expr::OptionalExpr {
+                        loc: cur.get_source_ref(),
+                        val: None,
+                    },
+                    vec![],
+                )
             }
             _ => self.parse_ternary(None),
         }
     }
 
     fn parse_ternary(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_or(None)
+        };
+
+        if matches!(self.cur_token().ty, TokenType::QuestionMark) {
+            self.advance();
+            let (then, tdeps) = self.parse_expr(None);
+            deps.extend(tdeps);
+            self.consume_err(
+                TokenType::Colon,
+                "a colon (:) to separate both branches of the ternary condition expression.",
+            );
+            let (otherwise, odeps) = self.parse_expr(None);
+            deps.extend(odeps);
+            return (
+                Expr::ConditionalExpr {
+                    loc: lhs.get_source_ref().combine(otherwise.get_source_ref()),
+                    cond: Box::new(lhs),
+                    then: Box::new(then),
+                    otherwise: Box::new(otherwise),
+                },
+                deps,
+            );
+        }
+        (lhs, deps)
     }
 
     fn parse_or(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_and(None)
+        };
+
+        while matches!(self.cur_token().ty, TokenType::Or) {
+            self.advance();
+            let (rhs, rdeps) = self.parse_and(None);
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::Or,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_and(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_equality(None)
+        };
+
+        while matches!(self.cur_token().ty, TokenType::And) {
+            self.advance();
+            let (rhs, rdeps) = self.parse_equality(None);
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op: BinOpType::And,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_equality(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_comparison(None)
+        };
+
+        while matches!(self.cur_token().ty, TokenType::Equal | TokenType::NotEqual) {
+            let op = if self.cur_token().ty == TokenType::Equal {
+                BinOpType::Eq
+            } else {
+                BinOpType::Neq
+            };
+            self.advance();
+            let (rhs, rdeps) = self.parse_comparison(None);
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_comparison(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_term(None)
+        };
+
+        while matches!(
+            self.cur_token().ty,
+            TokenType::Less | TokenType::LessEqual | TokenType::Greater | TokenType::GreaterEqual
+        ) {
+            let op = match self.cur_token().ty {
+                TokenType::Less => BinOpType::Lt,
+                TokenType::LessEqual => BinOpType::LtEq,
+                TokenType::Greater => BinOpType::Gt,
+                TokenType::GreaterEqual => BinOpType::GtEq,
+                _ => unreachable!("Non-comparison operator entered loop."),
+            };
+            self.advance();
+            let (rhs, rdeps) = self.parse_term(None);
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_term(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_factor(None)
+        };
+
+        while matches!(self.cur_token().ty, TokenType::Plus | TokenType::Minus) {
+            let op = if self.cur_token().ty == TokenType::Plus {
+                BinOpType::Add
+            } else {
+                BinOpType::Sub
+            };
+            self.advance();
+            let (rhs, rdeps) = self.parse_factor(None);
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_factor(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            (lhs, vec![])
+        } else {
+            self.parse_unary()
+        };
+
+        while matches!(
+            self.cur_token().ty,
+            TokenType::Star | TokenType::Slash | TokenType::Modulo
+        ) {
+            let op = match self.cur_token().ty {
+                TokenType::Star => BinOpType::Mult,
+                TokenType::Slash => BinOpType::Div,
+                TokenType::Modulo => BinOpType::Mod,
+                _ => unreachable!("Non-factor operator entered loop."),
+            };
+            self.advance();
+            let (rhs, rdeps) = self.parse_unary();
+            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            lhs = Expr::BinOp {
+                op,
+                left: Box::new(lhs),
+                right: Box::new(rhs),
+                loc,
+            };
+            deps.extend(rdeps);
+        }
+        (lhs, deps)
     }
 
     fn parse_unary(&mut self) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let op = self.cur_token();
+        match op.ty {
+            TokenType::Minus | TokenType::Not => {
+                self.advance();
+                let (rhs, rdeps) = self.parse_unary();
+                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                let op = if op.ty == TokenType::Minus {
+                    UnaryOpType::Negate
+                } else {
+                    UnaryOpType::Not
+                };
+                (
+                    Expr::UnaryOp {
+                        op,
+                        expr: Box::new(rhs),
+                        loc,
+                    },
+                    rdeps,
+                )
+            }
+            _ => self.parse_ptr_deref_or_addr_of(),
+        }
     }
 
     fn parse_ptr_deref_or_addr_of(&mut self) -> (Expr, Vec<Dependency>) {

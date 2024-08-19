@@ -5,4 +5,4 @@ u8 u16 u32 u64 uint
 f32 f64 bool char return
 struct _ print println
 some none defer
-const
+const and or
