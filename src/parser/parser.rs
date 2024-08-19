@@ -13,7 +13,7 @@ use crate::{
     types::signature::Ty,
 };
 
-use super::ast::{BinOpType, Expr, FnParam, Ins};
+use super::ast::{BinOpType, Expr, FnParam, HashMapPair, Ins};
 
 pub enum DependencyTy {
     Func,
@@ -408,11 +408,7 @@ impl Parser {
     }
 
     fn parse_ternary(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_or(None)
-        };
+        let (lhs, mut deps) = self.parse_or(lhs);
 
         if matches!(self.cur_token().ty, TokenType::QuestionMark) {
             self.advance();
@@ -438,11 +434,7 @@ impl Parser {
     }
 
     fn parse_or(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_and(None)
-        };
+        let (mut lhs, mut deps) = self.parse_and(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Or) {
             self.advance();
@@ -460,11 +452,7 @@ impl Parser {
     }
 
     fn parse_and(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_equality(None)
-        };
+        let (mut lhs, mut deps) = self.parse_equality(lhs);
 
         while matches!(self.cur_token().ty, TokenType::And) {
             self.advance();
@@ -482,11 +470,7 @@ impl Parser {
     }
 
     fn parse_equality(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_comparison(None)
-        };
+        let (mut lhs, mut deps) = self.parse_comparison(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Equal | TokenType::NotEqual) {
             let op = if self.cur_token().ty == TokenType::Equal {
@@ -509,11 +493,7 @@ impl Parser {
     }
 
     fn parse_comparison(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_term(None)
-        };
+        let (mut lhs, mut deps) = self.parse_term(lhs);
 
         while matches!(
             self.cur_token().ty,
@@ -541,11 +521,7 @@ impl Parser {
     }
 
     fn parse_term(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
-        } else {
-            self.parse_factor(None)
-        };
+        let (mut lhs, mut deps) = self.parse_factor(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Plus | TokenType::Minus) {
             let op = if self.cur_token().ty == TokenType::Plus {
@@ -568,8 +544,8 @@ impl Parser {
     }
 
     fn parse_factor(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
-            (lhs, vec![])
+        let (mut lhs, mut deps) = if lhs.is_some() {
+            self.parse_index_expr(lhs)
         } else {
             self.parse_unary()
         };
@@ -624,22 +600,88 @@ impl Parser {
     }
 
     fn parse_ptr_deref_or_addr_of(&mut self) -> (Expr, Vec<Dependency>) {
+        let op = self.cur_token();
+        match op.ty {
+            TokenType::Star => {
+                self.advance();
+                let (rhs, rdeps) = self.parse_ptr_deref_or_addr_of();
+                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                (
+                    Expr::DerefPtr {
+                        loc,
+                        target: Box::new(rhs),
+                    },
+                    rdeps,
+                )
+            }
+            TokenType::Ampersand => {
+                self.advance();
+                let (rhs, rdeps) = self.parse_index_expr(None);
+                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                (
+                    Expr::DerefPtr {
+                        loc,
+                        target: Box::new(rhs),
+                    },
+                    rdeps,
+                )
+            }
+            _ => self.parse_ptr_deref_or_addr_of(),
+        }
+    }
+
+    fn parse_comma_sep_expr(&mut self) -> (Vec<Expr>, Vec<Dependency>) {
         todo!()
     }
 
     fn parse_index_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        todo!()
-    }
+        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+            // we have no other sub trees that will start with an expression
+            (lhs, vec![])
+        } else {
+            self.parse_primary()
+        };
 
-    fn parse_hashmap_pair(&mut self) -> (Expr, Vec<Dependency>) {
-        todo!()
-    }
-
-    fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
-        todo!()
+        while matches!(
+            self.cur_token().ty,
+            TokenType::LParen | TokenType::LBracket | TokenType::Dot
+        ) {
+            let op = self.cur_token();
+            self.advance();
+            match op.ty {
+                TokenType::LParen => {
+                    todo!()
+                }
+                TokenType::LBracket => {
+                    todo!()
+                }
+                TokenType::Dot => {
+                    todo!()
+                }
+                _ => unreachable!("unexpected operator in parse_index_expr loop: {:#?}", op),
+            }
+        }
+        (lhs, deps)
     }
 
     fn parse_primary(&mut self) -> (Expr, Vec<Dependency>) {
         todo!()
+    }
+
+    fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
+        let loc = self.cur_token().get_source_ref();
+        self.consume_err(TokenType::Identifier, "an identifier.");
+        (Expr::Identifier { loc }, vec![])
+    }
+
+    fn parse_hashmap_pair(&mut self) -> (HashMapPair, Vec<Dependency>) {
+        let (key, mut kdeps) = self.parse_expr(None);
+        self.consume_err(
+            TokenType::Colon,
+            "a colon (:) to separate key and value expressions in the hashmap.",
+        );
+        let (val, vdeps) = self.parse_expr(None);
+        kdeps.extend(vdeps);
+        (HashMapPair { key, val }, kdeps)
     }
 }
