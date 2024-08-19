@@ -1,10 +1,7 @@
 use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::{
-    lexer::{
-        lexer::Lexer,
-        token::{Token, TokenType},
-    },
+    lexer::{lexer::Lexer, token::TokenType},
     source::source::{SourceFile, SourceReporter},
 };
 

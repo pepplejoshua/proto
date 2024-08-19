@@ -1,4 +1,4 @@
-use super::token::{SrcToken, Token, TokenType};
+use super::token::{SrcToken, TokenType};
 use crate::source::{errors::LexError, source::SourceFile};
 
 #[allow(dead_code)]
@@ -32,11 +32,9 @@ impl Lexer {
     }
 
     fn lex_comment(&mut self) -> Result<SrcToken, LexError> {
-        let start = self.src.cur_char();
         let mut span = self.src.get_ref();
         // skip both '/' characters
         self.src.next_char();
-        span = span.combine(self.src.get_ref());
         self.src.next_char();
 
         while !self.src.is_eof() {
@@ -120,7 +118,6 @@ impl Lexer {
         };
         let mut parts = vec![];
 
-        let mut buf = String::new();
         let mut buf_span = self.src.get_ref();
         while !self.src.is_eof() {
             let c = self.src.cur_char();
@@ -214,33 +211,6 @@ impl Lexer {
         // let span =
         self.queue = parts;
         Ok(bt)
-    }
-
-    // a multi line string fragment is a string fragment that is
-    // preceded by "---". It goes till the end of the line
-    fn lex_multi_line_string_fragment(&mut self) -> Result<Token, LexError> {
-        let mut content = String::new();
-        let mut span = self.src.get_ref();
-        // skip the remaining 2 '-' characters out of the 3
-        // the first one was already consumed by lex_operator()
-        self.src.next_char();
-        self.src.next_char();
-        self.src.next_char();
-
-        span = span.combine(self.src.get_ref());
-
-        while !self.src.is_eof() {
-            let cur = self.src.cur_char();
-            span = span.combine(self.src.get_ref());
-            self.src.next_char();
-            if cur != '\n' {
-                content.push(cur);
-                continue;
-            } else {
-                break;
-            }
-        }
-        Ok(Token::MultiLineStringFragment(span, content))
     }
 
     // lex a potential identifier
@@ -515,7 +485,6 @@ impl Lexer {
                 });
             }
             '!' => {
-                // if the next character is a '=', return a NotEqual operator
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
@@ -525,7 +494,6 @@ impl Lexer {
                         loc: cur_ref.combine(self.src.get_ref()),
                     });
                 }
-                // otherwise, return a Not operator
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Not,
@@ -540,7 +508,6 @@ impl Lexer {
                 });
             }
             '=' => {
-                // if the next character is a '=', return a Equal operator
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
@@ -550,7 +517,6 @@ impl Lexer {
                         loc: cur_ref.combine(self.src.get_ref()),
                     });
                 }
-                // otherwise, return a Assign operator
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Assign,
@@ -558,7 +524,6 @@ impl Lexer {
                 });
             }
             '<' => {
-                // if the next character is a '=', return a LessEqual operator
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
@@ -568,7 +533,6 @@ impl Lexer {
                         loc: cur_ref.combine(self.src.get_ref()),
                     });
                 }
-                // otherwise, return a Less operator
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Less,
@@ -576,7 +540,6 @@ impl Lexer {
                 });
             }
             '>' => {
-                // if the next character is a '=', return a GreaterEqual operator
                 let c = self.src.peek_char();
                 if c == '=' {
                     self.src.next_char();
@@ -586,7 +549,6 @@ impl Lexer {
                         loc: cur_ref.combine(self.src.get_ref()),
                     });
                 }
-                // otherwise, return a Greater operator
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Greater,
@@ -594,6 +556,15 @@ impl Lexer {
                 });
             }
             ':' => {
+                let c = self.src.peek_char();
+                if c == ':' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(SrcToken {
+                        ty: TokenType::DoubleColon,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
+                }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Colon,
@@ -724,7 +695,6 @@ impl Lexer {
             return Err(LexError::EmptyCharacterLiteral(span));
         } else if c == '\\' {
             // if the next character is a ', add it to the content
-            let c = self.src.next_char();
             span = span.combine(self.src.get_ref());
         }
 

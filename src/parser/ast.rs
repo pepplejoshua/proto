@@ -67,8 +67,8 @@ pub struct HashMapPair {
 }
 
 impl HashMapPair {
-    pub fn as_str(&self) -> String {
-        format!("{} : {}", self.key.as_str(), self.val.as_str())
+    pub fn as_str(&self, src: &SourceFile) -> String {
+        format!("{} : {}", self.key.as_str(src), self.val.as_str(src))
     }
 }
 
@@ -241,7 +241,7 @@ impl Expr {
                     "{{ {} }}",
                     pairs
                         .iter()
-                        .map(|pair| { pair.as_str() })
+                        .map(|pair| { pair.as_str(src) })
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
@@ -387,16 +387,16 @@ impl Ins {
                             "{} : {} = {}",
                             name.as_str(src),
                             tyv.as_str(),
-                            init_v.as_str()
+                            init_v.as_str(src)
                         )
                     }
                     None => {
-                        format!("{} := {}", name.as_str(), init_v.as_str())
+                        format!("{} := {}", name.as_str(src), init_v.as_str(src))
                     }
                 },
                 None => match ty {
                     Some(tyv) => {
-                        format!("{} : {}", name.as_str(), tyv.as_str())
+                        format!("{} : {}", name.as_str(src), tyv.as_str())
                     }
                     None => {
                         unreachable!("Ast::as_str: no initialization value or type for variable declaration.")

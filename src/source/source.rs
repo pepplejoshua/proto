@@ -286,10 +286,6 @@ impl SourceReporter {
         }
     }
 
-    pub fn report_parser_warning(&self, pw: ParseWarning) {
-        self.report_with_ref(&pw.src, pw.msg, None, true);
-    }
-
     pub fn report_parser_error(&self, pe: ParseError) {
         match pe {
             ParseError::Expected(msg, src, tip) => {
