@@ -11,7 +11,7 @@ use crate::{
     },
 };
 
-use super::ast::{Expr, Ins};
+use super::ast::{BinOpType, Expr, Ins};
 
 pub enum DependencyTy {
     Func,
@@ -139,22 +139,19 @@ impl Parser {
                 check_terminator = true;
                 self.parse_print()
             }
-            TokenType::Break => {
+            TokenType::Break | TokenType::Continue => {
                 check_terminator = true;
-                self.parse_loop_control_ins(0)
-            }
-            TokenType::Continue => {
-                check_terminator = true;
-                self.parse_loop_control_ins(1)
+                self.parse_loop_control_ins(cur.ty)
             }
             TokenType::Return => {
                 check_terminator = true;
                 self.parse_return()
             }
             TokenType::If => self.parse_if_conditional(),
-            TokenType::LCurly => self.parse_block(),
+            TokenType::LCurly => self.parse_ins_block(),
             _ => {
-                todo!()
+                check_terminator = true;
+                self.parse_expr_ins()
             }
         };
 
@@ -191,7 +188,7 @@ impl Parser {
         }
     }
 
-    fn parse_block(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_ins_block(&mut self) -> (Ins, Vec<Dependency>) {
         todo!()
     }
 
@@ -203,11 +200,136 @@ impl Parser {
         todo!()
     }
 
-    fn parse_loop_control_ins(&mut self, id: u8) -> (Ins, Vec<Dependency>) {
-        if id == 0 {
-            todo!()
+    fn parse_loop_control_ins(&mut self, ty: TokenType) -> (Ins, Vec<Dependency>) {
+        let loc = self.cur_token().get_source_ref();
+        self.consume(ty);
+        if matches!(ty, TokenType::Break) {
+            (Ins::Break { loc }, vec![])
         } else {
-            todo!()
+            (Ins::Continue { loc }, vec![])
+        }
+    }
+
+    fn parse_expr_ins(&mut self) -> (Ins, Vec<Dependency>) {
+        let (expr, mut deps) = self.parse_expr(None);
+        let cur = self.cur_token();
+        match cur.ty {
+            TokenType::Assign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr,
+                        value: val,
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            TokenType::PlusAssign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr.clone(),
+                        value: Expr::BinOp {
+                            op: BinOpType::Add,
+                            left: Box::new(expr),
+                            right: Box::new(val),
+                            loc: span.clone(),
+                        },
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            TokenType::MinusAssign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr.clone(),
+                        value: Expr::BinOp {
+                            op: BinOpType::Sub,
+                            left: Box::new(expr),
+                            right: Box::new(val),
+                            loc: span.clone(),
+                        },
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            TokenType::StarAssign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr.clone(),
+                        value: Expr::BinOp {
+                            op: BinOpType::Mult,
+                            left: Box::new(expr),
+                            right: Box::new(val),
+                            loc: span.clone(),
+                        },
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            TokenType::SlashAssign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr.clone(),
+                        value: Expr::BinOp {
+                            op: BinOpType::Div,
+                            left: Box::new(expr),
+                            right: Box::new(val),
+                            loc: span.clone(),
+                        },
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            TokenType::ModuloAssign => {
+                self.advance();
+                let (val, vdeps) = self.parse_expr(None);
+                let span = expr.get_source_ref().combine(val.get_source_ref());
+                deps.extend(vdeps);
+                (
+                    Ins::AssignTo {
+                        target: expr.clone(),
+                        value: Expr::BinOp {
+                            op: BinOpType::Mod,
+                            left: Box::new(expr),
+                            right: Box::new(val),
+                            loc: span.clone(),
+                        },
+                        loc: span,
+                    },
+                    deps,
+                )
+            }
+            _ => (
+                Ins::ExprIns {
+                    loc: expr.get_source_ref(),
+                    expr,
+                },
+                deps,
+            ),
         }
     }
 
