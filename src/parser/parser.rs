@@ -84,7 +84,7 @@ impl Parser {
         }
     }
 
-    fn consume_err(&mut self, expected: TokenType, err_expected_msg: &str) -> bool {
+    fn consume(&mut self, expected: TokenType, err_expected_msg: &str) -> bool {
         if self.cur_token().ty == expected {
             self.advance();
             true
@@ -95,18 +95,6 @@ impl Parser {
                 None,
             ));
             false
-        }
-    }
-
-    fn consume(&mut self, expected: TokenType) -> bool {
-        if self.cur_token().ty == expected {
-            self.advance();
-            true
-        } else {
-            unreachable!(
-                "Use of consume() with mismatching tokens. Expected: {expected:?}, Found: {:?}.",
-                self.cur_token().ty
-            )
         }
     }
 
@@ -158,7 +146,7 @@ impl Parser {
         };
 
         if require_terminator && check_terminator {
-            self.consume_err(
+            self.consume(
                 TokenType::Semicolon,
                 "a semicolon (;) to terminate instruction",
             );
@@ -172,7 +160,7 @@ impl Parser {
 
     fn parse_return(&mut self) -> (Ins, Vec<Dependency>) {
         let mut loc = self.cur_token().get_source_ref();
-        self.consume(TokenType::Return);
+        self.advance();
         let cur = self.cur_token();
         if matches!(cur.ty, TokenType::Semicolon) {
             loc = loc.combine(cur.get_source_ref());
@@ -204,7 +192,7 @@ impl Parser {
 
     fn parse_loop_control_ins(&mut self, ty: TokenType) -> (Ins, Vec<Dependency>) {
         let loc = self.cur_token().get_source_ref();
-        self.consume(ty);
+        self.advance();
         if matches!(ty, TokenType::Break) {
             (Ins::Break { loc }, vec![])
         } else {
@@ -414,7 +402,7 @@ impl Parser {
             self.advance();
             let (then, tdeps) = self.parse_expr(None);
             deps.extend(tdeps);
-            self.consume_err(
+            self.consume(
                 TokenType::Colon,
                 "a colon (:) to separate both branches of the ternary condition expression.",
             );
@@ -630,8 +618,27 @@ impl Parser {
         }
     }
 
-    fn parse_comma_sep_expr(&mut self) -> (Vec<Expr>, Vec<Dependency>) {
-        todo!()
+    fn parse_comma_sep_exprs(&mut self, terminator_ty: TokenType) -> (Vec<Expr>, Vec<Dependency>) {
+        let mut args = vec![];
+        let mut deps = vec![];
+
+        while !self.is_at_eof() {
+            let mut cur = self.cur_token();
+
+            if cur.ty == terminator_ty {
+                break;
+            }
+
+            let (arg, adeps) = self.parse_expr(None);
+            deps.extend(adeps);
+            args.push(arg);
+
+            cur = self.cur_token();
+            if matches!(cur.ty, TokenType::Comma) {
+                self.advance();
+            }
+        }
+        (args, deps)
     }
 
     fn parse_index_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
@@ -650,7 +657,39 @@ impl Parser {
             self.advance();
             match op.ty {
                 TokenType::LParen => {
-                    todo!()
+                    let (args, adeps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    deps.extend(adeps);
+                    let loc = if args.is_empty() {
+                        op.get_source_ref()
+                            .combine(self.cur_token().get_source_ref())
+                    } else {
+                        op.get_source_ref()
+                            .combine(args.last().unwrap().get_source_ref())
+                    };
+                    self.consume(
+                        TokenType::RParen,
+                        "a right parenthesis [)] to terminate the function call.",
+                    );
+
+                    if let Expr::Identifier { loc } = &lhs {
+                        deps.push(Dependency {
+                            ty: DependencyTy::Func,
+                            name_loc: loc.clone(),
+                        });
+                    }
+
+                    if let Expr::AccessMember { mem, .. } = &lhs {
+                        deps.push(Dependency {
+                            ty: DependencyTy::Func,
+                            name_loc: mem.get_source_ref(),
+                        });
+                    }
+
+                    lhs = Expr::CallFn {
+                        func: Box::new(lhs),
+                        args,
+                        loc,
+                    };
                 }
                 TokenType::LBracket => {
                     todo!()
@@ -670,13 +709,13 @@ impl Parser {
 
     fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
         let loc = self.cur_token().get_source_ref();
-        self.consume_err(TokenType::Identifier, "an identifier.");
+        self.consume(TokenType::Identifier, "an identifier.");
         (Expr::Identifier { loc }, vec![])
     }
 
     fn parse_hashmap_pair(&mut self) -> (HashMapPair, Vec<Dependency>) {
         let (key, mut kdeps) = self.parse_expr(None);
-        self.consume_err(
+        self.consume(
             TokenType::Colon,
             "a colon (:) to separate key and value expressions in the hashmap.",
         );
