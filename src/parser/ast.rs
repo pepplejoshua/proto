@@ -70,6 +70,83 @@ impl HashMapPair {
 }
 
 #[derive(Debug, Clone)]
+pub enum Expression {
+    Integer {
+        loc: Rc<SourceRef>,
+    },
+    Decimal {
+        loc: Rc<SourceRef>,
+    },
+    Str {
+        loc: Rc<SourceRef>,
+    },
+    Char {
+        loc: Rc<SourceRef>,
+    },
+    Bool {
+        loc: Rc<SourceRef>,
+    },
+    Identifier {
+        loc: Rc<SourceRef>,
+    },
+    BinOp {
+        op: BinOpType,
+        left: Box<Expr>,
+        right: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    CallFn {
+        func: Box<Expr>,
+        args: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    UnaryOp {
+        op: UnaryOpType,
+        expr: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    GroupedExpr {
+        inner: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    IndexInto {
+        target: Box<Expr>,
+        index: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    AccessMember {
+        target: Box<Expr>,
+        mem: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    OptionalExpr {
+        val: Option<Box<Expr>>,
+        loc: Rc<SourceRef>,
+    },
+    Lambda {
+        params: Vec<FnParam>,
+        ret_type: Rc<Ty>,
+        body: Box<Ins>,
+        loc: Rc<SourceRef>,
+    },
+    DerefPtr {
+        target: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    MakePtrFromAddrOf {
+        target: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    HashMap {
+        pairs: Vec<HashMapPair>,
+        loc: Rc<SourceRef>,
+    },
+    ErrorExpr {
+        loc: Rc<SourceRef>,
+    },
+}
+
+#[derive(Debug, Clone)]
 pub enum Expr {
     Number {
         val: String,

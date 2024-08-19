@@ -1,6 +1,46 @@
-fn main() int {
-    a := [('a', false), ('b', true), ('c', false)]
-    println(`({a})`)
+// Constants are declared with :: with an optional type between : and :.
+// binding an anonymous struct (a type) to a name
+Empty :: struct {}
 
-    return 0
+// binding a builtin type (a type) to a name
+Byte :: u8
+
+// a comptime evaluated function that returns a type
+Pair :: comptime \(T: type) type {
+    return struct {
+        lhs: T,
+        rhs: T,
+    }
+}
+
+// a comptime evaluated function that returns a type
+DisjointPair :: comptime \(Lhs: type, Rhs: type) type {
+    return struct {
+        lhs: Lhs,
+        rhs: Rhs,
+    }
+}
+
+// using a comptime function that describes a type that depends on another type
+// and returns a new type
+IntPair : type : Pair(int)
+BoolPair :: Pair(bool)
+IntBoolPair :: DisjointPair(int, bool)
+
+// the entry point of the program
+main :: \() int {
+    // initialize struct and assign them to variables.
+    // Variables are declared with := with an optional type between : and =.
+    pair := IntPair {
+        lhs = 1,
+        rhs = 2,
+    }
+    pair2 := BoolPair {
+        lhs = true,
+        rhs = false,
+    }
+    pair3 := IntBoolPair {
+        lhs = 420,
+        rhs = false,
+    }
 }

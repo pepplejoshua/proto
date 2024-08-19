@@ -1,3 +1,5 @@
+use std::rc::Rc;
+
 use crate::{
     lexer::{
         lexer::Lexer,
@@ -5,9 +7,22 @@ use crate::{
     },
     source::{
         errors::{LexError, ParseError},
-        source::SourceReporter,
+        source::{SourceRef, SourceReporter},
     },
 };
+
+use super::ast::Ins;
+
+pub enum DependencyTy {
+    Func,
+    Type,
+    FuncType,
+}
+
+pub struct Dependency {
+    ty: DependencyTy,
+    name_loc: Rc<SourceRef>,
+}
 
 pub struct Parser {
     pub lexer: Lexer,
@@ -67,5 +82,44 @@ impl Parser {
         }
     }
 
-    fn next_ins(&mut self, use_new_scope: bool, require_terminator: bool) {}
+    fn parse_file(&mut self) -> Vec<Ins> {
+        let mut instructions = vec![];
+        while !self.is_at_eof() {
+            let (ins, deps) = self.next_ins(false);
+            // determine if this instruction is allowed at this scope level
+            instructions.push(ins);
+        }
+
+        return instructions;
+    }
+
+    fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
+        let cur = self.cur_token();
+        let mut check_terminator = false;
+        let (ins, deps) = match cur.ty {
+            TokenType::Comment => {
+                self.advance();
+                todo!()
+            }
+            TokenType::Print | TokenType::Println => {
+                todo!()
+            }
+            TokenType::Continue => {
+                todo!()
+            }
+            TokenType::Break => {
+                todo!()
+            }
+            TokenType::Return => {
+                todo!()
+            }
+            TokenType::If => {
+                todo!()
+            }
+            _ => {
+                todo!()
+            }
+        };
+        todo!()
+    }
 }

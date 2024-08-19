@@ -325,6 +325,10 @@ impl Lexer {
                 ty: TokenType::None,
                 loc: combined_ref,
             }),
+            "some" => Ok(SrcToken {
+                ty: TokenType::Some,
+                loc: combined_ref,
+            }),
             "defer" => Ok(SrcToken {
                 ty: TokenType::Defer,
                 loc: combined_ref,
