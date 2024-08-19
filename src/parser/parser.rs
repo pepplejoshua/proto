@@ -9,9 +9,10 @@ use crate::{
         errors::{LexError, ParseError},
         source::{SourceRef, SourceReporter},
     },
+    types::signature::Ty,
 };
 
-use super::ast::{BinOpType, Expr, Ins};
+use super::ast::{BinOpType, Expr, FnParam, Ins};
 
 pub enum DependencyTy {
     Func,
@@ -210,6 +211,10 @@ impl Parser {
         }
     }
 
+    fn parse_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
+        todo!()
+    }
+
     fn parse_expr_ins(&mut self) -> (Ins, Vec<Dependency>) {
         let (expr, mut deps) = self.parse_expr(None);
         let cur = self.cur_token();
@@ -333,7 +338,108 @@ impl Parser {
         }
     }
 
+    fn parse_fn_params(&mut self) -> (Vec<FnParam>, Vec<Dependency>) {
+        todo!()
+    }
+
     fn parse_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        if let Some(lhs) = lhs {
+            self.parse_ternary(lhs)
+        } else {
+            self.parse_lambda_expr()
+        }
+    }
+
+    fn parse_lambda_expr(&mut self) -> (Expr, Vec<Dependency>) {
+        let cur = self.cur_token();
+        match cur.ty {
+            TokenType::BackSlash => {
+                self.advance();
+                let mut deps = vec![];
+                let (params, pdeps) = self.parse_fn_params();
+                deps.extend(pdeps);
+                let (ret_type, rtdeps) = self.parse_type();
+                deps.extend(rtdeps);
+                let (body, bdeps) = self.next_ins(false);
+                deps.extend(bdeps);
+                let loc = cur.get_source_ref().combine(body.get_source_ref());
+
+                (
+                    Expr::Lambda {
+                        params,
+                        ret_type,
+                        body: Box::new(body),
+                        loc,
+                    },
+                    deps,
+                )
+            }
+            _ => self.parse_optional_expr(),
+        }
+    }
+
+    fn parse_optional_expr(&mut self) -> (Expr, Vec<Dependency>) {
+        let cur = self.cur_token();
+        match cur.ty {
+            TokenType::Some => {
+                todo!()
+            }
+            TokenType::None => {
+                todo!()
+            }
+            _ => self.parse_ternary(None),
+        }
+    }
+
+    fn parse_ternary(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_or(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_and(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_equality(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_comparison(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_term(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_factor(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_unary(&mut self) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_ptr_deref_or_addr_of(&mut self) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_index_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_hashmap_pair(&mut self) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
+        todo!()
+    }
+
+    fn parse_primary(&mut self) -> (Expr, Vec<Dependency>) {
         todo!()
     }
 }
