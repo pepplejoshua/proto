@@ -1,7 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
-use crate::{parser::ast::Expr, source::source::SourceRef};
+use crate::source::source::SourceRef;
 use std::sync::atomic::AtomicUsize;
 use std::{
     borrow::BorrowMut,
@@ -15,6 +15,7 @@ pub type TypeId = usize;
 // this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
+    Type,
     Signed {
         size: u8,
         is_int: bool,
@@ -56,19 +57,8 @@ pub enum TypeDef {
         fields: BTreeMap<String, TypeId>,
         funcs: BTreeMap<String, TypeId>,
     },
-    Trait {
-        name: String,
-        funcs: BTreeMap<String, TypeId>,
-    },
-    TraitImpl {
-        trait_ids: Vec<TypeId>,
-    },
     Pointer {
         sub_ty: TypeId,
-    },
-    HashMap {
-        key_ty: TypeId,
-        val_ty: TypeId,
     },
     ErrorType,
 }
@@ -86,7 +76,6 @@ pub fn make_inst(id: TypeId, loc: Rc<SourceRef>) -> TypeInst {
 pub struct TypeTable {
     types: HashMap<TypeDef, TypeId>,
     definitions: Vec<TypeDef>,
-    named_types: HashMap<String, TypeId>,
     next_id: AtomicUsize,
 }
 
@@ -95,7 +84,6 @@ impl TypeTable {
         return TypeTable {
             types: HashMap::new(),
             definitions: vec![],
-            named_types: HashMap::new(),
             next_id: AtomicUsize::new(0),
         };
     }
@@ -109,14 +97,6 @@ impl TypeTable {
                 .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             self.types.insert(ty_def.clone(), id);
             self.definitions.push(ty_def.clone());
-
-            match ty_def {
-                TypeDef::Struct { name, .. } | TypeDef::Trait { name, .. } => {
-                    self.named_types.insert(name.clone(), id);
-                }
-                _ => {}
-            }
-
             id
         }
     }
@@ -128,14 +108,13 @@ impl TypeTable {
     pub fn get_type_def_using_id(&self, id: TypeId) -> Option<&TypeDef> {
         self.definitions.get(id)
     }
-
-    pub fn get_id_using_name(&self, name: &str) -> Option<TypeId> {
-        self.named_types.get(name).copied()
-    }
 }
 
 #[derive(Debug, Clone)]
 pub enum Ty {
+    Type {
+        loc: Rc<SourceRef>,
+    },
     Signed {
         size: u8,
         is_int: bool,
@@ -171,7 +150,7 @@ pub enum Ty {
     },
     StaticArray {
         sub_ty: Rc<Ty>,
-        size: Option<Expr>,
+        size: Option<usize>,
         loc: Rc<SourceRef>,
     },
     Slice {
@@ -194,11 +173,6 @@ pub enum Ty {
     },
     Pointer {
         sub_ty: Rc<Ty>,
-        loc: Rc<SourceRef>,
-    },
-    HashMap {
-        key_ty: Rc<Ty>,
-        val_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     Tuple {
@@ -255,7 +229,7 @@ impl Ty {
 
     pub fn is_indexable(&self) -> bool {
         match self {
-            Ty::Str { .. } | Ty::StaticArray { .. } | Ty::Slice { .. } | Ty::HashMap { .. } => true,
+            Ty::Str { .. } | Ty::StaticArray { .. } | Ty::Slice { .. } => true,
             _ => false,
         }
     }
@@ -276,7 +250,8 @@ impl Ty {
 
     pub fn get_loc(&self) -> Rc<SourceRef> {
         match self {
-            Ty::Signed { loc, .. }
+            Ty::Type { loc }
+            | Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
@@ -289,7 +264,6 @@ impl Ty {
             | Ty::Struct { loc, .. }
             | Ty::NamedType { loc, .. }
             | Ty::Pointer { loc, .. }
-            | Ty::HashMap { loc, .. }
             | Ty::Float { loc, .. }
             | Ty::Tuple { loc, .. }
             | Ty::ErrorType { loc } => loc.clone(),
@@ -298,7 +272,8 @@ impl Ty {
 
     pub fn set_loc(&mut self, n_loc: Rc<SourceRef>) {
         match self {
-            Ty::Signed { loc, .. }
+            Ty::Type { loc }
+            | Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
@@ -311,7 +286,6 @@ impl Ty {
             | Ty::NamedType { loc, .. }
             | Ty::Optional { loc, .. }
             | Ty::Pointer { loc, .. }
-            | Ty::HashMap { loc, .. }
             | Ty::Float { loc, .. }
             | Ty::Tuple { loc, .. }
             | Ty::ErrorType { loc } => {
@@ -323,6 +297,7 @@ impl Ty {
 
     pub fn as_str(&self) -> String {
         match self {
+            Ty::Type { .. } => "type".to_string(),
             Ty::Signed { size, is_int, .. } => {
                 if *is_int {
                     "int".into()
@@ -357,7 +332,7 @@ impl Ty {
             }
             Ty::StaticArray { sub_ty, size, .. } => {
                 let size_s = if let Some(s) = size {
-                    s.as_str()
+                    s.to_string()
                 } else {
                     "_".into()
                 };
@@ -368,9 +343,6 @@ impl Ty {
             Ty::Struct { name, .. } => name.clone(),
             Ty::NamedType { name, .. } => format!("{name}"),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
-            Ty::HashMap { key_ty, val_ty, .. } => {
-                format!("{{{}, {}}}", key_ty.as_str(), val_ty.as_str())
-            }
             Ty::Tuple { sub_tys, .. } => {
                 if sub_tys.len() == 1 {
                     format!("({},)", sub_tys[0].as_str())

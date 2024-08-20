@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use std::rc::Rc;
 
 use crate::{
@@ -13,9 +15,10 @@ use crate::{
     types::signature::Ty,
 };
 
-use super::ast::{BinOpType, Expr, FnParam, HashMapPair, Ins};
+use super::ast::{BinOpType, Expr, FnParam, Ins};
 
 pub enum DependencyTy {
+    Name,
     Func,
     Type,
     FuncType,
@@ -704,23 +707,99 @@ impl Parser {
     }
 
     fn parse_primary(&mut self) -> (Expr, Vec<Dependency>) {
-        todo!()
+        let cur = self.cur_token();
+        match cur.ty {
+            TokenType::Identifier => self.parse_identifier(),
+            TokenType::Character => {
+                self.advance();
+                (Expr::Char { loc: cur.loc }, vec![])
+            }
+            TokenType::String => {
+                self.advance();
+                (Expr::Str { loc: cur.loc }, vec![])
+            }
+            TokenType::Integer => {
+                self.advance();
+                (Expr::Integer { loc: cur.loc }, vec![])
+            }
+            TokenType::Decimal => {
+                self.advance();
+                (Expr::Decimal { loc: cur.loc }, vec![])
+            }
+            TokenType::True => {
+                self.advance();
+                (Expr::Bool { loc: cur.loc }, vec![])
+            }
+            TokenType::False => {
+                self.advance();
+                (Expr::Bool { loc: cur.loc }, vec![])
+            }
+            TokenType::LParen => {
+                self.advance();
+                let (expr, mut deps) = self.parse_expr(None);
+
+                if matches!(self.cur_token().ty, TokenType::Comma) {
+                    self.advance();
+                    let (mut exprs, edeps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    deps.extend(edeps);
+                    let loc = cur
+                        .get_source_ref()
+                        .combine(self.cur_token().get_source_ref());
+                    self.consume(
+                        TokenType::RParen,
+                        "a right parenthesis [)] to terminate the tuple expression.",
+                    );
+                    exprs.insert(0, expr);
+                    return (Expr::Tuple { items: exprs, loc }, deps);
+                } else {
+                    let loc = cur
+                        .get_source_ref()
+                        .combine(self.cur_token().get_source_ref());
+                    self.consume(
+                        TokenType::RParen,
+                        "a right parenthesis [)] to terminate the grouped expression.",
+                    );
+                    return (
+                        Expr::GroupedExpr {
+                            inner: Box::new(expr),
+                            loc,
+                        },
+                        deps,
+                    );
+                }
+            }
+            TokenType::I8
+            | TokenType::I16
+            | TokenType::I32
+            | TokenType::I64
+            | TokenType::Int
+            | TokenType::U8
+            | TokenType::U16
+            | TokenType::U32
+            | TokenType::U64
+            | TokenType::UInt => {
+                todo!()
+            }
+            TokenType::BackTick => {
+                todo!()
+            }
+            _ => {
+                let span = cur.get_source_ref();
+                self.report_err(ParseError::CannotParseAnExpression(span.clone()));
+                (Expr::ErrorExpr { loc: span }, vec![])
+            }
+        }
     }
 
     fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
         let loc = self.cur_token().get_source_ref();
         self.consume(TokenType::Identifier, "an identifier.");
-        (Expr::Identifier { loc }, vec![])
-    }
-
-    fn parse_hashmap_pair(&mut self) -> (HashMapPair, Vec<Dependency>) {
-        let (key, mut kdeps) = self.parse_expr(None);
-        self.consume(
-            TokenType::Colon,
-            "a colon (:) to separate key and value expressions in the hashmap.",
-        );
-        let (val, vdeps) = self.parse_expr(None);
-        kdeps.extend(vdeps);
-        (HashMapPair { key, val }, kdeps)
+        (
+            Expr::Identifier { loc: loc.clone() },
+            vec![Dependency {
+                ty: DependencyTy::Name,
+                name_loc: loc,
+            }],
+        )
     }
 }

@@ -5,6 +5,12 @@ Empty :: struct {}
 // binding a builtin type (a type) to a name
 Byte :: u8
 
+// using a comptime function that describes a type that depends on another type
+// and returns a new type
+IntPair : type : Pair(int)
+BoolPair :: Pair(bool)
+IntBoolPair :: DisjointPair(int, bool)
+
 // a comptime evaluated function that returns a type
 Pair :: comptime \(T: type) type {
     return struct {
@@ -20,12 +26,6 @@ DisjointPair :: comptime \(Lhs: type, Rhs: type) type {
         rhs: Rhs,
     }
 }
-
-// using a comptime function that describes a type that depends on another type
-// and returns a new type
-IntPair : type : Pair(int)
-BoolPair :: Pair(bool)
-IntBoolPair :: DisjointPair(int, bool)
 
 // the entry point of the program
 main :: \() int {

@@ -61,18 +61,6 @@ impl UnaryOpType {
 }
 
 #[derive(Debug, Clone)]
-pub struct HashMapPair {
-    pub key: Expr,
-    pub val: Expr,
-}
-
-impl HashMapPair {
-    pub fn as_str(&self, src: &SourceFile) -> String {
-        format!("{} : {}", self.key.as_str(src), self.val.as_str(src))
-    }
-}
-
-#[derive(Debug, Clone)]
 pub enum Expr {
     Integer {
         loc: Rc<SourceRef>,
@@ -88,6 +76,13 @@ pub enum Expr {
     },
     Bool {
         loc: Rc<SourceRef>,
+    },
+    Tuple {
+        items: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
+    TypeAsExpr {
+        ty: Rc<Ty>,
     },
     Identifier {
         loc: Rc<SourceRef>,
@@ -114,7 +109,6 @@ pub enum Expr {
         args: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
-
     GroupedExpr {
         inner: Box<Expr>,
         loc: Rc<SourceRef>,
@@ -147,10 +141,6 @@ pub enum Expr {
         target: Box<Expr>,
         loc: Rc<SourceRef>,
     },
-    HashMap {
-        pairs: Vec<HashMapPair>,
-        loc: Rc<SourceRef>,
-    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -164,6 +154,7 @@ impl Expr {
             | Expr::Str { loc }
             | Expr::Char { loc }
             | Expr::Bool { loc }
+            | Expr::Tuple { loc, .. }
             | Expr::Identifier { loc }
             | Expr::UnaryOp { loc, .. }
             | Expr::BinOp { loc, .. }
@@ -176,8 +167,8 @@ impl Expr {
             | Expr::Lambda { loc, .. }
             | Expr::MakePtrFromAddrOf { loc, .. }
             | Expr::DerefPtr { loc, .. }
-            | Expr::HashMap { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
+            Expr::TypeAsExpr { ty, .. } => ty.get_loc(),
         }
     }
 
@@ -189,6 +180,19 @@ impl Expr {
             | Expr::Char { loc }
             | Expr::Bool { loc }
             | Expr::Identifier { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Expr::Tuple { items, .. } => {
+                format!(
+                    "({})",
+                    items
+                        .iter()
+                        .map(|item| { item.as_str(src) })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
+            Expr::TypeAsExpr { ty, .. } => {
+                todo!()
+            }
             Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str(src)),
             Expr::BinOp {
                 op,
@@ -257,16 +261,6 @@ impl Expr {
             Expr::DerefPtr { target, .. } => format!("*{}", target.as_str(src)),
             Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str(src)),
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
-            Expr::HashMap { pairs, .. } => {
-                format!(
-                    "{{ {} }}",
-                    pairs
-                        .iter()
-                        .map(|pair| { pair.as_str(src) })
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
-            }
         }
     }
 }
