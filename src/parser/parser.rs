@@ -159,13 +159,12 @@ impl Parser {
                     TokenType::Colon => {
                         // typed definition (const or var)
                         self.advance();
-
                         // parse a type
                         let (ty, tdeps) = self.parse_type();
-
                         match self.cur_token().ty {
                             TokenType::Colon => {
                                 // a typed constant with init value
+                                self.advance();
                                 let (val, vdeps) = self.parse_expr(None);
                                 check_terminator = true;
                                 (
@@ -180,6 +179,7 @@ impl Parser {
                             }
                             TokenType::Assign => {
                                 // a typed var with init value
+                                self.advance();
                                 let (val, vdeps) = self.parse_expr(None);
                                 check_terminator = true;
                                 (
@@ -238,6 +238,7 @@ impl Parser {
                 self.parse_return()
             }
             TokenType::If => self.parse_if_conditional(),
+            TokenType::For => self.parse_loop(),
             TokenType::LCurly => self.parse_ins_block(),
             _ => {
                 check_terminator = true;
@@ -279,6 +280,33 @@ impl Parser {
     }
 
     fn parse_ins_block(&mut self) -> (Ins, Vec<Dependency>) {
+        let mut loc = self.cur_token().loc;
+        self.consume(
+            TokenType::LCurly,
+            "a left curly brace ({) to begin the body of the block instruction.",
+        );
+
+        let mut code = vec![];
+        let mut deps = vec![];
+        while !self.is_at_eof() {
+            if self.cur_token().ty == TokenType::RCurly {
+                break;
+            }
+
+            let (ins, ideps) = self.next_ins(false);
+            code.push(ins);
+            deps.extend(ideps);
+        }
+
+        loc = loc.combine(self.cur_token().loc);
+        self.consume(
+            TokenType::RCurly,
+            "a right curly brace (}) to terminate the body of the block instruction.",
+        );
+        (Ins::Block { code, loc }, deps)
+    }
+
+    fn parse_loop(&mut self) -> (Ins, Vec<Dependency>) {
         todo!()
     }
 
@@ -293,7 +321,7 @@ impl Parser {
     fn parse_loop_control_ins(&mut self, ty: TokenType) -> (Ins, Vec<Dependency>) {
         let loc = self.cur_token().get_source_ref();
         self.advance();
-        if matches!(ty, TokenType::Break) {
+        if ty == TokenType::Break {
             (Ins::Break { loc }, vec![])
         } else {
             (Ins::Continue { loc }, vec![])
@@ -554,7 +582,36 @@ impl Parser {
     }
 
     fn parse_fn_params(&mut self) -> (Vec<FnParam>, Vec<Dependency>) {
-        todo!()
+        self.consume(
+            TokenType::LParen,
+            "a left parenthesis [(] to begin the list of parameters.",
+        );
+
+        let mut params = vec![];
+        let mut deps = vec![];
+        while !self.is_at_eof() {
+            if self.cur_token().ty == TokenType::RParen {
+                break;
+            }
+
+            let (param_name, _) = self.parse_identifier();
+            let (param_ty, pdeps) = self.parse_type();
+            deps.extend(pdeps);
+
+            let loc = param_name.get_source_ref().combine(param_ty.get_loc());
+            params.push(FnParam {
+                name: param_name,
+                given_ty: param_ty,
+                loc,
+            })
+        }
+
+        self.consume(
+            TokenType::RParen,
+            "a right parenthesis [)] to terminate the list of parameters.",
+        );
+
+        (params, deps)
     }
 
     fn parse_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
@@ -575,7 +632,7 @@ impl Parser {
                 deps.extend(pdeps);
                 let (ret_type, rtdeps) = self.parse_type();
                 deps.extend(rtdeps);
-                let (body, bdeps) = self.next_ins(false);
+                let (body, bdeps) = self.parse_ins_block();
                 deps.extend(bdeps);
                 let loc = cur.get_source_ref().combine(body.get_source_ref());
 
@@ -840,7 +897,7 @@ impl Parser {
                     rdeps,
                 )
             }
-            _ => self.parse_ptr_deref_or_addr_of(),
+            _ => self.parse_index_expr(None),
         }
     }
 
@@ -849,9 +906,7 @@ impl Parser {
         let mut deps = vec![];
 
         while !self.is_at_eof() {
-            let mut cur = self.cur_token();
-
-            if cur.ty == terminator_ty {
+            if self.cur_token().ty == terminator_ty {
                 break;
             }
 
@@ -859,8 +914,7 @@ impl Parser {
             deps.extend(adeps);
             args.push(arg);
 
-            cur = self.cur_token();
-            if matches!(cur.ty, TokenType::Comma) {
+            if matches!(self.cur_token().ty, TokenType::Comma) {
                 self.advance();
             }
         }
@@ -963,7 +1017,7 @@ impl Parser {
                 let (arr_ty, mut adeps) = self.parse_type();
                 if self.cur_token().ty == TokenType::LCurly {
                     self.advance();
-                    let (items, ideps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    let (items, ideps) = self.parse_comma_sep_exprs(TokenType::RCurly);
                     let loc = cur.loc.combine(self.cur_token().get_source_ref());
                     self.consume(
                         TokenType::RCurly,

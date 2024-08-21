@@ -318,7 +318,7 @@ impl Ty {
             Ty::Bool { .. } => "bool".into(),
             Ty::Func { params, ret, .. } => {
                 format!(
-                    "fn ({}) {}",
+                    "\\({}) {}",
                     params
                         .iter()
                         .map(|p| { p.as_str(src) })
@@ -329,25 +329,21 @@ impl Ty {
             }
             Ty::StaticArray { sub_ty, size, .. } => {
                 let size_s = size.as_str(src);
-                format!("[{}, {size_s}]", sub_ty.as_str(src))
+                format!("[{size_s}]{}", sub_ty.as_str(src))
             }
-            Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str(src)),
+            Ty::Slice { sub_ty, .. } => format!("[]{}", sub_ty.as_str(src)),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str(src)),
             Ty::NamedType { .. } | Ty::Struct { .. } => "type".to_string(),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str(src)),
             Ty::Tuple { sub_tys, .. } => {
-                if sub_tys.len() == 1 {
-                    format!("({},)", sub_tys[0].as_str(src))
-                } else {
-                    format!(
-                        "({})",
-                        sub_tys
-                            .iter()
-                            .map(|ty| { ty.as_str(src) })
-                            .collect::<Vec<String>>()
-                            .join(", ")
-                    )
-                }
+                format!(
+                    "({})",
+                    sub_tys
+                        .iter()
+                        .map(|ty| { ty.as_str(src) })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
             Ty::ErrorType { .. } => "err!".into(),
         }

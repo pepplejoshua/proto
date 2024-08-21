@@ -1,4 +1,6 @@
 main :: \() int {
     a :: 0
+    arr_ty : type : []u8
+    err :: u8 + 1 * str
     return a
 }

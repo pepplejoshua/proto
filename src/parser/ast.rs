@@ -443,7 +443,7 @@ impl Ins {
                 for instruc in code {
                     buf.push_str(&(instruc.as_str(src) + "\n"));
                 }
-                buf
+                format!("{{\n{buf}}}")
             }
             Ins::AssignTo { target, value, .. } => {
                 format!("{} = {}", target.as_str(src), value.as_str(src))
