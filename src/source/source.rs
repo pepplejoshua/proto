@@ -302,11 +302,6 @@ impl SourceReporter {
                 let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
                 self.report_with_ref(&src, msg, None, false);
             }
-            ParseError::CannotParseAType(src) => {
-                let msg = "A type was required at this point of the program but couldn't find any."
-                    .to_string();
-                self.report_with_ref(&src, msg, None, false);
-            }
             ParseError::MalformedDeclaration(tip, src) => {
                 let msg = "Malformed declaration.".to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);

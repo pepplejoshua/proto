@@ -20,7 +20,6 @@ pub enum ParseError {
     Expected(String, Rc<SourceRef>, Option<String>),
     ConstantDeclarationNeedsTypeOrInitValue(Rc<SourceRef>),
     CannotParseAnExpression(Rc<SourceRef>),
-    CannotParseAType(Rc<SourceRef>),
     MalformedDeclaration(String, Rc<SourceRef>),
     NoVariableAtCurrentScope(Rc<SourceRef>),
     NoCodeBlockAllowedInCurrentContext(Rc<SourceRef>),
@@ -41,7 +40,6 @@ impl ParseError {
             ParseError::Expected(_, src, _)
             | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
             | ParseError::CannotParseAnExpression(src)
-            | ParseError::CannotParseAType(src)
             | ParseError::MalformedDeclaration(_, src)
             | ParseError::NoCodeBlockAllowedInCurrentContext(src)
             | ParseError::NoLoopAtTopLevel(src)

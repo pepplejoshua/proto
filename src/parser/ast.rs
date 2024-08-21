@@ -84,6 +84,11 @@ pub enum Expr {
         items: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
+    StaticArray {
+        ty: Rc<Ty>,
+        items: Vec<Expr>,
+        loc: Rc<SourceRef>,
+    },
     TypeAsExpr {
         ty: Rc<Ty>,
     },
@@ -171,6 +176,7 @@ impl Expr {
             | Expr::Lambda { loc, .. }
             | Expr::MakePtrFromAddrOf { loc, .. }
             | Expr::DerefPtr { loc, .. }
+            | Expr::StaticArray { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
             Expr::TypeAsExpr { ty, .. } => ty.get_loc(),
         }
@@ -195,8 +201,17 @@ impl Expr {
                         .join(", ")
                 )
             }
-            Expr::TypeAsExpr { ty, .. } => {
-                todo!()
+            Expr::TypeAsExpr { ty, .. } => ty.as_str(src),
+            Expr::StaticArray { ty, items, .. } => {
+                format!(
+                    "{}{{{}}}",
+                    ty.as_str(src),
+                    items
+                        .iter()
+                        .map(|item| { item.as_str(src) })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
             }
             Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str(src)),
             Expr::BinOp {

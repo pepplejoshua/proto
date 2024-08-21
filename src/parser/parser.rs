@@ -105,7 +105,7 @@ impl Parser {
         }
     }
 
-    fn parse_file(&mut self) -> Vec<Ins> {
+    pub fn parse_file(&mut self) -> Vec<Ins> {
         let mut instructions = vec![];
         while !self.is_at_eof() {
             let (ins, _deps) = self.next_ins(false);
@@ -117,17 +117,110 @@ impl Parser {
     }
 
     fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
-        let cur = self.cur_token();
+        let token = self.cur_token();
         let mut check_terminator = false;
-        let (ins, deps) = match cur.ty {
+        let (ins, deps) = match token.ty {
             TokenType::Identifier => {
-                todo!()
+                self.advance();
+                let cur = self.cur_token();
+                match cur.ty {
+                    TokenType::DoubleColon => {
+                        // inferred const
+                        self.advance();
+                        // get init value
+                        let (val, vdeps) = self.parse_expr(None);
+                        check_terminator = true;
+                        (
+                            Ins::DeclConst {
+                                loc: token.loc.combine(val.get_source_ref()),
+                                name: Expr::Identifier { loc: token.loc },
+                                ty: None,
+                                init_val: val,
+                            },
+                            vdeps,
+                        )
+                    }
+                    TokenType::ColonAssign => {
+                        // inferred var
+                        self.advance();
+                        // get init value
+                        let (val, vdeps) = self.parse_expr(None);
+                        check_terminator = true;
+                        (
+                            Ins::DeclVar {
+                                loc: token.loc.combine(val.get_source_ref()),
+                                name: Expr::Identifier { loc: token.loc },
+                                ty: None,
+                                init_val: Some(val),
+                            },
+                            vdeps,
+                        )
+                    }
+                    TokenType::Colon => {
+                        // typed definition (const or var)
+                        self.advance();
+
+                        // parse a type
+                        let (ty, tdeps) = self.parse_type();
+
+                        match self.cur_token().ty {
+                            TokenType::Colon => {
+                                // a typed constant with init value
+                                let (val, vdeps) = self.parse_expr(None);
+                                check_terminator = true;
+                                (
+                                    Ins::DeclConst {
+                                        loc: token.loc.combine(val.get_source_ref()),
+                                        name: Expr::Identifier { loc: token.loc },
+                                        ty: Some(ty),
+                                        init_val: val,
+                                    },
+                                    vdeps,
+                                )
+                            }
+                            TokenType::Assign => {
+                                // a typed var with init value
+                                let (val, vdeps) = self.parse_expr(None);
+                                check_terminator = true;
+                                (
+                                    Ins::DeclVar {
+                                        loc: token.loc.combine(val.get_source_ref()),
+                                        name: Expr::Identifier { loc: token.loc },
+                                        ty: Some(ty),
+                                        init_val: Some(val),
+                                    },
+                                    vdeps,
+                                )
+                            }
+                            _ => {
+                                // an type var decl without init value
+                                check_terminator = true;
+                                (
+                                    Ins::DeclVar {
+                                        loc: token.loc.combine(ty.get_loc()),
+                                        name: Expr::Identifier { loc: token.loc },
+                                        ty: Some(ty),
+                                        init_val: None,
+                                    },
+                                    vec![],
+                                )
+                            }
+                        }
+                    }
+                    _ => {
+                        // we will pass the identifier we have seen already
+                        // to parse_expr_ins
+                        self.parse_expr_ins(Some(Expr::Identifier {
+                            loc: token.get_source_ref(),
+                        }))
+                    }
+                }
             }
             TokenType::Comment => {
                 self.advance();
                 (
                     Ins::SingleLineComment {
-                        loc: cur.loc.clone(),
+                        loc: token.loc.clone(),
                     },
                     vec![],
                 )
@@ -138,7 +231,7 @@ impl Parser {
             }
             TokenType::Break | TokenType::Continue => {
                 check_terminator = true;
-                self.parse_loop_control_ins(cur.ty)
+                self.parse_loop_control_ins(token.ty)
             }
             TokenType::Return => {
                 check_terminator = true;
@@ -148,7 +241,7 @@ impl Parser {
             TokenType::LCurly => self.parse_ins_block(),
             _ => {
                 check_terminator = true;
-                self.parse_expr_ins()
+                self.parse_expr_ins(None)
             }
         };
 
@@ -337,8 +430,8 @@ impl Parser {
         (Rc::new(ty), vec![])
     }
 
-    fn parse_expr_ins(&mut self) -> (Ins, Vec<Dependency>) {
-        let (expr, mut deps) = self.parse_expr(None);
+    fn parse_expr_ins(&mut self, expr: Option<Expr>) -> (Ins, Vec<Dependency>) {
+        let (expr, mut deps) = self.parse_expr(expr);
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Assign => {
@@ -863,6 +956,31 @@ impl Parser {
             TokenType::False => {
                 self.advance();
                 (Expr::Bool { loc: cur.loc }, vec![])
+            }
+            TokenType::LBracket => {
+                // we are parsing either an array type, or an array literal,
+                // with a preceding array type
+                let (arr_ty, mut adeps) = self.parse_type();
+                if self.cur_token().ty == TokenType::LCurly {
+                    self.advance();
+                    let (items, ideps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    let loc = cur.loc.combine(self.cur_token().get_source_ref());
+                    self.consume(
+                        TokenType::RCurly,
+                        "a right curly brace (}) to terminate the array literal.",
+                    );
+                    adeps.extend(ideps);
+                    (
+                        Expr::StaticArray {
+                            ty: arr_ty,
+                            items,
+                            loc,
+                        },
+                        adeps,
+                    )
+                } else {
+                    (Expr::TypeAsExpr { ty: arr_ty }, adeps)
+                }
             }
             TokenType::LParen => {
                 self.advance();
