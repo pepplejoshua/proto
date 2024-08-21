@@ -311,11 +311,74 @@ impl Parser {
     }
 
     fn parse_if_conditional(&mut self) -> (Ins, Vec<Dependency>) {
-        todo!()
+        let mut loc = self.cur_token().loc;
+        self.advance();
+
+        let mut conds_and_code = vec![];
+        let mut deps = vec![];
+        // get the first condition and body
+        let (first_cond, edeps) = self.parse_expr(None);
+        deps.extend(edeps);
+        let (first_body, bdeps) = self.parse_ins_block();
+        deps.extend(bdeps);
+        conds_and_code.push((Some(first_cond), first_body));
+
+        while !self.is_at_eof() {
+            if self.cur_token().ty != TokenType::Else {
+                break;
+            }
+            self.advance();
+            if self.cur_token().ty == TokenType::If {
+                self.advance();
+                let (else_if_cond, eideps) = self.parse_expr(None);
+                deps.extend(eideps);
+                let (else_if_code, eicdeps) = self.parse_ins_block();
+                deps.extend(eicdeps);
+                conds_and_code.push((Some(else_if_cond), else_if_code));
+            } else {
+                let (else_body, edeps) = self.parse_ins_block();
+                deps.extend(edeps);
+                conds_and_code.push((None, else_body));
+                break;
+            }
+        }
+
+        loc = loc.combine(conds_and_code.last().unwrap().1.get_source_ref());
+
+        (
+            Ins::IfConditional {
+                conds_and_code,
+                loc,
+            },
+            deps,
+        )
     }
 
     fn parse_print(&mut self) -> (Ins, Vec<Dependency>) {
-        todo!()
+        let is_println = self.cur_token().ty == TokenType::Print;
+        let mut loc = self.cur_token().loc;
+        self.advance();
+
+        self.consume(
+            TokenType::LParen,
+            "a left parenthesis [(] to start argument list.",
+        );
+
+        let (output, odeps) = self.parse_expr(None);
+        loc = loc.combine(self.cur_token().loc);
+        self.consume(
+            TokenType::RParen,
+            "a right parenthesis [)] to terminate argument list.",
+        );
+
+        (
+            Ins::PrintIns {
+                is_println,
+                output,
+                loc,
+            },
+            odeps,
+        )
     }
 
     fn parse_loop_control_ins(&mut self, ty: TokenType) -> (Ins, Vec<Dependency>) {
