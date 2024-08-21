@@ -1,6 +1,7 @@
 #![allow(dead_code)]
 #![allow(unused_variables)]
 
+use crate::parser::ast::Expr;
 use crate::source::source::SourceRef;
 use std::sync::atomic::AtomicUsize;
 use std::{
@@ -162,7 +163,6 @@ pub enum Ty {
         loc: Rc<SourceRef>,
     },
     Struct {
-        name: String,
         fields: HashMap<String, Rc<Ty>>,
         funcs: HashMap<String, Rc<Ty>>,
         loc: Rc<SourceRef>,
@@ -340,8 +340,7 @@ impl Ty {
             }
             Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
-            Ty::Struct { name, .. } => name.clone(),
-            Ty::NamedType { name, .. } => format!("{name}"),
+            Ty::NamedType { .. } | Ty::Struct { .. } => "type".to_string(),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
             Ty::Tuple { sub_tys, .. } => {
                 if sub_tys.len() == 1 {

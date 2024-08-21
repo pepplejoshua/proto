@@ -87,16 +87,20 @@ impl Parser {
         }
     }
 
+    fn expected_err(&mut self, err_expected_msg: &str) {
+        self.report_err(ParseError::Expected(
+            format!("{err_expected_msg}"),
+            self.cur_token().get_source_ref(),
+            None,
+        ));
+    }
+
     fn consume(&mut self, expected: TokenType, err_expected_msg: &str) -> bool {
         if self.cur_token().ty == expected {
             self.advance();
             true
         } else {
-            self.report_err(ParseError::Expected(
-                format!("{err_expected_msg}"),
-                self.cur_token().get_source_ref(),
-                None,
-            ));
+            self.expected_err(err_expected_msg);
             false
         }
     }
@@ -204,7 +208,125 @@ impl Parser {
     }
 
     fn parse_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
-        todo!()
+        let start_loc = self.cur_token().get_source_ref();
+        let mut deps = Vec::new();
+
+        if self.cur_token().ty == TokenType::LBracket {
+            self.advance();
+
+            if self.cur_token().ty == TokenType::RBracket {
+                // Slice type
+                self.advance();
+                let (sub_ty, sub_deps) = self.parse_type();
+                deps.extend(sub_deps);
+                let end_loc = sub_ty.get_loc();
+                let loc = start_loc.combine(end_loc);
+
+                return (Rc::new(Ty::Slice { sub_ty, loc }), deps);
+            } else {
+                // Static array type
+                let (size, sdeps) = self.parse_primary();
+                deps.extend(sdeps);
+                self.consume(TokenType::RBracket, "a right bracket (]) after array size");
+
+                let (sub_ty, sub_deps) = self.parse_type();
+                deps.extend(sub_deps);
+                let end_loc = sub_ty.get_loc();
+                let loc = start_loc.combine(end_loc);
+
+                todo!()
+                // return (Rc::new(Ty::StaticArray { sub_ty, size, loc }), deps);
+            }
+        }
+
+        // If not an array or slice, parse as base type
+        self.parse_base_type()
+    }
+
+    fn parse_base_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
+        let token = self.cur_token();
+        let loc = token.get_source_ref();
+
+        let ty = match token.ty {
+            TokenType::I8 => Ty::Signed {
+                size: 8,
+                is_int: false,
+                loc: loc.clone(),
+            },
+            TokenType::I16 => Ty::Signed {
+                size: 16,
+                is_int: false,
+                loc: loc.clone(),
+            },
+            TokenType::I32 => Ty::Signed {
+                size: 32,
+                is_int: false,
+                loc: loc.clone(),
+            },
+            TokenType::I64 => Ty::Signed {
+                size: 64,
+                is_int: false,
+                loc: loc.clone(),
+            },
+            TokenType::Int => Ty::Signed {
+                size: Ty::get_platform_size(),
+                is_int: true,
+                loc: loc.clone(),
+            },
+            TokenType::U8 => Ty::Unsigned {
+                size: 8,
+                is_uint: false,
+                loc: loc.clone(),
+            },
+            TokenType::U16 => Ty::Unsigned {
+                size: 16,
+                is_uint: false,
+                loc: loc.clone(),
+            },
+            TokenType::U32 => Ty::Unsigned {
+                size: 32,
+                is_uint: false,
+                loc: loc.clone(),
+            },
+            TokenType::U64 => Ty::Unsigned {
+                size: 64,
+                is_uint: false,
+                loc: loc.clone(),
+            },
+            TokenType::UInt => Ty::Unsigned {
+                size: Ty::get_platform_size(),
+                is_uint: true,
+                loc: loc.clone(),
+            },
+            TokenType::Char => Ty::Char { loc: loc.clone() },
+            TokenType::Str => Ty::Str {
+                loc: loc.clone(),
+                is_interp: false,
+            },
+            TokenType::Void => Ty::Void { loc: loc.clone() },
+            TokenType::Bool => Ty::Bool { loc: loc.clone() },
+            TokenType::Identifier => {
+                self.advance();
+                return (
+                    Rc::new(Ty::NamedType {
+                        name: self.lexer.src.text[token.loc.flat_start..token.loc.flat_end]
+                            .to_string(),
+                        loc: loc.clone(),
+                    }),
+                    vec![Dependency {
+                        ty: DependencyTy::Type,
+                        name_loc: loc,
+                    }],
+                );
+            }
+            _ => {
+                self.expected_err("a type.");
+                Ty::ErrorType { loc: loc.clone() }
+            }
+        };
+
+        self.advance();
+        (Rc::new(ty), vec![])
     }
 
     fn parse_expr_ins(&mut self) -> (Ins, Vec<Dependency>) {
@@ -768,6 +890,9 @@ impl Parser {
                     );
                 }
             }
+            TokenType::BackTick => {
+                todo!()
+            }
             TokenType::I8
             | TokenType::I16
             | TokenType::I32
@@ -777,10 +902,11 @@ impl Parser {
             | TokenType::U16
             | TokenType::U32
             | TokenType::U64
-            | TokenType::UInt => {
-                todo!()
-            }
-            TokenType::BackTick => {
+            | TokenType::UInt
+            | TokenType::Str
+            | TokenType::Char
+            | TokenType::Void
+            | TokenType::Bool => {
                 todo!()
             }
             _ => {
