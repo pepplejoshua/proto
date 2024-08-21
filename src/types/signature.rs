@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 use crate::parser::ast::Expr;
-use crate::source::source::SourceRef;
+use crate::source::source::{SourceFile, SourceRef};
 use std::sync::atomic::AtomicUsize;
 use std::{
     borrow::BorrowMut,
@@ -28,9 +28,7 @@ pub enum TypeDef {
     Float {
         size: u8,
     },
-    Str {
-        is_interp: bool,
-    },
+    Str,
     Char,
     Void,
     Bool,
@@ -45,7 +43,7 @@ pub enum TypeDef {
     },
     StaticArray {
         sub_ty: TypeId,
-        size: Option<usize>,
+        size: usize,
     },
     Slice {
         sub_ty: TypeId,
@@ -132,7 +130,6 @@ pub enum Ty {
     },
     Str {
         loc: Rc<SourceRef>,
-        is_interp: bool,
     },
     Char {
         loc: Rc<SourceRef>,
@@ -151,7 +148,7 @@ pub enum Ty {
     },
     StaticArray {
         sub_ty: Rc<Ty>,
-        size: Option<usize>,
+        size: Expr,
         loc: Rc<SourceRef>,
     },
     Slice {
@@ -295,7 +292,7 @@ impl Ty {
         }
     }
 
-    pub fn as_str(&self) -> String {
+    pub fn as_str(&self, src: &SourceFile) -> String {
         match self {
             Ty::Type { .. } => "type".to_string(),
             Ty::Signed { size, is_int, .. } => {
@@ -324,33 +321,29 @@ impl Ty {
                     "fn ({}) {}",
                     params
                         .iter()
-                        .map(|p| { p.as_str() })
+                        .map(|p| { p.as_str(src) })
                         .collect::<Vec<String>>()
                         .join(", "),
-                    ret.as_str()
+                    ret.as_str(src)
                 )
             }
             Ty::StaticArray { sub_ty, size, .. } => {
-                let size_s = if let Some(s) = size {
-                    s.to_string()
-                } else {
-                    "_".into()
-                };
-                format!("[{}, {size_s}]", sub_ty.as_str())
+                let size_s = size.as_str(src);
+                format!("[{}, {size_s}]", sub_ty.as_str(src))
             }
-            Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str()),
-            Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
+            Ty::Slice { sub_ty, .. } => format!("[{}]", sub_ty.as_str(src)),
+            Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str(src)),
             Ty::NamedType { .. } | Ty::Struct { .. } => "type".to_string(),
-            Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
+            Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str(src)),
             Ty::Tuple { sub_tys, .. } => {
                 if sub_tys.len() == 1 {
-                    format!("({},)", sub_tys[0].as_str())
+                    format!("({},)", sub_tys[0].as_str(src))
                 } else {
                     format!(
                         "({})",
                         sub_tys
                             .iter()
-                            .map(|ty| { ty.as_str() })
+                            .map(|ty| { ty.as_str(src) })
                             .collect::<Vec<String>>()
                             .join(", ")
                     )

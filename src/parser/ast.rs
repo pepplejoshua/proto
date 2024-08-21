@@ -62,6 +62,9 @@ impl UnaryOpType {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
+    Underscore {
+        loc: Rc<SourceRef>,
+    },
     Integer {
         loc: Rc<SourceRef>,
     },
@@ -149,7 +152,8 @@ pub enum Expr {
 impl Expr {
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
-            Expr::Integer { loc }
+            Expr::Underscore { loc }
+            | Expr::Integer { loc }
             | Expr::Decimal { loc }
             | Expr::Str { loc }
             | Expr::Char { loc }
@@ -174,6 +178,7 @@ impl Expr {
 
     pub fn as_str(&self, src: &SourceFile) -> String {
         match self {
+            Expr::Underscore { .. } => "_".to_string(),
             Expr::Integer { loc }
             | Expr::Decimal { loc }
             | Expr::Str { loc }
@@ -246,7 +251,7 @@ impl Expr {
                         format!(
                             "{} {}",
                             fn_param.name.as_str(src),
-                            fn_param.given_ty.as_str()
+                            fn_param.given_ty.as_str(src)
                         )
                     })
                     .collect();
@@ -254,7 +259,7 @@ impl Expr {
                 format!(
                     "\\({}) {}\n{}",
                     params_str,
-                    ret_type.as_str(),
+                    ret_type.as_str(src),
                     body.as_str(src)
                 )
             }
@@ -385,7 +390,7 @@ impl Ins {
                     format!(
                         "{} : {} : {}",
                         name.as_str(src),
-                        ty.as_str(),
+                        ty.as_str(src),
                         init_val.as_str(src)
                     )
                 } else {
@@ -401,7 +406,7 @@ impl Ins {
                         format!(
                             "{} : {} = {}",
                             name.as_str(src),
-                            tyv.as_str(),
+                            tyv.as_str(src),
                             init_v.as_str(src)
                         )
                     }
@@ -411,7 +416,7 @@ impl Ins {
                 },
                 None => match ty {
                     Some(tyv) => {
-                        format!("{} : {}", name.as_str(src), tyv.as_str())
+                        format!("{} : {}", name.as_str(src), tyv.as_str(src))
                     }
                     None => {
                         unreachable!("Ast::as_str: no initialization value or type for variable declaration.")
