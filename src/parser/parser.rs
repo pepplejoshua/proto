@@ -87,10 +87,18 @@ impl Parser {
         }
     }
 
-    fn expected_err(&mut self, err_expected_msg: &str) {
+    fn expected_err_token(&mut self, err_expected_msg: &str) {
         self.report_err(ParseError::Expected(
             format!("{err_expected_msg}"),
             self.cur_token().get_source_ref(),
+            None,
+        ));
+    }
+
+    fn expected_err_parse(&mut self, err_expected_msg: &str, loc: Rc<SourceRef>) {
+        self.report_err(ParseError::Expected(
+            format!("{err_expected_msg}"),
+            loc,
             None,
         ));
     }
@@ -100,7 +108,7 @@ impl Parser {
             self.advance();
             true
         } else {
-            self.expected_err(err_expected_msg);
+            self.expected_err_token(err_expected_msg);
             false
         }
     }
@@ -307,7 +315,123 @@ impl Parser {
     }
 
     fn parse_loop(&mut self) -> (Ins, Vec<Dependency>) {
-        todo!()
+        let mut loc = self.cur_token().loc;
+        self.advance();
+
+        match self.cur_token().ty {
+            // infinite loop
+            TokenType::LCurly => {
+                let (block, bdeps) = self.parse_ins_block();
+                loc = loc.combine(block.get_source_ref());
+                (
+                    Ins::InfiniteLoop {
+                        block: Box::new(block),
+                        loc,
+                    },
+                    bdeps,
+                )
+            }
+            // conventional loop
+            TokenType::LParen => {
+                self.advance();
+                let (loop_var, mut ldeps) = self.next_ins(false);
+                if !matches!(loop_var, Ins::DeclVar { .. }) {
+                    self.expected_err_parse(
+                        "a variable declaration instruction for the loop variable.",
+                        loop_var.get_source_ref(),
+                    );
+                }
+                let (loop_cond, lcdeps) = self.parse_expr(None);
+                ldeps.extend(lcdeps);
+                self.consume(
+                    TokenType::Semicolon,
+                    "a semicolon to terminate the condition expression of the loop.",
+                );
+                let (loop_update, ludeps) = self.next_ins(false);
+                ldeps.extend(ludeps);
+                self.consume(
+                    TokenType::RParen,
+                    "a right parenthesis [)] to terminate the conventional loop header.",
+                );
+                let (body, bdeps) = self.parse_ins_block();
+                ldeps.extend(bdeps);
+
+                loc = loc.combine(body.get_source_ref());
+                (
+                    Ins::RegLoop {
+                        init: Box::new(loop_var),
+                        loop_cond,
+                        update: Box::new(loop_update),
+                        block: Box::new(body),
+                        loc,
+                    },
+                    ldeps,
+                )
+            }
+            _ => {
+                let (target_expr, mut tdeps) = self.parse_expr(None);
+                match self.cur_token().ty {
+                    //iterator loop
+                    TokenType::In => {
+                        self.advance();
+                        let (loop_target, ltdeps) = self.parse_expr(None);
+                        tdeps.extend(ltdeps);
+                        let (body, bdeps) = self.parse_ins_block();
+                        tdeps.extend(bdeps);
+                        loc = loc.combine(body.get_source_ref());
+                        (
+                            Ins::ForInLoop {
+                                loop_var: target_expr,
+                                loop_target,
+                                block: Box::new(body),
+                                loc,
+                            },
+                            tdeps,
+                        )
+                    }
+                    // while with a post code
+                    TokenType::Colon => {
+                        self.advance();
+                        self.consume(
+                            TokenType::LParen,
+                            "a left parenthesis [(] to start the loop post-instruction.",
+                        );
+                        let (post_code, pdeps) = self.next_ins(false);
+                        self.consume(
+                            TokenType::RParen,
+                            "a right parenthesis [)] to terminate the loop post-instruction.",
+                        );
+                        tdeps.extend(pdeps);
+                        let (body, bdeps) = self.parse_ins_block();
+                        tdeps.extend(bdeps);
+                        loc = loc.combine(body.get_source_ref());
+                        (
+                            Ins::WhileLoop {
+                                cond: target_expr,
+                                post_code: Some(Box::new(post_code)),
+                                block: Box::new(body),
+                                loc,
+                            },
+                            tdeps,
+                        )
+                    }
+                    _ => {
+                        let (body, bdeps) = self.parse_ins_block();
+                        loc = loc.combine(body.get_source_ref());
+                        tdeps.extend(bdeps);
+                        (
+                            Ins::WhileLoop {
+                                cond: target_expr,
+                                post_code: None,
+                                block: Box::new(body),
+                                loc,
+                            },
+                            tdeps,
+                        )
+                    }
+                }
+            }
+        }
     }
 
     fn parse_if_conditional(&mut self) -> (Ins, Vec<Dependency>) {
@@ -512,7 +636,7 @@ impl Parser {
                 );
             }
             _ => {
-                self.expected_err("a type.");
+                self.expected_err_token("a type.");
                 Ty::ErrorType { loc: loc.clone() }
             }
         };
@@ -1035,10 +1159,87 @@ impl Parser {
                     };
                 }
                 TokenType::LBracket => {
-                    todo!()
+                    if self.cur_token().ty == TokenType::Colon {
+                        self.advance();
+                        let (end_excl, edeps) = match self.cur_token().ty {
+                            TokenType::RBracket => (None, vec![]),
+                            _ => {
+                                let (end, edeps) = self.parse_expr(None);
+                                (Some(Box::new(end)), edeps)
+                            }
+                        };
+                        println!("{:?}", end_excl);
+                        deps.extend(edeps);
+                        let loc = op.loc.combine(self.cur_token().loc);
+                        self.consume(
+                            TokenType::RBracket,
+                            "a right bracket (]) to terminate the slice expression.",
+                        );
+                        lhs = Expr::MakeSlice {
+                            target: Box::new(lhs),
+                            start: None,
+                            end: end_excl,
+                            loc,
+                        };
+                        continue;
+                    }
+
+                    let (index_expr, ideps) = self.parse_expr(None);
+                    deps.extend(ideps);
+                    let mut loc = op.loc;
+
+                    match self.cur_token().ty {
+                        TokenType::RBracket => {
+                            loc = loc.combine(self.cur_token().loc);
+                            self.advance();
+                            lhs = Expr::IndexInto {
+                                target: Box::new(lhs),
+                                index: Box::new(index_expr),
+                                loc,
+                            };
+                        }
+                        TokenType::Colon => {
+                            self.advance();
+                            let (end_excl, edeps) = match self.cur_token().ty {
+                                TokenType::RBracket => (None, vec![]),
+                                _ => {
+                                    let (end, edeps) = self.parse_expr(None);
+                                    (Some(Box::new(end)), edeps)
+                                }
+                            };
+                            deps.extend(edeps);
+                            loc = loc.combine(self.cur_token().loc);
+                            self.consume(
+                                TokenType::RBracket,
+                                "a right parenthesis (]) to terminate the slice expression.",
+                            );
+                            lhs = Expr::MakeSlice {
+                                target: Box::new(lhs),
+                                start: Some(Box::new(index_expr)),
+                                end: end_excl,
+                                loc,
+                            };
+                        }
+                        _ => {
+                            self.consume(TokenType::RBracket, concat!("a right bracket (]) to terminate index expression or a colon to ", "separate start and exclusive end of the slice expression."));
+                            loc = loc.combine(index_expr.get_source_ref());
+                            lhs = Expr::IndexInto {
+                                target: Box::new(lhs),
+                                index: Box::new(index_expr),
+                                loc,
+                            }
+                        }
+                    }
                 }
                 TokenType::Dot => {
-                    todo!()
+                    let (member, mdeps) = self.parse_primary();
+                    deps.extend(mdeps);
+                    let loc = op.loc.combine(member.get_source_ref());
+                    lhs = Expr::AccessMember {
+                        target: Box::new(lhs),
+                        mem: Box::new(member),
+                        loc,
+                    };
                 }
                 _ => unreachable!("unexpected operator in parse_index_expr loop: {:#?}", op),
             }

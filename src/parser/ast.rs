@@ -126,6 +126,12 @@ pub enum Expr {
         index: Box<Expr>,
         loc: Rc<SourceRef>,
     },
+    MakeSlice {
+        target: Box<Expr>,
+        start: Option<Box<Expr>>,
+        end: Option<Box<Expr>>,
+        loc: Rc<SourceRef>,
+    },
     AccessMember {
         target: Box<Expr>,
         mem: Box<Expr>,
@@ -170,6 +176,7 @@ impl Expr {
             | Expr::ConditionalExpr { loc, .. }
             | Expr::CallFn { loc, .. }
             | Expr::GroupedExpr { loc, .. }
+            | Expr::MakeSlice { loc, .. }
             | Expr::IndexInto { loc, .. }
             | Expr::AccessMember { loc, .. }
             | Expr::OptionalExpr { loc, .. }
@@ -202,6 +209,19 @@ impl Expr {
                 )
             }
             Expr::TypeAsExpr { ty, .. } => ty.as_str(src),
+            Expr::MakeSlice {
+                target, start, end, ..
+            } => {
+                let start_s = match start {
+                    Some(start) => start.as_str(src),
+                    None => "".to_string(),
+                };
+                let end_s = match end {
+                    Some(end) => end.as_str(src),
+                    None => "".to_string(),
+                };
+                format!("{}[{}:{}]", target.as_str(src), start_s, end_s)
+            }
             Expr::StaticArray { ty, items, .. } => {
                 format!(
                     "{}{{{}}}",
