@@ -165,7 +165,16 @@ pub enum Ty {
         loc: Rc<SourceRef>,
     },
     NamedType {
-        name: String,
+        loc: Rc<SourceRef>,
+    },
+    AccessMemberType {
+        target: Rc<Ty>,
+        mem: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    TypeFunc {
+        func: Rc<Ty>,
+        args: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
     Pointer {
@@ -255,6 +264,8 @@ impl Ty {
             | Ty::Void { loc }
             | Ty::Bool { loc }
             | Ty::Func { loc, .. }
+            | Ty::AccessMemberType { loc, .. }
+            | Ty::TypeFunc { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
@@ -277,6 +288,8 @@ impl Ty {
             | Ty::Void { loc }
             | Ty::Bool { loc }
             | Ty::Func { loc, .. }
+            | Ty::AccessMemberType { loc, .. }
+            | Ty::TypeFunc { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Struct { loc, .. }
@@ -316,6 +329,19 @@ impl Ty {
             Ty::Char { .. } => "char".into(),
             Ty::Void { .. } => "void".into(),
             Ty::Bool { .. } => "bool".into(),
+            Ty::AccessMemberType { target, mem, .. } => {
+                format!("{}.{}", target.as_str(src), mem.as_str(src))
+            }
+            Ty::TypeFunc { func, args, .. } => {
+                format!(
+                    "{}({})",
+                    func.as_str(src),
+                    args.iter()
+                        .map(|ty| { ty.as_str(src) })
+                        .collect::<Vec<String>>()
+                        .join(", ")
+                )
+            }
             Ty::Func { params, ret, .. } => {
                 format!(
                     "\\({}) {}",
@@ -333,7 +359,8 @@ impl Ty {
             }
             Ty::Slice { sub_ty, .. } => format!("[]{}", sub_ty.as_str(src)),
             Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str(src)),
-            Ty::NamedType { .. } | Ty::Struct { .. } => "type".to_string(),
+            Ty::NamedType { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Ty::Struct { .. } => "type".to_string(),
             Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str(src)),
             Ty::Tuple { sub_tys, .. } => {
                 format!(

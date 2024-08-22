@@ -557,6 +557,78 @@ impl Parser {
                     tdeps,
                 )
             }
+            TokenType::Identifier => {
+                self.advance();
+                if self.cur_token().ty == TokenType::Dot {
+                    let mut current = Ty::NamedType {
+                        loc: cur.loc.clone(),
+                    };
+                    deps.push(Dependency {
+                        ty: DependencyTy::Type,
+                        name_loc: cur.loc.clone(),
+                    });
+
+                    while self.cur_token().ty == TokenType::Dot {
+                        self.advance();
+                        let (member, _) = self.parse_identifier();
+                        let loc = current.get_loc().combine(member.get_source_ref());
+                        current = Ty::AccessMemberType {
+                            target: Rc::new(current),
+                            mem: Rc::new(Ty::NamedType {
+                                loc: member.get_source_ref(),
+                            }),
+                            loc,
+                        };
+                    }
+
+                    if self.cur_token().ty == TokenType::LParen {
+                        self.advance();
+                        let (args, arg_deps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                        let loc = cur.loc.combine(self.cur_token().get_source_ref());
+                        self.consume(
+                            TokenType::RParen,
+                            "a right parenthesis [)] to terminate the type function call.",
+                        );
+                        return (
+                            Rc::new(Ty::TypeFunc {
+                                func: Rc::new(current),
+                                args,
+                                loc,
+                            }),
+                            arg_deps,
+                        );
+                    } else {
+                        return (Rc::new(current), deps);
+                    }
+                } else if self.cur_token().ty == TokenType::LParen {
+                    self.advance();
+                    let (args, arg_deps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    let loc = cur.loc.combine(self.cur_token().get_source_ref());
+                    self.consume(
+                        TokenType::RParen,
+                        "a right parenthesis [)] to terminate the type function call.",
+                    );
+                    return (
+                        Rc::new(Ty::TypeFunc {
+                            func: Rc::new(Ty::NamedType {
+                                loc: cur.loc.clone(),
+                            }),
+                            args,
+                            loc,
+                        }),
+                        arg_deps,
+                    );
+                }
+                return (
+                    Rc::new(Ty::NamedType {
+                        loc: cur.loc.clone(),
+                    }),
+                    vec![Dependency {
+                        ty: DependencyTy::Type,
+                        name_loc: cur.loc,
+                    }],
+                );
+            }
             _ => self.parse_base_type(),
         }
     }
@@ -564,6 +636,7 @@ impl Parser {
     fn parse_base_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
         let token = self.cur_token();
         let loc = token.get_source_ref();
+        self.advance();
 
         let ty = match token.ty {
             TokenType::I8 => Ty::Signed {
@@ -621,27 +694,11 @@ impl Parser {
             TokenType::Void => Ty::Void { loc: loc.clone() },
             TokenType::Bool => Ty::Bool { loc: loc.clone() },
             TokenType::Type => Ty::Type { loc: loc.clone() },
-            TokenType::Identifier => {
-                self.advance();
-                return (
-                    Rc::new(Ty::NamedType {
-                        name: self.lexer.src.text[token.loc.flat_start..token.loc.flat_end]
-                            .to_string(),
-                        loc: loc.clone(),
-                    }),
-                    vec![Dependency {
-                        ty: DependencyTy::Type,
-                        name_loc: loc,
-                    }],
-                );
-            }
             _ => {
                 self.expected_err_token("a type.");
                 Ty::ErrorType { loc: loc.clone() }
             }
         };
-
-        self.advance();
         (Rc::new(ty), vec![])
     }
 
