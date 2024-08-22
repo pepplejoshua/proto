@@ -161,7 +161,8 @@ pub enum Ty {
     },
     Struct {
         fields: HashMap<String, Rc<Ty>>,
-        funcs: HashMap<String, Rc<Ty>>,
+        static_funcs: HashMap<String, Rc<Ty>>,
+        methods: HashMap<String, Rc<Ty>>,
         loc: Rc<SourceRef>,
     },
     NamedType {

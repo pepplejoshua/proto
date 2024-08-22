@@ -557,6 +557,17 @@ impl Parser {
                     tdeps,
                 )
             }
+            TokenType::Star => {
+                self.advance();
+                let (ty, tdeps) = self.parse_type();
+                (
+                    Rc::new(Ty::Pointer {
+                        loc: cur.get_source_ref().combine(ty.get_loc()),
+                        sub_ty: ty,
+                    }),
+                    tdeps,
+                )
+            }
             TokenType::Identifier => {
                 self.advance();
                 if self.cur_token().ty == TokenType::Dot {
@@ -839,6 +850,7 @@ impl Parser {
             }
 
             let (param_name, _) = self.parse_identifier();
+            let is_self = param_name.as_str(&self.lexer.src) == "self";
             let (param_ty, pdeps) = self.parse_type();
             deps.extend(pdeps);
 
@@ -846,6 +858,7 @@ impl Parser {
             params.push(FnParam {
                 name: param_name,
                 given_ty: param_ty,
+                is_self,
                 loc,
             })
         }
@@ -862,11 +875,11 @@ impl Parser {
         if lhs.is_some() {
             self.parse_ternary(lhs)
         } else {
-            self.parse_lambda_expr()
+            self.parse_lambda_or_struct_or_unary_dot()
         }
     }
 
-    fn parse_lambda_expr(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_lambda_or_struct_or_unary_dot(&mut self) -> (Expr, Vec<Dependency>) {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::BackSlash => {
@@ -885,6 +898,27 @@ impl Parser {
                         params,
                         ret_type,
                         body: Box::new(body),
+                        loc,
+                    },
+                    deps,
+                )
+            }
+            TokenType::Struct => {
+                self.advance();
+                self.consume(
+                    TokenType::LCurly,
+                    "a left curly brace ({) to start the body of the struct.",
+                );
+
+                let (body, deps) = self.parse_ins_block();
+                let loc = cur.loc.combine(self.cur_token().loc);
+                self.consume(
+                    TokenType::RCurly,
+                    "a right curly brace (}) to terminate the body of the struct.",
+                );
+                (
+                    Expr::Struct {
+                        body: Rc::new(body),
                         loc,
                     },
                     deps,
@@ -1134,7 +1168,7 @@ impl Parser {
                 let (rhs, rdeps) = self.parse_index_expr(None);
                 let loc = op.get_source_ref().combine(rhs.get_source_ref());
                 (
-                    Expr::DerefPtr {
+                    Expr::MakePtrFromAddrOf {
                         loc,
                         target: Box::new(rhs),
                     },

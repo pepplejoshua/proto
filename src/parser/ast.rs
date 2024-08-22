@@ -89,6 +89,10 @@ pub enum Expr {
         items: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
+    Struct {
+        body: Rc<Ins>,
+        loc: Rc<SourceRef>,
+    },
     TypeAsExpr {
         ty: Rc<Ty>,
     },
@@ -175,6 +179,7 @@ impl Expr {
             | Expr::BinOp { loc, .. }
             | Expr::ConditionalExpr { loc, .. }
             | Expr::CallFn { loc, .. }
+            | Expr::Struct { loc, .. }
             | Expr::GroupedExpr { loc, .. }
             | Expr::MakeSlice { loc, .. }
             | Expr::IndexInto { loc, .. }
@@ -258,6 +263,9 @@ impl Expr {
                     otherwise.as_str(src)
                 )
             }
+            Expr::Struct { body, .. } => {
+                format!("struct \n{}", body.as_str(src),)
+            }
             Expr::CallFn { func, args, .. } => {
                 let args_str: Vec<String> = args.iter().map(|arg| arg.as_str(src)).collect();
                 let args_str = args_str.join(", ");
@@ -309,6 +317,7 @@ impl Expr {
 pub struct FnParam {
     pub name: Expr,
     pub given_ty: Rc<Ty>,
+    pub is_self: bool,
     pub loc: Rc<SourceRef>,
 }
 
