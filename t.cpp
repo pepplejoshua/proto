@@ -9,6 +9,7 @@ struct Y {
 };
 
 struct XYZ {
+  using Self = XYZ;
   int a;
   int b;
   Y c = {
@@ -16,8 +17,8 @@ struct XYZ {
   };
 
   // non-member functions are static
-  static XYZ init(int _a, int _b) {
-    return XYZ {
+  static Self init(int _a, int _b) {
+    return Self {
       .a = _a,
       .b = _b,
     };

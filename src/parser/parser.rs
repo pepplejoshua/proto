@@ -1370,26 +1370,7 @@ impl Parser {
                 // we are parsing either an array type, or an array literal,
                 // with a preceding array type
                 let (arr_ty, mut adeps) = self.parse_type();
-                if self.cur_token().ty == TokenType::LCurly {
-                    self.advance();
-                    let (items, ideps) = self.parse_comma_sep_exprs(TokenType::RCurly);
-                    let loc = cur.loc.combine(self.cur_token().get_source_ref());
-                    self.consume(
-                        TokenType::RCurly,
-                        "a right curly brace (}) to terminate the array literal.",
-                    );
-                    adeps.extend(ideps);
-                    (
-                        Expr::StaticArray {
-                            ty: arr_ty,
-                            items,
-                            loc,
-                        },
-                        adeps,
-                    )
-                } else {
-                    (Expr::TypeAsExpr { ty: arr_ty }, adeps)
-                }
+                (Expr::TypeAsExpr { ty: arr_ty }, adeps)
             }
             TokenType::LParen => {
                 self.advance();

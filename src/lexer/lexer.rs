@@ -572,6 +572,13 @@ impl Lexer {
                         ty: TokenType::DoubleColon,
                         loc: cur_ref.combine(self.src.get_ref()),
                     });
+                } else if c == '=' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(SrcToken {
+                        ty: TokenType::ColonAssign,
+                        loc: cur_ref.combine(self.src.get_ref()),
+                    });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
