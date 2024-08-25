@@ -159,6 +159,11 @@ pub enum Expr {
         target: Box<Expr>,
         loc: Rc<SourceRef>,
     },
+    InitializerList {
+        target: Option<Box<Expr>>,
+        pairs: Vec<(Box<Expr>, Option<Box<Expr>>)>,
+        loc: Rc<SourceRef>,
+    },
     ErrorExpr {
         loc: Rc<SourceRef>,
     },
@@ -189,6 +194,7 @@ impl Expr {
             | Expr::MakePtrFromAddrOf { loc, .. }
             | Expr::DerefPtr { loc, .. }
             | Expr::StaticArray { loc, .. }
+            | Expr::InitializerList { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
             Expr::TypeAsExpr { ty, .. } => ty.get_loc(),
         }
@@ -282,6 +288,26 @@ impl Expr {
                 Some(v) => format!("some {}", v.as_str(src)),
                 None => format!("none"),
             },
+            Expr::InitializerList { target, pairs, .. } => {
+                let t_str = if let Some(target) = target {
+                    &(target.as_str(src) + " ")
+                } else {
+                    "."
+                };
+
+                let p_str = pairs
+                    .iter()
+                    .map(|(k, v)| {
+                        if let Some(val) = v {
+                            format!("{} = {}", k.as_str(src), val.as_str(src))
+                        } else {
+                            k.as_str(src)
+                        }
+                    })
+                    .collect::<Vec<String>>()
+                    .join(", ");
+                format!("{}{{{}}}", t_str, p_str)
+            }
             Expr::Lambda {
                 params,
                 ret_type,

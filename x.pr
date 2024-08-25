@@ -1,23 +1,9 @@
 main :: \() int {
-    a : LinkedList(int) = LinkedList(int).init(1)
+    a := LinkedList(int).init(1)
     b := LinkedList(int).init(2)
     a.insert(&b)
-}
-
-LinkedList :: comptime \(T: type) type {
-    return struct {
-        data: T
-        next: ?*Self
-
-        init :: \(item T) Self {
-            return .{
-                data = item,
-                next = none,
-            }
-        }
-
-        insert :: \(self *Self, next_node *Self) void {
-            self.next = some next_node
-        }
+    c = .{
+        1, 2, 3, 4, 5, 6 = a
     }
+    return 0
 }

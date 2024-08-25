@@ -924,6 +924,47 @@ impl Parser {
                     deps,
                 )
             }
+            TokenType::Dot => {
+                self.advance();
+                self.consume(
+                    TokenType::LCurly,
+                    "a left curly brace ({) to start the initializer list.",
+                );
+
+                let mut pairs = vec![];
+                let mut deps = vec![];
+                while !self.is_at_eof() {
+                    if self.cur_token().ty == TokenType::RCurly {
+                        break;
+                    }
+
+                    let (expr, edeps) = self.parse_expr(None);
+                    deps.extend(edeps);
+
+                    if self.cur_token().ty == TokenType::Assign {
+                        self.advance();
+                        let (val, vdeps) = self.parse_expr(None);
+                        deps.extend(vdeps);
+                        pairs.push((Box::new(expr), Some(Box::new(val))));
+                    } else {
+                        pairs.push((Box::new(expr), None));
+                    }
+                }
+                let loc = cur.loc.combine(self.cur_token().loc);
+                self.consume(
+                    TokenType::RCurly,
+                    "a right curly brace (}) to terminate the initializer list.",
+                );
+
+                (
+                    Expr::InitializerList {
+                        target: None,
+                        pairs,
+                        loc,
+                    },
+                    deps,
+                )
+            }
             _ => self.parse_optional_expr(),
         }
     }
