@@ -145,6 +145,10 @@ pub enum Expr {
         val: Option<Box<Expr>>,
         loc: Rc<SourceRef>,
     },
+    ComptimeExpr {
+        val: Box<Expr>,
+        loc: Rc<SourceRef>,
+    },
     Lambda {
         params: Vec<FnParam>,
         ret_type: Rc<Ty>,
@@ -189,6 +193,7 @@ impl Expr {
             | Expr::MakeSlice { loc, .. }
             | Expr::IndexInto { loc, .. }
             | Expr::AccessMember { loc, .. }
+            | Expr::ComptimeExpr { loc, .. }
             | Expr::OptionalExpr { loc, .. }
             | Expr::Lambda { loc, .. }
             | Expr::MakePtrFromAddrOf { loc, .. }
@@ -284,6 +289,9 @@ impl Expr {
             Expr::AccessMember { target, mem, loc } => {
                 format!("{}.{}", target.as_str(src), mem.as_str(src))
             }
+            Expr::ComptimeExpr { val, .. } => {
+                format!("comptime {}", val.as_str(src))
+            }
             Expr::OptionalExpr { val, .. } => match val {
                 Some(v) => format!("some {}", v.as_str(src)),
                 None => format!("none"),
@@ -318,7 +326,12 @@ impl Expr {
                     .iter()
                     .map(|fn_param| {
                         format!(
-                            "{} {}",
+                            "{}{} {}",
+                            if fn_param.is_comptime {
+                                "comptime "
+                            } else {
+                                ""
+                            },
                             fn_param.name.as_str(src),
                             fn_param.given_ty.as_str(src)
                         )
@@ -344,6 +357,7 @@ pub struct FnParam {
     pub name: Expr,
     pub given_ty: Rc<Ty>,
     pub is_self: bool,
+    pub is_comptime: bool,
     pub loc: Rc<SourceRef>,
 }
 

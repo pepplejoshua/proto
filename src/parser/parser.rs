@@ -849,6 +849,13 @@ impl Parser {
                 break;
             }
 
+            let is_comptime = if self.cur_token().ty == TokenType::Comptime {
+                self.advance();
+                true
+            } else {
+                false
+            };
+
             let (param_name, _) = self.parse_identifier();
             let is_self = param_name.as_str(&self.lexer.src) == "self";
             let (param_ty, pdeps) = self.parse_type();
@@ -859,8 +866,13 @@ impl Parser {
                 name: param_name,
                 given_ty: param_ty,
                 is_self,
+                is_comptime,
                 loc,
-            })
+            });
+
+            if matches!(self.cur_token().ty, TokenType::Comma) {
+                self.advance();
+            }
         }
 
         self.consume(
@@ -905,17 +917,8 @@ impl Parser {
             }
             TokenType::Struct => {
                 self.advance();
-                self.consume(
-                    TokenType::LCurly,
-                    "a left curly brace ({) to start the body of the struct.",
-                );
-
                 let (body, deps) = self.parse_ins_block();
                 let loc = cur.loc.combine(self.cur_token().loc);
-                self.consume(
-                    TokenType::RCurly,
-                    "a right curly brace (}) to terminate the body of the struct.",
-                );
                 (
                     Expr::Struct {
                         body: Rc::new(body),
@@ -949,6 +952,10 @@ impl Parser {
                     } else {
                         pairs.push((Box::new(expr), None));
                     }
+
+                    if matches!(self.cur_token().ty, TokenType::Comma) {
+                        self.advance();
+                    }
                 }
                 let loc = cur.loc.combine(self.cur_token().loc);
                 self.consume(
@@ -965,11 +972,11 @@ impl Parser {
                     deps,
                 )
             }
-            _ => self.parse_optional_expr(),
+            _ => self.parse_optional_expr_or_comptime_expr(),
         }
     }
 
-    fn parse_optional_expr(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_optional_expr_or_comptime_expr(&mut self) -> (Expr, Vec<Dependency>) {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Some => {
@@ -991,6 +998,18 @@ impl Parser {
                         val: None,
                     },
                     vec![],
+                )
+            }
+            TokenType::Comptime => {
+                self.advance();
+                let (comptime_expr, cdeps) = self.parse_ternary(None);
+                let loc = cur.get_source_ref().combine(comptime_expr.get_source_ref());
+                (
+                    Expr::ComptimeExpr {
+                        val: Box::new(comptime_expr),
+                        loc,
+                    },
+                    cdeps,
                 )
             }
             _ => self.parse_ternary(None),

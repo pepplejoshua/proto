@@ -383,6 +383,10 @@ impl Lexer {
                 ty: TokenType::Or,
                 loc: combined_ref,
             }),
+            "comptime" => Ok(SrcToken {
+                ty: TokenType::Comptime,
+                loc: combined_ref,
+            }),
             "_" => Ok(SrcToken {
                 ty: TokenType::Underscore,
                 loc: combined_ref,

@@ -23,6 +23,7 @@ pub enum TokenType {
     None,
     Defer,
     Const,
+    Comptime,
 
     // operators
     BackSlash,
@@ -115,6 +116,7 @@ impl SrcToken {
 
     pub fn as_str(self: &SrcToken, src: &SourceFile) -> String {
         match self.ty {
+            TokenType::Comptime => "comptime".to_string(),
             TokenType::Fn => "fn".to_string(),
             TokenType::If => "if".to_string(),
             TokenType::Else => "else".to_string(),
