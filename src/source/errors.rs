@@ -21,14 +21,9 @@ pub enum ParseError {
     ConstantDeclarationNeedsTypeOrInitValue(Rc<SourceRef>),
     CannotParseAnExpression(Rc<SourceRef>),
     MalformedDeclaration(String, Rc<SourceRef>),
-    NoVariableAtCurrentScope(Rc<SourceRef>),
-    NoCodeBlockAllowedInCurrentContext(Rc<SourceRef>),
-    NoLoopAtTopLevel(Rc<SourceRef>),
-    NoBreakOutsideLoop(Rc<SourceRef>),
-    NoContinueOutsideLoop(Rc<SourceRef>),
     MisuseOfPubKeyword(Rc<SourceRef>),
+    ReusedOfIdentifier(Rc<SourceRef>),
     UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
-    ReturnInstructionOutsideFunction(Rc<SourceRef>),
     CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
     ParsedInstructionIsNotAllowedAtThisLevel { level: String, src: Rc<SourceRef> },
     TooManyErrors(Rc<SourceRef>),
@@ -40,18 +35,13 @@ impl ParseError {
             ParseError::Expected(_, src, _)
             | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
             | ParseError::CannotParseAnExpression(src)
+            | ParseError::ReusedOfIdentifier(src)
             | ParseError::MalformedDeclaration(_, src)
-            | ParseError::NoCodeBlockAllowedInCurrentContext(src)
-            | ParseError::NoLoopAtTopLevel(src)
-            | ParseError::NoBreakOutsideLoop(src)
-            | ParseError::NoContinueOutsideLoop(src)
             | ParseError::MisuseOfPubKeyword(src)
             | ParseError::UnterminatedCodeBlock(src, _)
-            | ParseError::ReturnInstructionOutsideFunction(src)
             | ParseError::TooManyErrors(src)
             | ParseError::CyclicalDependencyBetweenNodes { src, .. }
-            | ParseError::ParsedInstructionIsNotAllowedAtThisLevel { src, .. }
-            | ParseError::NoVariableAtCurrentScope(src) => src.clone(),
+            | ParseError::ParsedInstructionIsNotAllowedAtThisLevel { src, .. } => src.clone(),
         }
     }
 }

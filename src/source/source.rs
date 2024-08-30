@@ -298,6 +298,11 @@ impl SourceReporter {
                         .to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
+            ParseError::ReusedOfIdentifier(src) => {
+                let msg =
+                    "This identifier has already been defined at this scope level.".to_string();
+                self.report_with_ref(&src, msg, None, false);
+            }
             ParseError::CannotParseAnExpression(src) => {
                 let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
                 self.report_with_ref(&src, msg, None, false);
@@ -312,45 +317,9 @@ impl SourceReporter {
                     .to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
-            ParseError::NoVariableAtCurrentScope(src) => {
-                let mut msg = "Variable declarations are not allowed:\n".to_string();
-                msg.push_str(
-                    "*  at the top level of module (It is allowed at the top level of the file).\n",
-                );
-                msg.push_str("*  inside a type extension.\n");
-                let tip =
-                    "Consider if this can be declared as a constant (use let instead of mut)."
-                        .into();
-                self.report_with_ref(&src, msg, Some(tip), false);
-            }
             ParseError::UnterminatedCodeBlock(src, tip) => {
                 let msg = "Code block was not terminated.".to_string();
                 self.report_with_ref(&src, msg, tip, false);
-            }
-            ParseError::NoCodeBlockAllowedInCurrentContext(src) => {
-                let msg = "Code block is not allowed in this context.".to_string();
-                let mut tip = "Code blocks are not allowed:".to_string();
-                tip.push_str("*  Within type extensions\n");
-                tip.push_str("*  Within modules declarations\n");
-                tip.push_str("*  At the top level of a file.\n");
-                self.report_with_ref(&src, msg, Some(tip), false);
-            }
-            ParseError::ReturnInstructionOutsideFunction(src) => {
-                let msg = "A return instruction can only be used in a function.".to_string();
-                self.report_with_ref(&src, msg, None, false);
-            }
-            ParseError::NoLoopAtTopLevel(src) => {
-                let msg = "Loop found at top level".to_string();
-                let tip = "Loops are only allowed within functions.".to_string();
-                self.report_with_ref(&src, msg, Some(tip), false);
-            }
-            ParseError::NoBreakOutsideLoop(src) => {
-                let msg = "A break instruction can only be used inside a loop.".to_string();
-                self.report_with_ref(&src, msg, None, false);
-            }
-            ParseError::NoContinueOutsideLoop(src) => {
-                let msg = "A continue instruction can only be used inside a loop.".to_string();
-                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::TooManyErrors(src) => {
                 let msg = "Too many errors during parsing. Stopping.".to_string();
@@ -363,7 +332,7 @@ impl SourceReporter {
                 self.report_with_ref(&src, msg, None, false);
             }
             ParseError::ParsedInstructionIsNotAllowedAtThisLevel { level, src } => {
-                let msg = format!("This instruction is not allowed inside a {level} body.");
+                let msg = format!("This instruction is not allowed at this level ({level}).");
                 self.report_with_ref(&src, msg, None, false);
             }
         }

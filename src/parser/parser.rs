@@ -1,6 +1,9 @@
 #![allow(unused)]
 
-use std::{io::SeekFrom, rc::Rc};
+use std::{
+    collections::{HashMap, HashSet},
+    rc::Rc,
+};
 
 use crate::{
     lexer::{
@@ -17,16 +20,15 @@ use crate::{
 
 use super::ast::{BinOpType, Expr, FnParam, Ins};
 
-pub enum DependencyTy {
-    Name,
-    Func,
-    Type,
-    FuncType,
+pub struct Dependency {
+    name_loc: Rc<SourceRef>,
 }
 
-pub struct Dependency {
-    ty: DependencyTy,
-    name_loc: Rc<SourceRef>,
+#[derive(Debug, Clone)]
+struct SortableItem {
+    id: String,
+    dependencies: Vec<Rc<String>>,
+    item: Ins,
 }
 
 pub struct Parser {
@@ -115,13 +117,46 @@ impl Parser {
 
     pub fn parse_file(&mut self) -> Vec<Ins> {
         let mut instructions = vec![];
+        let mut items = vec![];
         while !self.is_at_eof() {
-            let (ins, _deps) = self.next_ins(false);
-            // determine if this instruction is allowed at this scope level
-            instructions.push(ins);
+            let (ins, deps) = self.next_ins(false);
+
+            if let Some(id) = ins.get_id(&self.lexer.src) {
+                items.push(SortableItem {
+                    id,
+                    dependencies: deps
+                        .iter()
+                        .map(|dep| {
+                            Rc::new(
+                                self.lexer.src.text[dep.name_loc.flat_start..dep.name_loc.flat_end]
+                                    .to_string(),
+                            )
+                        })
+                        .collect::<Vec<Rc<String>>>(),
+                    item: ins,
+                });
+            } else {
+                self.report_err(ParseError::ParsedInstructionIsNotAllowedAtThisLevel {
+                    level: "top level".into(),
+                    src: ins.get_source_ref(),
+                });
+            }
         }
 
         return instructions;
+    }
+
+    fn topological_sort(&self, items: Vec<SortableItem>) -> Result<Vec<Ins>, ParseError> {
+        // tracks incoming edges, but from the perspective of the dependencies.
+        // It shows which items depend on each key. who depends on me?
+        let mut graph: HashMap<Rc<String>, HashSet<Rc<String>>> = HashMap::new();
+        // tracks the number of dependencies (incoming edges in  graph) for each item. how
+        // many other items do I depend on?
+        let mut in_degree: HashMap<Rc<String>, usize> = HashMap::new();
+        // contains all the items
+        let mut item_map: HashMap<Rc<String>, SortableItem> = HashMap::new();
+
+        todo!()
     }
 
     fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
@@ -575,7 +610,6 @@ impl Parser {
                         loc: cur.loc.clone(),
                     };
                     deps.push(Dependency {
-                        ty: DependencyTy::Type,
                         name_loc: cur.loc.clone(),
                     });
 
@@ -634,10 +668,7 @@ impl Parser {
                     Rc::new(Ty::NamedType {
                         loc: cur.loc.clone(),
                     }),
-                    vec![Dependency {
-                        ty: DependencyTy::Type,
-                        name_loc: cur.loc,
-                    }],
+                    vec![Dependency { name_loc: cur.loc }],
                 );
             }
             _ => self.parse_base_type(),
@@ -1291,14 +1322,12 @@ impl Parser {
 
                     if let Expr::Identifier { loc } = &lhs {
                         deps.push(Dependency {
-                            ty: DependencyTy::Func,
                             name_loc: loc.clone(),
                         });
                     }
 
                     if let Expr::AccessMember { mem, .. } = &lhs {
                         deps.push(Dependency {
-                            ty: DependencyTy::Func,
                             name_loc: mem.get_source_ref(),
                         });
                     }
@@ -1509,10 +1538,7 @@ impl Parser {
         self.consume(TokenType::Identifier, "an identifier.");
         (
             Expr::Identifier { loc: loc.clone() },
-            vec![Dependency {
-                ty: DependencyTy::Name,
-                name_loc: loc,
-            }],
+            vec![Dependency { name_loc: loc }],
         )
     }
 }

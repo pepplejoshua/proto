@@ -443,6 +443,13 @@ pub enum Ins {
 }
 
 impl Ins {
+    pub fn get_id(&self, src: &SourceFile) -> Option<String> {
+        match self {
+            Ins::DeclConst { name, .. } | Ins::DeclVar { name, .. } => Some(name.as_str(src)),
+            _ => None,
+        }
+    }
+
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Ins::DeclConst { loc, .. }
