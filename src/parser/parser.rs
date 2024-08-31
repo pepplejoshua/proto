@@ -192,7 +192,14 @@ impl Parser {
 
         // check for cycle
         if sorted.len() != graph.len() {
-            let cycle_found = self.find_cycle(&graph);
+            let cycle_found = self.find_cycle(
+                &graph,
+                in_degree
+                    .into_iter()
+                    .filter(|(_, degree)| *degree > 0)
+                    .collect::<HashMap<Rc<String>, usize>>(),
+            );
+
             let cycle = cycle_found
                 .iter()
                 .map(|node| node.to_string())
@@ -210,11 +217,53 @@ impl Parser {
             .collect())
     }
 
-    fn find_cycle(&self, graph: &HashMap<Rc<String>, HashSet<Rc<String>>>) -> Vec<Rc<String>> {
-        let mut visited = HashMap::new();
+    fn find_cycle(
+        &self,
+        graph: &HashMap<Rc<String>, HashSet<Rc<String>>>,
+        in_degree: HashMap<Rc<String>, usize>,
+    ) -> Vec<Rc<String>> {
         let mut stack = vec![];
+        let mut visited = HashMap::new();
 
-        todo!()
+        for (node, _) in in_degree.iter() {
+            if !visited.contains_key(node) {
+                if let Some(cycle) = self.dfs_cycle(node, graph, &mut visited, &mut stack) {
+                    return cycle;
+                }
+            }
+        }
+
+        unreachable!("no cycle found, even though find_cycle was called by topological_sort.");
+    }
+
+    fn dfs_cycle(
+        &self,
+        node: &Rc<String>,
+        graph: &HashMap<Rc<String>, HashSet<Rc<String>>>,
+        visited: &mut HashMap<Rc<String>, bool>,
+        stack: &mut Vec<Rc<String>>,
+    ) -> Option<Vec<Rc<String>>> {
+        visited.insert(node.clone(), true);
+        stack.push(node.clone());
+
+        if let Some(neighbors) = graph.get(node) {
+            for neighbor in neighbors {
+                if !visited.contains_key(neighbor) {
+                    // we have not visited this node
+                    if let Some(cycle) = self.dfs_cycle(neighbor, graph, visited, stack) {
+                        return Some(cycle);
+                    }
+                } else if *visited.get(neighbor).unwrap() {
+                    // we've found a cycle since the neighbor is partially visited (not fully resolved)
+                    let cycle_start = stack.iter().position(|x| x == neighbor).unwrap();
+                    return Some(stack[cycle_start..].to_vec());
+                }
+            }
+        }
+
+        stack.pop();
+        visited.insert(node.clone(), false);
+        None
     }
 
     fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
