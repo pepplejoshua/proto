@@ -1,7 +1,7 @@
 #![allow(unused)]
 
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, VecDeque},
     rc::Rc,
 };
 
@@ -155,6 +155,64 @@ impl Parser {
         let mut in_degree: HashMap<Rc<String>, usize> = HashMap::new();
         // contains all the items
         let mut item_map: HashMap<Rc<String>, SortableItem> = HashMap::new();
+
+        // build the graph and in_degree maps
+        for item in items {
+            let id = Rc::new(item.id.clone());
+            graph.entry(id.clone()).or_default();
+            in_degree.entry(id.clone()).or_insert(0);
+            for dep in &item.dependencies {
+                graph.entry(dep.clone()).or_default().insert(id.clone());
+                *in_degree.entry(id.clone()).or_insert(0) += 1;
+            }
+            item_map.insert(id, item);
+        }
+
+        // kahn's algorithm
+        let mut queue: VecDeque<Rc<String>> = in_degree
+            .iter()
+            .filter(|(_, &degree)| degree == 0)
+            .map(|(node, _)| node.clone())
+            .collect();
+
+        let mut sorted = vec![];
+
+        while let Some(node) = queue.pop_front() {
+            sorted.push(node.clone());
+
+            if let Some(neighbors) = graph.get(&node) {
+                for neighbor in neighbors {
+                    *in_degree.get_mut(neighbor).unwrap() -= 1;
+                    if in_degree[neighbor] == 0 {
+                        queue.push_back(neighbor.clone());
+                    }
+                }
+            }
+        }
+
+        // check for cycle
+        if sorted.len() != graph.len() {
+            let cycle_found = self.find_cycle(&graph);
+            let cycle = cycle_found
+                .iter()
+                .map(|node| node.to_string())
+                .collect::<Vec<String>>()
+                .join(" -> ");
+            return Err(ParseError::CyclicalDependencyBetweenNodes {
+                cycle,
+                src: item_map[&cycle_found[0]].item.get_source_ref(),
+            });
+        }
+
+        Ok(sorted
+            .into_iter()
+            .map(|id| item_map[&id].item.clone())
+            .collect())
+    }
+
+    fn find_cycle(&self, graph: &HashMap<Rc<String>, HashSet<Rc<String>>>) -> Vec<Rc<String>> {
+        let mut visited = HashMap::new();
+        let mut stack = vec![];
 
         todo!()
     }
