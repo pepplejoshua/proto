@@ -117,24 +117,11 @@ impl Parser {
 
     pub fn parse_file(&mut self) -> Vec<Ins> {
         let mut instructions = vec![];
-        let mut items = vec![];
         while !self.is_at_eof() {
             let (ins, deps) = self.next_ins(false);
 
             if let Some(id) = ins.get_id(&self.lexer.src) {
-                items.push(SortableItem {
-                    id,
-                    dependencies: deps
-                        .iter()
-                        .map(|dep| {
-                            Rc::new(
-                                self.lexer.src.text[dep.name_loc.flat_start..dep.name_loc.flat_end]
-                                    .to_string(),
-                            )
-                        })
-                        .collect::<Vec<Rc<String>>>(),
-                    item: ins,
-                });
+                instructions.push(ins);
             } else {
                 self.report_err(ParseError::ParsedInstructionIsNotAllowedAtThisLevel {
                     level: "top level".into(),
@@ -143,127 +130,7 @@ impl Parser {
             }
         }
 
-        return instructions;
-    }
-
-    fn topological_sort(&self, items: Vec<SortableItem>) -> Result<Vec<Ins>, ParseError> {
-        // tracks incoming edges, but from the perspective of the dependencies.
-        // It shows which items depend on each key. who depends on me?
-        let mut graph: HashMap<Rc<String>, HashSet<Rc<String>>> = HashMap::new();
-        // tracks the number of dependencies (incoming edges in  graph) for each item. how
-        // many other items do I depend on?
-        let mut in_degree: HashMap<Rc<String>, usize> = HashMap::new();
-        // contains all the items
-        let mut item_map: HashMap<Rc<String>, SortableItem> = HashMap::new();
-
-        // build the graph and in_degree maps
-        for item in items {
-            let id = Rc::new(item.id.clone());
-            graph.entry(id.clone()).or_default();
-            in_degree.entry(id.clone()).or_insert(0);
-            for dep in &item.dependencies {
-                graph.entry(dep.clone()).or_default().insert(id.clone());
-                *in_degree.entry(id.clone()).or_insert(0) += 1;
-            }
-            item_map.insert(id, item);
-        }
-
-        // kahn's algorithm
-        let mut queue: VecDeque<Rc<String>> = in_degree
-            .iter()
-            .filter(|(_, &degree)| degree == 0)
-            .map(|(node, _)| node.clone())
-            .collect();
-
-        let mut sorted = vec![];
-
-        while let Some(node) = queue.pop_front() {
-            sorted.push(node.clone());
-
-            if let Some(neighbors) = graph.get(&node) {
-                for neighbor in neighbors {
-                    *in_degree.get_mut(neighbor).unwrap() -= 1;
-                    if in_degree[neighbor] == 0 {
-                        queue.push_back(neighbor.clone());
-                    }
-                }
-            }
-        }
-
-        // check for cycle
-        if sorted.len() != graph.len() {
-            let cycle_found = self.find_cycle(
-                &graph,
-                in_degree
-                    .into_iter()
-                    .filter(|(_, degree)| *degree > 0)
-                    .collect::<HashMap<Rc<String>, usize>>(),
-            );
-
-            let cycle = cycle_found
-                .iter()
-                .map(|node| node.to_string())
-                .collect::<Vec<String>>()
-                .join(" -> ");
-            return Err(ParseError::CyclicalDependencyBetweenNodes {
-                cycle,
-                src: item_map[&cycle_found[0]].item.get_source_ref(),
-            });
-        }
-
-        Ok(sorted
-            .into_iter()
-            .map(|id| item_map[&id].item.clone())
-            .collect())
-    }
-
-    fn find_cycle(
-        &self,
-        graph: &HashMap<Rc<String>, HashSet<Rc<String>>>,
-        in_degree: HashMap<Rc<String>, usize>,
-    ) -> Vec<Rc<String>> {
-        let mut stack = vec![];
-        let mut visited = HashMap::new();
-
-        for (node, _) in in_degree.iter() {
-            if !visited.contains_key(node) {
-                if let Some(cycle) = self.dfs_cycle(node, graph, &mut visited, &mut stack) {
-                    return cycle;
-                }
-            }
-        }
-
-        unreachable!("no cycle found, even though find_cycle was called by topological_sort.");
-    }
-
-    fn dfs_cycle(
-        &self,
-        node: &Rc<String>,
-        graph: &HashMap<Rc<String>, HashSet<Rc<String>>>,
-        visited: &mut HashMap<Rc<String>, bool>,
-        stack: &mut Vec<Rc<String>>,
-    ) -> Option<Vec<Rc<String>>> {
-        visited.insert(node.clone(), true);
-        stack.push(node.clone());
-
-        if let Some(neighbors) = graph.get(node) {
-            for neighbor in neighbors {
-                if !visited.contains_key(neighbor) {
-                    // we have not visited this node
-                    if let Some(cycle) = self.dfs_cycle(neighbor, graph, visited, stack) {
-                        return Some(cycle);
-                    }
-                } else if *visited.get(neighbor).unwrap() {
-                    // we've found a cycle since the neighbor is partially visited (not fully resolved)
-                    let cycle_start = stack.iter().position(|x| x == neighbor).unwrap();
-                    return Some(stack[cycle_start..].to_vec());
-                }
-            }
-        }
-
-        stack.pop();
-        visited.insert(node.clone(), false);
-        None
+        instructions
     }
 
     fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
@@ -1455,7 +1322,6 @@ impl Parser {
                                 (Some(Box::new(end)), edeps)
                             }
                         };
-                        println!("{:?}", end_excl);
                         deps.extend(edeps);
                         let loc = op.loc.combine(self.cur_token().loc);
                         self.consume(
@@ -1643,9 +1509,6 @@ impl Parser {
     fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
         let loc = self.cur_token().get_source_ref();
         self.consume(TokenType::Identifier, "an identifier.");
-        (
-            Expr::Identifier { loc: loc.clone() },
-            vec![Dependency { name_loc: loc }],
-        )
+        (Expr::Identifier { loc: loc.clone() }, vec![])
     }
 }
