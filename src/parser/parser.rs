@@ -20,17 +20,6 @@ use crate::{
 
 use super::ast::{BinOpType, Expr, FnParam, Ins};
 
-pub struct Dependency {
-    name_loc: Rc<SourceRef>,
-}
-
-#[derive(Debug, Clone)]
-struct SortableItem {
-    id: String,
-    dependencies: Vec<Rc<String>>,
-    item: Ins,
-}
-
 pub struct Parser {
     pub lexer: Lexer,
     pub lex_errs: Vec<LexError>,
@@ -118,7 +107,7 @@ impl Parser {
     pub fn parse_file(&mut self) -> Vec<Ins> {
         let mut instructions = vec![];
         while !self.is_at_eof() {
-            let (ins, deps) = self.next_ins(false);
+            let ins = self.next_ins(false);
 
             if let Some(id) = ins.get_id(&self.lexer.src) {
                 instructions.push(ins);
@@ -133,10 +122,10 @@ impl Parser {
         instructions
     }
 
-    fn next_ins(&mut self, require_terminator: bool) -> (Ins, Vec<Dependency>) {
+    fn next_ins(&mut self, require_terminator: bool) -> Ins {
         let token = self.cur_token();
         let mut check_terminator = false;
-        let (ins, deps) = match token.ty {
+        let ins = match token.ty {
             TokenType::Identifier => {
                 self.advance();
                 let cur = self.cur_token();
@@ -145,82 +134,68 @@ impl Parser {
                         // inferred const
                         self.advance();
                         // get init value
-                        let (val, vdeps) = self.parse_expr(None);
+                        let val = self.parse_expr(None);
                         check_terminator = true;
-                        (
-                            Ins::DeclConst {
-                                loc: token.loc.combine(val.get_source_ref()),
-                                name: Expr::Identifier { loc: token.loc },
-                                ty: None,
-                                init_val: val,
-                            },
-                            vdeps,
-                        )
+
+                        Ins::DeclConst {
+                            loc: token.loc.combine(val.get_source_ref()),
+                            name: Expr::Identifier { loc: token.loc },
+                            ty: None,
+                            init_val: val,
+                        }
                     }
                     TokenType::ColonAssign => {
                         // inferred var
                         self.advance();
                         // get init value
-                        let (val, vdeps) = self.parse_expr(None);
+                        let val = self.parse_expr(None);
                         check_terminator = true;
-                        (
-                            Ins::DeclVar {
-                                loc: token.loc.combine(val.get_source_ref()),
-                                name: Expr::Identifier { loc: token.loc },
-                                ty: None,
-                                init_val: Some(val),
-                            },
-                            vdeps,
-                        )
+                        Ins::DeclVar {
+                            loc: token.loc.combine(val.get_source_ref()),
+                            name: Expr::Identifier { loc: token.loc },
+                            ty: None,
+                            init_val: Some(val),
+                        }
                     }
                     TokenType::Colon => {
                         // typed definition (const or var)
                         self.advance();
                         // parse a type
-                        let (ty, tdeps) = self.parse_type();
+                        let ty = self.parse_type();
                         match self.cur_token().ty {
                             TokenType::Colon => {
                                 // a typed constant with init value
                                 self.advance();
-                                let (val, vdeps) = self.parse_expr(None);
+                                let val = self.parse_expr(None);
                                 check_terminator = true;
-                                (
-                                    Ins::DeclConst {
-                                        loc: token.loc.combine(val.get_source_ref()),
-                                        name: Expr::Identifier { loc: token.loc },
-                                        ty: Some(ty),
-                                        init_val: val,
-                                    },
-                                    vdeps,
-                                )
+                                Ins::DeclConst {
+                                    loc: token.loc.combine(val.get_source_ref()),
+                                    name: Expr::Identifier { loc: token.loc },
+                                    ty: Some(ty),
+                                    init_val: val,
+                                }
                             }
                             TokenType::Assign => {
                                 // a typed var with init value
                                 self.advance();
-                                let (val, vdeps) = self.parse_expr(None);
+                                let val = self.parse_expr(None);
                                 check_terminator = true;
-                                (
-                                    Ins::DeclVar {
-                                        loc: token.loc.combine(val.get_source_ref()),
-                                        name: Expr::Identifier { loc: token.loc },
-                                        ty: Some(ty),
-                                        init_val: Some(val),
-                                    },
-                                    vdeps,
-                                )
+                                Ins::DeclVar {
+                                    loc: token.loc.combine(val.get_source_ref()),
+                                    name: Expr::Identifier { loc: token.loc },
+                                    ty: Some(ty),
+                                    init_val: Some(val),
+                                }
                             }
                             _ => {
                                 // an type var decl without init value
                                 check_terminator = true;
-                                (
-                                    Ins::DeclVar {
-                                        loc: token.loc.combine(ty.get_loc()),
-                                        name: Expr::Identifier { loc: token.loc },
-                                        ty: Some(ty),
-                                        init_val: None,
-                                    },
-                                    vec![],
-                                )
+                                Ins::DeclVar {
+                                    loc: token.loc.combine(ty.get_loc()),
+                                    name: Expr::Identifier { loc: token.loc },
+                                    ty: Some(ty),
+                                    init_val: None,
+                                }
                             }
                         }
                     }
@@ -235,12 +210,9 @@ impl Parser {
             }
             TokenType::Comment => {
                 self.advance();
-                (
-                    Ins::SingleLineComment {
-                        loc: token.loc.clone(),
-                    },
-                    vec![],
-                )
+                Ins::SingleLineComment {
+                    loc: token.loc.clone(),
+                }
             }
             TokenType::Print | TokenType::Println => {
                 check_terminator = true;
@@ -273,30 +245,27 @@ impl Parser {
                 self.advance();
             }
         }
-        (ins, deps)
+        ins
     }
 
-    fn parse_return(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_return(&mut self) -> Ins {
         let mut loc = self.cur_token().get_source_ref();
         self.advance();
         let cur = self.cur_token();
         if matches!(cur.ty, TokenType::Semicolon) {
             loc = loc.combine(cur.get_source_ref());
-            (Ins::Return { expr: None, loc }, vec![])
+            Ins::Return { expr: None, loc }
         } else {
-            let (val, deps) = self.parse_expr(None);
+            let val = self.parse_expr(None);
             loc = loc.combine(val.get_source_ref());
-            (
-                Ins::Return {
-                    expr: Some(val),
-                    loc,
-                },
-                deps,
-            )
+            Ins::Return {
+                expr: Some(val),
+                loc,
+            }
         }
     }
 
-    fn parse_ins_block(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_ins_block(&mut self) -> Ins {
         let mut loc = self.cur_token().loc;
         self.consume(
             TokenType::LCurly,
@@ -304,15 +273,13 @@ impl Parser {
         );
 
         let mut code = vec![];
-        let mut deps = vec![];
         while !self.is_at_eof() {
             if self.cur_token().ty == TokenType::RCurly {
                 break;
             }
 
-            let (ins, ideps) = self.next_ins(false);
+            let ins = self.next_ins(false);
             code.push(ins);
-            deps.extend(ideps);
         }
 
         loc = loc.combine(self.cur_token().loc);
@@ -320,83 +287,69 @@ impl Parser {
             TokenType::RCurly,
             "a right curly brace (}) to terminate the body of the block instruction.",
         );
-        (Ins::Block { code, loc }, deps)
+        Ins::Block { code, loc }
     }
 
-    fn parse_loop(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_loop(&mut self) -> Ins {
         let mut loc = self.cur_token().loc;
         self.advance();
 
         match self.cur_token().ty {
             // infinite loop
             TokenType::LCurly => {
-                let (block, bdeps) = self.parse_ins_block();
+                let block = self.parse_ins_block();
                 loc = loc.combine(block.get_source_ref());
-                (
-                    Ins::InfiniteLoop {
-                        block: Box::new(block),
-                        loc,
-                    },
-                    bdeps,
-                )
+                Ins::InfiniteLoop {
+                    block: Box::new(block),
+                    loc,
+                }
             }
             // conventional loop
             TokenType::LParen => {
                 self.advance();
-                let (loop_var, mut ldeps) = self.next_ins(false);
+                let loop_var = self.next_ins(false);
                 if !matches!(loop_var, Ins::DeclVar { .. }) {
                     self.expected_err_parse(
                         "a variable declaration instruction for the loop variable.",
                         loop_var.get_source_ref(),
                     );
                 }
-                let (loop_cond, lcdeps) = self.parse_expr(None);
-                ldeps.extend(lcdeps);
+                let loop_cond = self.parse_expr(None);
                 self.consume(
                     TokenType::Semicolon,
                     "a semicolon to terminate the condition expression of the loop.",
                 );
-                let (loop_update, ludeps) = self.next_ins(false);
-                ldeps.extend(ludeps);
+                let loop_update = self.next_ins(false);
                 self.consume(
                     TokenType::RParen,
                     "a right parenthesis [)] to terminate the conventional loop header.",
                 );
-                let (body, bdeps) = self.parse_ins_block();
-                ldeps.extend(bdeps);
+                let body = self.parse_ins_block();
 
                 loc = loc.combine(body.get_source_ref());
-                (
-                    Ins::RegLoop {
-                        init: Box::new(loop_var),
-                        loop_cond,
-                        update: Box::new(loop_update),
-                        block: Box::new(body),
-                        loc,
-                    },
-                    ldeps,
-                )
+                Ins::RegLoop {
+                    init: Box::new(loop_var),
+                    loop_cond,
+                    update: Box::new(loop_update),
+                    block: Box::new(body),
+                    loc,
+                }
             }
             _ => {
-                let (target_expr, mut tdeps) = self.parse_expr(None);
+                let target_expr = self.parse_expr(None);
                 match self.cur_token().ty {
                     //iterator loop
                     TokenType::In => {
                         self.advance();
-                        let (loop_target, ltdeps) = self.parse_expr(None);
-                        tdeps.extend(ltdeps);
-                        let (body, bdeps) = self.parse_ins_block();
-                        tdeps.extend(bdeps);
+                        let loop_target = self.parse_expr(None);
+                        let body = self.parse_ins_block();
                         loc = loc.combine(body.get_source_ref());
-                        (
-                            Ins::ForInLoop {
-                                loop_var: target_expr,
-                                loop_target,
-                                block: Box::new(body),
-                                loc,
-                            },
-                            tdeps,
-                        )
+                        Ins::ForInLoop {
+                            loop_var: target_expr,
+                            loop_target,
+                            block: Box::new(body),
+                            loc,
+                        }
                     }
                     // while with a post code
                     TokenType::Colon => {
@@ -405,55 +358,43 @@ impl Parser {
                             TokenType::LParen,
                             "a left parenthesis [(] to start the loop post-instruction.",
                         );
-                        let (post_code, pdeps) = self.next_ins(false);
+                        let post_code = self.next_ins(false);
                         self.consume(
                             TokenType::RParen,
                             "a right parenthesis [)] to terminate the loop post-instruction.",
                         );
-                        tdeps.extend(pdeps);
-                        let (body, bdeps) = self.parse_ins_block();
-                        tdeps.extend(bdeps);
+                        let body = self.parse_ins_block();
                         loc = loc.combine(body.get_source_ref());
-                        (
-                            Ins::WhileLoop {
-                                cond: target_expr,
-                                post_code: Some(Box::new(post_code)),
-                                block: Box::new(body),
-                                loc,
-                            },
-                            tdeps,
-                        )
+                        Ins::WhileLoop {
+                            cond: target_expr,
+                            post_code: Some(Box::new(post_code)),
+                            block: Box::new(body),
+                            loc,
+                        }
                     }
                     _ => {
-                        let (body, bdeps) = self.parse_ins_block();
+                        let body = self.parse_ins_block();
                         loc = loc.combine(body.get_source_ref());
-                        tdeps.extend(bdeps);
-                        (
-                            Ins::WhileLoop {
-                                cond: target_expr,
-                                post_code: None,
-                                block: Box::new(body),
-                                loc,
-                            },
-                            tdeps,
-                        )
+                        Ins::WhileLoop {
+                            cond: target_expr,
+                            post_code: None,
+                            block: Box::new(body),
+                            loc,
+                        }
                     }
                 }
             }
         }
     }
 
-    fn parse_if_conditional(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_if_conditional(&mut self) -> Ins {
         let mut loc = self.cur_token().loc;
         self.advance();
 
         let mut conds_and_code = vec![];
-        let mut deps = vec![];
         // get the first condition and body
-        let (first_cond, edeps) = self.parse_expr(None);
-        deps.extend(edeps);
-        let (first_body, bdeps) = self.parse_ins_block();
-        deps.extend(bdeps);
+        let first_cond = self.parse_expr(None);
+        let first_body = self.parse_ins_block();
         conds_and_code.push((Some(first_cond), first_body));
 
         while !self.is_at_eof() {
@@ -463,14 +404,11 @@ impl Parser {
             self.advance();
             if self.cur_token().ty == TokenType::If {
                 self.advance();
-                let (else_if_cond, eideps) = self.parse_expr(None);
-                deps.extend(eideps);
-                let (else_if_code, eicdeps) = self.parse_ins_block();
-                deps.extend(eicdeps);
+                let else_if_cond = self.parse_expr(None);
+                let else_if_code = self.parse_ins_block();
                 conds_and_code.push((Some(else_if_cond), else_if_code));
             } else {
-                let (else_body, edeps) = self.parse_ins_block();
-                deps.extend(edeps);
+                let else_body = self.parse_ins_block();
                 conds_and_code.push((None, else_body));
                 break;
             }
@@ -478,16 +416,13 @@ impl Parser {
 
         loc = loc.combine(conds_and_code.last().unwrap().1.get_source_ref());
 
-        (
-            Ins::IfConditional {
-                conds_and_code,
-                loc,
-            },
-            deps,
-        )
+        Ins::IfConditional {
+            conds_and_code,
+            loc,
+        }
     }
 
-    fn parse_print(&mut self) -> (Ins, Vec<Dependency>) {
+    fn parse_print(&mut self) -> Ins {
         let is_println = self.cur_token().ty == TokenType::Print;
         let mut loc = self.cur_token().loc;
         self.advance();
@@ -497,36 +432,32 @@ impl Parser {
             "a left parenthesis [(] to start argument list.",
         );
 
-        let (output, odeps) = self.parse_expr(None);
+        let output = self.parse_expr(None);
         loc = loc.combine(self.cur_token().loc);
         self.consume(
             TokenType::RParen,
             "a right parenthesis [)] to terminate argument list.",
         );
 
-        (
-            Ins::PrintIns {
-                is_println,
-                output,
-                loc,
-            },
-            odeps,
-        )
-    }
-
-    fn parse_loop_control_ins(&mut self, ty: TokenType) -> (Ins, Vec<Dependency>) {
-        let loc = self.cur_token().get_source_ref();
-        self.advance();
-        if ty == TokenType::Break {
-            (Ins::Break { loc }, vec![])
-        } else {
-            (Ins::Continue { loc }, vec![])
+        Ins::PrintIns {
+            is_println,
+            output,
+            loc,
         }
     }
 
-    fn parse_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
+    fn parse_loop_control_ins(&mut self, ty: TokenType) -> Ins {
+        let loc = self.cur_token().get_source_ref();
+        self.advance();
+        if ty == TokenType::Break {
+            Ins::Break { loc }
+        } else {
+            Ins::Continue { loc }
+        }
+    }
+
+    fn parse_type(&mut self) -> Rc<Ty> {
         let start_loc = self.cur_token().get_source_ref();
-        let mut deps = Vec::new();
         let cur = self.cur_token();
         match cur.ty {
             TokenType::LBracket => {
@@ -535,47 +466,38 @@ impl Parser {
                 if self.cur_token().ty == TokenType::RBracket {
                     // Slice type
                     self.advance();
-                    let (sub_ty, sub_deps) = self.parse_type();
-                    deps.extend(sub_deps);
+                    let sub_ty = self.parse_type();
                     let end_loc = sub_ty.get_loc();
                     let loc = start_loc.combine(end_loc);
 
-                    return (Rc::new(Ty::Slice { sub_ty, loc }), deps);
+                    return Rc::new(Ty::Slice { sub_ty, loc });
                 } else {
                     // Static array type
-                    let (size, sdeps) = self.parse_primary();
-                    deps.extend(sdeps);
+                    let size = self.parse_primary();
                     self.consume(TokenType::RBracket, "a right bracket (]) after array size");
 
-                    let (sub_ty, sub_deps) = self.parse_type();
-                    deps.extend(sub_deps);
+                    let sub_ty = self.parse_type();
                     let end_loc = sub_ty.get_loc();
                     let loc = start_loc.combine(end_loc);
 
-                    return (Rc::new(Ty::StaticArray { sub_ty, size, loc }), deps);
+                    return Rc::new(Ty::StaticArray { sub_ty, size, loc });
                 }
             }
             TokenType::QuestionMark => {
                 self.advance();
-                let (ty, tdeps) = self.parse_type();
-                (
-                    Rc::new(Ty::Optional {
-                        loc: cur.get_source_ref().combine(ty.get_loc()),
-                        sub_ty: ty,
-                    }),
-                    tdeps,
-                )
+                let ty = self.parse_type();
+                Rc::new(Ty::Optional {
+                    loc: cur.get_source_ref().combine(ty.get_loc()),
+                    sub_ty: ty,
+                })
             }
             TokenType::Star => {
                 self.advance();
-                let (ty, tdeps) = self.parse_type();
-                (
-                    Rc::new(Ty::Pointer {
-                        loc: cur.get_source_ref().combine(ty.get_loc()),
-                        sub_ty: ty,
-                    }),
-                    tdeps,
-                )
+                let ty = self.parse_type();
+                Rc::new(Ty::Pointer {
+                    loc: cur.get_source_ref().combine(ty.get_loc()),
+                    sub_ty: ty,
+                })
             }
             TokenType::Identifier => {
                 self.advance();
@@ -583,13 +505,10 @@ impl Parser {
                     let mut current = Ty::NamedType {
                         loc: cur.loc.clone(),
                     };
-                    deps.push(Dependency {
-                        name_loc: cur.loc.clone(),
-                    });
 
                     while self.cur_token().ty == TokenType::Dot {
                         self.advance();
-                        let (member, _) = self.parse_identifier();
+                        let member = self.parse_identifier();
                         let loc = current.get_loc().combine(member.get_source_ref());
                         current = Ty::AccessMemberType {
                             target: Rc::new(current),
@@ -602,54 +521,45 @@ impl Parser {
 
                     if self.cur_token().ty == TokenType::LParen {
                         self.advance();
-                        let (args, arg_deps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                        let args = self.parse_comma_sep_exprs(TokenType::RParen);
                         let loc = cur.loc.combine(self.cur_token().get_source_ref());
                         self.consume(
                             TokenType::RParen,
                             "a right parenthesis [)] to terminate the type function call.",
                         );
-                        return (
-                            Rc::new(Ty::TypeFunc {
-                                func: Rc::new(current),
-                                args,
-                                loc,
-                            }),
-                            arg_deps,
-                        );
+                        return Rc::new(Ty::TypeFunc {
+                            func: Rc::new(current),
+                            args,
+                            loc,
+                        });
                     } else {
-                        return (Rc::new(current), deps);
+                        return Rc::new(current);
                     }
                 } else if self.cur_token().ty == TokenType::LParen {
                     self.advance();
-                    let (args, arg_deps) = self.parse_comma_sep_exprs(TokenType::RParen);
+                    let args = self.parse_comma_sep_exprs(TokenType::RParen);
                     let loc = cur.loc.combine(self.cur_token().get_source_ref());
                     self.consume(
                         TokenType::RParen,
                         "a right parenthesis [)] to terminate the type function call.",
                     );
-                    return (
-                        Rc::new(Ty::TypeFunc {
-                            func: Rc::new(Ty::NamedType {
-                                loc: cur.loc.clone(),
-                            }),
-                            args,
-                            loc,
+                    return Rc::new(Ty::TypeFunc {
+                        func: Rc::new(Ty::NamedType {
+                            loc: cur.loc.clone(),
                         }),
-                        arg_deps,
-                    );
+                        args,
+                        loc,
+                    });
                 }
-                return (
-                    Rc::new(Ty::NamedType {
-                        loc: cur.loc.clone(),
-                    }),
-                    vec![Dependency { name_loc: cur.loc }],
-                );
+                return Rc::new(Ty::NamedType {
+                    loc: cur.loc.clone(),
+                });
             }
             _ => self.parse_base_type(),
         }
     }
 
-    fn parse_base_type(&mut self) -> (Rc<Ty>, Vec<Dependency>) {
+    fn parse_base_type(&mut self) -> Rc<Ty> {
         let token = self.cur_token();
         let loc = token.get_source_ref();
         self.advance();
@@ -715,140 +625,112 @@ impl Parser {
                 Ty::ErrorType { loc: loc.clone() }
             }
         };
-        (Rc::new(ty), vec![])
+        Rc::new(ty)
     }
 
-    fn parse_expr_ins(&mut self, expr: Option<Expr>) -> (Ins, Vec<Dependency>) {
-        let (expr, mut deps) = self.parse_expr(expr);
+    fn parse_expr_ins(&mut self, expr: Option<Expr>) -> Ins {
+        let expr = self.parse_expr(expr);
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Assign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr,
-                        value: val,
-                        loc: span,
-                    },
-                    deps,
-                )
+                Ins::AssignTo {
+                    target: expr,
+                    value: val,
+                    loc: span,
+                }
             }
             TokenType::PlusAssign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr.clone(),
-                        value: Expr::BinOp {
-                            op: BinOpType::Add,
-                            left: Box::new(expr),
-                            right: Box::new(val),
-                            loc: span.clone(),
-                        },
-                        loc: span,
+                Ins::AssignTo {
+                    target: expr.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Add,
+                        left: Box::new(expr),
+                        right: Box::new(val),
+                        loc: span.clone(),
                     },
-                    deps,
-                )
+                    loc: span,
+                }
             }
             TokenType::MinusAssign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr.clone(),
-                        value: Expr::BinOp {
-                            op: BinOpType::Sub,
-                            left: Box::new(expr),
-                            right: Box::new(val),
-                            loc: span.clone(),
-                        },
-                        loc: span,
+                Ins::AssignTo {
+                    target: expr.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Sub,
+                        left: Box::new(expr),
+                        right: Box::new(val),
+                        loc: span.clone(),
                     },
-                    deps,
-                )
+                    loc: span,
+                }
             }
             TokenType::StarAssign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr.clone(),
-                        value: Expr::BinOp {
-                            op: BinOpType::Mult,
-                            left: Box::new(expr),
-                            right: Box::new(val),
-                            loc: span.clone(),
-                        },
-                        loc: span,
+                Ins::AssignTo {
+                    target: expr.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Mult,
+                        left: Box::new(expr),
+                        right: Box::new(val),
+                        loc: span.clone(),
                     },
-                    deps,
-                )
+                    loc: span,
+                }
             }
             TokenType::SlashAssign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr.clone(),
-                        value: Expr::BinOp {
-                            op: BinOpType::Div,
-                            left: Box::new(expr),
-                            right: Box::new(val),
-                            loc: span.clone(),
-                        },
-                        loc: span,
+                Ins::AssignTo {
+                    target: expr.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Div,
+                        left: Box::new(expr),
+                        right: Box::new(val),
+                        loc: span.clone(),
                     },
-                    deps,
-                )
+                    loc: span,
+                }
             }
             TokenType::ModuloAssign => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
+                let val = self.parse_expr(None);
                 let span = expr.get_source_ref().combine(val.get_source_ref());
-                deps.extend(vdeps);
-                (
-                    Ins::AssignTo {
-                        target: expr.clone(),
-                        value: Expr::BinOp {
-                            op: BinOpType::Mod,
-                            left: Box::new(expr),
-                            right: Box::new(val),
-                            loc: span.clone(),
-                        },
-                        loc: span,
+                Ins::AssignTo {
+                    target: expr.clone(),
+                    value: Expr::BinOp {
+                        op: BinOpType::Mod,
+                        left: Box::new(expr),
+                        right: Box::new(val),
+                        loc: span.clone(),
                     },
-                    deps,
-                )
+                    loc: span,
+                }
             }
-            _ => (
-                Ins::ExprIns {
-                    loc: expr.get_source_ref(),
-                    expr,
-                },
-                deps,
-            ),
+            _ => Ins::ExprIns {
+                loc: expr.get_source_ref(),
+                expr,
+            },
         }
     }
 
-    fn parse_fn_params(&mut self) -> (Vec<FnParam>, Vec<Dependency>) {
+    fn parse_fn_params(&mut self) -> Vec<FnParam> {
         self.consume(
             TokenType::LParen,
             "a left parenthesis [(] to begin the list of parameters.",
         );
 
         let mut params = vec![];
-        let mut deps = vec![];
         while !self.is_at_eof() {
             if self.cur_token().ty == TokenType::RParen {
                 break;
@@ -861,10 +743,9 @@ impl Parser {
                 false
             };
 
-            let (param_name, _) = self.parse_identifier();
+            let param_name = self.parse_identifier();
             let is_self = param_name.as_str(&self.lexer.src) == "self";
-            let (param_ty, pdeps) = self.parse_type();
-            deps.extend(pdeps);
+            let param_ty = self.parse_type();
 
             let loc = param_name.get_source_ref().combine(param_ty.get_loc());
             params.push(FnParam {
@@ -885,10 +766,10 @@ impl Parser {
             "a right parenthesis [)] to terminate the list of parameters.",
         );
 
-        (params, deps)
+        params
     }
 
-    fn parse_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
+    fn parse_expr(&mut self, lhs: Option<Expr>) -> Expr {
         if lhs.is_some() {
             self.parse_ternary(lhs)
         } else {
@@ -896,41 +777,31 @@ impl Parser {
         }
     }
 
-    fn parse_lambda_or_struct_or_unary_dot(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_lambda_or_struct_or_unary_dot(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::BackSlash => {
                 self.advance();
-                let mut deps = vec![];
-                let (params, pdeps) = self.parse_fn_params();
-                deps.extend(pdeps);
-                let (ret_type, rtdeps) = self.parse_type();
-                deps.extend(rtdeps);
-                let (body, bdeps) = self.parse_ins_block();
-                deps.extend(bdeps);
+                let params = self.parse_fn_params();
+                let ret_type = self.parse_type();
+                let body = self.parse_ins_block();
                 let loc = cur.get_source_ref().combine(body.get_source_ref());
 
-                (
-                    Expr::Lambda {
-                        params,
-                        ret_type,
-                        body: Box::new(body),
-                        loc,
-                    },
-                    deps,
-                )
+                Expr::Lambda {
+                    params,
+                    ret_type,
+                    body: Box::new(body),
+                    loc,
+                }
             }
             TokenType::Struct => {
                 self.advance();
-                let (body, deps) = self.parse_ins_block();
+                let body = self.parse_ins_block();
                 let loc = cur.loc.combine(self.cur_token().loc);
-                (
-                    Expr::Struct {
-                        body: Rc::new(body),
-                        loc,
-                    },
-                    deps,
-                )
+                Expr::Struct {
+                    body: Rc::new(body),
+                    loc,
+                }
             }
             TokenType::Dot => {
                 self.advance();
@@ -940,19 +811,16 @@ impl Parser {
                 );
 
                 let mut pairs = vec![];
-                let mut deps = vec![];
                 while !self.is_at_eof() {
                     if self.cur_token().ty == TokenType::RCurly {
                         break;
                     }
 
-                    let (expr, edeps) = self.parse_expr(None);
-                    deps.extend(edeps);
+                    let expr = self.parse_expr(None);
 
                     if self.cur_token().ty == TokenType::Assign {
                         self.advance();
-                        let (val, vdeps) = self.parse_expr(None);
-                        deps.extend(vdeps);
+                        let val = self.parse_expr(None);
                         pairs.push((Box::new(expr), Some(Box::new(val))));
                     } else {
                         pairs.push((Box::new(expr), None));
@@ -968,91 +836,74 @@ impl Parser {
                     "a right curly brace (}) to terminate the initializer list.",
                 );
 
-                (
-                    Expr::InitializerList {
-                        target: None,
-                        pairs,
-                        loc,
-                    },
-                    deps,
-                )
+                Expr::InitializerList {
+                    target: None,
+                    pairs,
+                    loc,
+                }
             }
             _ => self.parse_optional_expr_or_comptime_expr(),
         }
     }
 
-    fn parse_optional_expr_or_comptime_expr(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_optional_expr_or_comptime_expr(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Some => {
                 self.advance();
-                let (val, vdeps) = self.parse_expr(None);
-                (
-                    Expr::OptionalExpr {
-                        loc: cur.get_source_ref().combine(val.get_source_ref()),
-                        val: Some(Box::new(val)),
-                    },
-                    vdeps,
-                )
+                let val = self.parse_expr(None);
+                Expr::OptionalExpr {
+                    loc: cur.get_source_ref().combine(val.get_source_ref()),
+                    val: Some(Box::new(val)),
+                }
             }
             TokenType::None => {
                 self.advance();
-                (
-                    Expr::OptionalExpr {
-                        loc: cur.get_source_ref(),
-                        val: None,
-                    },
-                    vec![],
-                )
+                Expr::OptionalExpr {
+                    loc: cur.get_source_ref(),
+                    val: None,
+                }
             }
             TokenType::Comptime => {
                 self.advance();
-                let (comptime_expr, cdeps) = self.parse_ternary(None);
+                let comptime_expr = self.parse_ternary(None);
                 let loc = cur.get_source_ref().combine(comptime_expr.get_source_ref());
-                (
-                    Expr::ComptimeExpr {
-                        val: Box::new(comptime_expr),
-                        loc,
-                    },
-                    cdeps,
-                )
+                Expr::ComptimeExpr {
+                    val: Box::new(comptime_expr),
+                    loc,
+                }
             }
             _ => self.parse_ternary(None),
         }
     }
 
-    fn parse_ternary(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (lhs, mut deps) = self.parse_or(lhs);
+    fn parse_ternary(&mut self, lhs: Option<Expr>) -> Expr {
+        let lhs = self.parse_or(lhs);
 
         if matches!(self.cur_token().ty, TokenType::QuestionMark) {
             self.advance();
-            let (then, tdeps) = self.parse_expr(None);
-            deps.extend(tdeps);
+            let then = self.parse_expr(None);
             self.consume(
                 TokenType::Colon,
                 "a colon (:) to separate both branches of the ternary condition expression.",
             );
-            let (otherwise, odeps) = self.parse_expr(None);
-            deps.extend(odeps);
-            return (
-                Expr::ConditionalExpr {
-                    loc: lhs.get_source_ref().combine(otherwise.get_source_ref()),
-                    cond: Box::new(lhs),
-                    then: Box::new(then),
-                    otherwise: Box::new(otherwise),
-                },
-                deps,
-            );
+            let otherwise = self.parse_expr(None);
+            return Expr::ConditionalExpr {
+                loc: lhs.get_source_ref().combine(otherwise.get_source_ref()),
+                cond: Box::new(lhs),
+                then: Box::new(then),
+                otherwise: Box::new(otherwise),
+            };
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_or(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = self.parse_and(lhs);
+    fn parse_or(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = self.parse_and(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Or) {
             self.advance();
-            let (rhs, rdeps) = self.parse_and(None);
+            let rhs = self.parse_and(None);
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op: BinOpType::Or,
@@ -1060,17 +911,16 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_and(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = self.parse_equality(lhs);
+    fn parse_and(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = self.parse_equality(lhs);
 
         while matches!(self.cur_token().ty, TokenType::And) {
             self.advance();
-            let (rhs, rdeps) = self.parse_equality(None);
+            let rhs = self.parse_equality(None);
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op: BinOpType::And,
@@ -1078,13 +928,12 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_equality(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = self.parse_comparison(lhs);
+    fn parse_equality(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = self.parse_comparison(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Equal | TokenType::NotEqual) {
             let op = if self.cur_token().ty == TokenType::Equal {
@@ -1093,7 +942,7 @@ impl Parser {
                 BinOpType::Neq
             };
             self.advance();
-            let (rhs, rdeps) = self.parse_comparison(None);
+            let rhs = self.parse_comparison(None);
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
@@ -1101,13 +950,12 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_comparison(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = self.parse_term(lhs);
+    fn parse_comparison(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = self.parse_term(lhs);
 
         while matches!(
             self.cur_token().ty,
@@ -1121,7 +969,7 @@ impl Parser {
                 _ => unreachable!("Non-comparison operator entered loop."),
             };
             self.advance();
-            let (rhs, rdeps) = self.parse_term(None);
+            let rhs = self.parse_term(None);
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
@@ -1129,13 +977,12 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_term(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = self.parse_factor(lhs);
+    fn parse_term(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = self.parse_factor(lhs);
 
         while matches!(self.cur_token().ty, TokenType::Plus | TokenType::Minus) {
             let op = if self.cur_token().ty == TokenType::Plus {
@@ -1144,7 +991,7 @@ impl Parser {
                 BinOpType::Sub
             };
             self.advance();
-            let (rhs, rdeps) = self.parse_factor(None);
+            let rhs = self.parse_factor(None);
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
@@ -1152,13 +999,12 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_factor(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if lhs.is_some() {
+    fn parse_factor(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = if lhs.is_some() {
             self.parse_index_expr(lhs)
         } else {
             self.parse_unary()
@@ -1175,7 +1021,7 @@ impl Parser {
                 _ => unreachable!("Non-factor operator entered loop."),
             };
             self.advance();
-            let (rhs, rdeps) = self.parse_unary();
+            let rhs = self.parse_unary();
             let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
@@ -1183,91 +1029,79 @@ impl Parser {
                 right: Box::new(rhs),
                 loc,
             };
-            deps.extend(rdeps);
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_unary(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_unary(&mut self) -> Expr {
         let op = self.cur_token();
         match op.ty {
             TokenType::Minus | TokenType::Not => {
                 self.advance();
-                let (rhs, rdeps) = self.parse_unary();
+                let rhs = self.parse_unary();
                 let loc = op.get_source_ref().combine(rhs.get_source_ref());
                 let op = if op.ty == TokenType::Minus {
                     UnaryOpType::Negate
                 } else {
                     UnaryOpType::Not
                 };
-                (
-                    Expr::UnaryOp {
-                        op,
-                        expr: Box::new(rhs),
-                        loc,
-                    },
-                    rdeps,
-                )
+                Expr::UnaryOp {
+                    op,
+                    expr: Box::new(rhs),
+                    loc,
+                }
             }
             _ => self.parse_ptr_deref_or_addr_of(),
         }
     }
 
-    fn parse_ptr_deref_or_addr_of(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_ptr_deref_or_addr_of(&mut self) -> Expr {
         let op = self.cur_token();
         match op.ty {
             TokenType::Star => {
                 self.advance();
-                let (rhs, rdeps) = self.parse_ptr_deref_or_addr_of();
+                let rhs = self.parse_ptr_deref_or_addr_of();
                 let loc = op.get_source_ref().combine(rhs.get_source_ref());
-                (
-                    Expr::DerefPtr {
-                        loc,
-                        target: Box::new(rhs),
-                    },
-                    rdeps,
-                )
+                Expr::DerefPtr {
+                    loc,
+                    target: Box::new(rhs),
+                }
             }
             TokenType::Ampersand => {
                 self.advance();
-                let (rhs, rdeps) = self.parse_index_expr(None);
+                let rhs = self.parse_index_expr(None);
                 let loc = op.get_source_ref().combine(rhs.get_source_ref());
-                (
-                    Expr::MakePtrFromAddrOf {
-                        loc,
-                        target: Box::new(rhs),
-                    },
-                    rdeps,
-                )
+                Expr::MakePtrFromAddrOf {
+                    loc,
+                    target: Box::new(rhs),
+                }
             }
             _ => self.parse_index_expr(None),
         }
     }
 
-    fn parse_comma_sep_exprs(&mut self, terminator_ty: TokenType) -> (Vec<Expr>, Vec<Dependency>) {
+    fn parse_comma_sep_exprs(&mut self, terminator_ty: TokenType) -> Vec<Expr> {
         let mut args = vec![];
-        let mut deps = vec![];
 
         while !self.is_at_eof() {
             if self.cur_token().ty == terminator_ty {
                 break;
             }
 
-            let (arg, adeps) = self.parse_expr(None);
-            deps.extend(adeps);
+            let arg = self.parse_expr(None);
             args.push(arg);
 
             if matches!(self.cur_token().ty, TokenType::Comma) {
                 self.advance();
             }
         }
-        (args, deps)
+        args
     }
 
-    fn parse_index_expr(&mut self, lhs: Option<Expr>) -> (Expr, Vec<Dependency>) {
-        let (mut lhs, mut deps) = if let Some(lhs) = lhs {
+    fn parse_index_expr(&mut self, lhs: Option<Expr>) -> Expr {
+        let mut lhs = if let Some(lhs) = lhs {
             // we have no other sub trees that will start with an expression
-            (lhs, vec![])
+            lhs
         } else {
             self.parse_primary()
         };
@@ -1280,8 +1114,7 @@ impl Parser {
             self.advance();
             match op.ty {
                 TokenType::LParen => {
-                    let (args, adeps) = self.parse_comma_sep_exprs(TokenType::RParen);
-                    deps.extend(adeps);
+                    let args = self.parse_comma_sep_exprs(TokenType::RParen);
                     let loc = if args.is_empty() {
                         op.get_source_ref()
                             .combine(self.cur_token().get_source_ref())
@@ -1294,18 +1127,6 @@ impl Parser {
                         "a right parenthesis [)] to terminate the function call.",
                     );
 
-                    if let Expr::Identifier { loc } = &lhs {
-                        deps.push(Dependency {
-                            name_loc: loc.clone(),
-                        });
-                    }
-
-                    if let Expr::AccessMember { mem, .. } = &lhs {
-                        deps.push(Dependency {
-                            name_loc: mem.get_source_ref(),
-                        });
-                    }
-
                     lhs = Expr::CallFn {
                         func: Box::new(lhs),
                         args,
@@ -1315,14 +1136,13 @@ impl Parser {
                 TokenType::LBracket => {
                     if self.cur_token().ty == TokenType::Colon {
                         self.advance();
-                        let (end_excl, edeps) = match self.cur_token().ty {
-                            TokenType::RBracket => (None, vec![]),
+                        let end_excl = match self.cur_token().ty {
+                            TokenType::RBracket => None,
                             _ => {
-                                let (end, edeps) = self.parse_expr(None);
-                                (Some(Box::new(end)), edeps)
+                                let end = self.parse_expr(None);
+                                Some(Box::new(end))
                             }
                         };
-                        deps.extend(edeps);
                         let loc = op.loc.combine(self.cur_token().loc);
                         self.consume(
                             TokenType::RBracket,
@@ -1337,8 +1157,7 @@ impl Parser {
                         continue;
                     }
 
-                    let (index_expr, ideps) = self.parse_expr(None);
-                    deps.extend(ideps);
+                    let index_expr = self.parse_expr(None);
                     let mut loc = op.loc;
 
                     match self.cur_token().ty {
@@ -1353,14 +1172,13 @@ impl Parser {
                         }
                         TokenType::Colon => {
                             self.advance();
-                            let (end_excl, edeps) = match self.cur_token().ty {
-                                TokenType::RBracket => (None, vec![]),
+                            let end_excl = match self.cur_token().ty {
+                                TokenType::RBracket => None,
                                 _ => {
-                                    let (end, edeps) = self.parse_expr(None);
-                                    (Some(Box::new(end)), edeps)
+                                    let end = self.parse_expr(None);
+                                    Some(Box::new(end))
                                 }
                             };
-                            deps.extend(edeps);
                             loc = loc.combine(self.cur_token().loc);
                             self.consume(
                                 TokenType::RBracket,
@@ -1385,8 +1203,7 @@ impl Parser {
                     }
                 }
                 TokenType::Dot => {
-                    let (member, mdeps) = self.parse_primary();
-                    deps.extend(mdeps);
+                    let member = self.parse_primary();
                     let loc = op.loc.combine(member.get_source_ref());
                     lhs = Expr::AccessMember {
                         target: Box::new(lhs),
@@ -1397,51 +1214,50 @@ impl Parser {
                 _ => unreachable!("unexpected operator in parse_index_expr loop: {:#?}", op),
             }
         }
-        (lhs, deps)
+        lhs
     }
 
-    fn parse_primary(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_primary(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Character => {
                 self.advance();
-                (Expr::Char { loc: cur.loc }, vec![])
+                Expr::Char { loc: cur.loc }
             }
             TokenType::String => {
                 self.advance();
-                (Expr::Str { loc: cur.loc }, vec![])
+                Expr::Str { loc: cur.loc }
             }
             TokenType::Integer => {
                 self.advance();
-                (Expr::Integer { loc: cur.loc }, vec![])
+                Expr::Integer { loc: cur.loc }
             }
             TokenType::Decimal => {
                 self.advance();
-                (Expr::Decimal { loc: cur.loc }, vec![])
+                Expr::Decimal { loc: cur.loc }
             }
             TokenType::True => {
                 self.advance();
-                (Expr::Bool { loc: cur.loc }, vec![])
+                Expr::Bool { loc: cur.loc }
             }
             TokenType::False => {
                 self.advance();
-                (Expr::Bool { loc: cur.loc }, vec![])
+                Expr::Bool { loc: cur.loc }
             }
             TokenType::LBracket => {
                 // we are parsing either an array type, or an array literal,
                 // with a preceding array type
-                let (arr_ty, mut adeps) = self.parse_type();
-                (Expr::TypeAsExpr { ty: arr_ty }, adeps)
+                let arr_ty = self.parse_type();
+                Expr::TypeAsExpr { ty: arr_ty }
             }
             TokenType::LParen => {
                 self.advance();
-                let (expr, mut deps) = self.parse_expr(None);
+                let expr = self.parse_expr(None);
 
                 if matches!(self.cur_token().ty, TokenType::Comma) {
                     self.advance();
-                    let (mut exprs, edeps) = self.parse_comma_sep_exprs(TokenType::RParen);
-                    deps.extend(edeps);
+                    let mut exprs = self.parse_comma_sep_exprs(TokenType::RParen);
                     let loc = cur
                         .get_source_ref()
                         .combine(self.cur_token().get_source_ref());
@@ -1450,7 +1266,7 @@ impl Parser {
                         "a right parenthesis [)] to terminate the tuple expression.",
                     );
                     exprs.insert(0, expr);
-                    return (Expr::Tuple { items: exprs, loc }, deps);
+                    return Expr::Tuple { items: exprs, loc };
                 } else {
                     let loc = cur
                         .get_source_ref()
@@ -1459,23 +1275,17 @@ impl Parser {
                         TokenType::RParen,
                         "a right parenthesis [)] to terminate the grouped expression.",
                     );
-                    return (
-                        Expr::GroupedExpr {
-                            inner: Box::new(expr),
-                            loc,
-                        },
-                        deps,
-                    );
+                    return Expr::GroupedExpr {
+                        inner: Box::new(expr),
+                        loc,
+                    };
                 }
             }
             TokenType::Underscore => {
                 self.advance();
-                (
-                    Expr::Underscore {
-                        loc: cur.get_source_ref(),
-                    },
-                    vec![],
-                )
+                Expr::Underscore {
+                    loc: cur.get_source_ref(),
+                }
             }
             TokenType::BackTick => {
                 todo!()
@@ -1495,20 +1305,20 @@ impl Parser {
             | TokenType::Void
             | TokenType::Bool
             | TokenType::Type => {
-                let (ty, tdeps) = self.parse_base_type();
-                (Expr::TypeAsExpr { ty }, tdeps)
+                let ty = self.parse_base_type();
+                Expr::TypeAsExpr { ty }
             }
             _ => {
                 let span = cur.get_source_ref();
                 self.report_err(ParseError::CannotParseAnExpression(span.clone()));
-                (Expr::ErrorExpr { loc: span }, vec![])
+                Expr::ErrorExpr { loc: span }
             }
         }
     }
 
-    fn parse_identifier(&mut self) -> (Expr, Vec<Dependency>) {
+    fn parse_identifier(&mut self) -> Expr {
         let loc = self.cur_token().get_source_ref();
         self.consume(TokenType::Identifier, "an identifier.");
-        (Expr::Identifier { loc: loc.clone() }, vec![])
+        Expr::Identifier { loc: loc.clone() }
     }
 }
