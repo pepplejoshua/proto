@@ -1322,3 +1322,51 @@ impl Parser {
         Expr::Identifier { loc: loc.clone() }
     }
 }
+
+#[cfg(test)]
+#[derive(serde::Serialize, serde::Deserialize)]
+pub struct ParserTestResult {
+    code_str_repr: Vec<String>,
+    lexer_errors: Vec<String>,
+    parser_errors: Vec<String>,
+}
+
+#[cfg(test)]
+#[test]
+fn test_parser() {
+    use crate::source::source::SourceFile;
+
+    insta::glob!("parser_inputs/*.pr", |path| {
+        // build the SourceFile from the proto file path
+        let path = path.to_str().unwrap().to_string();
+        let src = SourceFile::new(path);
+
+        // build the lexer
+        let lexer = Lexer::new(src);
+        let mut parser = Parser::new(lexer);
+
+        let top_level = parser.parse_file();
+        let code_str_repr = top_level
+            .iter()
+            .map(|i| i.as_str(&parser.lexer.src))
+            .collect::<Vec<String>>();
+        let lexer_errors = parser
+            .lex_errs
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<String>>();
+        let parser_errors = parser
+            .parse_errs
+            .iter()
+            .map(|e| format!("{:?}", e))
+            .collect::<Vec<String>>();
+
+        let result = ParserTestResult {
+            code_str_repr,
+            lexer_errors,
+            parser_errors,
+        };
+
+        insta::assert_yaml_snapshot!(result);
+    });
+}
