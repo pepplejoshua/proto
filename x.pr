@@ -5,7 +5,7 @@ main :: \() int {
 
     num :: 1
     num2 :: 2
-    num3 :: comptime num + num2
+    sum :: comptime num + num2
     return 0
 }
 

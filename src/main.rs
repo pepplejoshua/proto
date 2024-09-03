@@ -9,7 +9,6 @@ mod parser;
 mod pastel;
 mod seman;
 mod source;
-mod types;
 
 const USAGE: &str = "
 Usage: proto command [options]?

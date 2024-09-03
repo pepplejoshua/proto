@@ -2,8 +2,8 @@
 use std::rc::Rc;
 
 use crate::{
+    parser::type_signature::Ty,
     source::source::{SourceFile, SourceRef},
-    types::signature::Ty,
 };
 
 #[derive(Debug, Clone, Copy)]

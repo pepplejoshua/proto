@@ -10,12 +10,11 @@ use crate::{
         lexer::Lexer,
         token::{SrcToken, TokenType},
     },
-    parser::ast::UnaryOpType,
+    parser::{ast::UnaryOpType, type_signature::Ty},
     source::{
         errors::{LexError, ParseError},
         source::{SourceRef, SourceReporter},
     },
-    types::signature::Ty,
 };
 
 use super::ast::{BinOpType, Expr, FnParam, Ins};
