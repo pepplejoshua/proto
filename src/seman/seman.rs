@@ -6,44 +6,35 @@ use std::rc::Rc;
 use crate::parser::ast::{Expr, Ins};
 use crate::parser::type_signature::Ty;
 use crate::seman::type_table::TypeTable;
-use crate::source::source::SourceRef;
+use crate::source::source::{SourceFile, SourceRef};
 
 use super::sym_table::SymbolTable;
 
-pub fn check_file(instructions: Vec<Ins>) {
-    let mut type_table = TypeTable::new();
-    let mut sym_table = SymbolTable::new();
+pub struct LazyBoi {
+    symbols: SymbolTable,
+    types: TypeTable,
+    unresolved_names: HashMap<String, Ins>,
+    ongoing_resolutions_stack: Vec<String>,
+}
 
-    for ins in instructions.iter() {
-        forward_declare_names(&mut sym_table, &mut type_table, ins);
+impl LazyBoi {
+    pub fn new() -> Self {
+        LazyBoi {
+            symbols: SymbolTable::new(),
+            types: TypeTable::new(),
+            unresolved_names: todo!(),
+            ongoing_resolutions_stack: todo!(),
+        }
     }
 }
 
-pub fn forward_declare_names(sym_table: &mut SymbolTable, type_table: &mut TypeTable, ins: &Ins) {
-    match ins {
-        Ins::DeclConst {
-            name,
-            ty,
-            init_val,
-            loc,
-        } => {
-            if let Some(ty) = ty {
-                // intern type in table
+pub fn check_file(src: &SourceFile, instructions: Vec<Ins>) {
+    let mut type_table = TypeTable::new();
+    let mut sym_table = SymbolTable::new();
 
-                // register type for name into table
-            } else {
-            }
-            todo!()
-        }
-        Ins::DeclVar {
-            name,
-            ty,
-            init_val,
-            loc,
-        } => {
-            todo!()
-        }
-        _ => unreachable!("non-var/const instruction in top level."),
+    // collect top level names
+    for ins in instructions.iter() {
+        let ins_id = ins.get_id(src).unwrap();
     }
 }
 

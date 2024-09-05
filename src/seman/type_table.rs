@@ -14,6 +14,7 @@ pub type TypeId = usize;
 pub enum TypeDef {
     Type {
         actual_type: TypeId,
+        is_type_of_types: bool,
     },
     Signed {
         size: u8,
@@ -50,7 +51,6 @@ pub enum TypeDef {
         sub_ty: TypeId,
     },
     Struct {
-        name: String,
         fields: BTreeMap<String, TypeId>,
         funcs: BTreeMap<String, TypeId>,
     },
@@ -63,12 +63,11 @@ pub enum TypeDef {
 // an instance of a type definition
 pub struct TypeInst {
     pub id: TypeId,
-    pub scope_id: usize,
     pub loc: Rc<SourceRef>,
 }
 
-pub fn make_inst(id: TypeId, scope_id: usize, loc: Rc<SourceRef>) -> TypeInst {
-    TypeInst { id, scope_id, loc }
+pub fn make_inst(id: TypeId, loc: Rc<SourceRef>) -> TypeInst {
+    TypeInst { id, loc }
 }
 
 pub struct TypeTable {
@@ -80,8 +79,20 @@ pub struct TypeTable {
 impl TypeTable {
     pub fn new() -> TypeTable {
         return TypeTable {
-            types: HashMap::new(),
-            definitions: vec![],
+            types: HashMap::from([(
+                TypeDef::Type {
+                    actual_type: 0,
+                    is_type_of_types: true,
+                },
+                0,
+            )]),
+            definitions: vec![(
+                TypeDef::Type {
+                    actual_type: 0,
+                    is_type_of_types: true,
+                },
+                None,
+            )],
             next_type_id: 0,
         };
     }

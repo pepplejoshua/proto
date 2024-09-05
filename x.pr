@@ -4,9 +4,6 @@ main :: \() int {
     return 0
 }
 
-addi :: \(a int, b int) int {
+addi :: \(a u8, b u8) u8 {
     return a + b
 }
-
-// globl_var : int =  500
-globl_const : int : 300

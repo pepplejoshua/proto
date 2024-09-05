@@ -11,8 +11,6 @@ struct y {
 
 const auto add = y::int_add;
 
-int X;
-
 int main() {
   X = add(2, 2);
   cout << X << endl;
