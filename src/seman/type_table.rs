@@ -4,7 +4,7 @@ use std::{
     rc::Rc,
 };
 
-use crate::source::source::SourceRef;
+use crate::{parser::type_signature::Ty, source::source::SourceRef};
 
 // the id for a type
 pub type TypeId = usize;
@@ -12,7 +12,9 @@ pub type TypeId = usize;
 // this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
-    Type,
+    Type {
+        actual_type: TypeId,
+    },
     Signed {
         size: u8,
         is_int: bool,
@@ -82,6 +84,40 @@ impl TypeTable {
             definitions: vec![],
             next_type_id: 0,
         };
+    }
+
+    pub fn intern_type(&mut self, ty: &Rc<Ty>) {
+        match ty.as_ref() {
+            Ty::Type { loc } => todo!(),
+            Ty::Signed { size, is_int, loc } => todo!(),
+            Ty::Unsigned { size, is_uint, loc } => todo!(),
+            Ty::Float { size, loc } => todo!(),
+            Ty::Str { loc } => todo!(),
+            Ty::Char { loc } => todo!(),
+            Ty::Void { loc } => todo!(),
+            Ty::Bool { loc } => todo!(),
+            Ty::Func {
+                params,
+                ret,
+                loc,
+                is_const,
+            } => todo!(),
+            Ty::StaticArray { sub_ty, size, loc } => todo!(),
+            Ty::Slice { sub_ty, loc } => todo!(),
+            Ty::Optional { sub_ty, loc } => todo!(),
+            Ty::Struct {
+                fields,
+                static_funcs,
+                methods,
+                loc,
+            } => todo!(),
+            Ty::NamedType { loc } => todo!(),
+            Ty::AccessMemberType { target, mem, loc } => todo!(),
+            Ty::TypeFunc { func, args, loc } => todo!(),
+            Ty::Pointer { sub_ty, loc } => todo!(),
+            Ty::Tuple { sub_tys, loc } => todo!(),
+            Ty::ErrorType { loc } => unreachable!("Error type should not be interned."),
+        }
     }
 
     pub fn add_new_type_def(

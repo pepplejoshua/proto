@@ -3,35 +3,18 @@
 using namespace std;
 typedef string str;
 
-struct Y {
-  str a;
-};
-
-struct XYZ {
-  using Self = XYZ;
-  int a;
-  int b;
-  const Y c = {
-    .a = "2334",
-  };
-
-  // non-member functions are static
-  static Self init(int _a, int _b) {
-    return Self {
-      .a = _a,
-      .b = _b,
-    };
-  }
-
-  void print() {
-    cout << "XYZ { a: " << this->a << ", b: " << this->b << "}\n";
+struct y {
+  static int int_add(int a, int b) {
+    return a + b;
   }
 };
 
-using A = XYZ;
+const auto add = y::int_add;
+
+int X;
 
 int main() {
-  A tuple = A::init(2, 3);
-  tuple.print();
+  X = add(2, 2);
+  cout << X << endl;
   return 0;
 }

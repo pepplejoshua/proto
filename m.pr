@@ -12,7 +12,7 @@ BoolPair :: Pair(bool)
 IntBoolPair :: DisjointPair(int, bool)
 
 // a comptime evaluated function that returns a type
-Pair :: comptime \(T: type) type {
+Pair :: \(comptime T type) type {
     return struct {
         lhs: T,
         rhs: T,
@@ -20,10 +20,27 @@ Pair :: comptime \(T: type) type {
 }
 
 // a comptime evaluated function that returns a type
-DisjointPair :: comptime \(Lhs: type, Rhs: type) type {
+DisjointPair :: \(comptime Lhs type, comptime Rhs type) type {
     return struct {
         lhs: Lhs,
         rhs: Rhs,
+    }
+}
+
+LinkedList :: \(comptime T type) type {
+    return struct {
+        data: T
+        next: ?*Self
+        init :: \(data T) Self {
+            return .{
+                data,
+                next = none,
+            }
+        }
+
+        insert :: \(self *Self, next_node *Self) void {
+            self.next = some next_node
+        }
     }
 }
 
@@ -43,4 +60,5 @@ main :: \() int {
         lhs = 420,
         rhs = false,
     }
+    return 0
 }
