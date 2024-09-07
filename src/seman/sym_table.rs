@@ -2,7 +2,7 @@
 
 use std::{collections::HashMap, rc::Rc};
 
-use crate::source::source::SourceRef;
+use crate::{parser::ast::Ins, source::source::SourceRef};
 
 use super::type_table::TypeId;
 
@@ -13,19 +13,44 @@ pub struct SymbolInfo {
     mutable: bool,
 }
 
+pub enum SymbolScope {
+    RegularScope {
+        names: HashMap<Rc<String>, SymbolInfo>,
+    },
+    OodScope {
+        names: HashMap<Rc<String>, SymbolInfo>,
+        unchecked_instructions: HashMap<Rc<String>, Ins>,
+    },
+}
+
+impl SymbolScope {
+    pub fn find(&self, name: &String) -> Option<&SymbolInfo> {
+        match self {
+            SymbolScope::RegularScope { names } | SymbolScope::OodScope { names, .. } => {
+                names.get(name)
+            }
+        }
+    }
+}
+
 pub struct SymbolTable {
-    pub scopes: Vec<HashMap<Rc<String>, SymbolInfo>>,
+    pub scopes: Vec<SymbolScope>,
 }
 
 impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
-            scopes: vec![HashMap::new()],
+            scopes: vec![SymbolScope::OodScope {
+                names: HashMap::new(),
+                unchecked_instructions: HashMap::new(),
+            }],
         }
     }
 
-    pub fn enter_scope(&mut self) {
-        self.scopes.push(HashMap::new());
+    pub fn enter_regular_scope(&mut self) {
+        self.scopes.push(SymbolScope::RegularScope {
+            names: HashMap::new(),
+        });
     }
 
     pub fn exit_scope(&mut self) {
@@ -35,12 +60,12 @@ impl SymbolTable {
     }
 
     pub fn shallow_find_symbol_info(&self, name: &String) -> Option<&SymbolInfo> {
-        self.scopes.last().unwrap().get(name)
+        self.scopes.last().unwrap().find(name)
     }
 
     pub fn find_symbol_info(&self, name: &String) -> Option<&SymbolInfo> {
         for scope in self.scopes.iter().rev() {
-            let symbol_info = scope.get(name);
+            let symbol_info = scope.find(name);
             if symbol_info.is_some() {
                 return symbol_info;
             }
