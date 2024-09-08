@@ -14,7 +14,7 @@ pub enum SymbolInfo {
         mutable: bool,
     },
     Unresolved {
-        ins: Ins,
+        ins: Rc<Ins>,
         mutable: bool,
     },
 }
@@ -22,7 +22,7 @@ pub enum SymbolInfo {
 #[derive(Debug, Clone)]
 pub struct SymbolScope {
     pub parent: Option<Rc<RefCell<SymbolScope>>>,
-    pub names: HashMap<Rc<String>, SymbolInfo>,
+    pub names: HashMap<Rc<String>, Rc<SymbolInfo>>,
 }
 
 impl SymbolScope {
@@ -33,11 +33,11 @@ impl SymbolScope {
         }))
     }
 
-    pub fn shallow_lookup(&self, name: &String) -> Option<SymbolInfo> {
+    pub fn shallow_lookup(&self, name: &String) -> Option<Rc<SymbolInfo>> {
         self.names.get(name).cloned()
     }
 
-    pub fn deep_lookup(&self, name: &String) -> Option<SymbolInfo> {
+    pub fn deep_lookup(&self, name: &String) -> Option<Rc<SymbolInfo>> {
         self.names.get(name).cloned().or_else(|| {
             self.parent
                 .as_ref()
@@ -45,45 +45,11 @@ impl SymbolScope {
         })
     }
 
-    pub fn insert(&mut self, name: Rc<String>, info: SymbolInfo) {
+    pub fn insert(&mut self, name: Rc<String>, info: Rc<SymbolInfo>) {
         self.names.insert(name, info);
     }
 
     pub fn create_child(&self) -> Rc<RefCell<SymbolScope>> {
         SymbolScope::new(Some(Rc::new(RefCell::new(self.clone()))))
-    }
-}
-
-pub struct SymbolTable {
-    pub current_scope: Rc<RefCell<SymbolScope>>,
-}
-
-impl SymbolTable {
-    pub fn new() -> SymbolTable {
-        SymbolTable {
-            current_scope: SymbolScope::new(None),
-        }
-    }
-
-    pub fn enter_scope(&mut self) {
-        let new_scope = self.current_scope.borrow().create_child();
-        self.current_scope = new_scope;
-    }
-
-    pub fn exit_scope(&mut self) {
-        if let Some(parent) = self.current_scope.clone().borrow().parent.clone() {
-            self.current_scope = parent;
-        } else {
-            // Handle error: trying to exit the global scope
-            panic!("Attempting to exit the global scope");
-        }
-    }
-
-    pub fn shallow_find_symbol_info(&self, name: &String) -> Option<SymbolInfo> {
-        self.current_scope.borrow().shallow_lookup(name)
-    }
-
-    pub fn deep_find_symbol_info(&self, name: &String) -> Option<SymbolInfo> {
-        self.current_scope.borrow().deep_lookup(name)
     }
 }
