@@ -6,51 +6,54 @@ use crate::{parser::ast::Ins, source::source::SourceRef};
 
 use super::type_table::TypeId;
 
-pub struct SymbolInfo {
-    name: Rc<String>,
-    ty: TypeId,
-    def_loc: Rc<SourceRef>,
-    mutable: bool,
+#[derive(Debug, Clone)]
+pub enum SymbolInfo {
+    Resolved {
+        ty: TypeId,
+        def_loc: Rc<SourceRef>,
+        mutable: bool,
+    },
+    Unresolved {
+        ins: Ins,
+        mutable: bool,
+    }
 }
 
-pub enum SymbolScope {
-    RegularScope {
-        names: HashMap<Rc<String>, SymbolInfo>,
-    },
-    OodScope {
-        names: HashMap<Rc<String>, SymbolInfo>,
-        unchecked_instructions: HashMap<Rc<String>, Ins>,
-    },
+#[derive(Debug, Clone)]
+pub struct SymbolScope {
+    pub parent: Option<Rc<SymbolScope>>,
+    pub names: HashMap<Rc<String>, SymbolInfo>,
 }
 
 impl SymbolScope {
     pub fn find(&self, name: &String) -> Option<&SymbolInfo> {
-        match self {
-            SymbolScope::RegularScope { names } | SymbolScope::OodScope { names, .. } => {
-                names.get(name)
-            }
-        }
+        self.names.get(name)
+    }
+
+    pub fn enter_scope(&mut self)  -> Rc<SymbolScope> {
+        Rc::new(SymbolScope {
+            parent: Some(self),
+            names: HashMap::new(),
+        });
     }
 }
 
 pub struct SymbolTable {
-    pub scopes: Vec<SymbolScope>,
+    pub cur_scope: Rc<SymbolScope>,
 }
 
 impl SymbolTable {
     pub fn new() -> SymbolTable {
         SymbolTable {
-            scopes: vec![SymbolScope::OodScope {
+            cur_scope: Rc::new(SymbolScope {
                 names: HashMap::new(),
-                unchecked_instructions: HashMap::new(),
-            }],
+                parent: None,
+            })
         }
     }
 
-    pub fn enter_regular_scope(&mut self) {
-        self.scopes.push(SymbolScope::RegularScope {
-            names: HashMap::new(),
-        });
+    pub fn ente_ood_scope() -> SymbolTable {
+        self.scopes.push(SymbolScope::)
     }
 
     pub fn exit_scope(&mut self) {

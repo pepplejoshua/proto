@@ -1,9 +1,36 @@
-main :: \() int {
+fn main() int {
     three :: addi(1, 2)
-
+    me :: Pos{x = 1, y = 2}
+    me.display()
     return 0
 }
 
-addi :: \(a u8, b u8) u8 {
+fn addb :: \(a Byte, b Byte) Byte {
     return a + b
+}
+
+Byte :: u8
+
+struct Pos {
+    x: int
+    y: int
+
+    dup :: \(self *const Pos) Pos {
+        return Pos.init(self.x, self.y)
+    }
+
+    init :: \(_x const int, _y const int) Pos {
+        return .{
+            x = _x,
+            y = _y,
+        }
+    }
+
+    display :: \(self *const Pos) void {
+        println(self.as_str())
+    }
+
+    as_str :: \(self *const Pos) str {
+        return `Pos({self.x}, {self.y})`
+    }
 }
