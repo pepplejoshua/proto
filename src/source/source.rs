@@ -9,7 +9,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub struct SourceFile {
     pub path: Rc<String>,
-    pub text: String,
+    pub text: Rc<String>,
     pub flat_index: usize,
     pub col: usize,
     pub line: usize,
@@ -24,7 +24,7 @@ impl SourceFile {
         let full_path = fs::canonicalize(&path).unwrap();
         let mut src_file = SourceFile {
             path: Rc::new(full_path.to_str().unwrap().to_string()),
-            text: String::new(),
+            text: Rc::new(String::new()),
             flat_index: 0,
             col: 0,
             line: 0,
@@ -122,7 +122,7 @@ impl SourceFile {
             self.lines.push(line.into());
         }
 
-        self.text = text;
+        self.text = Rc::new(text);
     }
 }
 
@@ -237,7 +237,7 @@ pub struct SourceReporter {
 
 use crate::pastel::pastel;
 
-use super::errors::{CheckerError, LexError, ParseError};
+use super::errors::{LexError, ParseError, SemanError};
 
 #[allow(dead_code)]
 impl SourceReporter {
@@ -338,20 +338,25 @@ impl SourceReporter {
         }
     }
 
-    pub fn report_checker_error(&self, ce: CheckerError) {
+    pub fn report_seman_error(&self, ce: SemanError) {
         match ce {
-            CheckerError::InvalidType { loc, type_name } => {
+            SemanError::NoMainFunctionProvided { loc } => {
+                let msg = "No main function provided.".to_string();
+                let tip = "The main function serves as the entry point of the program.".to_string();
+                self.report_with_ref(&loc, msg, Some(tip), false);
+            }
+            SemanError::InvalidType { loc, type_name } => {
                 let msg = format!("Invalid type: '{}'.", type_name);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::IncompleteType { loc, type_name } => {
+            SemanError::IncompleteType { loc, type_name } => {
                 let msg = format!("Incomplete type: '{}'.", type_name);
                 let tip = format!(
                     "If it is an array, make sure to specify the size, or use a slice of the same type instead."
                 );
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
-            CheckerError::TypeMismatch {
+            SemanError::TypeMismatch {
                 loc,
                 expected,
                 found,
@@ -362,15 +367,15 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::NumberTypeDefaultInferenceFailed { loc, number } => {
+            SemanError::NumberTypeDefaultInferenceFailed { loc, number } => {
                 let msg = format!("Failed to convert '{}' to i32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::DecimalTypeDefaultInferenceFailed { loc, number } => {
+            SemanError::DecimalTypeDefaultInferenceFailed { loc, number } => {
                 let msg = format!("Failed to convert '{}' to f32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::NumberTypeInferenceFailed {
+            SemanError::NumberTypeInferenceFailed {
                 loc,
                 number,
                 given_type,
@@ -381,7 +386,7 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::DecimalTypeInferenceFailed {
+            SemanError::DecimalTypeInferenceFailed {
                 loc,
                 number,
                 given_type,
@@ -392,11 +397,11 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::ReferenceToUndefinedName { loc, var_name } => {
+            SemanError::ReferenceToUndefinedName { loc, var_name } => {
                 let msg = format!("Reference to an undefined name: '{}'.", var_name);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::InvalidUseOfBinaryOperator {
+            SemanError::InvalidUseOfBinaryOperator {
                 loc,
                 op,
                 left,
@@ -408,7 +413,7 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::InvalidUseOfUnaryOperator {
+            SemanError::InvalidUseOfUnaryOperator {
                 loc,
                 op,
                 operand,
@@ -420,21 +425,21 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, tip, false);
             }
-            CheckerError::TooManyErrors => {
+            SemanError::TooManyErrors => {
                 let msg = format!("Too many errors during semantic analysis. Stopping.");
                 let tip =
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
             }
-            CheckerError::NameAlreadyDefined { loc, name } => {
+            SemanError::NameAlreadyDefined { loc, name } => {
                 let msg = format!("'{name}' is already defined.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::UseOfUninitializedVariable { loc, name } => {
+            SemanError::UseOfUninitializedVariable { loc, name } => {
                 let msg = format!("Use of uninitialized variable: '{}'.", name);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::UseOfErroredVariableOrConstant {
+            SemanError::UseOfErroredVariableOrConstant {
                 is_const,
                 loc,
                 name,
@@ -446,7 +451,7 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::MismatchingReturnType {
+            SemanError::MismatchingReturnType {
                 exp,
                 given,
                 loc_given,
@@ -454,7 +459,7 @@ impl SourceReporter {
                 let msg = format!("Function expects a return type of '{exp}' but a value of type '{given}' was returned.");
                 self.report_with_ref(&loc_given, msg, None, false);
             }
-            CheckerError::IncorrectFunctionArity {
+            SemanError::IncorrectFunctionArity {
                 exp,
                 given,
                 loc_given,
@@ -463,20 +468,20 @@ impl SourceReporter {
                 let msg = format!("The function '{func}' expects {exp} arguments but was called with {given} arguments.");
                 self.report_with_ref(&loc_given, msg, None, false);
             }
-            CheckerError::NameIsNotCallable { name, name_ty, loc } => {
+            SemanError::NameIsNotCallable { name, name_ty, loc } => {
                 let msg =
                     format!("'{name}' of type '{name_ty}' is not a function and cannot be called.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotInferTypeOfEmptyArray { loc } => {
+            SemanError::CannotInferTypeOfEmptyArray { loc } => {
                 let msg = "Unable to infer type of empty static array without context.".to_string();
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotInferTypeOfEmptyHashMap { loc } => {
+            SemanError::CannotInferTypeOfEmptyHashMap { loc } => {
                 let msg = "Unable to infer type of empty hashmap without context.".to_string();
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::MismatchingStaticArrayItemTypes {
+            SemanError::MismatchingStaticArrayItemTypes {
                 expected_ty,
                 given_ty,
                 loc,
@@ -484,22 +489,22 @@ impl SourceReporter {
                 let msg = format!("Static array has an inferred type of '{expected_ty}' and this item has a type of '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::StaticArrayTypeCheckFailed { given_ty, arr_loc } => {
+            SemanError::StaticArrayTypeCheckFailed { given_ty, arr_loc } => {
                 let msg =
                     format!("Static Array type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
-            CheckerError::TupleTypeCheckFailed { given_ty, tup_loc } => {
+            SemanError::TupleTypeCheckFailed { given_ty, tup_loc } => {
                 let msg = format!("Tuple type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&tup_loc, msg, None, false);
             }
-            CheckerError::NonConstantNumberSizeForStaticArray { loc } => {
+            SemanError::NonConstantNumberSizeForStaticArray { loc } => {
                 let msg =
                     "Static Arrays require a constant usize number as its size or _ to infer the size."
                         .to_string();
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::MismismatchStaticArrayLength {
+            SemanError::MismismatchStaticArrayLength {
                 exp,
                 given,
                 arr_loc,
@@ -509,17 +514,17 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&arr_loc, msg, None, false);
             }
-            CheckerError::ConditionShouldBeTypedBool { given_ty, loc } => {
+            SemanError::ConditionShouldBeTypedBool { given_ty, loc } => {
                 let msg = format!(
                     "Condition expression should be typed 'bool' but has type '{given_ty}'",
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::ExpectedArrayOrSlice { given_ty, loc } => {
+            SemanError::ExpectedArrayOrSlice { given_ty, loc } => {
                 let msg = format!("The target of a slice operation should be an array or another slice was expected. The target has type '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::PrintRequiresAStringArg {
+            SemanError::PrintRequiresAStringArg {
                 is_println,
                 given_ty,
                 loc,
@@ -531,46 +536,46 @@ impl SourceReporter {
                 });
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::IndexIntoOpRequiresArraySliceOrString { given_ty, loc } => {
+            SemanError::IndexIntoOpRequiresArraySliceOrString { given_ty, loc } => {
                 let msg = format!("Arrays, Slices and Strings are the only types that support the indexing into operation. The target has type '{given_ty}'");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::OptionalTypeInferenceFailed { given_ty, opt_loc } => {
+            SemanError::OptionalTypeInferenceFailed { given_ty, opt_loc } => {
                 let msg =
                     format!("Optional's type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&opt_loc, msg, None, false);
             }
-            CheckerError::OptionalTypeInferenceFailedWithoutContextualTy { opt_loc } => {
+            SemanError::OptionalTypeInferenceFailedWithoutContextualTy { opt_loc } => {
                 let msg =
                     format!("Inferring optional's type failed without contextual information.");
                 self.report_with_ref(&opt_loc, msg, None, false);
             }
-            CheckerError::Expected(msg, loc, tip) => {
+            SemanError::Expected(msg, loc, tip) => {
                 self.report_with_ref(&loc, msg, tip, false);
             }
-            CheckerError::AccessMemberOpCannotBePerformedOnType { given_ty, loc } => {
+            SemanError::AccessMemberOpCannotBePerformedOnType { given_ty, loc } => {
                 let msg = format!("Accessing members is not valid for type '{given_ty}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::MemberDoesNotExist { given_ty, mem, loc } => {
+            SemanError::MemberDoesNotExist { given_ty, mem, loc } => {
                 let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::StructHasNoInitFunction { given_ty, loc } => {
+            SemanError::StructHasNoInitFunction { given_ty, loc } => {
                 let msg =
                     format!("struct '{given_ty}' does not provide an initialization function.");
                 let tip = format!("Provide initialization function with the signature 'fn init([any parameters]) void {{ [body] }}.'.");
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
-            CheckerError::CannotAssignToTarget { target, loc } => {
+            SemanError::CannotAssignToTarget { target, loc } => {
                 let msg = format!("'{target}' cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotAssignToImmutableTarget { target, loc } => {
+            SemanError::CannotAssignToImmutableTarget { target, loc } => {
                 let msg = format!("'{target}' is immutable and cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotAccessNonConstFuncOnConstTarget { loc } => {
+            SemanError::CannotAccessNonConstFuncOnConstTarget { loc } => {
                 let msg = format!(
                     "The target of this method access is a const, while the method is non-const."
                 );
@@ -578,41 +583,41 @@ impl SourceReporter {
                     "Mark the method as const if it does not mutate the instance.".to_string();
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
-            CheckerError::CannotReturnFromInsideADeferIns { loc } => {
+            SemanError::CannotReturnFromInsideADeferIns { loc } => {
                 let msg = format!("Returning from inside a defer instruction is not allowed.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::FunctionInDeferShouldReturnVoid { loc } => {
+            SemanError::FunctionInDeferShouldReturnVoid { loc } => {
                 let msg =
                     format!("Function definitions inside a defer instruction should return void.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::LoopControlInstructionOutsideLoop { ty, loc } => {
+            SemanError::LoopControlInstructionOutsideLoop { ty, loc } => {
                 let msg = format!("A {ty} instruction can only be used in a loop's body.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::InvalidForInLoopTargetType { given_ty, loc } => {
+            SemanError::InvalidForInLoopTargetType { given_ty, loc } => {
                 let msg = format!("The type of the target of a for-in loop must be either a str, an array, or a slice but got '{given_ty}'. ");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotDerefNonPtrType { given_ty, loc } => {
+            SemanError::CannotDerefNonPtrType { given_ty, loc } => {
                 let msg = format!(
                     "The target of a dereference operation must be a pointer but got '{given_ty}'."
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::CannotTakeAddressOfExpr { loc } => {
+            SemanError::CannotTakeAddressOfExpr { loc } => {
                 let msg =
                     "Taking the address of an ephemeral (temporary) expression is not allowed."
                         .to_string();
                 let tip = "Consider assigning the expression to a variable / constant, and then taking the address of that.".to_string();
                 self.report_with_ref(&loc, msg, Some(tip), false);
             }
-            CheckerError::CannotFreeNonPtrType { given_ty, loc } => {
+            SemanError::CannotFreeNonPtrType { given_ty, loc } => {
                 let msg = format!("Attempt to free a non-pointer type '{given_ty}'");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            CheckerError::HashMapTypeCheckFailed { given_ty, arr_loc } => {
+            SemanError::HashMapTypeCheckFailed { given_ty, arr_loc } => {
                 let msg = format!("HashMap type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&arr_loc, msg, None, false);
             }

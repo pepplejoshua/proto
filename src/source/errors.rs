@@ -47,7 +47,10 @@ impl ParseError {
 }
 
 #[derive(Debug, Clone)]
-pub enum CheckerError {
+pub enum SemanError {
+    NoMainFunctionProvided {
+        loc: Rc<SourceRef>,
+    },
     TypeMismatch {
         loc: Rc<SourceRef>,
         expected: String,

@@ -23,6 +23,7 @@ pub enum SymbolInfo {
 pub struct SymbolScope {
     pub parent: Option<Rc<RefCell<SymbolScope>>>,
     pub names: HashMap<Rc<String>, Rc<SymbolInfo>>,
+    pub scope_type_id: Option<TypeId>,
 }
 
 impl SymbolScope {
@@ -30,6 +31,18 @@ impl SymbolScope {
         Rc::new(RefCell::new(SymbolScope {
             parent,
             names: HashMap::new(),
+            scope_type_id: None,
+        }))
+    }
+
+    pub fn new_type_scope(
+        parent: Option<Rc<RefCell<SymbolScope>>>,
+        src_type_id: TypeId,
+    ) -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(SymbolScope {
+            parent,
+            names: HashMap::new(),
+            scope_type_id: Some(src_type_id),
         }))
     }
 

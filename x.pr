@@ -1,36 +1,25 @@
-fn main() int {
-    three :: addi(1, 2)
-    me :: Pos{x = 1, y = 2}
+main :: \() int {
+    three :: add(1, 2)
+    me := Pos.init(1, 2)
     me.display()
     return 0
 }
 
-fn addb :: \(a Byte, b Byte) Byte {
+add :: \(a Byte, b Byte) Byte {
     return a + b
 }
 
 Byte :: u8
 
-struct Pos {
+Pos :: struct {
     x: int
     y: int
 
-    dup :: \(self *const Pos) Pos {
-        return Pos.init(self.x, self.y)
-    }
-
-    init :: \(_x const int, _y const int) Pos {
+    // static method which can only be accessed through Self
+    init :: \(_x int, _y int) Self { 
         return .{
             x = _x,
             y = _y,
         }
-    }
-
-    display :: \(self *const Pos) void {
-        println(self.as_str())
-    }
-
-    as_str :: \(self *const Pos) str {
-        return `Pos({self.x}, {self.y})`
     }
 }

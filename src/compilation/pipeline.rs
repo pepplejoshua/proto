@@ -1,8 +1,9 @@
-use std::{collections::HashMap, env, fs, path::PathBuf};
+use std::{collections::HashMap, env, fs, path::PathBuf, rc::Rc};
 
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
+    seman::seman::process_file,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -223,12 +224,21 @@ impl Workspace {
         }
 
         if self.config.dbg_info {
-            for i in ins {
+            for i in ins.iter() {
                 println!("{}\n", i.as_str(&src));
             }
             SourceReporter::show_info("parsing complete.".to_string());
         }
         if let Stage::Parser = self.config.max_stage {
+            return;
+        }
+
+        let errs = process_file(Rc::new(src.clone()), ins);
+
+        if !errs.is_empty() {
+            for se in errs {
+                reporter.report_seman_error(se);
+            }
             return;
         }
 

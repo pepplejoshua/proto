@@ -164,7 +164,6 @@ pub enum Expr {
         loc: Rc<SourceRef>,
     },
     InitializerList {
-        target: Option<Box<Expr>>,
         pairs: Vec<(Box<Expr>, Option<Box<Expr>>)>,
         loc: Rc<SourceRef>,
     },
@@ -296,13 +295,7 @@ impl Expr {
                 Some(v) => format!("some {}", v.as_str(src)),
                 None => format!("none"),
             },
-            Expr::InitializerList { target, pairs, .. } => {
-                let t_str = if let Some(target) = target {
-                    &(target.as_str(src) + " ")
-                } else {
-                    "."
-                };
-
+            Expr::InitializerList { pairs, .. } => {
                 let p_str = pairs
                     .iter()
                     .map(|(k, v)| {
@@ -314,7 +307,7 @@ impl Expr {
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!("{}{{{}}}", t_str, p_str)
+                format!(".{{{}}}", p_str)
             }
             Expr::Lambda {
                 params,

@@ -835,11 +835,7 @@ impl Parser {
                     "a right curly brace (}) to terminate the initializer list.",
                 );
 
-                Expr::InitializerList {
-                    target: None,
-                    pairs,
-                    loc,
-                }
+                Expr::InitializerList { pairs, loc }
             }
             _ => self.parse_optional_expr_or_comptime_expr(),
         }
