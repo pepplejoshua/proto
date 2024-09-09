@@ -46,18 +46,6 @@ impl SymbolScope {
         }))
     }
 
-    pub fn shallow_lookup(&self, name: &String) -> Option<Rc<SymbolInfo>> {
-        self.names.get(name).cloned()
-    }
-
-    pub fn deep_lookup(&self, name: &String) -> Option<Rc<SymbolInfo>> {
-        self.names.get(name).cloned().or_else(|| {
-            self.parent
-                .as_ref()
-                .and_then(|p| p.borrow().deep_lookup(name))
-        })
-    }
-
     pub fn insert(&mut self, name: Rc<String>, info: Rc<SymbolInfo>) {
         self.names.insert(name, info);
     }
