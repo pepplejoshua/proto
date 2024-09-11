@@ -16,10 +16,18 @@ Pos :: struct {
     y: int
 
     // static method which can only be accessed through Self
-    init :: \(_x int, _y int) Self { 
+    init :: \(_x int, _y int) Self {
         return .{
             x = _x,
             y = _y,
         }
+    }
+
+    display :: \(self *Self) void {
+        println(self.as_str())
+    }
+
+    as_str :: \(self *Self) str {
+        return "Pos(" + self.x + ", " + self.y + ")"
     }
 }
