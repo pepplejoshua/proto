@@ -1,33 +1,8 @@
 main :: \() int {
     three :: add(1, 2)
-    me := Pos.init(1, 2)
-    me.display()
     return 0
 }
 
-add :: \(a Byte, b Byte) Byte {
+add :: \(a i32, b i32) i32 {
     return a + b
-}
-
-Byte :: u8
-
-Pos :: struct {
-    x: int
-    y: int
-
-    // static method which can only be accessed through Self
-    init :: \(_x int, _y int) Self {
-        return .{
-            x = _x,
-            y = _y,
-        }
-    }
-
-    display :: \(self *Self) void {
-        println(self.as_str())
-    }
-
-    as_str :: \(self *Self) str {
-        return "Pos(" + self.x + ", " + self.y + ")"
-    }
 }

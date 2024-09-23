@@ -1,10 +1,10 @@
 #![allow(unused)]
 
-use std::{cell::RefCell, collections::HashMap, rc::Rc};
+use std::{collections::HashMap, rc::Rc};
 
 use crate::{parser::ast::Ins, source::source::SourceRef};
 
-use super::type_table::TypeId;
+use super::{tast::TyIns, type_table::TypeId};
 
 #[derive(Debug, Clone)]
 pub enum SymbolInfo {
@@ -21,36 +21,27 @@ pub enum SymbolInfo {
 
 #[derive(Debug, Clone)]
 pub struct SymbolScope {
-    pub parent: Option<Rc<RefCell<SymbolScope>>>,
+    pub parent: Option<usize>,
     pub names: HashMap<Rc<String>, Rc<SymbolInfo>>,
-    pub scope_type_id: Option<TypeId>,
+    pub scope_id: usize,
+    pub gen_ins: Vec<TyIns>,
 }
 
 impl SymbolScope {
-    pub fn new(parent: Option<Rc<RefCell<SymbolScope>>>) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(SymbolScope {
+    pub fn new(parent: Option<usize>, scope_id: usize) -> Self {
+        SymbolScope {
             parent,
             names: HashMap::new(),
-            scope_type_id: None,
-        }))
-    }
-
-    pub fn new_type_scope(
-        parent: Option<Rc<RefCell<SymbolScope>>>,
-        src_type_id: TypeId,
-    ) -> Rc<RefCell<Self>> {
-        Rc::new(RefCell::new(SymbolScope {
-            parent,
-            names: HashMap::new(),
-            scope_type_id: Some(src_type_id),
-        }))
+            scope_id,
+            gen_ins: vec![],
+        }
     }
 
     pub fn insert(&mut self, name: Rc<String>, info: Rc<SymbolInfo>) {
         self.names.insert(name, info);
     }
 
-    pub fn create_child(&self) -> Rc<RefCell<SymbolScope>> {
-        SymbolScope::new(Some(Rc::new(RefCell::new(self.clone()))))
+    pub fn insert_ins(&mut self, ins: TyIns) {
+        self.gen_ins.push(ins);
     }
 }

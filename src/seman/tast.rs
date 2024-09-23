@@ -35,3 +35,6 @@ pub enum TyExpr {
         items: Vec<TyExpr>,
     },
 }
+
+#[derive(Debug, Clone)]
+pub enum TyIns {}

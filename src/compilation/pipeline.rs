@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf, rc::Rc};
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
-    seman::seman::process_file,
+    seman::seman::check_main_file,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -233,14 +233,14 @@ impl Workspace {
             return;
         }
 
-        let errs = process_file(Rc::new(src.clone()), ins);
+        let _errs = check_main_file(ins, Rc::new(src));
 
-        if !errs.is_empty() {
-            for se in errs {
-                reporter.report_seman_error(se);
-            }
-            return;
-        }
+        // if !errs.is_empty() {
+        //     for se in errs {
+        //         reporter.report_seman_error(se);
+        //     }
+        //     return;
+        // }
 
         // let file_mod = parser.file_mod;
         // let src_file = parser.lexer.src;
