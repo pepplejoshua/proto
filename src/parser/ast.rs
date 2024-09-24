@@ -365,6 +365,18 @@ pub enum Ins {
         init_val: Option<Expr>,
         loc: Rc<SourceRef>,
     },
+    DeclFunc {
+        name: Expr,
+        params: Vec<FnParam>,
+        ret_ty: Rc<Ty>,
+        body: Rc<Ins>,
+        loc: Rc<SourceRef>,
+    },
+    DeclTypeAlias {
+        name: Expr,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
     Defer {
         sub_ins: Box<Ins>,
         loc: Rc<SourceRef>,
@@ -435,7 +447,10 @@ pub enum Ins {
 impl Ins {
     pub fn get_id(&self, src: &SourceFile) -> Option<String> {
         match self {
-            Ins::DeclConst { name, .. } | Ins::DeclVar { name, .. } => Some(name.as_str(src)),
+            Ins::DeclConst { name, .. }
+            | Ins::DeclVar { name, .. }
+            | Ins::DeclFunc { name, .. }
+            | Ins::DeclTypeAlias { name, .. } => Some(name.as_str(src)),
             _ => None,
         }
     }
@@ -444,6 +459,8 @@ impl Ins {
         match self {
             Ins::DeclConst { loc, .. }
             | Ins::DeclVar { loc, .. }
+            | Ins::DeclFunc { loc, .. }
+            | Ins::DeclTypeAlias { loc, .. }
             | Ins::Block { loc, .. }
             | Ins::AssignTo { loc, .. }
             | Ins::Return { loc, .. }
@@ -477,6 +494,39 @@ impl Ins {
                 } else {
                     format!("{} :: {}", name.as_str(src), init_val.as_str(src))
                 }
+            }
+            Ins::DeclTypeAlias { name, ty, .. } => {
+                format!("type {} = {}", name.as_str(src), ty.as_str(src))
+            }
+            Ins::DeclFunc {
+                name,
+                params,
+                ret_ty,
+                body,
+                ..
+            } => {
+                let params_str: Vec<String> = params
+                    .iter()
+                    .map(|fn_param| {
+                        format!(
+                            "{}{} {}",
+                            if fn_param.is_comptime {
+                                "comptime "
+                            } else {
+                                ""
+                            },
+                            fn_param.name.as_str(src),
+                            fn_param.given_ty.as_str(src)
+                        )
+                    })
+                    .collect();
+                let params_str = params_str.join(", ");
+                format!(
+                    "fn {}({params_str}) {}\n{}",
+                    name.as_str(src),
+                    ret_ty.as_str(src),
+                    body.as_str(src)
+                )
             }
             Ins::SingleLineComment { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
             Ins::DeclVar {

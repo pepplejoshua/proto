@@ -108,7 +108,7 @@ impl Parser {
         while !self.is_at_eof() {
             let ins = self.next_ins(false);
 
-            if let Some(id) = ins.get_id(&self.lexer.src) {
+            if ins.get_id(&self.lexer.src).is_some() {
                 instructions.push(ins);
             } else {
                 self.report_err(ParseError::ParsedInstructionIsNotAllowedAtThisLevel {
@@ -208,7 +208,10 @@ impl Parser {
                 }
             }
             TokenType::Fn => self.parse_fn_decl(),
-            TokenType::Type => self.parse_type_alias(),
+            TokenType::Type => {
+                check_terminator = true;
+                self.parse_type_alias()
+            }
             TokenType::Struct => self.parse_struct_decl(),
             TokenType::Comment => {
                 self.advance();
@@ -240,7 +243,7 @@ impl Parser {
         if require_terminator && check_terminator {
             self.consume(
                 TokenType::Semicolon,
-                "a semicolon (;) to terminate instruction",
+                "a semicolon (;) to terminate instruction.",
             );
         } else if check_terminator {
             if self.cur_token().ty == TokenType::Semicolon {
@@ -696,7 +699,20 @@ impl Parser {
     }
 
     fn parse_type_alias(&mut self) -> Ins {
-        todo!()
+        let mut loc = self.cur_token().loc.clone();
+        self.advance();
+        let alias_name = self.parse_identifier();
+        self.consume(
+            TokenType::Assign,
+            "an assignment token (=) to separate type alias name and type.",
+        );
+        let ty = self.parse_type();
+        loc = loc.combine(ty.get_loc());
+        Ins::DeclTypeAlias {
+            name: alias_name,
+            ty,
+            loc,
+        }
     }
 
     fn parse_struct_decl(&mut self) -> Ins {
@@ -704,7 +720,20 @@ impl Parser {
     }
 
     fn parse_fn_decl(&mut self) -> Ins {
-        todo!()
+        let mut loc = self.cur_token().loc.clone();
+        self.advance();
+        let fn_name = self.parse_identifier();
+        let fn_params = self.parse_fn_params();
+        let ret_type = self.parse_type();
+        let body = self.parse_ins_block();
+        loc = loc.combine(body.get_source_ref());
+        Ins::DeclFunc {
+            name: fn_name,
+            params: fn_params,
+            ret_ty: ret_type,
+            body: Rc::new(body),
+            loc,
+        }
     }
 
     fn parse_fn_params(&mut self) -> Vec<FnParam> {
