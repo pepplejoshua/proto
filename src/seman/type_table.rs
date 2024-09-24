@@ -124,7 +124,6 @@ impl TypeTable {
             } => todo!(),
             Ty::NamedType { loc } => todo!(),
             Ty::AccessMemberType { target, mem, loc } => todo!(),
-            Ty::TypeFunc { func, args, loc } => todo!(),
             Ty::Pointer { sub_ty, loc } => todo!(),
             Ty::Tuple { sub_tys, loc } => todo!(),
             Ty::ErrorType { loc } => unreachable!("Error type should not be interned."),

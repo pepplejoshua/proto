@@ -207,6 +207,9 @@ impl Parser {
                     }
                 }
             }
+            TokenType::Fn => self.parse_fn_decl(),
+            TokenType::Type => self.parse_type_alias(),
+            TokenType::Struct => self.parse_struct_decl(),
             TokenType::Comment => {
                 self.advance();
                 Ins::SingleLineComment {
@@ -517,38 +520,7 @@ impl Parser {
                             loc,
                         };
                     }
-
-                    if self.cur_token().ty == TokenType::LParen {
-                        self.advance();
-                        let args = self.parse_comma_sep_exprs(TokenType::RParen);
-                        let loc = cur.loc.combine(self.cur_token().get_source_ref());
-                        self.consume(
-                            TokenType::RParen,
-                            "a right parenthesis [)] to terminate the type function call.",
-                        );
-                        return Rc::new(Ty::TypeFunc {
-                            func: Rc::new(current),
-                            args,
-                            loc,
-                        });
-                    } else {
-                        return Rc::new(current);
-                    }
-                } else if self.cur_token().ty == TokenType::LParen {
-                    self.advance();
-                    let args = self.parse_comma_sep_exprs(TokenType::RParen);
-                    let loc = cur.loc.combine(self.cur_token().get_source_ref());
-                    self.consume(
-                        TokenType::RParen,
-                        "a right parenthesis [)] to terminate the type function call.",
-                    );
-                    return Rc::new(Ty::TypeFunc {
-                        func: Rc::new(Ty::NamedType {
-                            loc: cur.loc.clone(),
-                        }),
-                        args,
-                        loc,
-                    });
+                    return Rc::new(current);
                 }
                 return Rc::new(Ty::NamedType {
                     loc: cur.loc.clone(),
@@ -723,6 +695,18 @@ impl Parser {
         }
     }
 
+    fn parse_type_alias(&mut self) -> Ins {
+        todo!()
+    }
+
+    fn parse_struct_decl(&mut self) -> Ins {
+        todo!()
+    }
+
+    fn parse_fn_decl(&mut self) -> Ins {
+        todo!()
+    }
+
     fn parse_fn_params(&mut self) -> Vec<FnParam> {
         self.consume(
             TokenType::LParen,
@@ -772,11 +756,46 @@ impl Parser {
         if lhs.is_some() {
             self.parse_ternary(lhs)
         } else {
-            self.parse_lambda_or_struct_or_unary_dot()
+            self.parse_lambda_or_unary_dot()
         }
     }
 
-    fn parse_lambda_or_struct_or_unary_dot(&mut self) -> Expr {
+    fn parse_initializer_list(&mut self, target: Option<Rc<Expr>>, dot: Rc<SourceRef>) -> Expr {
+        self.consume(
+            TokenType::LCurly,
+            "a left curly brace ({) to start the initializer list.",
+        );
+
+        let mut pairs = vec![];
+        while !self.is_at_eof() {
+            if self.cur_token().ty == TokenType::RCurly {
+                break;
+            }
+
+            let expr = self.parse_expr(None);
+
+            if self.cur_token().ty == TokenType::Assign {
+                self.advance();
+                let val = self.parse_expr(None);
+                pairs.push((Box::new(expr), Some(Box::new(val))));
+            } else {
+                pairs.push((Box::new(expr), None));
+            }
+
+            if matches!(self.cur_token().ty, TokenType::Comma) {
+                self.advance();
+            }
+        }
+        let loc = dot.combine(self.cur_token().loc);
+        self.consume(
+            TokenType::RCurly,
+            "a right curly brace (}) to terminate the initializer list.",
+        );
+
+        Expr::InitializerList { target, pairs, loc }
+    }
+
+    fn parse_lambda_or_unary_dot(&mut self) -> Expr {
         let cur = self.cur_token();
         match cur.ty {
             TokenType::BackSlash => {
@@ -793,49 +812,10 @@ impl Parser {
                     loc,
                 }
             }
-            TokenType::Struct => {
-                self.advance();
-                let body = self.parse_ins_block();
-                let loc = cur.loc.combine(self.cur_token().loc);
-                Expr::Struct {
-                    body: Rc::new(body),
-                    loc,
-                }
-            }
             TokenType::Dot => {
+                let start = cur.loc.clone();
                 self.advance();
-                self.consume(
-                    TokenType::LCurly,
-                    "a left curly brace ({) to start the initializer list.",
-                );
-
-                let mut pairs = vec![];
-                while !self.is_at_eof() {
-                    if self.cur_token().ty == TokenType::RCurly {
-                        break;
-                    }
-
-                    let expr = self.parse_expr(None);
-
-                    if self.cur_token().ty == TokenType::Assign {
-                        self.advance();
-                        let val = self.parse_expr(None);
-                        pairs.push((Box::new(expr), Some(Box::new(val))));
-                    } else {
-                        pairs.push((Box::new(expr), None));
-                    }
-
-                    if matches!(self.cur_token().ty, TokenType::Comma) {
-                        self.advance();
-                    }
-                }
-                let loc = cur.loc.combine(self.cur_token().loc);
-                self.consume(
-                    TokenType::RCurly,
-                    "a right curly brace (}) to terminate the initializer list.",
-                );
-
-                Expr::InitializerList { pairs, loc }
+                self.parse_initializer_list(None, start)
             }
             _ => self.parse_optional_expr_or_comptime_expr(),
         }
@@ -1198,13 +1178,18 @@ impl Parser {
                     }
                 }
                 TokenType::Dot => {
-                    let member = self.parse_primary();
-                    let loc = op.loc.combine(member.get_source_ref());
-                    lhs = Expr::AccessMember {
-                        target: Box::new(lhs),
-                        mem: Box::new(member),
-                        loc,
-                    };
+                    if self.cur_token().ty == TokenType::LCurly {
+                        lhs = self.parse_initializer_list(Some(Rc::new(lhs)), op.loc.clone());
+                        return lhs;
+                    } else {
+                        let member = self.parse_primary();
+                        let loc = op.loc.combine(member.get_source_ref());
+                        lhs = Expr::AccessMember {
+                            target: Box::new(lhs),
+                            mem: Box::new(member),
+                            loc,
+                        };
+                    }
                 }
                 _ => unreachable!("unexpected operator in parse_index_expr loop: {:#?}", op),
             }

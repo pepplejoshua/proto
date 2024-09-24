@@ -16,26 +16,58 @@ pub struct CheckerState {
     type_table: TypeTable,
     scope_stack: Vec<SymbolScope>,
     current_scope: usize,
-    ongoing_resolution_stack: Vec<String>,
+    ongoing_resolution_stack: Vec<Rc<String>>,
     files: HashMap<Rc<String>, Rc<SourceFile>>,
 }
 
-pub fn check_main_file(top_level: Vec<Ins>, main_file: Rc<SourceFile>) -> Result<(), SemanError> {
+pub fn check_main_file(
+    top_level: Vec<Ins>,
+    main_file: Rc<SourceFile>,
+) -> Result<(), Vec<SemanError>> {
     let mut state = CheckerState {
         type_table: TypeTable::new(),
         scope_stack: vec![SymbolScope::new(None, 0)],
         current_scope: 0,
         ongoing_resolution_stack: Vec::new(),
-        files: HashMap::from([(main_file.path.clone(), main_file)]),
+        files: HashMap::from([(main_file.path.clone(), main_file.clone())]),
     };
 
     let ins_ids = prepare_ood_scope(&mut state, top_level);
+    let has_main_fn = ins_ids.iter().any(|id| **id == "main");
+
+    if !has_main_fn {
+        return Err(vec![SemanError::NoMainFunctionProvided {
+            filename: main_file.path.clone(),
+        }]);
+    }
+
     for id in ins_ids {
         match &state.scope_stack[0].names[&id].as_ref() {
             SymbolInfo::Resolved { .. } => continue,
             SymbolInfo::Unresolved { ins, mutable } => {
+                match ins.as_ref() {
+                    Ins::DeclVar {
+                        name,
+                        ty,
+                        init_val,
+                        loc,
+                    } => {
+                        todo!()
+                    }
+                    Ins::DeclConst {
+                        name,
+                        ty,
+                        init_val,
+                        loc,
+                    } => {
+                        todo!()
+                    }
+                    _ => {
+                        unreachable!("Non-variable / Non-constant binding in top level.")
+                    }
+                }
                 // we still have to resolve it, so we can go ahead and do that
-                todo!()
+                println!("{}", id)
             }
         }
     }
@@ -62,6 +94,14 @@ pub fn prepare_ood_scope(state: &mut CheckerState, instructions: Vec<Ins>) -> Ve
 
 pub fn check_ins(state: &mut CheckerState, ins: &Rc<Ins>) {}
 
-pub fn check_expr(state: &mut CheckerState, expr: &Expr) {}
+pub fn resolve_identifier(state: &mut CheckerState, id: String) {
+    todo!()
+}
 
-pub fn check_type(state: &mut CheckerState, ty: &Ty) {}
+pub fn check_expr(state: &mut CheckerState, expr: &Expr) {
+    todo!()
+}
+
+pub fn check_type(state: &mut CheckerState, ty: &Ty) {
+    todo!()
+}

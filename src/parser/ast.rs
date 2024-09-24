@@ -89,10 +89,6 @@ pub enum Expr {
         items: Vec<Expr>,
         loc: Rc<SourceRef>,
     },
-    Struct {
-        body: Rc<Ins>,
-        loc: Rc<SourceRef>,
-    },
     TypeAsExpr {
         ty: Rc<Ty>,
     },
@@ -164,6 +160,7 @@ pub enum Expr {
         loc: Rc<SourceRef>,
     },
     InitializerList {
+        target: Option<Rc<Expr>>,
         pairs: Vec<(Box<Expr>, Option<Box<Expr>>)>,
         loc: Rc<SourceRef>,
     },
@@ -187,7 +184,6 @@ impl Expr {
             | Expr::BinOp { loc, .. }
             | Expr::ConditionalExpr { loc, .. }
             | Expr::CallFn { loc, .. }
-            | Expr::Struct { loc, .. }
             | Expr::GroupedExpr { loc, .. }
             | Expr::MakeSlice { loc, .. }
             | Expr::IndexInto { loc, .. }
@@ -273,9 +269,6 @@ impl Expr {
                     otherwise.as_str(src)
                 )
             }
-            Expr::Struct { body, .. } => {
-                format!("struct \n{}", body.as_str(src),)
-            }
             Expr::CallFn { func, args, .. } => {
                 let args_str: Vec<String> = args.iter().map(|arg| arg.as_str(src)).collect();
                 let args_str = args_str.join(", ");
@@ -295,7 +288,11 @@ impl Expr {
                 Some(v) => format!("some {}", v.as_str(src)),
                 None => format!("none"),
             },
-            Expr::InitializerList { pairs, .. } => {
+            Expr::InitializerList { target, pairs, .. } => {
+                let t_str = match target {
+                    Some(targ) => targ.as_str(src),
+                    None => ".".to_string(),
+                };
                 let p_str = pairs
                     .iter()
                     .map(|(k, v)| {
@@ -307,7 +304,7 @@ impl Expr {
                     })
                     .collect::<Vec<String>>()
                     .join(", ");
-                format!(".{{{}}}", p_str)
+                format!("{}{{{}}}", t_str, p_str)
             }
             Expr::Lambda {
                 params,

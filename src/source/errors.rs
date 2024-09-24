@@ -49,7 +49,7 @@ impl ParseError {
 #[derive(Debug, Clone)]
 pub enum SemanError {
     NoMainFunctionProvided {
-        loc: Rc<SourceRef>,
+        filename: Rc<String>,
     },
     TypeMismatch {
         loc: Rc<SourceRef>,

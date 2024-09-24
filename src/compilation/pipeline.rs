@@ -233,14 +233,17 @@ impl Workspace {
             return;
         }
 
-        let _errs = check_main_file(ins, Rc::new(src));
+        let res = check_main_file(ins, Rc::new(src));
 
-        // if !errs.is_empty() {
-        //     for se in errs {
-        //         reporter.report_seman_error(se);
-        //     }
-        //     return;
-        // }
+        match res {
+            Ok(_) => {}
+            Err(errs) => {
+                for se in errs {
+                    reporter.report_seman_error(se);
+                }
+                return;
+            }
+        }
 
         // let file_mod = parser.file_mod;
         // let src_file = parser.lexer.src;

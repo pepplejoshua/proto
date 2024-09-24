@@ -340,10 +340,10 @@ impl SourceReporter {
 
     pub fn report_seman_error(&self, ce: SemanError) {
         match ce {
-            SemanError::NoMainFunctionProvided { loc } => {
+            SemanError::NoMainFunctionProvided { filename } => {
                 let msg = "No main function provided.".to_string();
                 let tip = "The main function serves as the entry point of the program.".to_string();
-                self.report_with_ref(&loc, msg, Some(tip), false);
+                self.report_no_ref(filename, msg, Some(tip));
             }
             SemanError::InvalidType { loc, type_name } => {
                 let msg = format!("Invalid type: '{}'.", type_name);
@@ -631,6 +631,26 @@ impl SourceReporter {
 
     pub fn show_error(msg: String) {
         let output = format!("*[_, *, l_red:d_black]Error:[/] *[*, l_white:d_black]{msg}[/]");
+        println!("{}", pastel(&output));
+    }
+
+    fn report_no_ref(&self, filename: Rc<String>, msg: String, tip: Option<String>) {
+        let err_col = "d_red";
+        let tip_col = "l_yellow";
+        let mut output = String::new();
+
+        // add provided msg
+        output.push_str(&format!("*[_, {err_col}:d_black]{msg}[/]\n"));
+        // add file name
+        output.push_str(&format!("   *[_, l_white:d_black]File '{filename}:'[/]\n",));
+        if let Some(tip_text) = tip {
+            output.push_str(&format!(
+                "\n*[*, _, {tip_col}:d_black]Note:[/] *[*, l_white:d_black]{tip_text}[/]\n"
+            ));
+        } else {
+            output.push('\n');
+        }
+
         println!("{}", pastel(&output));
     }
 

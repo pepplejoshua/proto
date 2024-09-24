@@ -69,11 +69,6 @@ pub enum Ty {
         mem: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
-    TypeFunc {
-        func: Rc<Ty>,
-        args: Vec<Expr>,
-        loc: Rc<SourceRef>,
-    },
     Pointer {
         sub_ty: Rc<Ty>,
         loc: Rc<SourceRef>,
@@ -162,7 +157,6 @@ impl Ty {
             | Ty::Bool { loc }
             | Ty::Func { loc, .. }
             | Ty::AccessMemberType { loc, .. }
-            | Ty::TypeFunc { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Optional { loc, .. }
@@ -186,7 +180,6 @@ impl Ty {
             | Ty::Bool { loc }
             | Ty::Func { loc, .. }
             | Ty::AccessMemberType { loc, .. }
-            | Ty::TypeFunc { loc, .. }
             | Ty::StaticArray { loc, .. }
             | Ty::Slice { loc, .. }
             | Ty::Struct { loc, .. }
@@ -228,16 +221,6 @@ impl Ty {
             Ty::Bool { .. } => "bool".into(),
             Ty::AccessMemberType { target, mem, .. } => {
                 format!("{}.{}", target.as_str(src), mem.as_str(src))
-            }
-            Ty::TypeFunc { func, args, .. } => {
-                format!(
-                    "{}({})",
-                    func.as_str(src),
-                    args.iter()
-                        .map(|ty| { ty.as_str(src) })
-                        .collect::<Vec<String>>()
-                        .join(", ")
-                )
             }
             Ty::Func { params, ret, .. } => {
                 format!(
