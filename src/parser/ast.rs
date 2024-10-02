@@ -359,6 +359,10 @@ pub enum Ins {
         init_val: Expr,
         loc: Rc<SourceRef>,
     },
+    PubDecl {
+        ins: Rc<Ins>,
+        loc: Rc<SourceRef>,
+    },
     DeclVar {
         name: Expr,
         ty: Option<Rc<Ty>>,
@@ -451,6 +455,7 @@ impl Ins {
             | Ins::DeclVar { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclTypeAlias { name, .. } => Some(name.as_str(src)),
+            Ins::PubDecl { ins, .. } => ins.get_id(src),
             _ => None,
         }
     }
@@ -460,6 +465,7 @@ impl Ins {
             Ins::DeclConst { loc, .. }
             | Ins::DeclVar { loc, .. }
             | Ins::DeclFunc { loc, .. }
+            | Ins::PubDecl { loc, .. }
             | Ins::DeclTypeAlias { loc, .. }
             | Ins::Block { loc, .. }
             | Ins::AssignTo { loc, .. }
@@ -494,6 +500,9 @@ impl Ins {
                 } else {
                     format!("{} :: {}", name.as_str(src), init_val.as_str(src))
                 }
+            }
+            Ins::PubDecl { ins, .. } => {
+                format!("pub {}", ins.as_str(src))
             }
             Ins::DeclTypeAlias { name, ty, .. } => {
                 format!("type {} = {}", name.as_str(src), ty.as_str(src))

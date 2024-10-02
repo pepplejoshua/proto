@@ -207,6 +207,18 @@ impl Parser {
                     }
                 }
             }
+            TokenType::Pub => {
+                self.advance();
+                let ins = self.next_ins(require_terminator);
+                let loc = token.loc.combine(ins.get_source_ref());
+                if ins.get_id(&self.lexer.src).is_none() {
+                    self.report_err(ParseError::MalformedPubDeclaration { src: loc.clone() });
+                }
+                Ins::PubDecl {
+                    ins: Rc::new(ins),
+                    loc,
+                }
+            }
             TokenType::Fn => self.parse_fn_decl(),
             TokenType::Type => {
                 check_terminator = true;

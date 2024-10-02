@@ -17,91 +17,152 @@ pub struct CheckerState {
     scope_stack: Vec<SymbolScope>,
     current_scope: usize,
     ongoing_resolution_stack: Vec<Rc<String>>,
+    main_file_str: Rc<String>,
     files: HashMap<Rc<String>, Rc<SourceFile>>,
 }
 
-pub fn check_main_file(
-    top_level: Vec<Ins>,
-    main_file: Rc<SourceFile>,
-) -> Result<(), Vec<SemanError>> {
-    let mut state = CheckerState {
-        type_table: TypeTable::new(),
-        scope_stack: vec![SymbolScope::new(None, 0)],
-        current_scope: 0,
-        ongoing_resolution_stack: Vec::new(),
-        files: HashMap::from([(main_file.path.clone(), main_file.clone())]),
-    };
-
-    let ins_ids = prepare_ood_scope(&mut state, top_level);
-    let has_main_fn = ins_ids.iter().any(|id| **id == "main");
-
-    if !has_main_fn {
-        return Err(vec![SemanError::NoMainFunctionProvided {
-            filename: main_file.path.clone(),
-        }]);
-    }
-
-    for id in ins_ids {
-        match &state.scope_stack[0].names[&id].as_ref() {
-            SymbolInfo::Resolved { .. } => continue,
-            SymbolInfo::Unresolved { ins, mutable } => {
-                match ins.as_ref() {
-                    Ins::DeclVar {
-                        name,
-                        ty,
-                        init_val,
-                        loc,
-                    } => {
-                        todo!()
-                    }
-                    Ins::DeclConst {
-                        name,
-                        ty,
-                        init_val,
-                        loc,
-                    } => {
-                        todo!()
-                    }
-                    _ => {
-                        unreachable!("Non-variable / Non-constant binding in top level.")
-                    }
-                }
-                // we still have to resolve it, so we can go ahead and do that
-                println!("{}", id)
-            }
+impl CheckerState {
+    pub fn new(main_file: Rc<SourceFile>) -> CheckerState {
+        CheckerState {
+            type_table: TypeTable::new(),
+            scope_stack: vec![SymbolScope::new(None, 0, true)],
+            current_scope: 0,
+            ongoing_resolution_stack: vec![],
+            main_file_str: main_file.path.clone(),
+            files: HashMap::from([(main_file.path.clone(), main_file)]),
         }
     }
-    Ok(())
-}
 
-pub fn prepare_ood_scope(state: &mut CheckerState, instructions: Vec<Ins>) -> Vec<Rc<String>> {
-    let mut ins_ids = vec![];
-    for ins in instructions.into_iter() {
-        let ins_file = &ins.get_source_ref().file;
-        let ins_id = Rc::new(ins.get_id(&state.files[ins_file]).unwrap());
-        ins_ids.push(ins_id.clone());
-        let is_mutable = matches!(ins, Ins::DeclVar { .. });
-        state.scope_stack[state.current_scope].insert(
-            ins_id,
-            Rc::new(SymbolInfo::Unresolved {
-                ins: Rc::new(ins),
-                mutable: is_mutable,
-            }),
-        );
+    pub fn check_main_file(&mut self, top_lvl: Vec<Ins>) -> Result<(), Vec<SemanError>> {
+        let ins_ids = self.preload_scope_with_names(top_lvl);
+        let has_main_fn = ins_ids.iter().any(|id| **id == "main");
+
+        if !has_main_fn {
+            return Err(vec![SemanError::NoMainFunctionProvided {
+                filename: self.main_file_str.clone(),
+            }]);
+        }
+
+        for id in ins_ids {
+            match &self.scope_stack[0].names[&id].as_ref().clone() {
+                SymbolInfo::Resolved { .. } => {
+                    println!("already resolved {id}")
+                }
+                SymbolInfo::Unresolved { ins, mutable } => {
+                    println!("resolving {id}");
+                    self.check_ins(ins);
+                }
+            }
+        }
+        Ok(())
     }
-    ins_ids
-}
 
-pub fn check_ins(state: &mut CheckerState, ins: &Rc<Ins>) {}
+    pub fn preload_scope_with_names(&mut self, instructions: Vec<Ins>) -> Vec<Rc<String>> {
+        let mut ins_ids = vec![];
+        for ins in instructions.into_iter() {
+            let ins_file = self.get_sourcefile_str_from_loc(&ins);
+            let ins_id = Rc::new(ins.get_id(&self.files[&ins_file]).unwrap());
+            ins_ids.push(ins_id.clone());
+            let is_mutable = matches!(ins, Ins::DeclVar { .. });
+            self.scope_stack[self.current_scope].insert(
+                ins_id,
+                Rc::new(SymbolInfo::Unresolved {
+                    ins: Rc::new(ins),
+                    mutable: is_mutable,
+                }),
+            );
+        }
+        ins_ids
+    }
 
-pub fn resolve_identifier(state: &mut CheckerState, id: String) {
-    todo!()
-}
+    pub fn get_sourcefile_str_from_loc(&self, ins: &Ins) -> Rc<String> {
+        return self.files[&ins.get_source_ref().file].path.clone();
+    }
 
-pub fn check_expr(state: &mut CheckerState, expr: &Expr) {
-    todo!()
-}
+    pub fn shallow_name_search(&self, name: &String) -> Option<Rc<SymbolInfo>> {
+        for (stored_name, info) in &self.scope_stack[self.current_scope].names {
+            if stored_name.as_ref() == name {
+                return Some(info.clone());
+            }
+        }
+        None
+    }
 
-pub fn check_type(state: &mut CheckerState, ty: &Ty) {
-    todo!()
+    pub fn check_ins(&mut self, ins: &Ins) {
+        match ins {
+            Ins::DeclConst {
+                name,
+                ty,
+                init_val,
+                loc,
+            } => todo!(),
+            Ins::PubDecl { ins, loc } => todo!(),
+            Ins::DeclVar {
+                name,
+                ty,
+                init_val,
+                loc,
+            } => todo!(),
+            Ins::DeclFunc {
+                name,
+                params,
+                ret_ty,
+                body,
+                loc,
+            } => {
+                todo!()
+            }
+            Ins::DeclTypeAlias { name, ty, loc } => todo!(),
+            Ins::Defer { sub_ins, loc } => todo!(),
+            Ins::Block { code, loc } => todo!(),
+            Ins::AssignTo { target, value, loc } => todo!(),
+            Ins::ExprIns { expr, loc } => todo!(),
+            Ins::IfConditional {
+                conds_and_code,
+                loc,
+            } => todo!(),
+            Ins::Return { expr, loc } => todo!(),
+            Ins::SingleLineComment { loc } => todo!(),
+            Ins::PrintIns {
+                is_println,
+                output,
+                loc,
+            } => todo!(),
+            Ins::Break { loc } => todo!(),
+            Ins::Continue { loc } => todo!(),
+            Ins::ForInLoop {
+                loop_var,
+                loop_target,
+                block,
+                loc,
+            } => todo!(),
+            Ins::InfiniteLoop { block, loc } => todo!(),
+            Ins::WhileLoop {
+                cond,
+                post_code,
+                block,
+                loc,
+            } => todo!(),
+            Ins::RegLoop {
+                init,
+                loop_cond,
+                update,
+                block,
+                loc,
+            } => todo!(),
+            Ins::ErrorIns { loc } => todo!(),
+        }
+    }
+
+    pub fn resolve_identifier(&mut self, id: String) {
+        todo!()
+    }
+
+    pub fn check_expr(&mut self, expr: &Expr) {
+        todo!()
+    }
+
+    pub fn check_type(&mut self, ty: &Ty) {
+        todo!()
+    }
 }

@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf, rc::Rc};
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
-    seman::seman::check_main_file,
+    seman::seman::CheckerState,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -233,7 +233,8 @@ impl Workspace {
             return;
         }
 
-        let res = check_main_file(ins, Rc::new(src));
+        let mut checker = CheckerState::new(Rc::new(src));
+        let res = checker.check_main_file(ins);
 
         match res {
             Ok(_) => {}

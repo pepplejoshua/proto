@@ -21,9 +21,9 @@ pub enum ParseError {
     ConstantDeclarationNeedsTypeOrInitValue(Rc<SourceRef>),
     CannotParseAnExpression(Rc<SourceRef>),
     MalformedDeclaration(String, Rc<SourceRef>),
-    MisuseOfPubKeyword(Rc<SourceRef>),
     ReusedOfIdentifier(Rc<SourceRef>),
     UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
+    MalformedPubDeclaration { src: Rc<SourceRef> },
     CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
     ParsedInstructionIsNotAllowedAtThisLevel { level: String, src: Rc<SourceRef> },
     TooManyErrors(Rc<SourceRef>),
@@ -35,9 +35,9 @@ impl ParseError {
             ParseError::Expected(_, src, _)
             | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
             | ParseError::CannotParseAnExpression(src)
+            | ParseError::MalformedPubDeclaration { src }
             | ParseError::ReusedOfIdentifier(src)
             | ParseError::MalformedDeclaration(_, src)
-            | ParseError::MisuseOfPubKeyword(src)
             | ParseError::UnterminatedCodeBlock(src, _)
             | ParseError::TooManyErrors(src)
             | ParseError::CyclicalDependencyBetweenNodes { src, .. }

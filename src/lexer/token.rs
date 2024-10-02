@@ -6,6 +6,7 @@ use crate::source::source::{SourceFile, SourceRef};
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum TokenType {
     // keywords
+    Pub,
     Fn,
     If,
     Else,
@@ -116,6 +117,7 @@ impl SrcToken {
 
     pub fn as_str(self: &SrcToken, src: &SourceFile) -> String {
         match self.ty {
+            TokenType::Pub => "pub".to_string(),
             TokenType::Comptime => "comptime".to_string(),
             TokenType::Fn => "fn".to_string(),
             TokenType::If => "if".to_string(),

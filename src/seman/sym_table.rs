@@ -25,14 +25,16 @@ pub struct SymbolScope {
     pub names: HashMap<Rc<String>, Rc<SymbolInfo>>,
     pub scope_id: usize,
     pub gen_ins: Vec<TyIns>,
+    pub is_ood_scope: bool,
 }
 
 impl SymbolScope {
-    pub fn new(parent: Option<usize>, scope_id: usize) -> Self {
+    pub fn new(parent: Option<usize>, scope_id: usize, is_ood_scope: bool) -> Self {
         SymbolScope {
             parent,
             names: HashMap::new(),
             scope_id,
+            is_ood_scope,
             gen_ins: vec![],
         }
     }

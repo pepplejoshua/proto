@@ -298,6 +298,11 @@ impl SourceReporter {
                         .to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
+            ParseError::MalformedPubDeclaration { src } => {
+                let msg = "Malformed pub declaration.".to_string();
+                let tip = "Pub declarations are only applicable to named declarations, like functions, variables, constants, named types and aliases.".to_string();
+                self.report_with_ref(&src, msg, Some(tip), false);
+            }
             ParseError::ReusedOfIdentifier(src) => {
                 let msg =
                     "This identifier has already been defined at this scope level.".to_string();
@@ -309,12 +314,6 @@ impl SourceReporter {
             }
             ParseError::MalformedDeclaration(tip, src) => {
                 let msg = "Malformed declaration.".to_string();
-                self.report_with_ref(&src, msg, Some(tip), false);
-            }
-            ParseError::MisuseOfPubKeyword(src) => {
-                let msg = "Misuse of 'pub' keyword.".to_string();
-                let tip = "'pub' keyword can only be used with function, constant and module declarations."
-                    .to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
             ParseError::UnterminatedCodeBlock(src, tip) => {
