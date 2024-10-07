@@ -97,7 +97,7 @@ impl TypeTable {
         };
     }
 
-    pub fn intern_type(&mut self, ty: &Rc<Ty>) {
+    pub fn intern_type(&mut self, ty: Rc<Ty>) -> TypeId {
         match ty.as_ref() {
             Ty::Type { loc } => todo!(),
             Ty::Signed { size, is_int, loc } => todo!(),

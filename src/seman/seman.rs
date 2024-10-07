@@ -17,6 +17,7 @@ pub struct CheckerState {
     scope_stack: Vec<SymbolScope>,
     current_scope: usize,
     ongoing_resolution_stack: Vec<Rc<String>>,
+    pub seman_errors: Vec<SemanError>,
     main_file_str: Rc<String>,
     files: HashMap<Rc<String>, Rc<SourceFile>>,
 }
@@ -29,18 +30,24 @@ impl CheckerState {
             current_scope: 0,
             ongoing_resolution_stack: vec![],
             main_file_str: main_file.path.clone(),
+            seman_errors: vec![],
             files: HashMap::from([(main_file.path.clone(), main_file)]),
         }
     }
 
-    pub fn check_main_file(&mut self, top_lvl: Vec<Ins>) -> Result<(), Vec<SemanError>> {
+    fn report_error(&mut self, err: SemanError) {
+        self.seman_errors.push(err);
+    }
+
+    pub fn check_main_file(&mut self, top_lvl: Vec<Ins>) {
         let ins_ids = self.preload_scope_with_names(top_lvl);
         let has_main_fn = ins_ids.iter().any(|id| **id == "main");
 
         if !has_main_fn {
-            return Err(vec![SemanError::NoMainFunctionProvided {
+            self.report_error(SemanError::NoMainFunctionProvided {
                 filename: self.main_file_str.clone(),
-            }]);
+            });
+            return;
         }
 
         for id in ins_ids {
@@ -54,13 +61,12 @@ impl CheckerState {
                 }
             }
         }
-        Ok(())
     }
 
     pub fn preload_scope_with_names(&mut self, instructions: Vec<Ins>) -> Vec<Rc<String>> {
         let mut ins_ids = vec![];
         for ins in instructions.into_iter() {
-            let ins_file = self.get_sourcefile_str_from_loc(&ins);
+            let ins_file = self.get_sourcefile_str_from_loc(&ins.get_source_ref());
             let ins_id = Rc::new(ins.get_id(&self.files[&ins_file]).unwrap());
             ins_ids.push(ins_id.clone());
             let is_mutable = matches!(ins, Ins::DeclVar { .. });
@@ -75,8 +81,12 @@ impl CheckerState {
         ins_ids
     }
 
-    pub fn get_sourcefile_str_from_loc(&self, ins: &Ins) -> Rc<String> {
-        return self.files[&ins.get_source_ref().file].path.clone();
+    pub fn get_sourcefile_str_from_loc(&self, loc: &SourceRef) -> Rc<String> {
+        return self.files[&loc.file].path.clone();
+    }
+
+    pub fn get_sourcefile_from_loc(&self, loc: &SourceRef) -> Rc<SourceFile> {
+        return self.files[&loc.file].clone();
     }
 
     pub fn shallow_name_search(&self, name: &String) -> Option<Rc<SymbolInfo>> {
@@ -86,6 +96,58 @@ impl CheckerState {
             }
         }
         None
+    }
+
+    pub fn check_decl_func(&mut self, func: &Ins) {
+        if let Ins::DeclFunc {
+            name,
+            params,
+            ret_ty,
+            body,
+            loc,
+        } = func
+        {
+            let name_info = self.shallow_name_search(
+                &name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
+            );
+            // check the name of the function to make sure it is undeclared (non-ood scope)
+            // or unresolved (ood scope)
+            if self.scope_stack[self.current_scope].is_ood_scope {
+                if name_info.is_none() {
+                    // report error
+                    unreachable!("name not pre-declared in ood scope. at {}", loc.as_str());
+                }
+                let name_info = name_info.unwrap();
+                // make sure it is an unresolved name
+                if let SymbolInfo::Resolved { .. } = name_info.as_ref() {
+                    unreachable!(
+                        "name pre-declared and already resolved. at {}",
+                        loc.as_str()
+                    )
+                }
+            } else {
+                if name_info.is_some() {
+                    // report error
+                    self.report_error(SemanError::NameAlreadyDefined {
+                        loc: loc.clone(),
+                        name: name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
+                    });
+                    return;
+                }
+            }
+            let mut param_tys = vec![];
+            for param in params.iter() {
+                param_tys.push(param.given_ty.clone());
+            }
+            let fn_ty = Ty::Func {
+                params: param_tys,
+                ret: ret_ty.clone(),
+                loc: loc.clone(),
+                is_const: true,
+            };
+
+            let fn_ty_id = self.type_table.intern_type(Rc::new(fn_ty));
+        }
     }
 
     pub fn check_ins(&mut self, ins: &Ins) {
@@ -110,7 +172,7 @@ impl CheckerState {
                 body,
                 loc,
             } => {
-                todo!()
+                self.check_decl_func(ins);
             }
             Ins::DeclTypeAlias { name, ty, loc } => todo!(),
             Ins::Defer { sub_ins, loc } => todo!(),

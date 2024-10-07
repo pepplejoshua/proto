@@ -22,8 +22,7 @@ pub enum Command {
 
 #[allow(dead_code)]
 pub enum Backend {
-    WASM, // will go to WASM
-    CPP,  // will go to C++
+    CPP, // will go to C++
 }
 
 #[allow(dead_code)]
@@ -82,7 +81,6 @@ impl PipelineConfig {
                 let mut use_pfmt = false;
                 for arg in args {
                     match arg.as_str() {
-                        "wasm" => backend = Backend::WASM,
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
@@ -234,15 +232,11 @@ impl Workspace {
         }
 
         let mut checker = CheckerState::new(Rc::new(src));
-        let res = checker.check_main_file(ins);
+        checker.check_main_file(ins);
 
-        match res {
-            Ok(_) => {}
-            Err(errs) => {
-                for se in errs {
-                    reporter.report_seman_error(se);
-                }
-                return;
+        if !checker.seman_errors.is_empty() {
+            for err in checker.seman_errors {
+                reporter.report_seman_error(err);
             }
         }
 
