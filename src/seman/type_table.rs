@@ -12,9 +12,8 @@ pub type TypeId = usize;
 // this is the concrete type.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum TypeDef {
-    Type {
+    TypeAlias {
         actual_type: TypeId,
-        is_type_of_types: bool,
     },
     Signed {
         size: u8,
@@ -61,6 +60,7 @@ pub enum TypeDef {
 }
 
 // an instance of a type definition
+#[derive(Debug, Clone)]
 pub struct TypeInst {
     pub id: TypeId,
     pub loc: Rc<SourceRef>,
@@ -79,41 +79,101 @@ pub struct TypeTable {
 impl TypeTable {
     pub fn new() -> TypeTable {
         return TypeTable {
-            types: HashMap::from([(
-                TypeDef::Type {
-                    actual_type: 0,
-                    is_type_of_types: true,
-                },
-                0,
-            )]),
-            definitions: vec![(
-                TypeDef::Type {
-                    actual_type: 0,
-                    is_type_of_types: true,
-                },
-                None,
-            )],
+            types: HashMap::new(),
+            definitions: vec![],
             next_type_id: 0,
         };
     }
 
-    pub fn intern_type(&mut self, ty: Rc<Ty>) -> TypeId {
+    pub fn intern_type(&mut self, ty: Rc<Ty>) -> TypeInst {
         match ty.as_ref() {
-            Ty::Type { loc } => todo!(),
-            Ty::Signed { size, is_int, loc } => todo!(),
-            Ty::Unsigned { size, is_uint, loc } => todo!(),
-            Ty::Float { size, loc } => todo!(),
-            Ty::Str { loc } => todo!(),
-            Ty::Char { loc } => todo!(),
-            Ty::Void { loc } => todo!(),
-            Ty::Bool { loc } => todo!(),
+            Ty::Signed { size, is_int, loc } => {
+                let ty_def = TypeDef::Signed {
+                    size: *size,
+                    is_int: *is_int,
+                };
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Unsigned { size, is_uint, loc } => {
+                let ty_def = TypeDef::Unsigned {
+                    size: *size,
+                    is_uint: *is_uint,
+                };
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Float { size, loc } => {
+                let ty_def = TypeDef::Float { size: *size };
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Str { loc } => {
+                let ty_def = TypeDef::Str {};
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Char { loc } => {
+                let ty_def = TypeDef::Char {};
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Void { loc } => {
+                let ty_def = TypeDef::Void {};
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::Bool { loc } => {
+                let ty_def = TypeDef::Bool {};
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
             Ty::Func {
                 params,
                 ret,
                 loc,
                 is_const,
-            } => todo!(),
-            Ty::StaticArray { sub_ty, size, loc } => todo!(),
+            } => {
+                let ret_inst = self.intern_type(ret.clone());
+                let mut nparams = vec![];
+                for param in params.iter() {
+                    let param_inst = self.intern_type(param.clone());
+                    nparams.push(param_inst.id);
+                }
+                let ty_def = TypeDef::Func {
+                    params: nparams,
+                    ret: ret_inst.id,
+                };
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
+            Ty::StaticArray { sub_ty, size, loc } => {
+                todo!()
+            }
             Ty::Slice { sub_ty, loc } => todo!(),
             Ty::Optional { sub_ty, loc } => todo!(),
             Ty::Struct {
@@ -124,7 +184,17 @@ impl TypeTable {
             } => todo!(),
             Ty::NamedType { loc } => todo!(),
             Ty::AccessMemberType { target, mem, loc } => todo!(),
-            Ty::Pointer { sub_ty, loc } => todo!(),
+            Ty::Pointer { sub_ty, loc } => {
+                let sub_ty_inst = self.intern_type(sub_ty.clone());
+                let ty_def = TypeDef::Pointer {
+                    sub_ty: sub_ty_inst.id,
+                };
+                let ty_id = self.add_new_type_def(ty_def, None);
+                TypeInst {
+                    id: ty_id,
+                    loc: loc.clone(),
+                }
+            }
             Ty::Tuple { sub_tys, loc } => todo!(),
             Ty::ErrorType { loc } => unreachable!("Error type should not be interned."),
         }
@@ -152,5 +222,74 @@ impl TypeTable {
 
     pub fn get_type_def_using_id(&self, id: TypeId) -> Option<&(TypeDef, Option<Rc<SourceRef>>)> {
         self.definitions.get(id)
+    }
+
+    pub fn type_def_to_str(&self, idx: usize) -> String {
+        let (ty_def, _) = &self.definitions[idx];
+        match ty_def {
+            TypeDef::TypeAlias { actual_type } => {
+                format!("aliased to {}", self.type_def_to_str(*actual_type))
+            }
+            TypeDef::Signed { size, is_int } => {
+                format!(
+                    "i{}",
+                    if *is_int {
+                        "nt".to_string()
+                    } else {
+                        size.to_string()
+                    }
+                )
+            }
+            TypeDef::Unsigned { size, is_uint } => {
+                format!(
+                    "u{}",
+                    if *is_uint {
+                        "int".to_string()
+                    } else {
+                        size.to_string()
+                    }
+                )
+            }
+            TypeDef::Float { size } => {
+                format!("f{}", size.to_string())
+            }
+            TypeDef::Str => format!("str"),
+            TypeDef::Char => format!("char"),
+            TypeDef::Void => format!("void"),
+            TypeDef::Bool => format!("bool"),
+            TypeDef::Func { params, ret } => {
+                format!(
+                    "\\({}) {}",
+                    params
+                        .iter()
+                        .map(|param| { self.type_def_to_str(*param) })
+                        .collect::<Vec<String>>()
+                        .join(", "),
+                    self.type_def_to_str(*ret)
+                )
+            }
+            TypeDef::Method {
+                params,
+                ret,
+                is_const,
+            } => todo!(),
+            TypeDef::StaticArray { sub_ty, size } => todo!(),
+            TypeDef::Slice { sub_ty } => todo!(),
+            TypeDef::Struct { fields, funcs } => todo!(),
+            TypeDef::Optional { sub_ty } => {
+                format!("?{}", self.type_def_to_str(*sub_ty))
+            }
+            TypeDef::Pointer { sub_ty } => {
+                format!("*{}", self.type_def_to_str(*sub_ty))
+            }
+            TypeDef::ErrorType => todo!(),
+        }
+    }
+
+    pub fn display(&self) {
+        for idx in 0..self.next_type_id {
+            let idx_string = self.type_def_to_str(idx);
+            println!("{idx}. {idx_string}")
+        }
     }
 }

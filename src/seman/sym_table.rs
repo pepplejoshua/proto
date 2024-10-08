@@ -4,12 +4,15 @@ use std::{collections::HashMap, rc::Rc};
 
 use crate::{parser::ast::Ins, source::source::SourceRef};
 
-use super::{tast::TyIns, type_table::TypeId};
+use super::{
+    tast::TyIns,
+    type_table::{TypeId, TypeInst},
+};
 
 #[derive(Debug, Clone)]
 pub enum SymbolInfo {
     Resolved {
-        ty: TypeId,
+        ty_inst: TypeInst,
         def_loc: Rc<SourceRef>,
         mutable: bool,
     },
@@ -45,5 +48,26 @@ impl SymbolScope {
 
     pub fn insert_ins(&mut self, ins: TyIns) {
         self.gen_ins.push(ins);
+    }
+
+    pub fn display(&self) {
+        for (name, info) in self.names.iter() {
+            match info.as_ref() {
+                SymbolInfo::Resolved {
+                    ty_inst,
+                    def_loc,
+                    mutable,
+                } => {
+                    println!(
+                        "{name}: {}TypeId({})",
+                        if *mutable { "" } else { "const " },
+                        ty_inst.id
+                    )
+                }
+                SymbolInfo::Unresolved { ins, mutable } => {
+                    println!("{name}: {}Unresolved", if *mutable { "" } else { "const " })
+                }
+            }
+        }
     }
 }

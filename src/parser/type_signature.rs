@@ -3,13 +3,11 @@
 
 use crate::parser::ast::Expr;
 use crate::source::source::{SourceFile, SourceRef};
-use std::{borrow::BorrowMut, collections::HashMap, rc::Rc};
+use std::borrow::BorrowMut;
+use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Ty {
-    Type {
-        loc: Rc<SourceRef>,
-    },
     Signed {
         size: u8,
         is_int: bool,
@@ -148,8 +146,7 @@ impl Ty {
 
     pub fn get_loc(&self) -> Rc<SourceRef> {
         match self {
-            Ty::Type { loc }
-            | Ty::Signed { loc, .. }
+            Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
@@ -171,8 +168,7 @@ impl Ty {
 
     pub fn set_loc(&mut self, n_loc: Rc<SourceRef>) {
         match self {
-            Ty::Type { loc }
-            | Ty::Signed { loc, .. }
+            Ty::Signed { loc, .. }
             | Ty::Unsigned { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
@@ -197,7 +193,6 @@ impl Ty {
 
     pub fn as_str(&self, src: &SourceFile) -> String {
         match self {
-            Ty::Type { .. } => "type".to_string(),
             Ty::Signed { size, is_int, .. } => {
                 if *is_int {
                     "int".into()

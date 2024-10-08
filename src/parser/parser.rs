@@ -605,7 +605,6 @@ impl Parser {
             TokenType::Str => Ty::Str { loc: loc.clone() },
             TokenType::Void => Ty::Void { loc: loc.clone() },
             TokenType::Bool => Ty::Bool { loc: loc.clone() },
-            TokenType::Type => Ty::Type { loc: loc.clone() },
             _ => {
                 self.expected_err_token("a type.");
                 Ty::ErrorType { loc: loc.clone() }
@@ -1324,8 +1323,7 @@ impl Parser {
             | TokenType::Str
             | TokenType::Char
             | TokenType::Void
-            | TokenType::Bool
-            | TokenType::Type => {
+            | TokenType::Bool => {
                 let ty = self.parse_base_type();
                 Expr::TypeAsExpr { ty }
             }

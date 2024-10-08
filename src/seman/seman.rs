@@ -61,6 +61,9 @@ impl CheckerState {
                 }
             }
         }
+
+        self.scope_stack[self.current_scope].display();
+        self.type_table.display();
     }
 
     pub fn preload_scope_with_names(&mut self, instructions: Vec<Ins>) -> Vec<Rc<String>> {
@@ -107,6 +110,9 @@ impl CheckerState {
             loc,
         } = func
         {
+            let name_str =
+                Rc::new(name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())));
+            self.ongoing_resolution_stack.push(name_str.clone());
             let name_info = self.shallow_name_search(
                 &name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
             );
@@ -130,7 +136,7 @@ impl CheckerState {
                     // report error
                     self.report_error(SemanError::NameAlreadyDefined {
                         loc: loc.clone(),
-                        name: name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
+                        name: name_str.as_ref().clone(),
                     });
                     return;
                 }
@@ -146,7 +152,16 @@ impl CheckerState {
                 is_const: true,
             };
 
-            let fn_ty_id = self.type_table.intern_type(Rc::new(fn_ty));
+            let fn_ty_inst = self.type_table.intern_type(Rc::new(fn_ty));
+            self.scope_stack[self.current_scope].insert(
+                name_str,
+                Rc::new(SymbolInfo::Resolved {
+                    ty_inst: fn_ty_inst,
+                    def_loc: loc.clone(),
+                    mutable: false,
+                }),
+            );
+            self.ongoing_resolution_stack.pop();
         }
     }
 
