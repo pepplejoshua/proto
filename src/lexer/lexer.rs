@@ -263,6 +263,10 @@ impl Lexer {
                 ty: TokenType::In,
                 loc: combined_ref,
             }),
+            "var" => Ok(SrcToken {
+                ty: TokenType::Var,
+                loc: combined_ref,
+            }),
             "true" => Ok(SrcToken {
                 ty: TokenType::True,
                 loc: combined_ref,

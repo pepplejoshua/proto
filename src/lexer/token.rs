@@ -8,6 +8,7 @@ pub enum TokenType {
     // keywords
     Pub,
     Fn,
+    Var,
     If,
     Else,
     For,
@@ -120,6 +121,8 @@ impl SrcToken {
             TokenType::Pub => "pub".to_string(),
             TokenType::Comptime => "comptime".to_string(),
             TokenType::Fn => "fn".to_string(),
+            TokenType::Const => "const".to_string(),
+            TokenType::Var => "var".to_string(),
             TokenType::If => "if".to_string(),
             TokenType::Else => "else".to_string(),
             TokenType::For => "for".to_string(),

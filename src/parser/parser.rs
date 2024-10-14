@@ -128,84 +128,17 @@ impl Parser {
             TokenType::Identifier => {
                 self.advance();
                 let cur = self.cur_token();
-                match cur.ty {
-                    TokenType::DoubleColon => {
-                        // inferred const
-                        self.advance();
-                        // get init value
-                        let val = self.parse_expr(None);
-                        check_terminator = true;
-
-                        Ins::DeclConst {
-                            loc: token.loc.combine(val.get_source_ref()),
-                            name: Expr::Identifier { loc: token.loc },
-                            ty: None,
-                            init_val: val,
-                        }
-                    }
-                    TokenType::ColonAssign => {
-                        // inferred var
-                        self.advance();
-                        // get init value
-                        let val = self.parse_expr(None);
-                        check_terminator = true;
-                        Ins::DeclVar {
-                            loc: token.loc.combine(val.get_source_ref()),
-                            name: Expr::Identifier { loc: token.loc },
-                            ty: None,
-                            init_val: Some(val),
-                        }
-                    }
-                    TokenType::Colon => {
-                        // typed definition (const or var)
-                        self.advance();
-                        // parse a type
-                        let ty = self.parse_type();
-                        match self.cur_token().ty {
-                            TokenType::Colon => {
-                                // a typed constant with init value
-                                self.advance();
-                                let val = self.parse_expr(None);
-                                check_terminator = true;
-                                Ins::DeclConst {
-                                    loc: token.loc.combine(val.get_source_ref()),
-                                    name: Expr::Identifier { loc: token.loc },
-                                    ty: Some(ty),
-                                    init_val: val,
-                                }
-                            }
-                            TokenType::Assign => {
-                                // a typed var with init value
-                                self.advance();
-                                let val = self.parse_expr(None);
-                                check_terminator = true;
-                                Ins::DeclVar {
-                                    loc: token.loc.combine(val.get_source_ref()),
-                                    name: Expr::Identifier { loc: token.loc },
-                                    ty: Some(ty),
-                                    init_val: Some(val),
-                                }
-                            }
-                            _ => {
-                                // an type var decl without init value
-                                check_terminator = true;
-                                Ins::DeclVar {
-                                    loc: token.loc.combine(ty.get_loc()),
-                                    name: Expr::Identifier { loc: token.loc },
-                                    ty: Some(ty),
-                                    init_val: None,
-                                }
-                            }
-                        }
-                    }
-                    _ => {
-                        // we will pass the identifier we have seen already
-                        // to parse_expr_ins
-                        self.parse_expr_ins(Some(Expr::Identifier {
-                            loc: token.get_source_ref(),
-                        }))
-                    }
-                }
+                self.parse_expr_ins(Some(Expr::Identifier {
+                    loc: token.get_source_ref(),
+                }))
+            }
+            TokenType::Var => {
+                check_terminator = true;
+                self.parse_variable_decl(true)
+            }
+            TokenType::Const => {
+                check_terminator = true;
+                self.parse_variable_decl(false)
             }
             TokenType::Pub => {
                 self.advance();
@@ -263,6 +196,34 @@ impl Parser {
             }
         }
         ins
+    }
+
+    fn parse_variable_decl(&mut self, is_mutable: bool) -> Ins {
+        let mut loc = self.cur_token().loc.clone();
+        self.advance();
+        let name = self.parse_identifier();
+
+        let ty = if self.cur_token().ty != TokenType::Assign {
+            Some(self.parse_type())
+        } else {
+            None
+        };
+
+        self.consume(
+            TokenType::Assign,
+            "an assignment token (=) to separate the name (and optional type) and the initialization value.",
+        );
+
+        let init_val = self.parse_expr(None);
+        loc = loc.combine(init_val.get_source_ref());
+
+        Ins::DeclVariable {
+            name,
+            ty,
+            init_val,
+            loc,
+            is_mutable,
+        }
     }
 
     fn parse_return(&mut self) -> Ins {
@@ -325,7 +286,14 @@ impl Parser {
             TokenType::LParen => {
                 self.advance();
                 let loop_var = self.next_ins(false);
-                if !matches!(loop_var, Ins::DeclVar { .. }) {
+                if let Ins::DeclVariable { is_mutable, .. } = loop_var {
+                    if !is_mutable {
+                        self.expected_err_parse(
+                            "a variable declaration instruction for the loop variable.",
+                            loop_var.get_source_ref(),
+                        );
+                    }
+                } else {
                     self.expected_err_parse(
                         "a variable declaration instruction for the loop variable.",
                         loop_var.get_source_ref(),
@@ -759,11 +727,14 @@ impl Parser {
                 break;
             }
 
-            let is_comptime = if self.cur_token().ty == TokenType::Comptime {
+            let (is_comptime, is_mutable) = if self.cur_token().ty == TokenType::Comptime {
                 self.advance();
-                true
+                (true, false)
+            } else if self.cur_token().ty == TokenType::Var {
+                self.advance();
+                (false, true)
             } else {
-                false
+                (false, false)
             };
 
             let param_name = self.parse_identifier();
@@ -776,6 +747,7 @@ impl Parser {
                 given_ty: param_ty,
                 is_self,
                 is_comptime,
+                is_mutable,
                 loc,
             });
 

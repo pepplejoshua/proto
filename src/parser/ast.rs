@@ -346,6 +346,7 @@ impl Expr {
 pub struct FnParam {
     pub name: Expr,
     pub given_ty: Rc<Ty>,
+    pub is_mutable: bool,
     pub is_self: bool,
     pub is_comptime: bool,
     pub loc: Rc<SourceRef>,
@@ -353,20 +354,15 @@ pub struct FnParam {
 
 #[derive(Debug, Clone)]
 pub enum Ins {
-    DeclConst {
+    DeclVariable {
         name: Expr,
         ty: Option<Rc<Ty>>, // might be provided, or not
         init_val: Expr,
+        is_mutable: bool,
         loc: Rc<SourceRef>,
     },
     PubDecl {
         ins: Rc<Ins>,
-        loc: Rc<SourceRef>,
-    },
-    DeclVar {
-        name: Expr,
-        ty: Option<Rc<Ty>>,
-        init_val: Option<Expr>,
         loc: Rc<SourceRef>,
     },
     DeclFunc {
@@ -451,8 +447,7 @@ pub enum Ins {
 impl Ins {
     pub fn get_id(&self, src: &SourceFile) -> Option<String> {
         match self {
-            Ins::DeclConst { name, .. }
-            | Ins::DeclVar { name, .. }
+            Ins::DeclVariable { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclTypeAlias { name, .. } => Some(name.as_str(src)),
             Ins::PubDecl { ins, .. } => ins.get_id(src),
@@ -462,8 +457,7 @@ impl Ins {
 
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
-            Ins::DeclConst { loc, .. }
-            | Ins::DeclVar { loc, .. }
+            Ins::DeclVariable { loc, .. }
             | Ins::DeclFunc { loc, .. }
             | Ins::PubDecl { loc, .. }
             | Ins::DeclTypeAlias { loc, .. }
@@ -487,18 +481,28 @@ impl Ins {
 
     pub fn as_str(&self, src: &SourceFile) -> String {
         match self {
-            Ins::DeclConst {
-                name, ty, init_val, ..
+            Ins::DeclVariable {
+                name,
+                ty,
+                init_val,
+                is_mutable,
+                ..
             } => {
                 if let Some(ty) = ty {
                     format!(
-                        "{} : {} : {}",
+                        "{} {} {} = {}",
+                        if *is_mutable { "var" } else { "const" },
                         name.as_str(src),
                         ty.as_str(src),
                         init_val.as_str(src)
                     )
                 } else {
-                    format!("{} :: {}", name.as_str(src), init_val.as_str(src))
+                    format!(
+                        "{} {} = {}",
+                        if *is_mutable { "var" } else { "const" },
+                        name.as_str(src),
+                        init_val.as_str(src)
+                    )
                 }
             }
             Ins::PubDecl { ins, .. } => {
@@ -538,31 +542,6 @@ impl Ins {
                 )
             }
             Ins::SingleLineComment { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
-            Ins::DeclVar {
-                name, ty, init_val, ..
-            } => match init_val {
-                Some(init_v) => match ty {
-                    Some(tyv) => {
-                        format!(
-                            "{} : {} = {}",
-                            name.as_str(src),
-                            tyv.as_str(src),
-                            init_v.as_str(src)
-                        )
-                    }
-                    None => {
-                        format!("{} := {}", name.as_str(src), init_v.as_str(src))
-                    }
-                },
-                None => match ty {
-                    Some(tyv) => {
-                        format!("{} : {}", name.as_str(src), tyv.as_str(src))
-                    }
-                    None => {
-                        unreachable!("Ast::as_str: no initialization value or type for variable declaration.")
-                    }
-                },
-            },
             Ins::Block { code, .. } => {
                 let mut buf = String::new();
                 for instruc in code {

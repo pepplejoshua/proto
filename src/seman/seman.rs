@@ -35,6 +35,20 @@ impl CheckerState {
         }
     }
 
+    fn enter_scope(&mut self, is_ood_scope: bool) {
+        self.scope_stack.push(SymbolScope::new(
+            Some(self.current_scope),
+            self.scope_stack.len(),
+            is_ood_scope,
+        ));
+        self.current_scope = self.scope_stack.len() - 1;
+    }
+
+    fn exit_scope(&mut self) {
+        let last_scope = self.scope_stack.pop().unwrap();
+        self.current_scope = last_scope.parent.unwrap();
+    }
+
     fn report_error(&mut self, err: SemanError) {
         self.seman_errors.push(err);
     }
@@ -71,8 +85,24 @@ impl CheckerState {
         for ins in instructions.into_iter() {
             let ins_file = self.get_sourcefile_str_from_loc(&ins.get_source_ref());
             let ins_id = Rc::new(ins.get_id(&self.files[&ins_file]).unwrap());
+            if self.scope_stack[self.current_scope]
+                .names
+                .contains_key(&ins_id)
+            {
+                // we need to report a duplicate name
+                // report error
+                self.report_error(SemanError::NameAlreadyDefined {
+                    loc: ins.get_source_ref(),
+                    name: ins_id.as_ref().clone(),
+                });
+                continue;
+            }
             ins_ids.push(ins_id.clone());
-            let is_mutable = matches!(ins, Ins::DeclVar { .. });
+            let is_mutable = if let Ins::DeclVariable { is_mutable, .. } = ins {
+                is_mutable
+            } else {
+                false
+            };
             self.scope_stack[self.current_scope].insert(
                 ins_id,
                 Rc::new(SymbolInfo::Unresolved {
@@ -113,6 +143,7 @@ impl CheckerState {
             let name_str =
                 Rc::new(name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())));
             self.ongoing_resolution_stack.push(name_str.clone());
+
             let name_info = self.shallow_name_search(
                 &name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
             );
@@ -141,6 +172,9 @@ impl CheckerState {
                     return;
                 }
             }
+
+            let fn_parent_scope = self.current_scope;
+            self.enter_scope(false);
             let mut param_tys = vec![];
             for param in params.iter() {
                 param_tys.push(param.given_ty.clone());
@@ -153,7 +187,7 @@ impl CheckerState {
             };
 
             let fn_ty_inst = self.type_table.intern_type(Rc::new(fn_ty));
-            self.scope_stack[self.current_scope].insert(
+            self.scope_stack[fn_parent_scope].insert(
                 name_str,
                 Rc::new(SymbolInfo::Resolved {
                     ty_inst: fn_ty_inst,
@@ -161,25 +195,22 @@ impl CheckerState {
                     mutable: false,
                 }),
             );
+
+            self.exit_scope();
             self.ongoing_resolution_stack.pop();
         }
     }
 
     pub fn check_ins(&mut self, ins: &Ins) {
         match ins {
-            Ins::DeclConst {
+            Ins::DeclVariable {
                 name,
                 ty,
                 init_val,
                 loc,
+                is_mutable,
             } => todo!(),
             Ins::PubDecl { ins, loc } => todo!(),
-            Ins::DeclVar {
-                name,
-                ty,
-                init_val,
-                loc,
-            } => todo!(),
             Ins::DeclFunc {
                 name,
                 params,
