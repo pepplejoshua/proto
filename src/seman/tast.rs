@@ -4,6 +4,7 @@ use crate::parser::ast::{BinOpType, UnaryOpType};
 
 use super::type_table::TypeId;
 
+pub type TyExprId = usize;
 #[derive(Debug, Clone)]
 pub enum TyExpr {
     Str {
@@ -23,18 +24,20 @@ pub enum TyExpr {
     },
     UnaryOp {
         op: UnaryOpType,
-        operand: Box<TyExpr>,
+        operand: Box<TyExprId>,
     },
     BinOp {
         op: BinOpType,
-        left: Box<TyExpr>,
-        right: Box<TyExpr>,
+        left: Box<TyExprId>,
+        right: Box<TyExprId>,
     },
     StaticArray {
         ty: TypeId,
-        items: Vec<TyExpr>,
+        items: Vec<TyExprId>,
     },
 }
+
+pub type TyInsId = usize;
 
 #[derive(Debug, Clone)]
 pub enum TyIns {}

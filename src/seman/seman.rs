@@ -11,7 +11,13 @@ use crate::source::errors::SemanError;
 use crate::source::source::{SourceFile, SourceRef};
 
 use super::sym_table::{SymbolInfo, SymbolScope};
+use super::tast::{TyExpr, TyIns};
 use super::type_table::TypeInst;
+
+pub struct CodeBundle {
+    expressions: Vec<TyExpr>,
+    instructions: Vec<TyIns>,
+}
 
 pub struct CheckerState {
     type_table: TypeTable,
@@ -22,6 +28,7 @@ pub struct CheckerState {
     cur_fn_return_type: Option<TypeInst>,
     main_file_str: Rc<String>,
     files: HashMap<Rc<String>, Rc<SourceFile>>,
+    generated_code: CodeBundle,
 }
 
 impl CheckerState {
@@ -35,6 +42,10 @@ impl CheckerState {
             seman_errors: vec![],
             files: HashMap::from([(main_file.path.clone(), main_file)]),
             cur_fn_return_type: None,
+            generated_code: CodeBundle {
+                expressions: vec![],
+                instructions: vec![],
+            },
         }
     }
 
