@@ -129,6 +129,7 @@ impl Parser {
                 self.advance();
                 let cur = self.cur_token();
                 self.parse_expr_ins(Some(Expr::Identifier {
+                    name: Rc::new(token.as_str(&self.lexer.src)),
                     loc: token.get_source_ref(),
                 }))
             }
@@ -161,6 +162,7 @@ impl Parser {
             TokenType::Comment => {
                 self.advance();
                 Ins::SingleLineComment {
+                    content: Rc::new(token.as_str(&self.lexer.src)),
                     loc: token.loc.clone(),
                 }
             }
@@ -488,6 +490,7 @@ impl Parser {
                 self.advance();
                 if self.cur_token().ty == TokenType::Dot {
                     let mut current = Ty::NamedType {
+                        name: Rc::new(cur.as_str(&self.lexer.src)),
                         loc: cur.loc.clone(),
                     };
 
@@ -498,6 +501,7 @@ impl Parser {
                         current = Ty::AccessMemberType {
                             target: Rc::new(current),
                             mem: Rc::new(Ty::NamedType {
+                                name: Rc::new(member.as_str()),
                                 loc: member.get_source_ref(),
                             }),
                             loc,
@@ -506,6 +510,7 @@ impl Parser {
                     return Rc::new(current);
                 }
                 return Rc::new(Ty::NamedType {
+                    name: Rc::new(cur.as_str(&self.lexer.src)),
                     loc: cur.loc.clone(),
                 });
             }
@@ -738,7 +743,7 @@ impl Parser {
             };
 
             let param_name = self.parse_identifier();
-            let is_self = param_name.as_str(&self.lexer.src) == "self";
+            let is_self = param_name.as_str() == "self";
             let param_ty = self.parse_type();
 
             let loc = param_name.get_source_ref().combine(param_ty.get_loc());
@@ -1215,27 +1220,45 @@ impl Parser {
             TokenType::Identifier => self.parse_identifier(),
             TokenType::Character => {
                 self.advance();
-                Expr::Char { loc: cur.loc }
+                Expr::Char {
+                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    loc: cur.loc,
+                }
             }
             TokenType::String => {
                 self.advance();
-                Expr::Str { loc: cur.loc }
+                Expr::Str {
+                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    loc: cur.loc,
+                }
             }
             TokenType::Integer => {
                 self.advance();
-                Expr::Integer { loc: cur.loc }
+                Expr::Integer {
+                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    loc: cur.loc,
+                }
             }
             TokenType::Decimal => {
                 self.advance();
-                Expr::Decimal { loc: cur.loc }
+                Expr::Decimal {
+                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    loc: cur.loc,
+                }
             }
             TokenType::True => {
                 self.advance();
-                Expr::Bool { loc: cur.loc }
+                Expr::Bool {
+                    val: true,
+                    loc: cur.loc,
+                }
             }
             TokenType::False => {
                 self.advance();
-                Expr::Bool { loc: cur.loc }
+                Expr::Bool {
+                    val: false,
+                    loc: cur.loc,
+                }
             }
             TokenType::LBracket => {
                 // we are parsing either an array type, or an array literal,
@@ -1309,8 +1332,12 @@ impl Parser {
 
     fn parse_identifier(&mut self) -> Expr {
         let loc = self.cur_token().get_source_ref();
+        let name = Rc::new(self.cur_token().as_str(&self.lexer.src));
         self.consume(TokenType::Identifier, "an identifier.");
-        Expr::Identifier { loc: loc.clone() }
+        Expr::Identifier {
+            name,
+            loc: loc.clone(),
+        }
     }
 }
 
@@ -1339,7 +1366,7 @@ fn test_parser() {
         let top_level = parser.parse_file();
         let code_str_repr = top_level
             .iter()
-            .map(|i| i.as_str(&parser.lexer.src))
+            .map(|i| i.as_str())
             .collect::<Vec<String>>();
         let lexer_errors = parser
             .lex_errs

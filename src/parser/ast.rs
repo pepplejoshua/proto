@@ -66,18 +66,23 @@ pub enum Expr {
         loc: Rc<SourceRef>,
     },
     Integer {
+        content: Rc<String>,
         loc: Rc<SourceRef>,
     },
     Decimal {
+        content: Rc<String>,
         loc: Rc<SourceRef>,
     },
     Str {
+        content: Rc<String>,
         loc: Rc<SourceRef>,
     },
     Char {
+        content: Rc<String>,
         loc: Rc<SourceRef>,
     },
     Bool {
+        val: bool,
         loc: Rc<SourceRef>,
     },
     Tuple {
@@ -93,6 +98,7 @@ pub enum Expr {
         ty: Rc<Ty>,
     },
     Identifier {
+        name: Rc<String>,
         loc: Rc<SourceRef>,
     },
     UnaryOp {
@@ -173,13 +179,13 @@ impl Expr {
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Expr::Underscore { loc }
-            | Expr::Integer { loc }
-            | Expr::Decimal { loc }
-            | Expr::Str { loc }
-            | Expr::Char { loc }
-            | Expr::Bool { loc }
+            | Expr::Integer { loc, .. }
+            | Expr::Decimal { loc, .. }
+            | Expr::Str { loc, .. }
+            | Expr::Char { loc, .. }
+            | Expr::Bool { loc, .. }
             | Expr::Tuple { loc, .. }
-            | Expr::Identifier { loc }
+            | Expr::Identifier { loc, .. }
             | Expr::UnaryOp { loc, .. }
             | Expr::BinOp { loc, .. }
             | Expr::ConditionalExpr { loc, .. }
@@ -200,62 +206,60 @@ impl Expr {
         }
     }
 
-    pub fn as_str(&self, src: &SourceFile) -> String {
+    pub fn as_str(&self) -> String {
         match self {
             Expr::Underscore { .. } => "_".to_string(),
-            Expr::Integer { loc }
-            | Expr::Decimal { loc }
-            | Expr::Str { loc }
-            | Expr::Char { loc }
-            | Expr::Bool { loc }
-            | Expr::Identifier { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Expr::Identifier { name, .. } => name.as_ref().clone(),
+            Expr::Str { content, .. }
+            | Expr::Char { content, .. }
+            | Expr::Integer { content, .. }
+            | Expr::Decimal { content, .. } => content.as_ref().clone(),
+            Expr::Bool { val, .. } => {
+                if *val {
+                    "true".to_string()
+                } else {
+                    "false".to_string()
+                }
+            }
             Expr::Tuple { items, .. } => {
                 format!(
                     "({})",
                     items
                         .iter()
-                        .map(|item| { item.as_str(src) })
+                        .map(|item| { item.as_str() })
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
             }
-            Expr::TypeAsExpr { ty, .. } => ty.as_str(src),
+            Expr::TypeAsExpr { ty, .. } => ty.as_str(),
             Expr::MakeSlice {
                 target, start, end, ..
             } => {
                 let start_s = match start {
-                    Some(start) => start.as_str(src),
+                    Some(start) => start.as_str(),
                     None => "".to_string(),
                 };
                 let end_s = match end {
-                    Some(end) => end.as_str(src),
+                    Some(end) => end.as_str(),
                     None => "".to_string(),
                 };
-                format!("{}[{}:{}]", target.as_str(src), start_s, end_s)
+                format!("{}[{}:{}]", target.as_str(), start_s, end_s)
             }
             Expr::StaticArray { ty, items, .. } => {
                 format!(
                     "{}{{{}}}",
-                    ty.as_str(src),
+                    ty.as_str(),
                     items
                         .iter()
-                        .map(|item| { item.as_str(src) })
+                        .map(|item| { item.as_str() })
                         .collect::<Vec<String>>()
                         .join(", ")
                 )
             }
-            Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str(src)),
+            Expr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str()),
             Expr::BinOp {
-                op,
-                left,
-                right,
-                loc,
-            } => format!(
-                "[{} {} {}]",
-                left.as_str(src),
-                op.as_str(),
-                right.as_str(src)
-            ),
+                op, left, right, ..
+            } => format!("[{} {} {}]", left.as_str(), op.as_str(), right.as_str()),
             Expr::ConditionalExpr {
                 cond,
                 then,
@@ -264,42 +268,42 @@ impl Expr {
             } => {
                 format!(
                     "{} ? {} : {}",
-                    cond.as_str(src),
-                    then.as_str(src),
-                    otherwise.as_str(src)
+                    cond.as_str(),
+                    then.as_str(),
+                    otherwise.as_str()
                 )
             }
             Expr::CallFn { func, args, .. } => {
-                let args_str: Vec<String> = args.iter().map(|arg| arg.as_str(src)).collect();
+                let args_str: Vec<String> = args.iter().map(|arg| arg.as_str()).collect();
                 let args_str = args_str.join(", ");
-                format!("{}({args_str})", func.as_str(src))
+                format!("{}({args_str})", func.as_str())
             }
-            Expr::GroupedExpr { inner, .. } => format!("({})", inner.as_str(src)),
+            Expr::GroupedExpr { inner, .. } => format!("({})", inner.as_str()),
             Expr::IndexInto { target, index, .. } => {
-                format!("{}[{}]", target.as_str(src), index.as_str(src))
+                format!("{}[{}]", target.as_str(), index.as_str())
             }
             Expr::AccessMember { target, mem, loc } => {
-                format!("{}.{}", target.as_str(src), mem.as_str(src))
+                format!("{}.{}", target.as_str(), mem.as_str())
             }
             Expr::ComptimeExpr { val, .. } => {
-                format!("comptime {}", val.as_str(src))
+                format!("comptime {}", val.as_str())
             }
             Expr::OptionalExpr { val, .. } => match val {
-                Some(v) => format!("some {}", v.as_str(src)),
+                Some(v) => format!("some {}", v.as_str()),
                 None => format!("none"),
             },
             Expr::InitializerList { target, pairs, .. } => {
                 let t_str = match target {
-                    Some(targ) => targ.as_str(src),
+                    Some(targ) => targ.as_str(),
                     None => ".".to_string(),
                 };
                 let p_str = pairs
                     .iter()
                     .map(|(k, v)| {
                         if let Some(val) = v {
-                            format!("{} = {}", k.as_str(src), val.as_str(src))
+                            format!("{} = {}", k.as_str(), val.as_str())
                         } else {
-                            k.as_str(src)
+                            k.as_str()
                         }
                     })
                     .collect::<Vec<String>>()
@@ -322,8 +326,8 @@ impl Expr {
                             } else {
                                 ""
                             },
-                            fn_param.name.as_str(src),
-                            fn_param.given_ty.as_str(src)
+                            fn_param.name.as_str(),
+                            fn_param.given_ty.as_str()
                         )
                     })
                     .collect();
@@ -331,12 +335,12 @@ impl Expr {
                 format!(
                     "\\({}) {}\n{}",
                     params_str,
-                    ret_type.as_str(src),
-                    body.as_str(src)
+                    ret_type.as_str(),
+                    body.as_str()
                 )
             }
-            Expr::DerefPtr { target, .. } => format!("*{}", target.as_str(src)),
-            Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str(src)),
+            Expr::DerefPtr { target, .. } => format!("*{}", target.as_str()),
+            Expr::MakePtrFromAddrOf { target, .. } => format!("&{}", target.as_str()),
             Expr::ErrorExpr { .. } => format!("[ErrExpr]"),
         }
     }
@@ -403,6 +407,7 @@ pub enum Ins {
         loc: Rc<SourceRef>,
     },
     SingleLineComment {
+        content: Rc<String>,
         loc: Rc<SourceRef>,
     },
     PrintIns {
@@ -449,7 +454,7 @@ impl Ins {
         match self {
             Ins::DeclVariable { name, .. }
             | Ins::DeclFunc { name, .. }
-            | Ins::DeclTypeAlias { name, .. } => Some(name.as_str(src)),
+            | Ins::DeclTypeAlias { name, .. } => Some(name.as_str()),
             Ins::PubDecl { ins, .. } => ins.get_id(src),
             _ => None,
         }
@@ -479,7 +484,7 @@ impl Ins {
         }
     }
 
-    pub fn as_str(&self, src: &SourceFile) -> String {
+    pub fn as_str(&self) -> String {
         match self {
             Ins::DeclVariable {
                 name,
@@ -492,24 +497,24 @@ impl Ins {
                     format!(
                         "{} {} {} = {}",
                         if *is_mutable { "var" } else { "const" },
-                        name.as_str(src),
-                        ty.as_str(src),
-                        init_val.as_str(src)
+                        name.as_str(),
+                        ty.as_str(),
+                        init_val.as_str()
                     )
                 } else {
                     format!(
                         "{} {} = {}",
                         if *is_mutable { "var" } else { "const" },
-                        name.as_str(src),
-                        init_val.as_str(src)
+                        name.as_str(),
+                        init_val.as_str()
                     )
                 }
             }
             Ins::PubDecl { ins, .. } => {
-                format!("pub {}", ins.as_str(src))
+                format!("pub {}", ins.as_str())
             }
             Ins::DeclTypeAlias { name, ty, .. } => {
-                format!("type {} = {}", name.as_str(src), ty.as_str(src))
+                format!("type {} = {}", name.as_str(), ty.as_str())
             }
             Ins::DeclFunc {
                 name,
@@ -528,40 +533,40 @@ impl Ins {
                             } else {
                                 ""
                             },
-                            fn_param.name.as_str(src),
-                            fn_param.given_ty.as_str(src)
+                            fn_param.name.as_str(),
+                            fn_param.given_ty.as_str()
                         )
                     })
                     .collect();
                 let params_str = params_str.join(", ");
                 format!(
                     "fn {}({params_str}) {}\n{}",
-                    name.as_str(src),
-                    ret_ty.as_str(src),
-                    body.as_str(src)
+                    name.as_str(),
+                    ret_ty.as_str(),
+                    body.as_str()
                 )
             }
-            Ins::SingleLineComment { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Ins::SingleLineComment { content, .. } => content.as_ref().clone(),
             Ins::Block { code, .. } => {
                 let mut buf = String::new();
                 for instruc in code {
-                    buf.push_str(&(instruc.as_str(src) + "\n"));
+                    buf.push_str(&(instruc.as_str() + "\n"));
                 }
                 format!("{{\n{buf}}}")
             }
             Ins::AssignTo { target, value, .. } => {
-                format!("{} = {}", target.as_str(src), value.as_str(src))
+                format!("{} = {}", target.as_str(), value.as_str())
             }
             Ins::Return { expr, .. } => match expr {
                 Some(val) => {
-                    format!("return {}", val.as_str(src))
+                    format!("return {}", val.as_str())
                 }
                 None => {
                     format!("return")
                 }
             },
             Ins::ExprIns { expr, .. } => {
-                format!("{}", expr.as_str(src))
+                format!("{}", expr.as_str())
             }
             Ins::ErrorIns { .. } => format!("[ErrIns]"),
             Ins::IfConditional { conds_and_code, .. } => {
@@ -571,56 +576,50 @@ impl Ins {
                     match cond {
                         Some(cond) => {
                             if !seen_if {
-                                buf.push_str(&format!(
-                                    "if {}:\n{}",
-                                    cond.as_str(src),
-                                    body.as_str(src)
-                                ));
+                                buf.push_str(&format!("if {}:\n{}", cond.as_str(), body.as_str()));
                                 seen_if = true;
                             } else {
                                 buf.push_str(&format!(
                                     "else if {}:\n{}",
-                                    cond.as_str(src),
-                                    body.as_str(src)
+                                    cond.as_str(),
+                                    body.as_str()
                                 ));
                             }
                         }
-                        None => buf.push_str(&format!("else:\n{}", body.as_str(src))),
+                        None => buf.push_str(&format!("else:\n{}", body.as_str())),
                     }
                 }
                 buf
             }
             Ins::PrintIns {
-                is_println,
-                loc,
-                output,
+                is_println, output, ..
             } => {
                 format!(
                     "{}({})",
                     if *is_println { "println" } else { "print" },
-                    output.as_str(src)
+                    output.as_str()
                 )
             }
-            Ins::Defer { sub_ins, loc } => {
-                format!("defer {}", sub_ins.as_str(src))
+            Ins::Defer { sub_ins, .. } => {
+                format!("defer {}", sub_ins.as_str())
             }
             Ins::ForInLoop {
                 loop_var,
                 loop_target,
                 block,
-                loc,
+                ..
             } => {
                 format!(
                     "for {} in {}\n{}",
-                    loop_var.as_str(src),
-                    loop_target.as_str(src),
-                    block.as_str(src)
+                    loop_var.as_str(),
+                    loop_target.as_str(),
+                    block.as_str()
                 )
             }
-            Ins::Break { loc } => "break;".into(),
-            Ins::Continue { loc } => "continue;".into(),
+            Ins::Break { .. } => "break;".into(),
+            Ins::Continue { .. } => "continue;".into(),
             Ins::InfiniteLoop { block, .. } => {
-                format!("for\n{}", block.as_str(src))
+                format!("for\n{}", block.as_str())
             }
             Ins::WhileLoop {
                 cond,
@@ -629,16 +628,11 @@ impl Ins {
                 ..
             } => {
                 let post_code = if let Some(pcode) = post_code {
-                    format!(" : ({})", pcode.as_str(src))
+                    format!(" : ({})", pcode.as_str())
                 } else {
                     "".into()
                 };
-                format!(
-                    "for {}{}\n{}",
-                    cond.as_str(src),
-                    post_code,
-                    block.as_str(src)
-                )
+                format!("for {}{}\n{}", cond.as_str(), post_code, block.as_str())
             }
             Ins::RegLoop {
                 init,
@@ -649,10 +643,10 @@ impl Ins {
             } => {
                 format!(
                     "for ({}; {}; {})\n{}",
-                    init.as_str(src),
-                    loop_cond.as_str(src),
-                    update.as_str(src),
-                    block.as_str(src)
+                    init.as_str(),
+                    loop_cond.as_str(),
+                    update.as_str(),
+                    block.as_str()
                 )
             }
         }

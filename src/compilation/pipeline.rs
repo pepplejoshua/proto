@@ -223,7 +223,7 @@ impl Workspace {
 
         if self.config.dbg_info {
             for i in ins.iter() {
-                println!("{}\n", i.as_str(&src));
+                println!("{}\n", i.as_str());
             }
             SourceReporter::show_info("parsing complete.".to_string());
         }

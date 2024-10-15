@@ -11,6 +11,7 @@ use crate::source::errors::SemanError;
 use crate::source::source::{SourceFile, SourceRef};
 
 use super::sym_table::{SymbolInfo, SymbolScope};
+use super::type_table::TypeInst;
 
 pub struct CheckerState {
     type_table: TypeTable,
@@ -18,6 +19,7 @@ pub struct CheckerState {
     current_scope: usize,
     ongoing_resolution_stack: Vec<Rc<String>>,
     pub seman_errors: Vec<SemanError>,
+    cur_fn_return_type: Option<TypeInst>,
     main_file_str: Rc<String>,
     files: HashMap<Rc<String>, Rc<SourceFile>>,
 }
@@ -32,6 +34,7 @@ impl CheckerState {
             main_file_str: main_file.path.clone(),
             seman_errors: vec![],
             files: HashMap::from([(main_file.path.clone(), main_file)]),
+            cur_fn_return_type: None,
         }
     }
 
@@ -76,7 +79,7 @@ impl CheckerState {
             }
         }
 
-        self.scope_stack[self.current_scope].display();
+        self.scope_stack[0].display();
         self.type_table.display();
     }
 
@@ -131,6 +134,10 @@ impl CheckerState {
         None
     }
 
+    pub fn expr_as_str(&self, expr: &Expr) -> Rc<String> {
+        Rc::new(expr.as_str())
+    }
+
     pub fn check_decl_func(&mut self, func: &Ins) {
         if let Ins::DeclFunc {
             name,
@@ -140,13 +147,13 @@ impl CheckerState {
             loc,
         } = func
         {
-            let name_str =
-                Rc::new(name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())));
+            // track the name of the function in the list of ongoing resolutions
+            // TODO: can we not just check if a name is in the list of ongoing resolutions, instead of
+            // doing the weird ood_scope checking?
+            let name_str = self.expr_as_str(&name);
             self.ongoing_resolution_stack.push(name_str.clone());
 
-            let name_info = self.shallow_name_search(
-                &name.as_str(&self.get_sourcefile_from_loc(&name.get_source_ref())),
-            );
+            let name_info = self.shallow_name_search(&self.expr_as_str(&name));
             // check the name of the function to make sure it is undeclared (non-ood scope)
             // or unresolved (ood scope)
             if self.scope_stack[self.current_scope].is_ood_scope {
@@ -173,12 +180,27 @@ impl CheckerState {
                 }
             }
 
+            // track the scope in which to insert the information about the function being checked since
+            // we are entering a new scope to register the params as well as check the body,
             let fn_parent_scope = self.current_scope;
             self.enter_scope(false);
             let mut param_tys = vec![];
             for param in params.iter() {
-                param_tys.push(param.given_ty.clone());
+                let param_ty = param.given_ty.clone();
+                let param_ty_inst = self.type_table.intern_type(param_ty.clone());
+                let param_info = Rc::new(SymbolInfo::Resolved {
+                    ty_inst: param_ty_inst,
+                    def_loc: param.loc.clone(),
+                    mutable: param.is_mutable,
+                });
+                let param_name_str = self.expr_as_str(&param.name);
+                let param_src_file =
+                    self.scope_stack[self.current_scope].insert(param_name_str, param_info);
+                param_tys.push(param_ty);
             }
+            let fn_ret_ty_inst = self.type_table.intern_type(ret_ty.clone());
+            let prev_fn_ret_ty = self.cur_fn_return_type.clone();
+            self.cur_fn_return_type = Some(fn_ret_ty_inst);
             let fn_ty = Ty::Func {
                 params: param_tys,
                 ret: ret_ty.clone(),
@@ -196,7 +218,11 @@ impl CheckerState {
                 }),
             );
 
+            self.check_ins(body);
+
+            // check the body of the function and make sure all return values are of the type the function expects
             self.exit_scope();
+            self.cur_fn_return_type = prev_fn_ret_ty;
             self.ongoing_resolution_stack.pop();
         }
     }
@@ -230,7 +256,7 @@ impl CheckerState {
                 loc,
             } => todo!(),
             Ins::Return { expr, loc } => todo!(),
-            Ins::SingleLineComment { loc } => todo!(),
+            Ins::SingleLineComment { content, loc } => todo!(),
             Ins::PrintIns {
                 is_println,
                 output,

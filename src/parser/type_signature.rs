@@ -2,7 +2,7 @@
 #![allow(unused_variables)]
 
 use crate::parser::ast::Expr;
-use crate::source::source::{SourceFile, SourceRef};
+use crate::source::source::SourceRef;
 use std::borrow::BorrowMut;
 use std::{collections::HashMap, rc::Rc};
 
@@ -60,6 +60,7 @@ pub enum Ty {
         loc: Rc<SourceRef>,
     },
     NamedType {
+        name: Rc<String>,
         loc: Rc<SourceRef>,
     },
     AccessMemberType {
@@ -191,7 +192,7 @@ impl Ty {
         }
     }
 
-    pub fn as_str(&self, src: &SourceFile) -> String {
+    pub fn as_str(&self) -> String {
         match self {
             Ty::Signed { size, is_int, .. } => {
                 if *is_int {
@@ -215,34 +216,34 @@ impl Ty {
             Ty::Void { .. } => "void".into(),
             Ty::Bool { .. } => "bool".into(),
             Ty::AccessMemberType { target, mem, .. } => {
-                format!("{}.{}", target.as_str(src), mem.as_str(src))
+                format!("{}.{}", target.as_str(), mem.as_str())
             }
             Ty::Func { params, ret, .. } => {
                 format!(
                     "\\({}) {}",
                     params
                         .iter()
-                        .map(|p| { p.as_str(src) })
+                        .map(|p| { p.as_str() })
                         .collect::<Vec<String>>()
                         .join(", "),
-                    ret.as_str(src)
+                    ret.as_str()
                 )
             }
             Ty::StaticArray { sub_ty, size, .. } => {
-                let size_s = size.as_str(src);
-                format!("[{size_s}]{}", sub_ty.as_str(src))
+                let size_s = size.as_str();
+                format!("[{size_s}]{}", sub_ty.as_str())
             }
-            Ty::Slice { sub_ty, .. } => format!("[]{}", sub_ty.as_str(src)),
-            Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str(src)),
-            Ty::NamedType { loc } => src.text[loc.flat_start..loc.flat_end].to_string(),
+            Ty::Slice { sub_ty, .. } => format!("[]{}", sub_ty.as_str()),
+            Ty::Optional { sub_ty, .. } => format!("?{}", sub_ty.as_str()),
+            Ty::NamedType { name, loc } => name.as_ref().clone(),
             Ty::Struct { .. } => "type".to_string(),
-            Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str(src)),
+            Ty::Pointer { sub_ty, .. } => format!("*{}", sub_ty.as_str()),
             Ty::Tuple { sub_tys, .. } => {
                 format!(
                     "({})",
                     sub_tys
                         .iter()
-                        .map(|ty| { ty.as_str(src) })
+                        .map(|ty| { ty.as_str() })
                         .collect::<Vec<String>>()
                         .join(", ")
                 )

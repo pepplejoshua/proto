@@ -182,7 +182,7 @@ impl TypeTable {
                 methods,
                 loc,
             } => todo!(),
-            Ty::NamedType { loc } => todo!(),
+            Ty::NamedType { name, loc } => todo!(),
             Ty::AccessMemberType { target, mem, loc } => todo!(),
             Ty::Pointer { sub_ty, loc } => {
                 let sub_ty_inst = self.intern_type(sub_ty.clone());
