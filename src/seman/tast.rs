@@ -1,6 +1,9 @@
 #![allow(unused)]
 
-use crate::parser::ast::{BinOpType, UnaryOpType};
+use crate::{
+    parser::ast::{BinOpType, UnaryOpType},
+    source::source::SourceRef,
+};
 
 use super::type_table::TypeId;
 
@@ -35,9 +38,12 @@ pub enum TyExpr {
         ty: TypeId,
         items: Vec<TyExprId>,
     },
+    ErrorExpr,
 }
 
 pub type TyInsId = usize;
 
 #[derive(Debug, Clone)]
-pub enum TyIns {}
+pub enum TyIns {
+    ErrorIns,
+}

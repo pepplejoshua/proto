@@ -5,7 +5,7 @@ use std::{collections::HashMap, rc::Rc};
 use crate::{parser::ast::Ins, source::source::SourceRef};
 
 use super::{
-    tast::TyIns,
+    tast::{TyIns, TyInsId},
     type_table::{TypeId, TypeInst},
 };
 
@@ -27,7 +27,7 @@ pub struct SymbolScope {
     pub parent: Option<usize>,
     pub names: HashMap<Rc<String>, Rc<SymbolInfo>>,
     pub scope_id: usize,
-    pub gen_ins: Vec<TyIns>,
+    pub gen_ins: Vec<TyInsId>,
     pub is_ood_scope: bool,
 }
 
@@ -46,8 +46,8 @@ impl SymbolScope {
         self.names.insert(name, info);
     }
 
-    pub fn insert_ins(&mut self, ins: TyIns) {
-        self.gen_ins.push(ins);
+    pub fn insert_ins(&mut self, ins_id: TyInsId) {
+        self.gen_ins.push(ins_id);
     }
 
     pub fn display(&self) {
