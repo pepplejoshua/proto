@@ -1,6 +1,6 @@
 fn main() int {
     var later = _
-    var three = add(1, 2)
+    var three int = add(1, 2)
     later = three
     return 0
 }

@@ -364,10 +364,7 @@ pub enum Ins {
         init_val: Expr,
         is_mutable: bool,
         loc: Rc<SourceRef>,
-    },
-    PubDecl {
-        ins: Rc<Ins>,
-        loc: Rc<SourceRef>,
+        is_public: bool,
     },
     DeclFunc {
         name: Expr,
@@ -375,11 +372,13 @@ pub enum Ins {
         ret_ty: Rc<Ty>,
         body: Rc<Ins>,
         loc: Rc<SourceRef>,
+        is_public: bool,
     },
     DeclTypeAlias {
         name: Expr,
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
+        is_public: bool,
     },
     Defer {
         sub_ins: Box<Ins>,
@@ -455,7 +454,6 @@ impl Ins {
             Ins::DeclVariable { name, .. }
             | Ins::DeclFunc { name, .. }
             | Ins::DeclTypeAlias { name, .. } => Some(name.as_str()),
-            Ins::PubDecl { ins, .. } => ins.get_id(src),
             _ => None,
         }
     }
@@ -464,7 +462,6 @@ impl Ins {
         match self {
             Ins::DeclVariable { loc, .. }
             | Ins::DeclFunc { loc, .. }
-            | Ins::PubDecl { loc, .. }
             | Ins::DeclTypeAlias { loc, .. }
             | Ins::Block { loc, .. }
             | Ins::AssignTo { loc, .. }
@@ -484,6 +481,18 @@ impl Ins {
         }
     }
 
+    pub fn make_public(&mut self) -> bool {
+        match self {
+            Ins::DeclVariable { is_public, .. }
+            | Ins::DeclFunc { is_public, .. }
+            | Ins::DeclTypeAlias { is_public, .. } => {
+                *is_public = true;
+                true
+            }
+            _ => false,
+        }
+    }
+
     pub fn as_str(&self) -> String {
         match self {
             Ins::DeclVariable {
@@ -491,11 +500,13 @@ impl Ins {
                 ty,
                 init_val,
                 is_mutable,
+                is_public,
                 ..
             } => {
                 if let Some(ty) = ty {
                     format!(
-                        "{} {} {} = {}",
+                        "{}{} {} {} = {}",
+                        if *is_public { "pub " } else { "" },
                         if *is_mutable { "var" } else { "const" },
                         name.as_str(),
                         ty.as_str(),
@@ -503,24 +514,34 @@ impl Ins {
                     )
                 } else {
                     format!(
-                        "{} {} = {}",
+                        "{}{} {} = {}",
+                        if *is_public { "pub " } else { "" },
                         if *is_mutable { "var" } else { "const" },
                         name.as_str(),
                         init_val.as_str()
                     )
                 }
             }
-            Ins::PubDecl { ins, .. } => {
-                format!("pub {}", ins.as_str())
-            }
-            Ins::DeclTypeAlias { name, ty, .. } => {
-                format!("type {} = {}", name.as_str(), ty.as_str())
+
+            Ins::DeclTypeAlias {
+                name,
+                ty,
+                is_public,
+                ..
+            } => {
+                format!(
+                    "{}type {} = {}",
+                    if *is_public { "pub " } else { "" },
+                    name.as_str(),
+                    ty.as_str()
+                )
             }
             Ins::DeclFunc {
                 name,
                 params,
                 ret_ty,
                 body,
+                is_public,
                 ..
             } => {
                 let params_str: Vec<String> = params
@@ -540,7 +561,8 @@ impl Ins {
                     .collect();
                 let params_str = params_str.join(", ");
                 format!(
-                    "fn {}({params_str}) {}\n{}",
+                    "{}fn {}({params_str}) {}\n{}",
+                    if *is_public { "pub " } else { "" },
                     name.as_str(),
                     ret_ty.as_str(),
                     body.as_str()

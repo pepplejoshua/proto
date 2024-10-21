@@ -143,15 +143,13 @@ impl Parser {
             }
             TokenType::Pub => {
                 self.advance();
-                let ins = self.next_ins(require_terminator);
+                let mut ins = self.next_ins(require_terminator);
                 let loc = token.loc.combine(ins.get_source_ref());
                 if ins.get_id(&self.lexer.src).is_none() {
                     self.report_err(ParseError::MalformedPubDeclaration { src: loc.clone() });
                 }
-                Ins::PubDecl {
-                    ins: Rc::new(ins),
-                    loc,
-                }
+                ins.make_public();
+                ins
             }
             TokenType::Fn => self.parse_fn_decl(),
             TokenType::Type => {
@@ -225,6 +223,7 @@ impl Parser {
             init_val,
             loc,
             is_mutable,
+            is_public: false,
         }
     }
 
@@ -696,6 +695,7 @@ impl Parser {
             name: alias_name,
             ty,
             loc,
+            is_public: false,
         }
     }
 
@@ -716,6 +716,7 @@ impl Parser {
             params: fn_params,
             ret_ty: ret_type,
             body: Rc::new(body),
+            is_public: false,
             loc,
         }
     }

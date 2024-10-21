@@ -43,8 +43,8 @@ impl CheckerState {
             files: HashMap::from([(main_file.path.clone(), main_file)]),
             cur_fn_return_type: None,
             generated_code: CodeBundle {
-                expressions: vec![],
-                instructions: vec![],
+                expressions: vec![TyExpr::ErrorExpr],
+                instructions: vec![TyIns::ErrorIns],
             },
         }
     }
@@ -97,7 +97,7 @@ impl CheckerState {
     fn preload_scope_with_names(&mut self, instructions: Vec<Ins>) -> Vec<Rc<String>> {
         let mut ins_ids = vec![];
         for ins in instructions.into_iter() {
-            let ins_file = self.get_sourcefile_str_from_loc(&ins.get_source_ref());
+            let ins_file = self.get_sourcefile_name_from_loc(&ins.get_source_ref());
             let ins_id = Rc::new(ins.get_id(&self.files[&ins_file]).unwrap());
             if self.scope_stack[self.current_scope]
                 .names
@@ -128,7 +128,7 @@ impl CheckerState {
         ins_ids
     }
 
-    fn get_sourcefile_str_from_loc(&self, loc: &SourceRef) -> Rc<String> {
+    fn get_sourcefile_name_from_loc(&self, loc: &SourceRef) -> Rc<String> {
         return self.files[&loc.file].path.clone();
     }
 
@@ -161,95 +161,6 @@ impl CheckerState {
         t_ins_id
     }
 
-    pub fn check_decl_func(
-        &mut self,
-        name: &Expr,
-        params: &Vec<FnParam>,
-        ret_ty: &Rc<Ty>,
-        body: &Rc<Ins>,
-        loc: &Rc<SourceRef>,
-    ) -> TyInsId {
-        // track the name of the function in the list of ongoing resolutions
-        // TODO: can we not just check if a name is in the list of ongoing resolutions, instead of
-        // doing the weird ood_scope checking?
-        let name_str = self.expr_as_str(&name);
-        self.ongoing_resolution_stack.push(name_str.clone());
-
-        let name_info = self.shallow_name_search(&self.expr_as_str(&name));
-        // check the name of the function to make sure it is undeclared (non-ood scope)
-        // or unresolved (ood scope)
-        if self.scope_stack[self.current_scope].is_ood_scope {
-            if name_info.is_none() {
-                // report error
-                unreachable!("name not pre-declared in ood scope. at {}", loc.as_str());
-            }
-            let name_info = name_info.unwrap();
-            // make sure it is an unresolved name
-            if let SymbolInfo::Resolved { .. } = name_info.as_ref() {
-                unreachable!(
-                    "name pre-declared and already resolved. at {}",
-                    loc.as_str()
-                )
-            }
-        } else {
-            if name_info.is_some() {
-                // report error
-                self.report_error(SemanError::NameAlreadyDefined {
-                    loc: loc.clone(),
-                    name: name_str.as_ref().clone(),
-                });
-
-                return todo!();
-            }
-        }
-
-        // track the scope in which to insert the information about the function being checked since
-        // we are entering a new scope to register the params as well as check the body,
-        let fn_parent_scope = self.current_scope;
-        self.enter_scope(false);
-        let mut param_tys = vec![];
-        for param in params.iter() {
-            let param_ty = param.given_ty.clone();
-            let param_ty_inst = self.type_table.intern_type(param_ty.clone());
-            let param_info = Rc::new(SymbolInfo::Resolved {
-                ty_inst: param_ty_inst,
-                def_loc: param.loc.clone(),
-                mutable: param.is_mutable,
-            });
-            let param_name_str = self.expr_as_str(&param.name);
-            let param_src_file =
-                self.scope_stack[self.current_scope].insert(param_name_str, param_info);
-            param_tys.push(param_ty);
-        }
-        let fn_ret_ty_inst = self.type_table.intern_type(ret_ty.clone());
-        let prev_fn_ret_ty = self.cur_fn_return_type.clone();
-        self.cur_fn_return_type = Some(fn_ret_ty_inst);
-        let fn_ty = Ty::Func {
-            params: param_tys,
-            ret: ret_ty.clone(),
-            loc: loc.clone(),
-            is_const: true,
-        };
-
-        let fn_ty_inst = self.type_table.intern_type(Rc::new(fn_ty));
-        self.scope_stack[fn_parent_scope].insert(
-            name_str,
-            Rc::new(SymbolInfo::Resolved {
-                ty_inst: fn_ty_inst,
-                def_loc: loc.clone(),
-                mutable: false,
-            }),
-        );
-
-        let block_code_id = self.check_ins(body, false);
-
-        // check the body of the function and make sure all return values are of the type the function expects
-        self.exit_scope();
-        self.cur_fn_return_type = prev_fn_ret_ty;
-        self.ongoing_resolution_stack.pop();
-        todo!()
-    }
-
     pub fn check_ins(&mut self, ins: &Ins, enter_scope: bool) -> TyInsId {
         match ins {
             Ins::DeclVariable {
@@ -258,16 +169,105 @@ impl CheckerState {
                 init_val,
                 loc,
                 is_mutable,
-            } => todo!(),
-            Ins::PubDecl { ins, loc } => todo!(),
+                is_public,
+            } => {
+                // we will typecheck the value assigned
+                todo!()
+            }
             Ins::DeclFunc {
                 name,
                 params,
                 ret_ty,
                 body,
                 loc,
-            } => self.check_decl_func(name, params, ret_ty, body, loc),
-            Ins::DeclTypeAlias { name, ty, loc } => todo!(),
+                is_public,
+            } => {
+                // track the name of the function in the list of ongoing resolutions
+                // TODO: can we not just check if a name is in the list of ongoing resolutions, instead of
+                // doing the weird ood_scope checking?
+                let name_str = self.expr_as_str(&name);
+                self.ongoing_resolution_stack.push(name_str.clone());
+
+                let name_info = self.shallow_name_search(&self.expr_as_str(&name));
+                // check the name of the function to make sure it is undeclared (non-ood scope)
+                // or unresolved (ood scope)
+                if self.scope_stack[self.current_scope].is_ood_scope {
+                    if name_info.is_none() {
+                        // report error
+                        unreachable!("name not pre-declared in ood scope. at {}", loc.as_str());
+                    }
+                    let name_info = name_info.unwrap();
+                    // make sure it is an unresolved name
+                    if let SymbolInfo::Resolved { .. } = name_info.as_ref() {
+                        unreachable!(
+                            "name pre-declared and already resolved. at {}",
+                            loc.as_str()
+                        )
+                    }
+                } else {
+                    if name_info.is_some() {
+                        // report error
+                        self.report_error(SemanError::NameAlreadyDefined {
+                            loc: loc.clone(),
+                            name: name_str.as_ref().clone(),
+                        });
+
+                        return todo!();
+                    }
+                }
+
+                // track the scope in which to insert the information about the function being checked since
+                // we are entering a new scope to register the params as well as check the body,
+                let fn_parent_scope = self.current_scope;
+                self.enter_scope(false);
+                let mut param_tys = vec![];
+                for param in params.iter() {
+                    let param_ty = param.given_ty.clone();
+                    let param_ty_inst = self.type_table.intern_type(param_ty.clone());
+                    let param_info = Rc::new(SymbolInfo::Resolved {
+                        ty_inst: param_ty_inst,
+                        def_loc: param.loc.clone(),
+                        mutable: param.is_mutable,
+                    });
+                    let param_name_str = self.expr_as_str(&param.name);
+                    let param_src_file =
+                        self.scope_stack[self.current_scope].insert(param_name_str, param_info);
+                    param_tys.push(param_ty);
+                }
+                let fn_ret_ty_inst = self.type_table.intern_type(ret_ty.clone());
+                let prev_fn_ret_ty = self.cur_fn_return_type.clone();
+                self.cur_fn_return_type = Some(fn_ret_ty_inst);
+                let fn_ty = Ty::Func {
+                    params: param_tys,
+                    ret: ret_ty.clone(),
+                    loc: loc.clone(),
+                    is_const: true,
+                };
+
+                let fn_ty_inst = self.type_table.intern_type(Rc::new(fn_ty));
+                self.scope_stack[fn_parent_scope].insert(
+                    name_str,
+                    Rc::new(SymbolInfo::Resolved {
+                        ty_inst: fn_ty_inst,
+                        def_loc: loc.clone(),
+                        mutable: false,
+                    }),
+                );
+
+                let block_code_id = self.check_ins(body, false);
+
+                // check the body of the function and make sure all return values are of the type the function expects
+                self.exit_scope();
+                self.cur_fn_return_type = prev_fn_ret_ty;
+                self.ongoing_resolution_stack.pop();
+                todo!()
+            }
+            Ins::DeclTypeAlias {
+                name,
+                ty,
+                loc,
+                is_public,
+            } => todo!(),
             Ins::Defer { sub_ins, loc } => todo!(),
             Ins::Block { code, loc } => {
                 if enter_scope {
