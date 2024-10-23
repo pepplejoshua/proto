@@ -58,9 +58,11 @@ impl CheckerState {
         self.current_scope = self.scope_stack.len() - 1;
     }
 
-    fn exit_scope(&mut self) {
+    fn exit_scope(&mut self) -> Vec<TyInsId> {
         let last_scope = self.scope_stack.pop().unwrap();
+        let inner_instructions = last_scope.gen_ins;
         self.current_scope = last_scope.parent.unwrap();
+        inner_instructions
     }
 
     fn report_error(&mut self, err: SemanError) {
@@ -85,7 +87,7 @@ impl CheckerState {
                 }
                 SymbolInfo::Unresolved { ins, mutable } => {
                     println!("resolving {id}");
-                    self.check_ins(ins, true);
+                    self.check_ins(ins);
                 }
             }
         }
@@ -161,7 +163,7 @@ impl CheckerState {
         t_ins_id
     }
 
-    pub fn check_ins(&mut self, ins: &Ins, enter_scope: bool) -> TyInsId {
+    pub fn check_ins(&mut self, ins: &Ins) -> TyInsId {
         match ins {
             Ins::DeclVariable {
                 name,
@@ -171,7 +173,30 @@ impl CheckerState {
                 is_mutable,
                 is_public,
             } => {
-                // we will typecheck the value assigned
+                // since `_` means an uninitialized variable, we have to check for
+                // that as well
+                let expr_ty = if let Expr::Underscore { loc } = name {
+                    if ty.is_none() {
+                        // report error about there being not enough information
+                    }
+                } else {
+                    todo!()
+                };
+
+                // we will typecheck the assigned value and get its TypeId as long
+                // as it is not
+
+                // we will then make sure the type (if any) given is a valid type
+                // and intern it.
+
+                // we can then make a comparison of the assigned value TypeId
+                // and the given TypeId if any is provided
+
+                // store the name in the environment with the relevant information
+                // - name
+                // - mutability
+                // - type id
+                // -
                 todo!()
             }
             Ins::DeclFunc {
@@ -254,7 +279,7 @@ impl CheckerState {
                     }),
                 );
 
-                let block_code_id = self.check_ins(body, false);
+                let block_code_id = self.check_ins(body);
 
                 // check the body of the function and make sure all return values are of the type the function expects
                 self.exit_scope();
@@ -270,18 +295,16 @@ impl CheckerState {
             } => todo!(),
             Ins::Defer { sub_ins, loc } => todo!(),
             Ins::Block { code, loc } => {
-                if enter_scope {
-                    self.enter_scope(false);
-                }
-
+                self.enter_scope(false);
                 for ins in code.iter() {
-                    let ty_ins_id = self.check_ins(ins, true);
+                    let ty_ins_id = self.check_ins(ins);
                 }
-
-                if enter_scope {
-                    self.exit_scope();
-                }
-                todo!()
+                let instruction_ids = self.exit_scope();
+                let block = TyIns::Block {
+                    code: instruction_ids,
+                };
+                let block_id = self.intern_typed_ins(block);
+                block_id
             }
             Ins::AssignTo { target, value, loc } => todo!(),
             Ins::ExprIns { expr, loc } => todo!(),
@@ -326,7 +349,54 @@ impl CheckerState {
         todo!()
     }
 
-    pub fn check_expr(&mut self, expr: &Expr) -> (TyExprId, TypeId) {
+    pub fn check_expr(&mut self, expr: &Expr, ctx_ty: &Option<TypeId>) -> (TyExprId, TypeId) {
+        match expr {
+            Expr::Underscore { loc } => todo!(),
+            Expr::Integer { content, loc } => todo!(),
+            Expr::Decimal { content, loc } => todo!(),
+            Expr::Str { content, loc } => todo!(),
+            Expr::Char { content, loc } => todo!(),
+            Expr::Bool { val, loc } => todo!(),
+            Expr::Tuple { items, loc } => todo!(),
+            Expr::StaticArray { ty, items, loc } => todo!(),
+            Expr::TypeAsExpr { ty } => todo!(),
+            Expr::Identifier { name, loc } => todo!(),
+            Expr::UnaryOp { op, expr, loc } => todo!(),
+            Expr::BinOp {
+                op,
+                left,
+                right,
+                loc,
+            } => todo!(),
+            Expr::ConditionalExpr {
+                cond,
+                then,
+                otherwise,
+                loc,
+            } => todo!(),
+            Expr::CallFn { func, args, loc } => todo!(),
+            Expr::GroupedExpr { inner, loc } => todo!(),
+            Expr::IndexInto { target, index, loc } => todo!(),
+            Expr::MakeSlice {
+                target,
+                start,
+                end,
+                loc,
+            } => todo!(),
+            Expr::AccessMember { target, mem, loc } => todo!(),
+            Expr::OptionalExpr { val, loc } => todo!(),
+            Expr::ComptimeExpr { val, loc } => todo!(),
+            Expr::Lambda {
+                params,
+                ret_type,
+                body,
+                loc,
+            } => todo!(),
+            Expr::DerefPtr { target, loc } => todo!(),
+            Expr::MakePtrFromAddrOf { target, loc } => todo!(),
+            Expr::InitializerList { target, pairs, loc } => todo!(),
+            Expr::ErrorExpr { loc } => todo!(),
+        }
         todo!()
     }
 

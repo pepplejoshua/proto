@@ -45,5 +45,14 @@ pub type TyInsId = usize;
 
 #[derive(Debug, Clone)]
 pub enum TyIns {
+    Block {
+        code: Vec<TyInsId>,
+    },
+    DeclVariable {
+        name: String,
+        ty: TypeId,
+        is_mutable: bool,
+        is_public: bool,
+    },
     ErrorIns,
 }

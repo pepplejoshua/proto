@@ -79,9 +79,9 @@ pub struct TypeTable {
 impl TypeTable {
     pub fn new() -> TypeTable {
         return TypeTable {
-            types: HashMap::new(),
-            definitions: vec![],
-            next_type_id: 0,
+            types: HashMap::from([(TypeDef::ErrorType, 0)]),
+            definitions: vec![(TypeDef::ErrorType, None)],
+            next_type_id: 1,
         };
     }
 
