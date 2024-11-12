@@ -1,406 +1,213 @@
 #![allow(unused)]
 
-use std::cell::RefCell;
-use std::collections::HashMap;
-use std::rc::Rc;
+use std::{collections::HashMap, rc::Rc};
 
-use crate::parser::ast::{Expr, FnParam, Ins};
-use crate::parser::type_signature::Ty;
-use crate::seman::type_table::TypeTable;
-use crate::source::errors::SemanError;
-use crate::source::source::{SourceFile, SourceRef};
+use crate::{
+    parser::{
+        ast::{Expr, FnParam, Ins},
+        type_signature::Ty,
+    },
+    source::{errors::SemanError, source::SourceRef},
+};
 
-use super::sym_table::{SymbolInfo, SymbolScope};
-use super::tast::{TyExpr, TyExprId, TyIns, TyInsId};
-use super::type_table::{TypeId, TypeInst};
-
-pub struct CodeBundle {
-    expressions: Vec<TyExpr>,
-    instructions: Vec<TyIns>,
+#[derive(Debug, Clone)]
+enum SymInfo {
+    Fn {
+        params: Vec<FnParam>,
+        return_type: Rc<Ty>,
+        is_global: bool,
+        def_loc: Rc<SourceRef>,
+    },
+    Variable {
+        ty: Rc<Ty>,
+        is_mutable: bool,
+        def_loc: Rc<SourceRef>,
+    },
+    TypeAlias {
+        target_ty: Rc<Ty>,
+        def_loc: Rc<SourceRef>,
+    },
 }
 
-pub struct CheckerState {
-    type_table: TypeTable,
-    scope_stack: Vec<SymbolScope>,
-    current_scope: usize,
-    ongoing_resolution_stack: Vec<Rc<String>>,
-    pub seman_errors: Vec<SemanError>,
-    cur_fn_return_type: Option<TypeInst>,
-    main_file_str: Rc<String>,
-    files: HashMap<Rc<String>, Rc<SourceFile>>,
-    generated_code: CodeBundle,
+/// A scope can exist at any level (global, function, block)
+#[derive(Debug)]
+struct Scope {
+    symbols: HashMap<String, SymInfo>,
+    parent_idx: Option<usize>,
 }
 
-impl CheckerState {
-    pub fn new(main_file: Rc<SourceFile>) -> CheckerState {
-        CheckerState {
-            type_table: TypeTable::new(),
-            scope_stack: vec![SymbolScope::new(None, 0, true)],
-            current_scope: 0,
-            ongoing_resolution_stack: vec![],
-            main_file_str: main_file.path.clone(),
-            seman_errors: vec![],
-            files: HashMap::from([(main_file.path.clone(), main_file)]),
-            cur_fn_return_type: None,
-            generated_code: CodeBundle {
-                expressions: vec![TyExpr::ErrorExpr],
-                instructions: vec![TyIns::ErrorIns],
-            },
+impl Scope {
+    /// Create a new root scope (typically global)
+    fn new_root() -> Self {
+        Self {
+            symbols: HashMap::new(),
+            parent_idx: None,
         }
     }
 
-    fn enter_scope(&mut self, is_ood_scope: bool) {
-        self.scope_stack.push(SymbolScope::new(
-            Some(self.current_scope),
-            self.scope_stack.len(),
-            is_ood_scope,
-        ));
-        self.current_scope = self.scope_stack.len() - 1;
+    /// Create a new child scope
+    fn new_child(parent_idx: usize) -> Self {
+        Self {
+            symbols: HashMap::new(),
+            parent_idx: Some(parent_idx),
+        }
     }
 
-    fn exit_scope(&mut self) -> Vec<TyInsId> {
-        let last_scope = self.scope_stack.pop().unwrap();
-        let inner_instructions = last_scope.gen_ins;
-        self.current_scope = last_scope.parent.unwrap();
-        inner_instructions
+    /// Add a symbol to current scope
+    fn add_symbol(&mut self, name: String, info: SymInfo) -> Result<(), String> {
+        if self.symbols.contains_key(&name) {
+            return Err(format!(
+                "Symbol '{}' already declared in current scope",
+                name
+            ));
+        }
+        self.symbols.insert(name, info);
+        Ok(())
+    }
+}
+
+struct SemanticAnalyzer {
+    scopes: Vec<Scope>,
+    current_scope_idx: usize,
+    errors: Vec<SemanError>,
+}
+
+impl SemanticAnalyzer {
+    fn new() -> Self {
+        let mut scopes = vec![Scope::new_root()];
+        Self {
+            scopes,
+            current_scope_idx: 0,
+            errors: vec![],
+        }
+    }
+
+    fn lookup(&self, name: &str) -> Option<&SymInfo> {
+        let mut current_idx = self.current_scope_idx;
+
+        loop {
+            // Check current scope
+            if let Some(symbol) = self.scopes[current_idx].symbols.get(name) {
+                return Some(symbol);
+            }
+
+            // Move to parent scope if it exists
+            match self.scopes[current_idx].parent_idx {
+                Some(parent_idx) => current_idx = parent_idx,
+                // Hit global scope (no parent) without finding symbol
+                None => return None,
+            }
+        }
+    }
+
+    fn lookup_function(&self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
+        todo!()
+    }
+
+    fn lookup_variable(&self, name: &str) -> Option<(Rc<Ty>, bool)> {
+        todo!()
+    }
+
+    fn name_is_in_current_scope(&self, name: &str) -> bool {
+        self.scopes[self.current_scope_idx]
+            .symbols
+            .contains_key(name)
+    }
+
+    fn get_name_definition_loc(&self, name: &str) -> Option<Rc<SourceRef>> {
+        match self.lookup(name) {
+            Some(SymInfo::Fn { def_loc, .. })
+            | Some(SymInfo::Variable { def_loc, .. })
+            | Some(SymInfo::TypeAlias { def_loc, .. }) => Some(def_loc.clone()),
+            None => None,
+        }
     }
 
     fn report_error(&mut self, err: SemanError) {
-        self.seman_errors.push(err);
+        self.errors.push(err);
     }
 
-    pub fn check_main_file(&mut self, top_lvl: Vec<Ins>) {
-        let ins_ids = self.preload_scope_with_names(top_lvl);
-        let has_main_fn = ins_ids.iter().any(|id| **id == "main");
+    fn enter_scope(&mut self) {
+        let new_scope = Scope::new_child(self.current_scope_idx);
+        self.scopes.push(new_scope);
+        self.current_scope_idx = self.scopes.len() - 1;
+    }
 
-        if !has_main_fn {
-            self.report_error(SemanError::NoMainFunctionProvided {
-                filename: self.main_file_str.clone(),
-            });
-            return;
+    fn exit_scope(&mut self) {
+        if let Some(parent_idx) = self.scopes[self.current_scope_idx].parent_idx {
+            self.current_scope_idx = parent_idx;
         }
-
-        for id in ins_ids {
-            match &self.scope_stack[0].names[&id].as_ref().clone() {
-                SymbolInfo::Resolved { .. } => {
-                    println!("already resolved {id}")
-                }
-                SymbolInfo::Unresolved { ins, mutable } => {
-                    println!("resolving {id}");
-                    self.check_ins(ins);
-                }
-            }
-        }
-
-        self.scope_stack[0].display();
-        self.type_table.display();
     }
 
-    fn preload_scope_with_names(&mut self, instructions: Vec<Ins>) -> Vec<Rc<String>> {
-        let mut ins_ids = vec![];
-        for ins in instructions.into_iter() {
-            let ins_file = self.get_sourcefile_name_from_loc(&ins.get_source_ref());
-            let ins_id = Rc::new(ins.get_id(&self.files[&ins_file]).unwrap());
-            if self.scope_stack[self.current_scope]
-                .names
-                .contains_key(&ins_id)
-            {
-                // we need to report a duplicate name
-                // report error
-                self.report_error(SemanError::NameAlreadyDefined {
-                    loc: ins.get_source_ref(),
-                    name: ins_id.as_ref().clone(),
-                });
-                continue;
-            }
-            ins_ids.push(ins_id.clone());
-            let is_mutable = if let Ins::DeclVariable { is_mutable, .. } = ins {
-                is_mutable
-            } else {
-                false
-            };
-            self.scope_stack[self.current_scope].insert(
-                ins_id,
-                Rc::new(SymbolInfo::Unresolved {
-                    ins: Rc::new(ins),
-                    mutable: is_mutable,
-                }),
-            );
-        }
-        ins_ids
-    }
-
-    fn get_sourcefile_name_from_loc(&self, loc: &SourceRef) -> Rc<String> {
-        return self.files[&loc.file].path.clone();
-    }
-
-    fn get_sourcefile_from_loc(&self, loc: &SourceRef) -> Rc<SourceFile> {
-        return self.files[&loc.file].clone();
-    }
-
-    fn shallow_name_search(&self, name: &String) -> Option<Rc<SymbolInfo>> {
-        for (stored_name, info) in &self.scope_stack[self.current_scope].names {
-            if stored_name.as_ref() == name {
-                return Some(info.clone());
-            }
-        }
-        None
-    }
-
-    fn expr_as_str(&self, expr: &Expr) -> Rc<String> {
-        Rc::new(expr.as_str())
-    }
-
-    fn intern_typed_expr(&mut self, t_expr: TyExpr) -> TyExprId {
-        let t_expr_id = self.generated_code.expressions.len();
-        self.generated_code.expressions.push(t_expr);
-        t_expr_id
-    }
-
-    fn intern_typed_ins(&mut self, t_ins: TyIns) -> TyInsId {
-        let t_ins_id = self.generated_code.instructions.len();
-        self.generated_code.instructions.push(t_ins);
-        t_ins_id
-    }
-
-    pub fn check_ins(&mut self, ins: &Ins) -> TyInsId {
-        match ins {
-            Ins::DeclVariable {
-                name,
-                ty,
-                init_val,
-                loc,
-                is_mutable,
-                is_public,
-            } => {
-                // since `_` means an uninitialized variable, we have to check for
-                // that as well
-                let expr_ty = if let Expr::Underscore { loc } = name {
-                    if ty.is_none() {
-                        // report error about there being not enough information
+    fn collect_declarations(&mut self, program: &[Ins]) {
+        for ins in program {
+            match ins {
+                Ins::DeclFunc {
+                    name,
+                    params,
+                    ret_ty,
+                    body,
+                    loc,
+                    ..
+                } => {
+                    if let Expr::Identifier {
+                        name: func_name, ..
+                    } = name
+                    {
+                        if let Err(e) = self.scopes[self.current_scope_idx].add_symbol(
+                            func_name.to_string(),
+                            SymInfo::Fn {
+                                params: params.clone(),
+                                return_type: ret_ty.clone(),
+                                is_global: true,
+                                def_loc: loc.clone(),
+                            },
+                        ) {
+                            self.report_error(SemanError::NameAlreadyDefined {
+                                loc: loc.clone(),
+                                name: func_name.to_string(),
+                            });
+                        }
                     }
-                } else {
+                }
+                Ins::DeclVariable {
+                    name,
+                    ty,
+                    init_val,
+                    is_mutable,
+                    loc,
+                    ..
+                } => {
+                    if let Expr::Identifier { name: var_name, .. } = name {
+                        if let Some(var_ty) = ty {
+                            if let Err(e) = self.scopes[self.current_scope_idx].add_symbol(
+                                var_name.to_string(),
+                                SymInfo::Variable {
+                                    ty: var_ty.clone(),
+                                    is_mutable: *is_mutable,
+                                    def_loc: loc.clone(),
+                                },
+                            ) {
+                                self.report_error(SemanError::NameAlreadyDefined {
+                                    loc: loc.clone(),
+                                    name: var_name.to_string(),
+                                });
+                            }
+                        } else {
+                            self.report_error(SemanError::TypeMismatch {
+                                loc: loc.clone(),
+                                expected: "an explicit type".into(),
+                                found: "none".into(),
+                            });
+                        }
+                    }
+                }
+                Ins::DeclTypeAlias { name, ty, loc, .. } => {
                     todo!()
-                };
-
-                // we will typecheck the assigned value and get its TypeId as long
-                // as it is not
-
-                // we will then make sure the type (if any) given is a valid type
-                // and intern it.
-
-                // we can then make a comparison of the assigned value TypeId
-                // and the given TypeId if any is provided
-
-                // store the name in the environment with the relevant information
-                // - name
-                // - mutability
-                // - type id
-                // -
-                todo!()
-            }
-            Ins::DeclFunc {
-                name,
-                params,
-                ret_ty,
-                body,
-                loc,
-                is_public,
-            } => {
-                // track the name of the function in the list of ongoing resolutions
-                // TODO: can we not just check if a name is in the list of ongoing resolutions, instead of
-                // doing the weird ood_scope checking?
-                let name_str = self.expr_as_str(&name);
-                self.ongoing_resolution_stack.push(name_str.clone());
-
-                let name_info = self.shallow_name_search(&self.expr_as_str(&name));
-                // check the name of the function to make sure it is undeclared (non-ood scope)
-                // or unresolved (ood scope)
-                if self.scope_stack[self.current_scope].is_ood_scope {
-                    if name_info.is_none() {
-                        // report error
-                        unreachable!("name not pre-declared in ood scope. at {}", loc.as_str());
-                    }
-                    let name_info = name_info.unwrap();
-                    // make sure it is an unresolved name
-                    if let SymbolInfo::Resolved { .. } = name_info.as_ref() {
-                        unreachable!(
-                            "name pre-declared and already resolved. at {}",
-                            loc.as_str()
-                        )
-                    }
-                } else {
-                    if name_info.is_some() {
-                        // report error
-                        self.report_error(SemanError::NameAlreadyDefined {
-                            loc: loc.clone(),
-                            name: name_str.as_ref().clone(),
-                        });
-
-                        return todo!();
-                    }
                 }
-
-                // track the scope in which to insert the information about the function being checked since
-                // we are entering a new scope to register the params as well as check the body,
-                let fn_parent_scope = self.current_scope;
-                self.enter_scope(false);
-                let mut param_tys = vec![];
-                for param in params.iter() {
-                    let param_ty = param.given_ty.clone();
-                    let param_ty_inst = self.type_table.intern_type(param_ty.clone());
-                    let param_info = Rc::new(SymbolInfo::Resolved {
-                        ty_inst: param_ty_inst,
-                        def_loc: param.loc.clone(),
-                        mutable: param.is_mutable,
-                    });
-                    let param_name_str = self.expr_as_str(&param.name);
-                    let param_src_file =
-                        self.scope_stack[self.current_scope].insert(param_name_str, param_info);
-                    param_tys.push(param_ty);
-                }
-                let fn_ret_ty_inst = self.type_table.intern_type(ret_ty.clone());
-                let prev_fn_ret_ty = self.cur_fn_return_type.clone();
-                self.cur_fn_return_type = Some(fn_ret_ty_inst);
-                let fn_ty = Ty::Func {
-                    params: param_tys,
-                    ret: ret_ty.clone(),
-                    loc: loc.clone(),
-                    is_const: true,
-                };
-
-                let fn_ty_inst = self.type_table.intern_type(Rc::new(fn_ty));
-                self.scope_stack[fn_parent_scope].insert(
-                    name_str,
-                    Rc::new(SymbolInfo::Resolved {
-                        ty_inst: fn_ty_inst,
-                        def_loc: loc.clone(),
-                        mutable: false,
-                    }),
-                );
-
-                let block_code_id = self.check_ins(body);
-
-                // check the body of the function and make sure all return values are of the type the function expects
-                self.exit_scope();
-                self.cur_fn_return_type = prev_fn_ret_ty;
-                self.ongoing_resolution_stack.pop();
-                todo!()
+                // Ignore other instructions in Pass 1
+                _ => {}
             }
-            Ins::DeclTypeAlias {
-                name,
-                ty,
-                loc,
-                is_public,
-            } => todo!(),
-            Ins::Defer { sub_ins, loc } => todo!(),
-            Ins::Block { code, loc } => {
-                self.enter_scope(false);
-                for ins in code.iter() {
-                    let ty_ins_id = self.check_ins(ins);
-                }
-                let instruction_ids = self.exit_scope();
-                let block = TyIns::Block {
-                    code: instruction_ids,
-                };
-                let block_id = self.intern_typed_ins(block);
-                block_id
-            }
-            Ins::AssignTo { target, value, loc } => todo!(),
-            Ins::ExprIns { expr, loc } => todo!(),
-            Ins::IfConditional {
-                conds_and_code,
-                loc,
-            } => todo!(),
-            Ins::Return { expr, loc } => todo!(),
-            Ins::SingleLineComment { content, loc } => todo!(),
-            Ins::PrintIns {
-                is_println,
-                output,
-                loc,
-            } => todo!(),
-            Ins::Break { loc } => todo!(),
-            Ins::Continue { loc } => todo!(),
-            Ins::ForInLoop {
-                loop_var,
-                loop_target,
-                block,
-                loc,
-            } => todo!(),
-            Ins::InfiniteLoop { block, loc } => todo!(),
-            Ins::WhileLoop {
-                cond,
-                post_code,
-                block,
-                loc,
-            } => todo!(),
-            Ins::RegLoop {
-                init,
-                loop_cond,
-                update,
-                block,
-                loc,
-            } => todo!(),
-            Ins::ErrorIns { loc } => unreachable!(),
         }
-    }
-
-    pub fn resolve_identifier(&mut self, id: String) {
-        todo!()
-    }
-
-    pub fn check_expr(&mut self, expr: &Expr, ctx_ty: &Option<TypeId>) -> (TyExprId, TypeId) {
-        match expr {
-            Expr::Underscore { loc } => todo!(),
-            Expr::Integer { content, loc } => todo!(),
-            Expr::Decimal { content, loc } => todo!(),
-            Expr::Str { content, loc } => todo!(),
-            Expr::Char { content, loc } => todo!(),
-            Expr::Bool { val, loc } => todo!(),
-            Expr::Tuple { items, loc } => todo!(),
-            Expr::StaticArray { ty, items, loc } => todo!(),
-            Expr::TypeAsExpr { ty } => todo!(),
-            Expr::Identifier { name, loc } => todo!(),
-            Expr::UnaryOp { op, expr, loc } => todo!(),
-            Expr::BinOp {
-                op,
-                left,
-                right,
-                loc,
-            } => todo!(),
-            Expr::ConditionalExpr {
-                cond,
-                then,
-                otherwise,
-                loc,
-            } => todo!(),
-            Expr::CallFn { func, args, loc } => todo!(),
-            Expr::GroupedExpr { inner, loc } => todo!(),
-            Expr::IndexInto { target, index, loc } => todo!(),
-            Expr::MakeSlice {
-                target,
-                start,
-                end,
-                loc,
-            } => todo!(),
-            Expr::AccessMember { target, mem, loc } => todo!(),
-            Expr::OptionalExpr { val, loc } => todo!(),
-            Expr::ComptimeExpr { val, loc } => todo!(),
-            Expr::Lambda {
-                params,
-                ret_type,
-                body,
-                loc,
-            } => todo!(),
-            Expr::DerefPtr { target, loc } => todo!(),
-            Expr::MakePtrFromAddrOf { target, loc } => todo!(),
-            Expr::InitializerList { target, pairs, loc } => todo!(),
-            Expr::ErrorExpr { loc } => todo!(),
-        }
-        todo!()
-    }
-
-    pub fn check_type(&mut self, ty: &Ty) {
-        todo!()
     }
 }

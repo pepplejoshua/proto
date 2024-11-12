@@ -1,62 +1,56 @@
-// Constants are declared with :: with an optional type between : and :.
-// binding an anonymous struct (a type) to a name
-Empty :: struct {}
+struct Empty {}
 
-// binding a builtin type (a type) to a name
-Byte :: u8
+type Byte = u8
+type IntPair = Pair(int)
+type BoolPair = Pair(bool)
+type IntBoolPair = DisjointPair(int, bool)
 
-// using a comptime function that describes a type that depends on another type
-// and returns a new type
-IntPair : type : Pair(int)
-BoolPair :: Pair(bool)
-IntBoolPair :: DisjointPair(int, bool)
-
-// a comptime evaluated function that returns a type
-Pair :: \(comptime T type) type {
-    return struct {
-        lhs: T,
-        rhs: T,
-    }
+struct Pair(T) {
+    lhs T
+    rhs T
 }
 
-// a comptime evaluated function that returns a type
-DisjointPair :: \(comptime Lhs type, comptime Rhs type) type {
-    return struct {
-        lhs: Lhs,
-        rhs: Rhs,
-    }
+struct DisjointPair(Lhs, Rhs) {
+    lhs Lhs
+    rhs Rhs
 }
 
-LinkedList :: \(comptime T type) type {
-    return struct {
-        data: T
-        next: ?*Self
-        init :: \(data T) Self {
-            return .{
-                data,
-                next = none,
-            }
+struct LinkedList(T) {
+    data T
+    next ?*Self
+}
+
+impl LinkedList(T) {
+    fn init(data T) Self {
+        return .{
+            data,
+            next = none,
         }
+    }
 
-        insert :: \(self *Self, next_node *Self) void {
+    fn extend(self *Self, next_node *Self) void {
+        if self.next.is_none() {
             self.next = some next_node
+        } else {
+            var n_node = self.next.unwrap()
+            n_node.extend(next_node)
         }
     }
 }
 
 // the entry point of the program
-main :: \() int {
+fn main() int {
     // initialize struct and assign them to variables.
     // Variables are declared with := with an optional type between : and =.
-    pair := IntPair {
+    var pair = IntPair {
         lhs = 1,
         rhs = 2,
     }
-    pair2 := BoolPair {
+    var pair2 = BoolPair {
         lhs = true,
         rhs = false,
     }
-    pair3 := IntBoolPair {
+    var pair3 = IntBoolPair {
         lhs = 420,
         rhs = false,
     }

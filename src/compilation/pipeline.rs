@@ -1,9 +1,8 @@
-use std::{collections::HashMap, env, fs, path::PathBuf, rc::Rc};
+use std::{collections::HashMap, env, fs, path::PathBuf};
 
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
-    seman::seman::CheckerState,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -11,7 +10,7 @@ use crate::{
 pub enum Stage {
     Lexer,
     Parser,
-    Sema,
+    Seman,
     CodeGen,
 }
 
@@ -46,7 +45,7 @@ impl PipelineConfig {
                 cmd: None,
                 backend: Backend::CPP,
                 target_file: "".to_string(),
-                max_stage: Stage::Sema,
+                max_stage: Stage::Seman,
                 show_help: true,
                 dbg_info: false,
                 use_pfmt: true,
@@ -67,7 +66,7 @@ impl PipelineConfig {
                         cmd: None,
                         backend: Backend::CPP,
                         target_file: "".to_string(),
-                        max_stage: Stage::Sema,
+                        max_stage: Stage::Seman,
                         show_help: true,
                         dbg_info: false,
                         use_pfmt: false,
@@ -84,7 +83,7 @@ impl PipelineConfig {
                         "cpp" => backend = Backend::CPP,
                         "lex" => max_stage = Stage::Lexer,
                         "parse" => max_stage = Stage::Parser,
-                        "sema" => max_stage = Stage::Sema,
+                        "seman" => max_stage = Stage::Seman,
                         "gen" => max_stage = Stage::CodeGen,
                         "fmt" => use_pfmt = true,
                         "dbg" => dbg_info = true,
@@ -229,15 +228,6 @@ impl Workspace {
         }
         if let Stage::Parser = self.config.max_stage {
             return;
-        }
-
-        let mut checker = CheckerState::new(Rc::new(src));
-        checker.check_main_file(ins);
-
-        if !checker.seman_errors.is_empty() {
-            for err in checker.seman_errors {
-                reporter.report_seman_error(err);
-            }
         }
 
         // let file_mod = parser.file_mod;
