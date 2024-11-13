@@ -235,8 +235,3 @@ pub enum SemanError {
     },
     TooManyErrors,
 }
-
-#[derive(Debug, Clone)]
-pub enum CodeGenError {
-    CompileErr(),
-}

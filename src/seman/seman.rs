@@ -7,7 +7,10 @@ use crate::{
         ast::{Expr, FnParam, Ins},
         type_signature::Ty,
     },
-    source::{errors::SemanError, source::SourceRef},
+    source::{
+        errors::SemanError,
+        source::{SourceFile, SourceRef},
+    },
 };
 
 use super::typed_ast::{TypedExpr, TypedIns};
@@ -32,6 +35,14 @@ enum SymInfo {
 }
 
 impl SymInfo {
+    fn get_loc(&self) -> Rc<SourceRef> {
+        match self {
+            SymInfo::Fn { def_loc, .. }
+            | SymInfo::Variable { def_loc, .. }
+            | SymInfo::TypeAlias { def_loc, .. } => def_loc.clone(),
+        }
+    }
+
     fn as_str(&self) -> String {
         match self {
             SymInfo::Fn {
@@ -103,15 +114,17 @@ pub struct SemanticAnalyzer {
     scopes: Vec<Scope>,
     current_scope_idx: usize,
     errors: Vec<SemanError>,
+    main_src_file: SourceFile,
 }
 
 impl SemanticAnalyzer {
-    fn new() -> Self {
+    fn new(main_src_file: SourceFile) -> Self {
         let mut scopes = vec![Scope::new_root()];
         Self {
             scopes,
             current_scope_idx: 0,
             errors: vec![],
+            main_src_file,
         }
     }
 
@@ -238,26 +251,207 @@ impl SemanticAnalyzer {
                 Ins::DeclTypeAlias { name, ty, loc, .. } => {
                     todo!()
                 }
-                // Ignore other instructions in Pass 1
+                // ignore other instructions in Pass 1
                 _ => {}
             }
         }
     }
 
-    fn validate_program(&mut self, program: &[Ins]) {
-        todo!()
+    fn is_integer_type(&self, ty: &Ty) -> bool {
+        matches!(ty, Ty::Signed { is_int: true, .. })
     }
 
-    fn validate_expression(&mut self, expr: &Expr) -> (Ty, TypedExpr) {
-        todo!()
+    fn is_unsigned_integer_type(&self, ty: &Ty) -> bool {
+        matches!(ty, Ty::Unsigned { is_uint: true, .. })
+    }
+
+    fn validate_program(&mut self, program: &[Ins]) -> Vec<TypedIns> {
+        // validate each top-level instruction
+        let mut typed_program = vec![];
+        for ins in program {
+            let typed_ins = self.validate_instruction(ins);
+            typed_program.push(typed_ins);
+        }
+
+        let mut additional_errors = vec![];
+
+        // check if a main function exists and has the correct type signature
+        match self.lookup("main") {
+            Some(SymInfo::Fn {
+                params,
+                return_type,
+                def_loc,
+                ..
+            }) => {
+                if !params.is_empty() {
+                    additional_errors.push(SemanError::TypeMismatch {
+                        loc: def_loc.clone(),
+                        expected: "\\() int".into(),
+                        found: format!("a function with {} parameters", params.len()),
+                    });
+                }
+
+                if !self.is_integer_type(&return_type) {
+                    additional_errors.push(SemanError::TypeMismatch {
+                        loc: return_type.get_loc(),
+                        expected: "int".into(),
+                        found: return_type.as_str(),
+                    });
+                }
+            }
+            Some(sym_info) => {
+                self.report_error(SemanError::Expected(
+                    "a function named 'main' to serve as the entry of the program".into(),
+                    sym_info.get_loc(),
+                    None,
+                ));
+            }
+            None => {
+                self.report_error(SemanError::NoMainFunctionProvided {
+                    filename: self.main_src_file.path.clone(),
+                });
+            }
+        }
+
+        self.errors.extend(additional_errors);
+        typed_program
+    }
+
+    fn validate_expression(&mut self, expr: &Expr, parent_ty: Option<&Rc<Ty>>) -> (Ty, TypedExpr) {
+        match expr {
+            Expr::Integer { content, loc } => todo!(),
+            Expr::Decimal { content, loc } => todo!(),
+            Expr::Str { content, loc } => todo!(),
+            Expr::Char { content, loc } => todo!(),
+            Expr::Bool { val, loc } => todo!(),
+            Expr::Tuple { items, loc } => todo!(),
+            Expr::StaticArray { ty, items, loc } => todo!(),
+            Expr::TypeAsExpr { ty } => todo!(),
+            Expr::Identifier { name, loc } => todo!(),
+            Expr::UnaryOp { op, expr, loc } => todo!(),
+            Expr::BinOp {
+                op,
+                left,
+                right,
+                loc,
+            } => todo!(),
+            Expr::ConditionalExpr {
+                cond,
+                then,
+                otherwise,
+                loc,
+            } => todo!(),
+            Expr::CallFn { func, args, loc } => todo!(),
+            Expr::GroupedExpr { inner, loc } => todo!(),
+            Expr::IndexInto { target, index, loc } => todo!(),
+            Expr::MakeSlice {
+                target,
+                start,
+                end,
+                loc,
+            } => todo!(),
+            Expr::AccessMember { target, mem, loc } => todo!(),
+            Expr::OptionalExpr { val, loc } => todo!(),
+            Expr::ComptimeExpr { val, loc } => todo!(),
+            Expr::Lambda {
+                params,
+                ret_type,
+                body,
+                loc,
+            } => todo!(),
+            Expr::DerefPtr { target, loc } => todo!(),
+            Expr::MakePtrFromAddrOf { target, loc } => todo!(),
+            Expr::InitializerList { target, pairs, loc } => todo!(),
+            Expr::ErrorExpr { loc } => {
+                unreachable!("ErrorExpr found in program [validate_expression()]")
+            }
+        }
     }
 
     fn validate_instruction(&mut self, ins: &Ins) -> TypedIns {
-        todo!()
+        match ins {
+            Ins::DeclVariable {
+                name,
+                ty,
+                init_val,
+                is_mutable,
+                loc,
+                is_public,
+            } => todo!(),
+            Ins::DeclFunc {
+                name,
+                params,
+                ret_ty,
+                body,
+                loc,
+                is_public,
+            } => {
+                self.enter_scope();
+                todo!()
+            }
+            Ins::DeclTypeAlias {
+                name,
+                ty,
+                loc,
+                is_public,
+            } => todo!(),
+            Ins::Defer { sub_ins, loc } => todo!(),
+            Ins::Block { code, loc } => {
+                self.enter_scope();
+                let mut typed_code = vec![];
+                for ins in code {
+                    let typed_ins = self.validate_instruction(ins);
+                    typed_code.push(typed_ins);
+                }
+                self.exit_scope();
+                TypedIns::Block { code: typed_code }
+            }
+            Ins::AssignTo { target, value, loc } => todo!(),
+            Ins::ExprIns { expr, loc } => todo!(),
+            Ins::IfConditional {
+                conds_and_code,
+                loc,
+            } => todo!(),
+            Ins::Return { expr, loc } => todo!(),
+            Ins::SingleLineComment { content, loc } => todo!(),
+            Ins::PrintIns {
+                is_println,
+                output,
+                loc,
+            } => todo!(),
+            Ins::Break { loc } => todo!(),
+            Ins::Continue { loc } => todo!(),
+            Ins::ForInLoop {
+                loop_var,
+                loop_target,
+                block,
+                loc,
+            } => todo!(),
+            Ins::InfiniteLoop { block, loc } => todo!(),
+            Ins::WhileLoop {
+                cond,
+                post_code,
+                block,
+                loc,
+            } => todo!(),
+            Ins::RegLoop {
+                init,
+                loop_cond,
+                update,
+                block,
+                loc,
+            } => todo!(),
+            Ins::ErrorIns { loc } => {
+                unreachable!("ErrorIns found in program [validate_instruction()]")
+            }
+        }
     }
 
-    pub fn analyze_program(program: &[Ins]) -> Result<Vec<TypedIns>, Vec<SemanError>> {
-        let mut analyzer = SemanticAnalyzer::new();
+    pub fn analyze_program(
+        program: &[Ins],
+        main_src_file: SourceFile,
+    ) -> Result<Vec<TypedIns>, Vec<SemanError>> {
+        let mut analyzer = SemanticAnalyzer::new(main_src_file);
 
         // pass 1: collect all top level declarations
         analyzer.collect_declarations(program);

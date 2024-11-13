@@ -227,7 +227,7 @@ impl Workspace {
             return;
         }
 
-        let res = SemanticAnalyzer::analyze_program(&program);
+        let res = SemanticAnalyzer::analyze_program(&program, src);
         match res {
             Ok(_) => todo!(),
             Err(seman_errs) => {

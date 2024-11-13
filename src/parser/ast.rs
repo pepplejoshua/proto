@@ -62,9 +62,6 @@ impl UnaryOpType {
 
 #[derive(Debug, Clone)]
 pub enum Expr {
-    Underscore {
-        loc: Rc<SourceRef>,
-    },
     Integer {
         content: Rc<String>,
         loc: Rc<SourceRef>,
@@ -178,8 +175,7 @@ pub enum Expr {
 impl Expr {
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
-            Expr::Underscore { loc }
-            | Expr::Integer { loc, .. }
+            Expr::Integer { loc, .. }
             | Expr::Decimal { loc, .. }
             | Expr::Str { loc, .. }
             | Expr::Char { loc, .. }
@@ -208,7 +204,6 @@ impl Expr {
 
     pub fn as_str(&self) -> String {
         match self {
-            Expr::Underscore { .. } => "_".to_string(),
             Expr::Identifier { name, .. } => name.as_ref().clone(),
             Expr::Str { content, .. }
             | Expr::Char { content, .. }
@@ -361,7 +356,7 @@ pub enum Ins {
     DeclVariable {
         name: Expr,
         ty: Option<Rc<Ty>>, // might be provided, or not
-        init_val: Expr,
+        init_val: Option<Expr>,
         is_mutable: bool,
         loc: Rc<SourceRef>,
         is_public: bool,
@@ -503,23 +498,21 @@ impl Ins {
                 is_public,
                 ..
             } => {
+                let public = if *is_public { "pub " } else { "" };
+                let mutable = if *is_mutable { "var" } else { "const" };
+                let init_val = if let Some(val) = init_val {
+                    val.as_str()
+                } else {
+                    "_".into()
+                };
                 if let Some(ty) = ty {
                     format!(
-                        "{}{} {} {} = {}",
-                        if *is_public { "pub " } else { "" },
-                        if *is_mutable { "var" } else { "const" },
+                        "{public}{mutable} {} {} = {init_val}",
                         name.as_str(),
                         ty.as_str(),
-                        init_val.as_str()
                     )
                 } else {
-                    format!(
-                        "{}{} {} = {}",
-                        if *is_public { "pub " } else { "" },
-                        if *is_mutable { "var" } else { "const" },
-                        name.as_str(),
-                        init_val.as_str()
-                    )
+                    format!("{public}{mutable} {} = {init_val}", name.as_str(),)
                 }
             }
 

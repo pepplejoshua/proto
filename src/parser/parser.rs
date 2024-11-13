@@ -214,8 +214,15 @@ impl Parser {
             "an assignment token (=) to separate the name (and optional type) and the initialization value.",
         );
 
-        let init_val = self.parse_expr(None);
-        loc = loc.combine(init_val.get_source_ref());
+        let init_val = if self.cur_token().ty == TokenType::Underscore {
+            loc = loc.combine(self.cur_token().loc);
+            self.advance();
+            None
+        } else {
+            let val = self.parse_expr(None);
+            loc = loc.combine(val.get_source_ref());
+            Some(val)
+        };
 
         Ins::DeclVariable {
             name,
@@ -1313,12 +1320,6 @@ impl Parser {
                         inner: Box::new(expr),
                         loc,
                     };
-                }
-            }
-            TokenType::Underscore => {
-                self.advance();
-                Expr::Underscore {
-                    loc: cur.get_source_ref(),
                 }
             }
             TokenType::BackTick => {

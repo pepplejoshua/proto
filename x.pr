@@ -9,4 +9,4 @@ fn add(a int, b int) int {
     return a + b
 }
 
-const PI int = 3.14152
+const PI int = 3.14_152
