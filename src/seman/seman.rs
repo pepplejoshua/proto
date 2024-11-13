@@ -146,12 +146,31 @@ impl SemanticAnalyzer {
         }
     }
 
+    fn shallow_lookup(&self, name: &str) -> Option<&SymInfo> {
+        self.scopes[self.current_scope_idx].symbols.get(name)
+    }
+
     fn lookup_function(&self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
-        todo!()
+        let sym_info = self.lookup(name);
+        if let Some(SymInfo::Fn {
+            params,
+            return_type,
+            ..
+        }) = sym_info
+        {
+            Some((params.clone(), return_type.clone()))
+        } else {
+            None
+        }
     }
 
     fn lookup_variable(&self, name: &str) -> Option<(Rc<Ty>, bool)> {
-        todo!()
+        let sym_info = self.lookup(name);
+        if let Some(SymInfo::Variable { ty, is_mutable, .. }) = sym_info {
+            Some((ty.clone(), *is_mutable))
+        } else {
+            None
+        }
     }
 
     fn name_is_in_current_scope(&self, name: &str) -> bool {
@@ -312,7 +331,6 @@ impl SemanticAnalyzer {
                 });
             }
         }
-
         self.errors.extend(additional_errors);
         typed_program
     }
@@ -386,8 +404,58 @@ impl SemanticAnalyzer {
                 loc,
                 is_public,
             } => {
+                if self.current_scope_idx == 0 {
+                    // global function - already collected relevant information
+                } else {
+                    // local function
+                    if let Expr::Identifier {
+                        name: func_name, ..
+                    } = name
+                    {
+                        self.scopes[self.current_scope_idx].add_symbol(
+                            func_name.to_string(),
+                            SymInfo::Fn {
+                                params: params.clone(),
+                                return_type: ret_ty.clone(),
+                                is_global: false,
+                                def_loc: loc.clone(),
+                            },
+                        );
+                    }
+                }
+
                 self.enter_scope();
-                todo!()
+                for param in params {
+                    if let Expr::Identifier {
+                        name: param_name, ..
+                    } = &param.name
+                    {
+                        if self.shallow_lookup(&(param_name.to_string())).is_some() {
+                            self.report_error(SemanError::NameAlreadyDefined {
+                                loc: param.loc.clone(),
+                                name: param_name.to_string(),
+                            });
+                            continue;
+                        }
+                        self.scopes[self.current_scope_idx].add_symbol(
+                            param_name.to_string(),
+                            SymInfo::Variable {
+                                ty: param.given_ty.clone(),
+                                is_mutable: param.is_mutable,
+                                def_loc: param.loc.clone(),
+                            },
+                        );
+                    }
+                }
+                let typed_body = self.validate_instruction(body);
+                self.exit_scope();
+
+                TypedIns::DeclFunc {
+                    name: name.as_str(),
+                    params: params.clone(),
+                    ret_ty: ret_ty.clone(),
+                    body: Rc::new(typed_body),
+                }
             }
             Ins::DeclTypeAlias {
                 name,
@@ -463,11 +531,11 @@ impl SemanticAnalyzer {
         }
 
         // pass 2: validate everything in the program
-        analyzer.validate_program(program);
+        let typed_program = analyzer.validate_program(program);
         if !analyzer.errors.is_empty() {
             return Err(analyzer.errors);
         }
 
-        todo!()
+        Ok(typed_program)
     }
 }

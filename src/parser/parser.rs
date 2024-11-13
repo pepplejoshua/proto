@@ -214,7 +214,19 @@ impl Parser {
             "an assignment token (=) to separate the name (and optional type) and the initialization value.",
         );
 
-        let init_val = if self.cur_token().ty == TokenType::Underscore {
+        let init_val = if is_mutable && self.cur_token().ty == TokenType::Underscore {
+            if !is_mutable {
+                self.report_err(ParseError::MalformedDeclaration(
+                    "Cannot use _ to initialize a constant".into(),
+                    self.cur_token().get_source_ref(),
+                ));
+            }
+            if ty.is_none() {
+                self.report_err(ParseError::MalformedDeclaration(
+                    "Variable initialized with _ must have explicit type annotation.".into(),
+                    self.cur_token().get_source_ref(),
+                ));
+            }
             loc = loc.combine(self.cur_token().loc);
             self.advance();
             None
