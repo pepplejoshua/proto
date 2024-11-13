@@ -459,25 +459,21 @@ impl SourceReporter {
                 self.report_with_ref(&loc_given, msg, None, false);
             }
             SemanError::IncorrectFunctionArity {
-                exp,
+                expected,
                 given,
-                loc_given,
-                func,
+                loc,
             } => {
-                let msg = format!("The function '{func}' expects {exp} arguments but was called with {given} arguments.");
-                self.report_with_ref(&loc_given, msg, None, false);
+                let msg = format!("Expected {expected} arguments for function call but was called with {given} arguments.");
+                self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::NameIsNotCallable { name, name_ty, loc } => {
-                let msg =
-                    format!("'{name}' of type '{name_ty}' is not a function and cannot be called.");
+            SemanError::ExpectedFunctionType { found, loc } => {
+                let msg = format!(
+                    "value has type '{found}' which is not a function and cannot be called."
+                );
                 self.report_with_ref(&loc, msg, None, false);
             }
             SemanError::CannotInferTypeOfEmptyArray { loc } => {
                 let msg = "Unable to infer type of empty static array without context.".to_string();
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotInferTypeOfEmptyHashMap { loc } => {
-                let msg = "Unable to infer type of empty hashmap without context.".to_string();
                 self.report_with_ref(&loc, msg, None, false);
             }
             SemanError::MismatchingStaticArrayItemTypes {
@@ -492,10 +488,6 @@ impl SourceReporter {
                 let msg =
                     format!("Static Array type is incompatible with the given type '{given_ty}'");
                 self.report_with_ref(&arr_loc, msg, None, false);
-            }
-            SemanError::TupleTypeCheckFailed { given_ty, tup_loc } => {
-                let msg = format!("Tuple type is incompatible with the given type '{given_ty}'");
-                self.report_with_ref(&tup_loc, msg, None, false);
             }
             SemanError::NonConstantNumberSizeForStaticArray { loc } => {
                 let msg =
@@ -512,12 +504,6 @@ impl SourceReporter {
                     "Static array was expected to have at most {exp} items but got {given} items."
                 );
                 self.report_with_ref(&arr_loc, msg, None, false);
-            }
-            SemanError::ConditionShouldBeTypedBool { given_ty, loc } => {
-                let msg = format!(
-                    "Condition expression should be typed 'bool' but has type '{given_ty}'",
-                );
-                self.report_with_ref(&loc, msg, None, false);
             }
             SemanError::ExpectedArrayOrSlice { given_ty, loc } => {
                 let msg = format!("The target of a slice operation should be an array or another slice was expected. The target has type '{given_ty}'.");
@@ -560,12 +546,6 @@ impl SourceReporter {
                 let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::StructHasNoInitFunction { given_ty, loc } => {
-                let msg =
-                    format!("struct '{given_ty}' does not provide an initialization function.");
-                let tip = format!("Provide initialization function with the signature 'fn init([any parameters]) void {{ [body] }}.'.");
-                self.report_with_ref(&loc, msg, Some(tip), false);
-            }
             SemanError::CannotAssignToTarget { target, loc } => {
                 let msg = format!("'{target}' cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
@@ -590,35 +570,6 @@ impl SourceReporter {
                 let msg =
                     format!("Function definitions inside a defer instruction should return void.");
                 self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::LoopControlInstructionOutsideLoop { ty, loc } => {
-                let msg = format!("A {ty} instruction can only be used in a loop's body.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::InvalidForInLoopTargetType { given_ty, loc } => {
-                let msg = format!("The type of the target of a for-in loop must be either a str, an array, or a slice but got '{given_ty}'. ");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotDerefNonPtrType { given_ty, loc } => {
-                let msg = format!(
-                    "The target of a dereference operation must be a pointer but got '{given_ty}'."
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotTakeAddressOfExpr { loc } => {
-                let msg =
-                    "Taking the address of an ephemeral (temporary) expression is not allowed."
-                        .to_string();
-                let tip = "Consider assigning the expression to a variable / constant, and then taking the address of that.".to_string();
-                self.report_with_ref(&loc, msg, Some(tip), false);
-            }
-            SemanError::CannotFreeNonPtrType { given_ty, loc } => {
-                let msg = format!("Attempt to free a non-pointer type '{given_ty}'");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::HashMapTypeCheckFailed { given_ty, arr_loc } => {
-                let msg = format!("HashMap type is incompatible with the given type '{given_ty}'");
-                self.report_with_ref(&arr_loc, msg, None, false);
             }
         }
     }

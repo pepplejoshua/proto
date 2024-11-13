@@ -1,6 +1,6 @@
 #![allow(unused)]
 
-use std::{collections::HashMap, rc::Rc};
+use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use crate::{
     parser::{
@@ -22,15 +22,18 @@ enum SymInfo {
         return_type: Rc<Ty>,
         is_global: bool,
         def_loc: Rc<SourceRef>,
+        ref_count: Cell<usize>,
     },
     Variable {
         ty: Rc<Ty>,
         is_mutable: bool,
         def_loc: Rc<SourceRef>,
+        ref_count: Cell<usize>,
     },
     TypeAlias {
         target_ty: Rc<Ty>,
         def_loc: Rc<SourceRef>,
+        ref_count: Cell<usize>,
     },
 }
 
@@ -50,6 +53,7 @@ impl SymInfo {
                 return_type,
                 is_global,
                 def_loc,
+                ..
             } => format!(
                 "\\({}) {}",
                 params
@@ -63,12 +67,15 @@ impl SymInfo {
                 ty,
                 is_mutable,
                 def_loc,
+                ..
             } => format!(
                 "{} | {}",
                 if *is_mutable { "var" } else { "const " },
                 ty.as_str()
             ),
-            SymInfo::TypeAlias { target_ty, def_loc } => todo!(),
+            SymInfo::TypeAlias {
+                target_ty, def_loc, ..
+            } => todo!(),
         }
     }
 }
@@ -128,7 +135,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn lookup(&self, name: &str) -> Option<&SymInfo> {
+    fn lookup(&mut self, name: &str) -> Option<&SymInfo> {
         let mut current_idx = self.current_scope_idx;
 
         loop {
@@ -150,7 +157,7 @@ impl SemanticAnalyzer {
         self.scopes[self.current_scope_idx].symbols.get(name)
     }
 
-    fn lookup_function(&self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
+    fn lookup_function(&mut self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
         let sym_info = self.lookup(name);
         if let Some(SymInfo::Fn {
             params,
@@ -164,7 +171,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn lookup_variable(&self, name: &str) -> Option<(Rc<Ty>, bool)> {
+    fn lookup_variable(&mut self, name: &str) -> Option<(Rc<Ty>, bool)> {
         let sym_info = self.lookup(name);
         if let Some(SymInfo::Variable { ty, is_mutable, .. }) = sym_info {
             Some((ty.clone(), *is_mutable))
@@ -179,7 +186,7 @@ impl SemanticAnalyzer {
             .contains_key(name)
     }
 
-    fn get_name_definition_loc(&self, name: &str) -> Option<Rc<SourceRef>> {
+    fn get_name_definition_loc(&mut self, name: &str) -> Option<Rc<SourceRef>> {
         match self.lookup(name) {
             Some(SymInfo::Fn { def_loc, .. })
             | Some(SymInfo::Variable { def_loc, .. })
@@ -226,6 +233,7 @@ impl SemanticAnalyzer {
                                 return_type: ret_ty.clone(),
                                 is_global: true,
                                 def_loc: loc.clone(),
+                                ref_count: Cell::new(0),
                             },
                         ) {
                             self.report_error(SemanError::NameAlreadyDefined {
@@ -251,6 +259,7 @@ impl SemanticAnalyzer {
                                     ty: var_ty.clone(),
                                     is_mutable: *is_mutable,
                                     def_loc: loc.clone(),
+                                    ref_count: Cell::new(0),
                                 },
                             ) {
                                 self.report_error(SemanError::NameAlreadyDefined {
@@ -276,7 +285,41 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn is_integer_type(&self, ty: &Ty) -> bool {
+    fn types_are_compatible(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> bool {
+        match (lhs.as_ref(), rhs.as_ref()) {
+            (
+                Ty::Signed {
+                    size: l_size,
+                    is_int: l_is_int,
+                    ..
+                },
+                Ty::Signed {
+                    size: r_size,
+                    is_int: r_is_int,
+                    ..
+                },
+            ) => l_size == r_size && l_is_int == r_is_int,
+            (
+                Ty::Unsigned {
+                    size: l_size,
+                    is_uint: l_is_uint,
+                    ..
+                },
+                Ty::Unsigned {
+                    size: r_size,
+                    is_uint: r_is_uint,
+                    ..
+                },
+            ) => l_size == r_size && l_is_uint == r_is_uint,
+            (Ty::Float { size, .. }, Ty::Float { size: r_size, .. }) => size == r_size,
+            (Ty::Char { .. }, Ty::Char { .. }) => true,
+            (Ty::Str { .. }, Ty::Str { .. }) => true,
+            (Ty::Void { .. }, Ty::Void { .. }) => true,
+            _ => todo!(),
+        }
+    }
+
+    fn is_integer_type(ty: &Ty) -> bool {
         matches!(ty, Ty::Signed { is_int: true, .. })
     }
 
@@ -363,7 +406,7 @@ impl SemanticAnalyzer {
                     });
                 }
 
-                if !self.is_integer_type(&return_type) {
+                if !Self::is_integer_type(&return_type) {
                     additional_errors.push(SemanError::TypeMismatch {
                         loc: return_type.get_loc(),
                         expected: "int".into(),
@@ -372,7 +415,7 @@ impl SemanticAnalyzer {
                 }
             }
             Some(sym_info) => {
-                self.report_error(SemanError::Expected(
+                additional_errors.push(SemanError::Expected(
                     "a function named 'main' to serve as the entry of the program".into(),
                     sym_info.get_loc(),
                     None,
@@ -394,7 +437,28 @@ impl SemanticAnalyzer {
         parent_ty: Option<&Rc<Ty>>,
     ) -> (Rc<Ty>, TypedExpr) {
         match expr {
-            Expr::Integer { content, loc } => todo!(),
+            Expr::Integer { content, loc } => {
+                let (ty, typed_integer) = if let Some(parent_ty) = parent_ty {
+                    match parent_ty.as_ref() {
+                        Ty::Signed { size, is_int, loc } => {
+                            todo!()
+                        }
+                        Ty::Unsigned { size, is_uint, loc } => {
+                            todo!()
+                        }
+                        Ty::Float { size, loc } => {
+                            todo!()
+                        }
+                        _ => {
+                            todo!()
+                        }
+                    }
+                } else {
+                    let val = content.parse::<i32>();
+                    (Ty::get_int_ty(loc.clone()), todo!())
+                };
+                todo!()
+            }
             Expr::Decimal { content, loc } => todo!(),
             Expr::Str { content, loc } => todo!(),
             Expr::Char { content, loc } => todo!(),
@@ -402,7 +466,64 @@ impl SemanticAnalyzer {
             Expr::Tuple { items, loc } => todo!(),
             Expr::StaticArray { ty, items, loc } => todo!(),
             Expr::TypeAsExpr { ty } => todo!(),
-            Expr::Identifier { name, loc } => todo!(),
+            Expr::Identifier { name, loc } => {
+                // look up the identifier and update the reference number of the name
+                match self.lookup(name) {
+                    Some(SymInfo::Variable { ty, ref_count, .. }) => {
+                        ref_count.set(ref_count.get() + 1);
+                        (
+                            ty.clone(),
+                            TypedExpr::Identifier {
+                                name: name.to_string(),
+                                ty: ty.clone(),
+                                loc: loc.clone(),
+                            },
+                        )
+                    }
+                    Some(SymInfo::Fn {
+                        params,
+                        return_type,
+                        is_global,
+                        def_loc,
+                        ref_count,
+                    }) => {
+                        ref_count.set(ref_count.get() + 1);
+                        let param_tys: Vec<Rc<Ty>> =
+                            params.iter().map(|param| param.given_ty.clone()).collect();
+                        let fn_ty = Rc::new(Ty::Func {
+                            params: param_tys,
+                            ret: return_type.clone(),
+                            loc: loc.clone(),
+                            is_const: true,
+                        });
+                        (
+                            fn_ty.clone(),
+                            TypedExpr::Identifier {
+                                name: name.to_string(),
+                                ty: fn_ty,
+                                loc: loc.clone(),
+                            },
+                        )
+                    }
+                    Some(SymInfo::TypeAlias {
+                        target_ty,
+                        def_loc,
+                        ref_count,
+                    }) => {
+                        todo!()
+                    }
+                    None => {
+                        self.report_error(SemanError::ReferenceToUndefinedName {
+                            loc: loc.clone(),
+                            var_name: name.to_string(),
+                        });
+                        (
+                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                            TypedExpr::Error,
+                        )
+                    }
+                }
+            }
             Expr::UnaryOp { op, expr, loc } => todo!(),
             Expr::BinOp {
                 op,
@@ -416,7 +537,63 @@ impl SemanticAnalyzer {
                 otherwise,
                 loc,
             } => todo!(),
-            Expr::CallFn { func, args, loc } => todo!(),
+            Expr::CallFn { func, args, loc } => {
+                let (func_ty, typed_func) = self.validate_expression(func, None);
+
+                match func_ty.as_ref() {
+                    Ty::Func {
+                        params: param_tys,
+                        ret: return_ty,
+                        ..
+                    } => {
+                        // validate arguments
+                        if args.len() != param_tys.len() {
+                            self.report_error(SemanError::IncorrectFunctionArity {
+                                expected: param_tys.len(),
+                                given: args.len(),
+                                loc: loc.clone(),
+                            });
+                            return (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            );
+                        }
+
+                        let mut typed_args = vec![];
+                        for (arg_expr, param_ty) in args.iter().zip(param_tys.iter()) {
+                            let (arg_ty, typed_arg) =
+                                self.validate_expression(arg_expr, Some(param_ty));
+
+                            if !Self::types_are_compatible(&arg_ty, param_ty) {
+                                self.report_error(SemanError::TypeMismatch {
+                                    loc: arg_expr.get_source_ref(),
+                                    expected: param_ty.as_str(),
+                                    found: arg_ty.as_str(),
+                                });
+                            }
+                            typed_args.push(Rc::new(typed_arg));
+                        }
+
+                        let typed_call_expr = TypedExpr::CallFn {
+                            func: Rc::new(typed_func),
+                            args: typed_args,
+                            ty: return_ty.clone(),
+                            loc: loc.clone(),
+                        };
+                        (return_ty.clone(), typed_call_expr)
+                    }
+                    _ => {
+                        self.report_error(SemanError::ExpectedFunctionType {
+                            found: func_ty.as_str(),
+                            loc: func.get_source_ref(),
+                        });
+                        (
+                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                            TypedExpr::Error,
+                        )
+                    }
+                }
+            }
             Expr::GroupedExpr { inner, loc } => todo!(),
             Expr::IndexInto { target, index, loc } => todo!(),
             Expr::MakeSlice {
@@ -475,6 +652,7 @@ impl SemanticAnalyzer {
                                                     ty: init_ty.clone(),
                                                     is_mutable: false,
                                                     def_loc: loc.clone(),
+                                                    ref_count: Cell::new(0),
                                                 },
                                             )
                                         {
@@ -518,6 +696,7 @@ impl SemanticAnalyzer {
                                                     ty: init_ty.clone(),
                                                     is_mutable: true,
                                                     def_loc: loc.clone(),
+                                                    ref_count: Cell::new(0),
                                                 },
                                             )
                                         {
@@ -550,6 +729,7 @@ impl SemanticAnalyzer {
                                             ty: var_ty.clone(),
                                             is_mutable: true,
                                             def_loc: loc.clone(),
+                                            ref_count: Cell::new(0),
                                         },
                                     ) {
                                         self.report_error(SemanError::NameAlreadyDefined {
@@ -584,6 +764,7 @@ impl SemanticAnalyzer {
                                                     ty: init_ty.clone(),
                                                     is_mutable: true,
                                                     def_loc: loc.clone(),
+                                                    ref_count: Cell::new(0),
                                                 },
                                             )
                                         {
@@ -633,6 +814,7 @@ impl SemanticAnalyzer {
                                 return_type: ret_ty.clone(),
                                 is_global: false,
                                 def_loc: loc.clone(),
+                                ref_count: Cell::new(0),
                             },
                         );
                     }
@@ -650,6 +832,7 @@ impl SemanticAnalyzer {
                                 ty: param.given_ty.clone(),
                                 is_mutable: param.is_mutable,
                                 def_loc: param.loc.clone(),
+                                ref_count: Cell::new(0),
                             },
                         ) {
                             self.report_error(SemanError::NameAlreadyDefined {
@@ -735,7 +918,7 @@ impl SemanticAnalyzer {
         program: &[Ins],
         main_src_file: SourceFile,
     ) -> Result<Vec<TypedIns>, Vec<SemanError>> {
-        let mut analyzer = SemanticAnalyzer::new(main_src_file);
+        let mut analyzer = Self::new(main_src_file);
 
         // pass 1: collect all top level declarations
         analyzer.collect_declarations(program);

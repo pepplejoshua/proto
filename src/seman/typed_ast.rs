@@ -9,12 +9,23 @@ use crate::{
 
 pub enum TypedExpr {
     Integer {
-        value: usize,
+        value: i64,
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     Float {
         value: f64,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    CallFn {
+        func: Rc<TypedExpr>,
+        args: Vec<Rc<TypedExpr>>,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    Identifier {
+        name: String,
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },

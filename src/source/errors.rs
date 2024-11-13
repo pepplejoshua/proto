@@ -29,23 +29,6 @@ pub enum ParseError {
     TooManyErrors(Rc<SourceRef>),
 }
 
-impl ParseError {
-    pub fn get_error_src(&self) -> Rc<SourceRef> {
-        match self {
-            ParseError::Expected(_, src, _)
-            | ParseError::ConstantDeclarationNeedsTypeOrInitValue(src)
-            | ParseError::CannotParseAnExpression(src)
-            | ParseError::MalformedPubDeclaration { src }
-            | ParseError::ReusedOfIdentifier(src)
-            | ParseError::MalformedDeclaration(_, src)
-            | ParseError::UnterminatedCodeBlock(src, _)
-            | ParseError::TooManyErrors(src)
-            | ParseError::CyclicalDependencyBetweenNodes { src, .. }
-            | ParseError::ParsedInstructionIsNotAllowedAtThisLevel { src, .. } => src.clone(),
-        }
-    }
-}
-
 #[derive(Debug, Clone)]
 pub enum SemanError {
     NoMainFunctionProvided {
@@ -112,9 +95,8 @@ pub enum SemanError {
         loc: Rc<SourceRef>,
         name: String,
     },
-    NameIsNotCallable {
-        name: String,
-        name_ty: String,
+    ExpectedFunctionType {
+        found: String,
         loc: Rc<SourceRef>,
     },
     MismatchingReturnType {
@@ -123,15 +105,11 @@ pub enum SemanError {
         loc_given: Rc<SourceRef>,
     },
     IncorrectFunctionArity {
-        func: String,
-        exp: usize,
+        expected: usize,
         given: usize,
-        loc_given: Rc<SourceRef>,
-    },
-    CannotInferTypeOfEmptyArray {
         loc: Rc<SourceRef>,
     },
-    CannotInferTypeOfEmptyHashMap {
+    CannotInferTypeOfEmptyArray {
         loc: Rc<SourceRef>,
     },
     MismatchingStaticArrayItemTypes {
@@ -142,10 +120,6 @@ pub enum SemanError {
     StaticArrayTypeCheckFailed {
         given_ty: String,
         arr_loc: Rc<SourceRef>,
-    },
-    TupleTypeCheckFailed {
-        given_ty: String,
-        tup_loc: Rc<SourceRef>,
     },
     OptionalTypeInferenceFailed {
         given_ty: String,
@@ -161,10 +135,6 @@ pub enum SemanError {
         exp: String,
         given: String,
         arr_loc: Rc<SourceRef>,
-    },
-    ConditionShouldBeTypedBool {
-        given_ty: String,
-        loc: Rc<SourceRef>,
     },
     ExpectedArrayOrSlice {
         given_ty: String,
@@ -189,10 +159,6 @@ pub enum SemanError {
         mem: String,
         loc: Rc<SourceRef>,
     },
-    StructHasNoInitFunction {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
     CannotAssignToTarget {
         target: String,
         loc: Rc<SourceRef>,
@@ -209,29 +175,6 @@ pub enum SemanError {
     },
     FunctionInDeferShouldReturnVoid {
         loc: Rc<SourceRef>,
-    },
-    LoopControlInstructionOutsideLoop {
-        ty: String,
-        loc: Rc<SourceRef>,
-    },
-    InvalidForInLoopTargetType {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    CannotDerefNonPtrType {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    CannotTakeAddressOfExpr {
-        loc: Rc<SourceRef>,
-    },
-    CannotFreeNonPtrType {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    HashMapTypeCheckFailed {
-        given_ty: String,
-        arr_loc: Rc<SourceRef>,
     },
     TooManyErrors,
 }
