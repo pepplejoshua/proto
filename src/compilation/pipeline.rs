@@ -3,6 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
+    seman::seman::SemanticAnalyzer,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -197,7 +198,7 @@ impl Workspace {
         }
 
         let mut parser = Parser::new(lexer);
-        let ins = parser.parse_file();
+        let program = parser.parse_file();
 
         if !parser.lex_errs.is_empty() {
             for le in parser.lex_errs {
@@ -209,19 +210,15 @@ impl Workspace {
             SourceReporter::show_info("lexing complete.".to_string());
         }
 
-        let mut early_return = false;
         if !parser.parse_errs.is_empty() {
             for pe in parser.parse_errs {
                 reporter.report_parser_error(pe);
             }
-            early_return = true
-        }
-        if early_return {
             return;
         }
 
         if self.config.dbg_info {
-            for i in ins.iter() {
+            for i in program.iter() {
                 println!("{}\n", i.as_str());
             }
             SourceReporter::show_info("parsing complete.".to_string());
@@ -230,37 +227,14 @@ impl Workspace {
             return;
         }
 
-        // let file_mod = parser.file_mod;
-        // let src_file = parser.lexer.src;
-        // let (state, ty_file_mod) = check_top_level(&file_mod, src_file.clone());
-        // if !state.errs.is_empty() {
-        //     for ce in state.errs.iter() {
-        //         reporter.report_checker_error(ce.clone());
-        //     }
-        //     return;
-        // }
-
-        // if self.config.dbg_info {
-        //     for ins in ty_file_mod.top_level.iter() {
-        //         println!("{}", ins.as_str());
-        //     }
-        //     SourceReporter::show_info("checking complete.".to_string());
-        // }
-
-        // if let Stage::Sema = self.config.max_stage {
-        //     return;
-        // }
-
-        // let code_gen_res = cpp_gen_top_level(&ty_file_mod);
-
-        // match code_gen_res {
-        //     Ok(exe_path) => {
-        //         if self.config.dbg_info {
-        //             SourceReporter::show_info("codegen complete.".to_string());
-        //             SourceReporter::show_info(format!("{exe_path}"));
-        //         }
-        //     }
-        //     Err(err) => SourceReporter::show_error(err),
-        // }
+        let res = SemanticAnalyzer::analyze_program(&program);
+        match res {
+            Ok(_) => todo!(),
+            Err(seman_errs) => {
+                for err in seman_errs {
+                    reporter.report_seman_error(err);
+                }
+            }
+        }
     }
 }

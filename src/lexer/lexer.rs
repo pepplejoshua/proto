@@ -741,10 +741,7 @@ impl Lexer {
     }
 
     fn lex_number(&mut self) -> Result<SrcToken, LexError> {
-        let mut number = String::new();
         let cur_ref = self.src.get_ref();
-        let cur = self.src.cur_char();
-        number.push(cur);
 
         // read all characters that are digits
         let mut end_ref;
@@ -752,14 +749,11 @@ impl Lexer {
         loop {
             let c = self.src.next_char();
             end_ref = self.src.get_ref();
-            if c.is_ascii_digit() {
-                number.push(c);
-            } else if c == '_' {
-                // ignore underscores
+            if c.is_ascii_digit() || c == '_' {
                 continue;
             } else if c == '.' {
                 decimal_point_count += 1;
-                number.push(c);
+                continue;
             } else {
                 break;
             }

@@ -1235,15 +1235,33 @@ impl Parser {
             }
             TokenType::Integer => {
                 self.advance();
+                // make sure to strip all underscores from integer token
+                let integer: String = cur
+                    .as_str(&self.lexer.src)
+                    .chars()
+                    .filter(|&ch| ch != '_')
+                    .collect();
+
                 Expr::Integer {
-                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    content: Rc::new(integer),
                     loc: cur.loc,
                 }
             }
             TokenType::Decimal => {
                 self.advance();
+                // make sure to strip all underscores from decimal token
+                let mut decimal: String = cur
+                    .as_str(&self.lexer.src)
+                    .chars()
+                    .filter(|&ch| ch != '_')
+                    .collect();
+                // ensure the decimal has a mantissa part. Otherwise, append a '0'
+                if decimal.chars().last() == Some('.') {
+                    decimal.push('0');
+                }
+
                 Expr::Decimal {
-                    content: Rc::new(cur.as_str(&self.lexer.src)),
+                    content: Rc::new(decimal),
                     loc: cur.loc,
                 }
             }

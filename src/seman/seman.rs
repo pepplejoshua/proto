@@ -10,6 +10,8 @@ use crate::{
     source::{errors::SemanError, source::SourceRef},
 };
 
+use super::typed_ast::{TypedExpr, TypedIns};
+
 #[derive(Debug, Clone)]
 enum SymInfo {
     Fn {
@@ -27,6 +29,37 @@ enum SymInfo {
         target_ty: Rc<Ty>,
         def_loc: Rc<SourceRef>,
     },
+}
+
+impl SymInfo {
+    fn as_str(&self) -> String {
+        match self {
+            SymInfo::Fn {
+                params,
+                return_type,
+                is_global,
+                def_loc,
+            } => format!(
+                "\\({}) {}",
+                params
+                    .iter()
+                    .map(|param| { format!("{} {}", param.name.as_str(), param.given_ty.as_str()) })
+                    .collect::<Vec<String>>()
+                    .join(", "),
+                return_type.as_str()
+            ),
+            SymInfo::Variable {
+                ty,
+                is_mutable,
+                def_loc,
+            } => format!(
+                "{} | {}",
+                if *is_mutable { "var" } else { "const " },
+                ty.as_str()
+            ),
+            SymInfo::TypeAlias { target_ty, def_loc } => todo!(),
+        }
+    }
 }
 
 /// A scope can exist at any level (global, function, block)
@@ -66,7 +99,7 @@ impl Scope {
     }
 }
 
-struct SemanticAnalyzer {
+pub struct SemanticAnalyzer {
     scopes: Vec<Scope>,
     current_scope_idx: usize,
     errors: Vec<SemanError>,
@@ -209,5 +242,38 @@ impl SemanticAnalyzer {
                 _ => {}
             }
         }
+    }
+
+    fn validate_program(&mut self, program: &[Ins]) {
+        todo!()
+    }
+
+    fn validate_expression(&mut self, expr: &Expr) -> (Ty, TypedExpr) {
+        todo!()
+    }
+
+    fn validate_instruction(&mut self, ins: &Ins) -> TypedIns {
+        todo!()
+    }
+
+    pub fn analyze_program(program: &[Ins]) -> Result<Vec<TypedIns>, Vec<SemanError>> {
+        let mut analyzer = SemanticAnalyzer::new();
+
+        // pass 1: collect all top level declarations
+        analyzer.collect_declarations(program);
+        if !analyzer.errors.is_empty() {
+            return Err(analyzer.errors);
+        }
+        for (name, name_info) in analyzer.scopes[0].symbols.iter() {
+            println!("{name}: {}", name_info.as_str())
+        }
+
+        // pass 2: validate everything in the program
+        analyzer.validate_program(program);
+        if !analyzer.errors.is_empty() {
+            return Err(analyzer.errors);
+        }
+
+        todo!()
     }
 }
