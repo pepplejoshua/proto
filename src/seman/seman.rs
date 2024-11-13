@@ -500,7 +500,114 @@ impl SemanticAnalyzer {
                     }
                 } else {
                     // mutable variable
-                    todo!()
+                    match (ty, init_val) {
+                        (Some(var_ty), Some(init_expr)) => {
+                            // has both type and initializer
+                            let (init_ty, typed_init) =
+                                self.validate_expression(init_expr, Some(var_ty));
+                            if matches!(typed_init, TypedExpr::Error) {
+                                TypedIns::Error
+                            } else {
+                                // add to current scope if we are in a local scope
+                                if self.current_scope_idx != 0 {
+                                    if let Expr::Identifier { name: var_name, .. } = name {
+                                        if let Err(_) = self.scopes[self.current_scope_idx]
+                                            .add_symbol(
+                                                var_name.to_string(),
+                                                SymInfo::Variable {
+                                                    ty: init_ty.clone(),
+                                                    is_mutable: true,
+                                                    def_loc: loc.clone(),
+                                                },
+                                            )
+                                        {
+                                            self.report_error(SemanError::NameAlreadyDefined {
+                                                loc: loc.clone(),
+                                                name: var_name.to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+
+                                TypedIns::DeclVariable {
+                                    name: name.as_str(),
+                                    ty: var_ty.clone(),
+                                    init_value: typed_init,
+                                    is_mutable: true,
+                                    loc: loc.clone(),
+                                }
+                            }
+                        }
+                        (Some(var_ty), None) => {
+                            // has type but no initializer - use default
+                            let default_value = self.get_default_value(var_ty, loc);
+                            // add to current scope if we are in a local scope
+                            if self.current_scope_idx != 0 {
+                                if let Expr::Identifier { name: var_name, .. } = name {
+                                    if let Err(_) = self.scopes[self.current_scope_idx].add_symbol(
+                                        var_name.to_string(),
+                                        SymInfo::Variable {
+                                            ty: var_ty.clone(),
+                                            is_mutable: true,
+                                            def_loc: loc.clone(),
+                                        },
+                                    ) {
+                                        self.report_error(SemanError::NameAlreadyDefined {
+                                            loc: loc.clone(),
+                                            name: var_name.to_string(),
+                                        });
+                                    }
+                                }
+                            }
+
+                            TypedIns::DeclVariable {
+                                name: name.as_str(),
+                                ty: var_ty.clone(),
+                                init_value: default_value,
+                                is_mutable: true,
+                                loc: loc.clone(),
+                            }
+                        }
+                        (None, Some(init_expr)) => {
+                            // type inference from initializer
+                            let (init_ty, typed_init) = self.validate_expression(init_expr, None);
+                            if matches!(typed_init, TypedExpr::Error) {
+                                TypedIns::Error
+                            } else {
+                                // add to current scope if we are in a local scope
+                                if self.current_scope_idx != 0 {
+                                    if let Expr::Identifier { name: var_name, .. } = name {
+                                        if let Err(_) = self.scopes[self.current_scope_idx]
+                                            .add_symbol(
+                                                var_name.to_string(),
+                                                SymInfo::Variable {
+                                                    ty: init_ty.clone(),
+                                                    is_mutable: true,
+                                                    def_loc: loc.clone(),
+                                                },
+                                            )
+                                        {
+                                            self.report_error(SemanError::NameAlreadyDefined {
+                                                loc: loc.clone(),
+                                                name: var_name.to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+
+                                TypedIns::DeclVariable {
+                                    name: name.as_str(),
+                                    ty: init_ty,
+                                    init_value: typed_init,
+                                    is_mutable: true,
+                                    loc: loc.clone(),
+                                }
+                            }
+                        }
+                        (None, None) => {
+                            unreachable!("Mutable variable declared without init value and explicit type [validate_instruction()]")
+                        }
+                    }
                 }
             }
             Ins::DeclFunc {
