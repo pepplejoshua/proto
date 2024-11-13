@@ -214,7 +214,7 @@ impl Parser {
             "an assignment token (=) to separate the name (and optional type) and the initialization value.",
         );
 
-        let init_val = if is_mutable && self.cur_token().ty == TokenType::Underscore {
+        let init_val = if self.cur_token().ty == TokenType::Underscore {
             if !is_mutable {
                 self.report_err(ParseError::MalformedDeclaration(
                     "Cannot use _ to initialize a constant".into(),

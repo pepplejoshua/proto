@@ -284,6 +284,59 @@ impl SemanticAnalyzer {
         matches!(ty, Ty::Unsigned { is_uint: true, .. })
     }
 
+    fn get_default_value(&self, ty: &Rc<Ty>, loc: &Rc<SourceRef>) -> TypedExpr {
+        match ty.as_ref() {
+            Ty::Signed { .. } | Ty::Unsigned { .. } => TypedExpr::Integer {
+                value: 0,
+                ty: ty.clone(),
+                loc: loc.clone(),
+            },
+            Ty::Float { size, loc } => TypedExpr::Float {
+                value: 0.0,
+                ty: ty.clone(),
+                loc: loc.clone(),
+            },
+            Ty::Str { loc } => TypedExpr::Str {
+                value: "".into(),
+                ty: ty.clone(),
+                loc: loc.clone(),
+            },
+            Ty::Char { loc } => TypedExpr::Char {
+                value: '\0',
+                ty: ty.clone(),
+                loc: loc.clone(),
+            },
+            Ty::Void { loc } => todo!(),
+            Ty::Bool { loc } => TypedExpr::Bool {
+                value: false,
+                ty: ty.clone(),
+                loc: loc.clone(),
+            },
+            Ty::Func {
+                params,
+                ret,
+                loc,
+                is_const,
+            } => todo!(),
+            Ty::StaticArray { sub_ty, size, loc } => todo!(),
+            Ty::Slice { sub_ty, loc } => todo!(),
+            Ty::Optional { sub_ty, loc } => todo!(),
+            Ty::Struct {
+                fields,
+                static_funcs,
+                methods,
+                loc,
+            } => todo!(),
+            Ty::Pointer { sub_ty, loc } => todo!(),
+            Ty::AccessMemberType { target, mem, loc } => todo!(),
+            Ty::Tuple { sub_tys, loc } => todo!(),
+            Ty::ErrorType { loc } => {
+                unreachable!("Trying to make default value for error type [get_default_value()]")
+            }
+            Ty::NamedType { name, loc } => todo!(),
+        }
+    }
+
     fn validate_program(&mut self, program: &[Ins]) -> Vec<TypedIns> {
         // validate each top-level instruction
         let mut typed_program = vec![];
@@ -335,7 +388,11 @@ impl SemanticAnalyzer {
         typed_program
     }
 
-    fn validate_expression(&mut self, expr: &Expr, parent_ty: Option<&Rc<Ty>>) -> (Ty, TypedExpr) {
+    fn validate_expression(
+        &mut self,
+        expr: &Expr,
+        parent_ty: Option<&Rc<Ty>>,
+    ) -> (Rc<Ty>, TypedExpr) {
         match expr {
             Expr::Integer { content, loc } => todo!(),
             Expr::Decimal { content, loc } => todo!(),
@@ -395,7 +452,57 @@ impl SemanticAnalyzer {
                 is_mutable,
                 loc,
                 is_public,
-            } => todo!(),
+            } => {
+                if !is_mutable {
+                    // constant variable
+                    if let Some(init_expr) = init_val {
+                        let (init_ty, typed_init_value) = if let Some(var_ty) = ty {
+                            self.validate_expression(init_expr, Some(var_ty))
+                        } else {
+                            self.validate_expression(init_expr, None)
+                        };
+
+                        match typed_init_value {
+                            TypedExpr::Error => TypedIns::Error,
+                            _ => {
+                                // add to current scope if we are in a local scope
+                                if self.current_scope_idx != 0 {
+                                    if let Expr::Identifier { name: var_name, .. } = name {
+                                        if let Err(_) = self.scopes[self.current_scope_idx]
+                                            .add_symbol(
+                                                var_name.to_string(),
+                                                SymInfo::Variable {
+                                                    ty: init_ty.clone(),
+                                                    is_mutable: false,
+                                                    def_loc: loc.clone(),
+                                                },
+                                            )
+                                        {
+                                            self.report_error(SemanError::NameAlreadyDefined {
+                                                loc: loc.clone(),
+                                                name: var_name.to_string(),
+                                            });
+                                        }
+                                    }
+                                }
+
+                                TypedIns::DeclVariable {
+                                    name: name.as_str(),
+                                    ty: init_ty.clone(),
+                                    init_value: typed_init_value,
+                                    is_mutable: false,
+                                    loc: loc.clone(),
+                                }
+                            }
+                        }
+                    } else {
+                        unreachable!("Constant variable declared without init value [validate_instruction()]")
+                    }
+                } else {
+                    // mutable variable
+                    todo!()
+                }
+            }
             Ins::DeclFunc {
                 name,
                 params,
@@ -430,21 +537,19 @@ impl SemanticAnalyzer {
                         name: param_name, ..
                     } = &param.name
                     {
-                        if self.shallow_lookup(&(param_name.to_string())).is_some() {
-                            self.report_error(SemanError::NameAlreadyDefined {
-                                loc: param.loc.clone(),
-                                name: param_name.to_string(),
-                            });
-                            continue;
-                        }
-                        self.scopes[self.current_scope_idx].add_symbol(
+                        if let Err(_) = self.scopes[self.current_scope_idx].add_symbol(
                             param_name.to_string(),
                             SymInfo::Variable {
                                 ty: param.given_ty.clone(),
                                 is_mutable: param.is_mutable,
                                 def_loc: param.loc.clone(),
                             },
-                        );
+                        ) {
+                            self.report_error(SemanError::NameAlreadyDefined {
+                                loc: param.loc.clone(),
+                                name: param_name.to_string(),
+                            });
+                        }
                     }
                 }
                 let typed_body = self.validate_instruction(body);
@@ -455,6 +560,7 @@ impl SemanticAnalyzer {
                     params: params.clone(),
                     ret_ty: ret_ty.clone(),
                     body: Rc::new(typed_body),
+                    loc: loc.clone(),
                 }
             }
             Ins::DeclTypeAlias {
@@ -472,7 +578,10 @@ impl SemanticAnalyzer {
                     typed_code.push(typed_ins);
                 }
                 self.exit_scope();
-                TypedIns::Block { code: typed_code }
+                TypedIns::Block {
+                    code: typed_code,
+                    loc: loc.clone(),
+                }
             }
             Ins::AssignTo { target, value, loc } => todo!(),
             Ins::ExprIns { expr, loc } => todo!(),
