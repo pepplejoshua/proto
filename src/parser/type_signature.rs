@@ -8,14 +8,26 @@ use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Ty {
+    // the type assigned to integer literals which can be coerced
+    // into other integer types (untyped or typed)
+    UntypedInt {
+        literal: usize,
+        loc: Rc<SourceRef>,
+    },
+    // the type assigned to floating-point literals which can be coerced
+    // into other float types (f32 or f64)
+    // UntypedFloat {
+    //     literal: f64,
+    //     loc: Rc<SourceRef>,
+    // },
     // i8, i16, int (platform-specific ptr size), i64
-    Signed {
+    SignedInt {
         size: u8,
         is_int: bool,
         loc: Rc<SourceRef>,
     },
     // u8, u16, uint (platform-specific ptr size), u64
-    Unsigned {
+    UnsignedInt {
         size: u8,
         is_uint: bool,
         loc: Rc<SourceRef>,
@@ -94,7 +106,7 @@ impl Ty {
 
     pub fn is_num_ty(&self) -> bool {
         match self {
-            Ty::Signed { .. } | Ty::Unsigned { .. } => true,
+            Ty::SignedInt { .. } | Ty::UnsignedInt { .. } => true,
             _ => false,
         }
     }
@@ -108,14 +120,14 @@ impl Ty {
 
     pub fn is_signed_ty(&self) -> bool {
         match self {
-            Ty::Signed { .. } => true,
+            Ty::SignedInt { .. } => true,
             _ => false,
         }
     }
 
     pub fn is_unsigned_ty(&self) -> bool {
         match self {
-            Ty::Unsigned { .. } => true,
+            Ty::UnsignedInt { .. } => true,
             _ => false,
         }
     }
@@ -150,8 +162,9 @@ impl Ty {
 
     pub fn get_loc(&self) -> Rc<SourceRef> {
         match self {
-            Ty::Signed { loc, .. }
-            | Ty::Unsigned { loc, .. }
+            Ty::SignedInt { loc, .. }
+            | Ty::UntypedInt { loc, .. }
+            | Ty::UnsignedInt { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
             | Ty::Void { loc }
@@ -172,8 +185,9 @@ impl Ty {
 
     pub fn set_loc(&mut self, n_loc: Rc<SourceRef>) {
         match self {
-            Ty::Signed { loc, .. }
-            | Ty::Unsigned { loc, .. }
+            Ty::SignedInt { loc, .. }
+            | Ty::UntypedInt { loc, .. }
+            | Ty::UnsignedInt { loc, .. }
             | Ty::Str { loc, .. }
             | Ty::Char { loc }
             | Ty::Void { loc }
@@ -197,14 +211,17 @@ impl Ty {
 
     pub fn as_str(&self) -> String {
         match self {
-            Ty::Signed { size, is_int, .. } => {
+            Ty::UntypedInt { literal, .. } => {
+                format!("untyped_int[{literal}]")
+            }
+            Ty::SignedInt { size, is_int, .. } => {
                 if *is_int {
                     "int".into()
                 } else {
                     format!("i{size}")
                 }
             }
-            Ty::Unsigned { size, is_uint, .. } => {
+            Ty::UnsignedInt { size, is_uint, .. } => {
                 if *is_uint {
                     "uint".into()
                 } else {
@@ -262,7 +279,7 @@ impl Ty {
     }
 
     pub fn get_int_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
-        Rc::new(Ty::Signed {
+        Rc::new(Ty::SignedInt {
             size: Ty::get_platform_size(),
             is_int: true,
             loc,
@@ -270,7 +287,7 @@ impl Ty {
     }
 
     pub fn get_uint_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
-        Rc::new(Ty::Unsigned {
+        Rc::new(Ty::UnsignedInt {
             size: Ty::get_platform_size(),
             is_uint: true,
             loc,

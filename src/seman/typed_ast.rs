@@ -24,6 +24,11 @@ pub enum UnsignedInteger {
 }
 
 pub enum TypedExpr {
+    UntypedInt {
+        value: usize,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
     SignedInt {
         value: SignedInteger,
         ty: Rc<Ty>,
@@ -86,6 +91,11 @@ pub enum TypedIns {
         ty: Rc<Ty>,
         init_value: TypedExpr,
         is_mutable: bool,
+        loc: Rc<SourceRef>,
+    },
+    AssignTo {
+        target: TypedExpr,
+        value: TypedExpr,
         loc: Rc<SourceRef>,
     },
     Block {

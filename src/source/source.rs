@@ -549,8 +549,8 @@ impl SourceReporter {
                 let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::CannotAssignToTarget { target, loc } => {
-                let msg = format!("'{target}' cannot be assigned to.");
+            SemanError::CannotAssignToTarget { loc } => {
+                let msg = format!("Target cannot be assigned to.");
                 self.report_with_ref(&loc, msg, None, false);
             }
             SemanError::CannotAssignToImmutableTarget { target, loc } => {

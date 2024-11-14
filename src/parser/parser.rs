@@ -542,52 +542,52 @@ impl Parser {
         self.advance();
 
         let ty = match token.ty {
-            TokenType::I8 => Ty::Signed {
+            TokenType::I8 => Ty::SignedInt {
                 size: 8,
                 is_int: false,
                 loc: loc.clone(),
             },
-            TokenType::I16 => Ty::Signed {
+            TokenType::I16 => Ty::SignedInt {
                 size: 16,
                 is_int: false,
                 loc: loc.clone(),
             },
-            TokenType::I32 => Ty::Signed {
+            TokenType::I32 => Ty::SignedInt {
                 size: 32,
                 is_int: false,
                 loc: loc.clone(),
             },
-            TokenType::I64 => Ty::Signed {
+            TokenType::I64 => Ty::SignedInt {
                 size: 64,
                 is_int: false,
                 loc: loc.clone(),
             },
-            TokenType::Int => Ty::Signed {
+            TokenType::Int => Ty::SignedInt {
                 size: Ty::get_platform_size(),
                 is_int: true,
                 loc: loc.clone(),
             },
-            TokenType::U8 => Ty::Unsigned {
+            TokenType::U8 => Ty::UnsignedInt {
                 size: 8,
                 is_uint: false,
                 loc: loc.clone(),
             },
-            TokenType::U16 => Ty::Unsigned {
+            TokenType::U16 => Ty::UnsignedInt {
                 size: 16,
                 is_uint: false,
                 loc: loc.clone(),
             },
-            TokenType::U32 => Ty::Unsigned {
+            TokenType::U32 => Ty::UnsignedInt {
                 size: 32,
                 is_uint: false,
                 loc: loc.clone(),
             },
-            TokenType::U64 => Ty::Unsigned {
+            TokenType::U64 => Ty::UnsignedInt {
                 size: 64,
                 is_uint: false,
                 loc: loc.clone(),
             },
-            TokenType::UInt => Ty::Unsigned {
+            TokenType::UInt => Ty::UnsignedInt {
                 size: Ty::get_platform_size(),
                 is_uint: true,
                 loc: loc.clone(),

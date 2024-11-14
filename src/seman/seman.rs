@@ -70,7 +70,7 @@ impl SymInfo {
                 ..
             } => format!(
                 "{} | {}",
-                if *is_mutable { "var" } else { "const " },
+                if *is_mutable { "var" } else { "const" },
                 ty.as_str()
             ),
             SymInfo::TypeAlias {
@@ -135,7 +135,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn lookup(&mut self, name: &str) -> Option<&SymInfo> {
+    fn lookup(&self, name: &str) -> Option<&SymInfo> {
         let mut current_idx = self.current_scope_idx;
 
         loop {
@@ -157,7 +157,7 @@ impl SemanticAnalyzer {
         self.scopes[self.current_scope_idx].symbols.get(name)
     }
 
-    fn lookup_function(&mut self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
+    fn lookup_function(&self, name: &str) -> Option<(Vec<FnParam>, Rc<Ty>)> {
         let sym_info = self.lookup(name);
         if let Some(SymInfo::Fn {
             params,
@@ -171,7 +171,7 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn lookup_variable(&mut self, name: &str) -> Option<(Rc<Ty>, bool)> {
+    fn lookup_variable(&self, name: &str) -> Option<(Rc<Ty>, bool)> {
         let sym_info = self.lookup(name);
         if let Some(SymInfo::Variable { ty, is_mutable, .. }) = sym_info {
             Some((ty.clone(), *is_mutable))
@@ -186,7 +186,7 @@ impl SemanticAnalyzer {
             .contains_key(name)
     }
 
-    fn get_name_definition_loc(&mut self, name: &str) -> Option<Rc<SourceRef>> {
+    fn get_name_definition_loc(&self, name: &str) -> Option<Rc<SourceRef>> {
         match self.lookup(name) {
             Some(SymInfo::Fn { def_loc, .. })
             | Some(SymInfo::Variable { def_loc, .. })
@@ -285,27 +285,83 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn types_are_compatible(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> bool {
+    fn type_check(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> Rc<Ty> {
         match (lhs.as_ref(), rhs.as_ref()) {
+            // case 1: types are equal
             (
-                Ty::Signed {
+                Ty::SignedInt {
                     size: l_size,
                     is_int: l_is_int,
                     ..
                 },
-                Ty::Signed {
+                Ty::SignedInt {
+                    size: r_size,
+                    is_int: r_is_int,
+                    ..
+                },
+            ) if l_size == r_size && l_is_int == r_is_int => lhs.clone(),
+            (Ty::UntypedInt { .. }, Ty::UntypedInt { .. }) => lhs.clone(),
+            (
+                Ty::UnsignedInt {
+                    size: l_size,
+                    is_uint: l_is_uint,
+                    ..
+                },
+                Ty::UnsignedInt {
+                    size: r_size,
+                    is_uint: r_is_uint,
+                    ..
+                },
+            ) if l_size == r_size && l_is_uint == r_is_uint => lhs.clone(),
+            (Ty::Float { size: l_size, .. }, Ty::Float { size: r_size, .. })
+                if l_size == r_size =>
+            {
+                lhs.clone()
+            }
+            (Ty::Char { .. }, Ty::Char { .. }) => lhs.clone(),
+            (Ty::Str { .. }, Ty::Str { .. }) => lhs.clone(),
+            (Ty::Void { .. }, Ty::Void { .. }) => lhs.clone(),
+
+            // case 2: safe implicit cast
+            (Ty::UntypedInt { literal, .. }, Ty::SignedInt { size, is_int, .. }) => {
+                todo!()
+            }
+            (Ty::SignedInt { size, is_int, .. }, Ty::UntypedInt { literal, .. }) => {
+                todo!()
+            }
+            (Ty::UntypedInt { literal, .. }, Ty::UnsignedInt { size, is_uint, .. }) => {
+                todo!()
+            }
+            (Ty::UnsignedInt { size, is_uint, .. }, Ty::UntypedInt { literal.. }) => {
+                todo!()
+            }
+
+            // case 3: type mismatch
+            _ => Rc::new(Ty::ErrorType { loc: lhs.get_loc() }),
+        }
+    }
+
+    fn types_are_compatible(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> bool {
+        match (lhs.as_ref(), rhs.as_ref()) {
+            (
+                Ty::SignedInt {
+                    size: l_size,
+                    is_int: l_is_int,
+                    ..
+                },
+                Ty::SignedInt {
                     size: r_size,
                     is_int: r_is_int,
                     ..
                 },
             ) => l_size == r_size && l_is_int == r_is_int,
             (
-                Ty::Unsigned {
+                Ty::UnsignedInt {
                     size: l_size,
                     is_uint: l_is_uint,
                     ..
                 },
-                Ty::Unsigned {
+                Ty::UnsignedInt {
                     size: r_size,
                     is_uint: r_is_uint,
                     ..
@@ -320,16 +376,21 @@ impl SemanticAnalyzer {
     }
 
     fn is_integer_type(ty: &Ty) -> bool {
-        matches!(ty, Ty::Signed { is_int: true, .. })
+        matches!(ty, Ty::SignedInt { is_int: true, .. })
     }
 
     fn is_unsigned_integer_type(&self, ty: &Ty) -> bool {
-        matches!(ty, Ty::Unsigned { is_uint: true, .. })
+        matches!(ty, Ty::UnsignedInt { is_uint: true, .. })
+    }
+
+    fn is_untyped_integer_type(&self, ty: &Ty) -> bool {
+        matches!(ty, Ty::UntypedInt { .. })
     }
 
     fn get_default_value(&self, ty: &Rc<Ty>, loc: &Rc<SourceRef>) -> TypedExpr {
         match ty.as_ref() {
-            Ty::Signed { size, is_int, .. } => {
+            Ty::UntypedInt { literal, .. } => unreachable!("Generating a default value for an untyped int should not happen [get_default_value()]"),
+            Ty::SignedInt { size, is_int, .. } => {
                 if *is_int {
                     TypedExpr::SignedInt {
                         value: SignedInteger::Int(0),
@@ -362,7 +423,7 @@ impl SemanticAnalyzer {
                     }
                 }
             }
-            Ty::Unsigned { size, is_uint, .. } => {
+            Ty::UnsignedInt { size, is_uint, .. } => {
                 if *is_uint {
                     TypedExpr::UnsignedInt {
                         value: UnsignedInteger::Uint(0),
@@ -501,7 +562,7 @@ impl SemanticAnalyzer {
             Expr::Integer { content, loc } => {
                 let (ty, typed_integer) = if let Some(parent_ty) = parent_ty {
                     match parent_ty.as_ref() {
-                        Ty::Signed { size, is_int, .. } => {
+                        Ty::SignedInt { size, is_int, .. } => {
                             if *is_int {
                                 let res = content.parse::<isize>();
                                 match res {
@@ -637,7 +698,7 @@ impl SemanticAnalyzer {
                                 }
                             }
                         }
-                        Ty::Unsigned { size, is_uint, .. } => {
+                        Ty::UnsignedInt { size, is_uint, .. } => {
                             if *is_uint {
                                 let res = content.parse::<usize>();
                                 match res {
@@ -839,17 +900,22 @@ impl SemanticAnalyzer {
                         }
                     }
                 } else {
-                    let res = content.parse::<isize>();
-                    let int_ty = Ty::get_int_ty(loc.clone());
+                    let res = content.parse::<usize>();
                     match res {
-                        Ok(val) => (
-                            int_ty.clone(),
-                            TypedExpr::SignedInt {
-                                value: SignedInteger::Int(val),
-                                ty: int_ty.clone(),
+                        Ok(val) => {
+                            let untyped_int_ty = Rc::new(Ty::UntypedInt {
+                                literal: val,
                                 loc: loc.clone(),
-                            },
-                        ),
+                            });
+                            (
+                                untyped_int_ty.clone(),
+                                TypedExpr::UntypedInt {
+                                    value: val,
+                                    ty: untyped_int_ty,
+                                    loc: loc.clone(),
+                                },
+                            )
+                        }
                         Err(_) => {
                             self.report_error(SemanError::IntegerTypeDefaultInferenceFailed {
                                 loc: loc.clone(),
@@ -1028,7 +1094,9 @@ impl SemanticAnalyzer {
                 left,
                 right,
                 loc,
-            } => todo!(),
+            } => {
+                todo!()
+            }
             Expr::ConditionalExpr {
                 cond,
                 then,
@@ -1115,6 +1183,66 @@ impl SemanticAnalyzer {
             Expr::ErrorExpr { loc } => {
                 unreachable!("ErrorExpr found in program [validate_expression()]")
             }
+        }
+    }
+
+    fn validate_target_expression(&mut self, expr: &Expr) -> (Rc<Ty>, TypedExpr) {
+        match expr {
+            Expr::Identifier { name, loc } => {
+                // Look up the identifier and update the reference number of the name
+                match self.lookup(name) {
+                    Some(SymInfo::Variable { ty, ref_count, .. }) => {
+                        ref_count.set(ref_count.get() + 1);
+                        (
+                            ty.clone(),
+                            TypedExpr::Identifier {
+                                name: name.to_string(),
+                                ty: ty.clone(),
+                                loc: loc.clone(),
+                            },
+                        )
+                    }
+                    _ => {
+                        self.report_error(SemanError::ReferenceToUndefinedName {
+                            loc: loc.clone(),
+                            var_name: name.to_string(),
+                        });
+                        (
+                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                            TypedExpr::Error,
+                        )
+                    }
+                }
+            }
+            Expr::AccessMember { target, mem, loc } => {
+                todo!()
+            }
+            Expr::IndexInto { target, index, loc } => {
+                todo!()
+            }
+            _ => {
+                self.report_error(SemanError::CannotAssignToTarget {
+                    loc: expr.get_source_ref(),
+                });
+                (
+                    Rc::new(Ty::ErrorType {
+                        loc: expr.get_source_ref(),
+                    }),
+                    TypedExpr::Error,
+                )
+            }
+        }
+    }
+
+    fn is_mutable_target(&self, expr: &Expr) -> bool {
+        match expr {
+            Expr::Identifier { name, .. } => match self.lookup(name) {
+                Some(SymInfo::Variable { is_mutable, .. }) => *is_mutable,
+                _ => false,
+            },
+            Expr::AccessMember { target, mem, .. } => self.is_mutable_target(target),
+            Expr::IndexInto { target, index, .. } => self.is_mutable_target(target),
+            _ => false,
         }
     }
 
@@ -1371,7 +1499,39 @@ impl SemanticAnalyzer {
                     loc: loc.clone(),
                 }
             }
-            Ins::AssignTo { target, value, loc } => todo!(),
+            Ins::AssignTo { target, value, loc } => {
+                // validate the target expression
+                let (target_ty, typed_target) = self.validate_target_expression(target);
+
+                // ensure the target is mutable
+                if !self.is_mutable_target(target) {
+                    self.report_error(SemanError::CannotAssignToImmutableTarget {
+                        target: target.as_str(),
+                        loc: loc.clone(),
+                    });
+
+                    return TypedIns::Error;
+                }
+
+                // validate the value expression
+                let (val_ty, typed_val) = self.validate_expression(value, Some(&target_ty));
+
+                // ensure the types are compatible
+                if !Self::types_are_compatible(&target_ty, &val_ty) {
+                    self.report_error(SemanError::TypeMismatch {
+                        loc: loc.clone(),
+                        expected: target_ty.as_str(),
+                        found: val_ty.as_str(),
+                    });
+                    return TypedIns::Error;
+                }
+
+                TypedIns::AssignTo {
+                    target: typed_target,
+                    value: typed_val,
+                    loc: loc.clone(),
+                }
+            }
             Ins::ExprIns { expr, loc } => todo!(),
             Ins::IfConditional {
                 conds_and_code,

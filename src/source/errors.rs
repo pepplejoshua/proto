@@ -160,7 +160,6 @@ pub enum SemanError {
         loc: Rc<SourceRef>,
     },
     CannotAssignToTarget {
-        target: String,
         loc: Rc<SourceRef>,
     },
     CannotAssignToImmutableTarget {
