@@ -637,7 +637,7 @@ impl SemanticAnalyzer {
                                 }
                             }
                         }
-                        Ty::Unsigned { size, is_uint, loc } => {
+                        Ty::Unsigned { size, is_uint, .. } => {
                             if *is_uint {
                                 let res = content.parse::<usize>();
                                 match res {
@@ -773,7 +773,7 @@ impl SemanticAnalyzer {
                                 }
                             }
                         }
-                        Ty::Float { size, loc } => match size {
+                        Ty::Float { size, .. } => match size {
                             32 => {
                                 let res = content.parse::<f32>();
                                 match res {
@@ -864,13 +864,106 @@ impl SemanticAnalyzer {
                 };
                 (ty, typed_integer)
             }
-            Expr::Decimal { content, loc } => todo!(),
+            Expr::Float { content, loc } => {
+                let (ty, typed_float) = if let Some(parent_ty) = parent_ty {
+                    match parent_ty.as_ref() {
+                        Ty::Float { size, .. } => match size {
+                            32 => {
+                                let res = content.parse::<f32>();
+                                match res {
+                                    Ok(float) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::Float {
+                                            value: float as f64,
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::FloatTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            }
+                            64 => {
+                                let res = content.parse::<f64>();
+                                match res {
+                                    Ok(float) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::Float {
+                                            value: float,
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::FloatTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            }
+                            _ => unreachable!("Unexpected float size [validate_expression()]"),
+                        },
+                        _ => {
+                            self.report_error(SemanError::TypeMismatch {
+                                loc: loc.clone(),
+                                expected: "a numerical type (f32 | f64).".into(),
+                                found: parent_ty.as_str(),
+                            });
+                            (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            )
+                        }
+                    }
+                } else {
+                    let res = content.parse::<f32>();
+                    let f32_type = Rc::new(Ty::Float {
+                        size: 32,
+                        loc: loc.clone(),
+                    });
+                    match res {
+                        Ok(val) => (
+                            f32_type.clone(),
+                            TypedExpr::Float {
+                                value: val as f64,
+                                ty: f32_type,
+                                loc: loc.clone(),
+                            },
+                        ),
+                        Err(_) => {
+                            self.report_error(SemanError::FloatTypeDefaultInferenceFailed {
+                                loc: loc.clone(),
+                                number: content.to_string(),
+                            });
+                            (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            )
+                        }
+                    }
+                };
+                (ty, typed_float)
+            }
             Expr::Str { content, loc } => todo!(),
             Expr::Char { content, loc } => todo!(),
             Expr::Bool { val, loc } => todo!(),
             Expr::Tuple { items, loc } => todo!(),
             Expr::StaticArray { ty, items, loc } => todo!(),
-            Expr::TypeAsExpr { ty } => todo!(),
             Expr::Identifier { name, loc } => {
                 // look up the identifier and update the reference number of the name
                 match self.lookup(name) {

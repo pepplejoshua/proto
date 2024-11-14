@@ -1279,7 +1279,7 @@ impl Parser {
                     decimal.push('0');
                 }
 
-                Expr::Decimal {
+                Expr::Float {
                     content: Rc::new(decimal),
                     loc: cur.loc,
                 }
@@ -1299,10 +1299,8 @@ impl Parser {
                 }
             }
             TokenType::LBracket => {
-                // we are parsing either an array type, or an array literal,
-                // with a preceding array type
-                let arr_ty = self.parse_type();
-                Expr::TypeAsExpr { ty: arr_ty }
+                // we are parsing either an array literal
+                todo!()
             }
             TokenType::LParen => {
                 self.advance();
@@ -1336,23 +1334,6 @@ impl Parser {
             }
             TokenType::BackTick => {
                 todo!()
-            }
-            TokenType::I8
-            | TokenType::I16
-            | TokenType::I32
-            | TokenType::I64
-            | TokenType::Int
-            | TokenType::U8
-            | TokenType::U16
-            | TokenType::U32
-            | TokenType::U64
-            | TokenType::UInt
-            | TokenType::Str
-            | TokenType::Char
-            | TokenType::Void
-            | TokenType::Bool => {
-                let ty = self.parse_base_type();
-                Expr::TypeAsExpr { ty }
             }
             _ => {
                 let span = cur.get_source_ref();

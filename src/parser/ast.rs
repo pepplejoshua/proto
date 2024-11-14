@@ -66,7 +66,7 @@ pub enum Expr {
         content: Rc<String>,
         loc: Rc<SourceRef>,
     },
-    Decimal {
+    Float {
         content: Rc<String>,
         loc: Rc<SourceRef>,
     },
@@ -90,9 +90,6 @@ pub enum Expr {
         ty: Rc<Ty>,
         items: Vec<Expr>,
         loc: Rc<SourceRef>,
-    },
-    TypeAsExpr {
-        ty: Rc<Ty>,
     },
     Identifier {
         name: Rc<String>,
@@ -176,7 +173,7 @@ impl Expr {
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Expr::Integer { loc, .. }
-            | Expr::Decimal { loc, .. }
+            | Expr::Float { loc, .. }
             | Expr::Str { loc, .. }
             | Expr::Char { loc, .. }
             | Expr::Bool { loc, .. }
@@ -198,7 +195,6 @@ impl Expr {
             | Expr::StaticArray { loc, .. }
             | Expr::InitializerList { loc, .. }
             | Expr::ErrorExpr { loc, .. } => loc.clone(),
-            Expr::TypeAsExpr { ty, .. } => ty.get_loc(),
         }
     }
 
@@ -208,7 +204,7 @@ impl Expr {
             Expr::Str { content, .. }
             | Expr::Char { content, .. }
             | Expr::Integer { content, .. }
-            | Expr::Decimal { content, .. } => content.as_ref().clone(),
+            | Expr::Float { content, .. } => content.as_ref().clone(),
             Expr::Bool { val, .. } => {
                 if *val {
                     "true".to_string()
@@ -226,7 +222,6 @@ impl Expr {
                         .join(", ")
                 )
             }
-            Expr::TypeAsExpr { ty, .. } => ty.as_str(),
             Expr::MakeSlice {
                 target, start, end, ..
             } => {
