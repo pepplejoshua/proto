@@ -7,9 +7,30 @@ use crate::{
     source::source::SourceRef,
 };
 
+pub enum SignedInteger {
+    I8(i8),
+    I16(i16),
+    I32(i32),
+    I64(i64),
+    Int(isize),
+}
+
+pub enum UnsignedInteger {
+    U8(u8),
+    U16(u16),
+    U32(u32),
+    U64(u64),
+    Uint(usize),
+}
+
 pub enum TypedExpr {
-    Integer {
-        value: i64,
+    SignedInt {
+        value: SignedInteger,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    UnsignedInt {
+        value: UnsignedInteger,
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },

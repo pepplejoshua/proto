@@ -13,7 +13,7 @@ use crate::{
     },
 };
 
-use super::typed_ast::{TypedExpr, TypedIns};
+use super::typed_ast::{SignedInteger, TypedExpr, TypedIns, UnsignedInteger};
 
 #[derive(Debug, Clone)]
 enum SymInfo {
@@ -329,11 +329,72 @@ impl SemanticAnalyzer {
 
     fn get_default_value(&self, ty: &Rc<Ty>, loc: &Rc<SourceRef>) -> TypedExpr {
         match ty.as_ref() {
-            Ty::Signed { .. } | Ty::Unsigned { .. } => TypedExpr::Integer {
-                value: 0,
-                ty: ty.clone(),
-                loc: loc.clone(),
-            },
+            Ty::Signed { size, is_int, .. } => {
+                if *is_int {
+                    TypedExpr::SignedInt {
+                        value: SignedInteger::Int(0),
+                        ty: ty.clone(),
+                        loc: loc.clone(),
+                    }
+                } else {
+                    match size {
+                        8 => TypedExpr::SignedInt {
+                            value: SignedInteger::I8(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        16 => TypedExpr::SignedInt {
+                            value: SignedInteger::I16(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        32 => TypedExpr::SignedInt {
+                            value: SignedInteger::I32(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        64 => TypedExpr::SignedInt {
+                            value: SignedInteger::I64(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        _ => unreachable!("Unexpected integer size [get_default_value()]"),
+                    }
+                }
+            }
+            Ty::Unsigned { size, is_uint, .. } => {
+                if *is_uint {
+                    TypedExpr::UnsignedInt {
+                        value: UnsignedInteger::Uint(0),
+                        ty: ty.clone(),
+                        loc: loc.clone(),
+                    }
+                } else {
+                    match size {
+                        8 => TypedExpr::UnsignedInt {
+                            value: UnsignedInteger::U8(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        16 => TypedExpr::UnsignedInt {
+                            value: UnsignedInteger::U16(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        32 => TypedExpr::UnsignedInt {
+                            value: UnsignedInteger::U32(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        64 => TypedExpr::UnsignedInt {
+                            value: UnsignedInteger::U64(0),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        },
+                        _ => unreachable!("Unexpected unsigned integer size [get_default_value()]"),
+                    }
+                }
+            }
             Ty::Float { size, loc } => TypedExpr::Float {
                 value: 0.0,
                 ty: ty.clone(),
@@ -440,24 +501,368 @@ impl SemanticAnalyzer {
             Expr::Integer { content, loc } => {
                 let (ty, typed_integer) = if let Some(parent_ty) = parent_ty {
                     match parent_ty.as_ref() {
-                        Ty::Signed { size, is_int, loc } => {
-                            todo!()
+                        Ty::Signed { size, is_int, .. } => {
+                            if *is_int {
+                                let res = content.parse::<isize>();
+                                match res {
+                                    Ok(val) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::SignedInt {
+                                            value: SignedInteger::Int(val),
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::IntegerTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            } else {
+                                match size {
+                                    8 => {
+                                        let res = content.parse::<i8>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::SignedInt {
+                                                    value: SignedInteger::I8(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    16 => {
+                                        let res = content.parse::<i16>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::SignedInt {
+                                                    value: SignedInteger::I16(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    32 => {
+                                        let res = content.parse::<i32>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::SignedInt {
+                                                    value: SignedInteger::I32(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    64 => {
+                                        let res = content.parse::<i64>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::SignedInt {
+                                                    value: SignedInteger::I64(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    _ => unreachable!(
+                                        "Unexpected signed integer size [validate_expression()]"
+                                    ),
+                                }
+                            }
                         }
                         Ty::Unsigned { size, is_uint, loc } => {
-                            todo!()
+                            if *is_uint {
+                                let res = content.parse::<usize>();
+                                match res {
+                                    Ok(val) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::UnsignedInt {
+                                            value: UnsignedInteger::Uint(val),
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::IntegerTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            } else {
+                                match size {
+                                    8 => {
+                                        let res = content.parse::<u8>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::UnsignedInt {
+                                                    value: UnsignedInteger::U8(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    16 => {
+                                        let res = content.parse::<u16>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::UnsignedInt {
+                                                    value: UnsignedInteger::U16(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    32 => {
+                                        let res = content.parse::<u32>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::UnsignedInt {
+                                                    value: UnsignedInteger::U32(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    64 => {
+                                        let res = content.parse::<u64>();
+                                        match res {
+                                            Ok(val) => (
+                                                parent_ty.clone(),
+                                                TypedExpr::UnsignedInt {
+                                                    value: UnsignedInteger::U64(val),
+                                                    ty: parent_ty.clone(),
+                                                    loc: loc.clone(),
+                                                },
+                                            ),
+                                            Err(_) => {
+                                                self.report_error(
+                                                    SemanError::IntegerTypeCheckFailed {
+                                                        loc: loc.clone(),
+                                                        number: content.to_string(),
+                                                        given_type: parent_ty.as_str(),
+                                                    },
+                                                );
+                                                (
+                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                                    TypedExpr::Error,
+                                                )
+                                            }
+                                        }
+                                    }
+                                    _ => unreachable!(
+                                        "Unexpected signed integer size [validate_expression()]"
+                                    ),
+                                }
+                            }
                         }
-                        Ty::Float { size, loc } => {
-                            todo!()
-                        }
+                        Ty::Float { size, loc } => match size {
+                            32 => {
+                                let res = content.parse::<f32>();
+                                match res {
+                                    Ok(float) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::Float {
+                                            value: float as f64,
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::FloatTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            }
+                            64 => {
+                                let res = content.parse::<f64>();
+                                match res {
+                                    Ok(float) => (
+                                        parent_ty.clone(),
+                                        TypedExpr::Float {
+                                            value: float,
+                                            ty: parent_ty.clone(),
+                                            loc: loc.clone(),
+                                        },
+                                    ),
+                                    Err(_) => {
+                                        self.report_error(SemanError::FloatTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: content.to_string(),
+                                            given_type: parent_ty.as_str(),
+                                        });
+                                        (
+                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                            TypedExpr::Error,
+                                        )
+                                    }
+                                }
+                            }
+                            _ => unreachable!("Unexpected float size [validate_expression()]"),
+                        },
                         _ => {
-                            todo!()
+                            self.report_error(SemanError::TypeMismatch {
+                                loc: loc.clone(),
+                                expected:
+                                    "a numerical type (i8..i64 | int, u8..u64 | uint, f32 | f64)."
+                                        .into(),
+                                found: parent_ty.as_str(),
+                            });
+                            (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            )
                         }
                     }
                 } else {
-                    let val = content.parse::<i32>();
-                    (Ty::get_int_ty(loc.clone()), todo!())
+                    let res = content.parse::<isize>();
+                    let int_ty = Ty::get_int_ty(loc.clone());
+                    match res {
+                        Ok(val) => (
+                            int_ty.clone(),
+                            TypedExpr::SignedInt {
+                                value: SignedInteger::Int(val),
+                                ty: int_ty.clone(),
+                                loc: loc.clone(),
+                            },
+                        ),
+                        Err(_) => {
+                            self.report_error(SemanError::IntegerTypeDefaultInferenceFailed {
+                                loc: loc.clone(),
+                                number: content.to_string(),
+                            });
+                            (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            )
+                        }
+                    }
                 };
-                todo!()
+                (ty, typed_integer)
             }
             Expr::Decimal { content, loc } => todo!(),
             Expr::Str { content, loc } => todo!(),

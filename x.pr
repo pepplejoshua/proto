@@ -1,7 +1,7 @@
 fn main() int {
-    var later = _
-    var three int = add(1, 2)
-    later = CONSTANT
+    var later int = _
+    var three = add(1, 2)
+    later = CONSTANT + three
     return 0
 }
 
@@ -9,4 +9,4 @@ fn add(a int, b int) int {
     return a + b
 }
 
-const PI int = 3.14_152
+const CONSTANT int = 4_17

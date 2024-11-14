@@ -39,20 +39,20 @@ pub enum SemanError {
         expected: String,
         found: String,
     },
-    NumberTypeDefaultInferenceFailed {
+    IntegerTypeDefaultInferenceFailed {
         loc: Rc<SourceRef>,
         number: String,
     },
-    DecimalTypeDefaultInferenceFailed {
+    FloatTypeDefaultInferenceFailed {
         loc: Rc<SourceRef>,
         number: String,
     },
-    NumberTypeInferenceFailed {
+    IntegerTypeCheckFailed {
         loc: Rc<SourceRef>,
         number: String,
         given_type: String,
     },
-    DecimalTypeInferenceFailed {
+    FloatTypeCheckFailed {
         loc: Rc<SourceRef>,
         number: String,
         given_type: String,

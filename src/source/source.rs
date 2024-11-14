@@ -366,15 +366,18 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::NumberTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!("Failed to convert '{}' to i32.", number);
+            SemanError::IntegerTypeDefaultInferenceFailed { loc, number } => {
+                let msg = format!(
+                    "Failed to convert integer literal '{}' to 'int' type.",
+                    number
+                );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::DecimalTypeDefaultInferenceFailed { loc, number } => {
+            SemanError::FloatTypeDefaultInferenceFailed { loc, number } => {
                 let msg = format!("Failed to convert '{}' to f32.", number);
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::NumberTypeInferenceFailed {
+            SemanError::IntegerTypeCheckFailed {
                 loc,
                 number,
                 given_type,
@@ -385,7 +388,7 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
-            SemanError::DecimalTypeInferenceFailed {
+            SemanError::FloatTypeCheckFailed {
                 loc,
                 number,
                 given_type,

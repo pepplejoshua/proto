@@ -8,16 +8,19 @@ use std::{collections::HashMap, rc::Rc};
 
 #[derive(Debug, Clone)]
 pub enum Ty {
+    // i8, i16, int (platform-specific ptr size), i64
     Signed {
         size: u8,
         is_int: bool,
         loc: Rc<SourceRef>,
     },
+    // u8, u16, uint (platform-specific ptr size), u64
     Unsigned {
         size: u8,
         is_uint: bool,
         loc: Rc<SourceRef>,
     },
+    // f32, f64
     Float {
         size: u8,
         loc: Rc<SourceRef>,
