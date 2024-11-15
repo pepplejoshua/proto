@@ -4,7 +4,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use crate::{
     parser::{
-        ast::{Expr, FnParam, Ins},
+        ast::{BinOpType, Expr, FnParam, Ins},
         type_signature::Ty,
     },
     source::{
@@ -285,7 +285,41 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn type_check(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> Rc<Ty> {
+    // fn types_are_compatible(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> bool {
+    //     match (lhs.as_ref(), rhs.as_ref()) {
+    //         (
+    //             Ty::SignedInt {
+    //                 size: l_size,
+    //                 is_int: l_is_int,
+    //                 ..
+    //             },
+    //             Ty::SignedInt {
+    //                 size: r_size,
+    //                 is_int: r_is_int,
+    //                 ..
+    //             },
+    //         ) => l_size == r_size && l_is_int == r_is_int,
+    //         (
+    //             Ty::UnsignedInt {
+    //                 size: l_size,
+    //                 is_uint: l_is_uint,
+    //                 ..
+    //             },
+    //             Ty::UnsignedInt {
+    //                 size: r_size,
+    //                 is_uint: r_is_uint,
+    //                 ..
+    //             },
+    //         ) => l_size == r_size && l_is_uint == r_is_uint,
+    //         (Ty::Float { size, .. }, Ty::Float { size: r_size, .. }) => size == r_size,
+    //         (Ty::Char { .. }, Ty::Char { .. }) => true,
+    //         (Ty::Str { .. }, Ty::Str { .. }) => true,
+    //         (Ty::Void { .. }, Ty::Void { .. }) => true,
+    //         _ => todo!(),
+    //     }
+    // }
+
+    fn type_check(lhs: &Rc<Ty>, rhs: &Rc<Ty>, loc: Rc<SourceRef>) -> Rc<Ty> {
         match (lhs.as_ref(), rhs.as_ref()) {
             // case 1: types are equal
             (
@@ -299,8 +333,8 @@ impl SemanticAnalyzer {
                     is_int: r_is_int,
                     ..
                 },
-            ) if l_size == r_size && l_is_int == r_is_int => lhs.clone(),
-            (Ty::UntypedInt { .. }, Ty::UntypedInt { .. }) => lhs.clone(),
+            ) if l_size == r_size && l_is_int == r_is_int => lhs.clone_loc(loc),
+            (Ty::UntypedInt { .. }, Ty::UntypedInt { .. }) => lhs.clone_loc(loc),
             (
                 Ty::UnsignedInt {
                     size: l_size,
@@ -312,65 +346,75 @@ impl SemanticAnalyzer {
                     is_uint: r_is_uint,
                     ..
                 },
-            ) if l_size == r_size && l_is_uint == r_is_uint => lhs.clone(),
+            ) if l_size == r_size && l_is_uint == r_is_uint => lhs.clone_loc(loc),
             (Ty::Float { size: l_size, .. }, Ty::Float { size: r_size, .. })
                 if l_size == r_size =>
             {
-                lhs.clone()
+                lhs.clone_loc(loc)
             }
-            (Ty::Char { .. }, Ty::Char { .. }) => lhs.clone(),
-            (Ty::Str { .. }, Ty::Str { .. }) => lhs.clone(),
-            (Ty::Void { .. }, Ty::Void { .. }) => lhs.clone(),
+            (Ty::Char { .. }, Ty::Char { .. }) => lhs.clone_loc(loc),
+            (Ty::Str { .. }, Ty::Str { .. }) => lhs.clone_loc(loc),
+            (Ty::Void { .. }, Ty::Void { .. }) => lhs.clone_loc(loc),
 
             // case 2: safe implicit cast
             (Ty::UntypedInt { literal, .. }, Ty::SignedInt { size, is_int, .. }) => {
-                todo!()
+                let max_value = match size {
+                    8 => i8::MAX as usize,
+                    16 => i16::MAX as usize,
+                    32 => i32::MAX as usize,
+                    64 => i64::MAX as usize,
+                    _ => unreachable!("Unexpected signed integer size [type_check()]"),
+                };
+                if *literal <= max_value {
+                    rhs.clone_loc(loc)
+                } else {
+                    Rc::new(Ty::ErrorType { loc })
+                }
             }
             (Ty::SignedInt { size, is_int, .. }, Ty::UntypedInt { literal, .. }) => {
-                todo!()
+                let max_value = match size {
+                    8 => i8::MAX as usize,
+                    16 => i16::MAX as usize,
+                    32 => i32::MAX as usize,
+                    64 => i64::MAX as usize,
+                    _ => unreachable!("Unexpected signed integer size [type_check()]"),
+                };
+                if *literal <= max_value {
+                    lhs.clone_loc(loc)
+                } else {
+                    Rc::new(Ty::ErrorType { loc })
+                }
             }
             (Ty::UntypedInt { literal, .. }, Ty::UnsignedInt { size, is_uint, .. }) => {
-                todo!()
+                let max_value = match size {
+                    8 => u8::MAX as usize,
+                    16 => u16::MAX as usize,
+                    32 => u32::MAX as usize,
+                    64 => u64::MAX as usize,
+                    _ => unreachable!("Unexpected unsigned integer size [type_check()]"),
+                };
+                if *literal <= max_value {
+                    rhs.clone_loc(loc)
+                } else {
+                    Rc::new(Ty::ErrorType { loc })
+                }
             }
-            (Ty::UnsignedInt { size, is_uint, .. }, Ty::UntypedInt { literal.. }) => {
-                todo!()
+            (Ty::UnsignedInt { size, is_uint, .. }, Ty::UntypedInt { literal, .. }) => {
+                let max_value = match size {
+                    8 => u8::MAX as usize,
+                    16 => u16::MAX as usize,
+                    32 => u32::MAX as usize,
+                    64 => u64::MAX as usize,
+                    _ => unreachable!("Unexpected unsigned integer size [type_check()]"),
+                };
+                if *literal <= max_value {
+                    lhs.clone_loc(loc)
+                } else {
+                    Rc::new(Ty::ErrorType { loc })
+                }
             }
 
             // case 3: type mismatch
-            _ => Rc::new(Ty::ErrorType { loc: lhs.get_loc() }),
-        }
-    }
-
-    fn types_are_compatible(lhs: &Rc<Ty>, rhs: &Rc<Ty>) -> bool {
-        match (lhs.as_ref(), rhs.as_ref()) {
-            (
-                Ty::SignedInt {
-                    size: l_size,
-                    is_int: l_is_int,
-                    ..
-                },
-                Ty::SignedInt {
-                    size: r_size,
-                    is_int: r_is_int,
-                    ..
-                },
-            ) => l_size == r_size && l_is_int == r_is_int,
-            (
-                Ty::UnsignedInt {
-                    size: l_size,
-                    is_uint: l_is_uint,
-                    ..
-                },
-                Ty::UnsignedInt {
-                    size: r_size,
-                    is_uint: r_is_uint,
-                    ..
-                },
-            ) => l_size == r_size && l_is_uint == r_is_uint,
-            (Ty::Float { size, .. }, Ty::Float { size: r_size, .. }) => size == r_size,
-            (Ty::Char { .. }, Ty::Char { .. }) => true,
-            (Ty::Str { .. }, Ty::Str { .. }) => true,
-            (Ty::Void { .. }, Ty::Void { .. }) => true,
             _ => todo!(),
         }
     }
@@ -1025,9 +1069,39 @@ impl SemanticAnalyzer {
                 };
                 (ty, typed_float)
             }
-            Expr::Str { content, loc } => todo!(),
-            Expr::Char { content, loc } => todo!(),
-            Expr::Bool { val, loc } => todo!(),
+            Expr::Str { content, loc } => {
+                let str_ty = Rc::new(Ty::Str { loc: loc.clone() });
+                (
+                    str_ty.clone(),
+                    TypedExpr::Str {
+                        value: content.to_string(),
+                        ty: str_ty,
+                        loc: loc.clone(),
+                    },
+                )
+            }
+            Expr::Char { content, loc } => {
+                let char_ty = Rc::new(Ty::Char { loc: loc.clone() });
+                (
+                    char_ty.clone(),
+                    TypedExpr::Char {
+                        value: content.chars().next().unwrap_or('\0'),
+                        ty: char_ty,
+                        loc: loc.clone(),
+                    },
+                )
+            }
+            Expr::Bool { val, loc } => {
+                let bool_ty = Rc::new(Ty::Bool { loc: loc.clone() });
+                (
+                    bool_ty.clone(),
+                    TypedExpr::Bool {
+                        value: *val,
+                        ty: bool_ty,
+                        loc: loc.clone(),
+                    },
+                )
+            }
             Expr::Tuple { items, loc } => todo!(),
             Expr::StaticArray { ty, items, loc } => todo!(),
             Expr::Identifier { name, loc } => {
@@ -1095,7 +1169,74 @@ impl SemanticAnalyzer {
                 right,
                 loc,
             } => {
-                todo!()
+                let (left_ty, typed_left) = self.validate_expression(left, None);
+                let (right_ty, typed_right) = self.validate_expression(right, None);
+
+                match op {
+                    BinOpType::Add
+                    | BinOpType::Sub
+                    | BinOpType::Mult
+                    | BinOpType::Div
+                    | BinOpType::Mod => match (left_ty.as_ref(), right_ty.as_ref()) {
+                        (Ty::SignedInt { .. }, Ty::SignedInt { .. })
+                        | (Ty::UnsignedInt { .. }, Ty::UnsignedInt { .. }) => {
+                            let validate_ty = Self::type_check(&left_ty, &right_ty, loc.clone());
+                            if validate_ty.is_error_ty() {
+                                self.report_error(SemanError::TypeMismatch {
+                                    loc: right_ty.get_loc(),
+                                    expected: left_ty.as_str(),
+                                    found: right_ty.as_str(),
+                                });
+                                return (validate_ty, TypedExpr::Error);
+                            }
+
+                            if !validate_ty.is_num_ty() {
+                                self.report_error(SemanError::Expected(
+                                    format!("a numerical type (i8..i64 | int, u8..u64 | uint, untyped_int, f32 | f64) but found '{}", validate_ty.as_str()),
+                                    loc.clone(),
+                                    None
+                                ));
+                                return (
+                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                    TypedExpr::Error,
+                                );
+                            }
+
+                            (
+                                validate_ty,
+                                TypedExpr::BinOp {
+                                    op: *op,
+                                    left: Rc::new(typed_left),
+                                    right: Rc::new(typed_right),
+                                    loc: loc.clone(),
+                                },
+                            )
+                        }
+                        _ => {
+                            self.report_error(SemanError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: left_ty.as_str(),
+                                right: right_ty.as_str(),
+                            });
+                            (
+                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
+                                TypedExpr::Error,
+                            )
+                        }
+                    },
+                    BinOpType::And | BinOpType::Or => {
+                        todo!()
+                    }
+                    BinOpType::Eq
+                    | BinOpType::Neq
+                    | BinOpType::Gt
+                    | BinOpType::Lt
+                    | BinOpType::GtEq
+                    | BinOpType::LtEq => {
+                        todo!()
+                    }
+                }
             }
             Expr::ConditionalExpr {
                 cond,
@@ -1130,7 +1271,8 @@ impl SemanticAnalyzer {
                             let (arg_ty, typed_arg) =
                                 self.validate_expression(arg_expr, Some(param_ty));
 
-                            if !Self::types_are_compatible(&arg_ty, param_ty) {
+                            let validated_ty = Self::type_check(&arg_ty, &param_ty, loc.clone());
+                            if let Ty::ErrorType { .. } = validated_ty.as_ref() {
                                 self.report_error(SemanError::TypeMismatch {
                                     loc: arg_expr.get_source_ref(),
                                     expected: param_ty.as_str(),
@@ -1517,9 +1659,10 @@ impl SemanticAnalyzer {
                 let (val_ty, typed_val) = self.validate_expression(value, Some(&target_ty));
 
                 // ensure the types are compatible
-                if !Self::types_are_compatible(&target_ty, &val_ty) {
+                let validated_ty = Self::type_check(&target_ty, &val_ty, loc.clone());
+                if let Ty::ErrorType { loc: err_loc } = validated_ty.as_ref() {
                     self.report_error(SemanError::TypeMismatch {
-                        loc: loc.clone(),
+                        loc: err_loc.clone(),
                         expected: target_ty.as_str(),
                         found: val_ty.as_str(),
                     });

@@ -3,7 +3,10 @@
 use std::rc::Rc;
 
 use crate::{
-    parser::{ast::FnParam, type_signature::Ty},
+    parser::{
+        ast::{BinOpType, FnParam, UnaryOpType},
+        type_signature::Ty,
+    },
     source::source::SourceRef,
 };
 
@@ -48,6 +51,17 @@ pub enum TypedExpr {
         func: Rc<TypedExpr>,
         args: Vec<Rc<TypedExpr>>,
         ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
+    UnaryOp {
+        op: UnaryOpType,
+        expr: Rc<TypedExpr>,
+        loc: Rc<SourceRef>,
+    },
+    BinOp {
+        op: BinOpType,
+        left: Rc<TypedExpr>,
+        right: Rc<TypedExpr>,
         loc: Rc<SourceRef>,
     },
     Identifier {

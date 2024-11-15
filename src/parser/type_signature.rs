@@ -104,9 +104,16 @@ impl Ty {
         }
     }
 
+    pub fn is_bool_ty(&self) -> bool {
+        match self {
+            Ty::Bool { .. } => true,
+            _ => false,
+        }
+    }
+
     pub fn is_num_ty(&self) -> bool {
         match self {
-            Ty::SignedInt { .. } | Ty::UnsignedInt { .. } => true,
+            Ty::SignedInt { .. } | Ty::UnsignedInt { .. } | Ty::UntypedInt { .. } => true,
             _ => false,
         }
     }
@@ -128,6 +135,13 @@ impl Ty {
     pub fn is_unsigned_ty(&self) -> bool {
         match self {
             Ty::UnsignedInt { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn is_untyped_int_ty(&self) -> bool {
+        match self {
+            Ty::UntypedInt { .. } => true,
             _ => false,
         }
     }
