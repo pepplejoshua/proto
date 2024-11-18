@@ -70,7 +70,7 @@ pub enum SemanError {
     InvalidUseOfUnaryOperator {
         loc: Rc<SourceRef>,
         op: String,
-        operand: String,
+        operand_ty: String,
         tip: Option<String>,
     },
     InvalidType {

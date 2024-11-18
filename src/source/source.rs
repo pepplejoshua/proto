@@ -418,12 +418,11 @@ impl SourceReporter {
             SemanError::InvalidUseOfUnaryOperator {
                 loc,
                 op,
-                operand,
+                operand_ty,
                 tip,
             } => {
                 let msg = format!(
-                    "Invalid use of unary operator '{}'. It cannot be applied to a value of type '{}'.",
-                    op, operand
+                    "Invalid use of unary operator '{op}'. It cannot be applied to a value of type '{operand_ty}'.",
                 );
                 self.report_with_ref(&loc, msg, tip, false);
             }

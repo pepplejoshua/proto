@@ -91,7 +91,36 @@ pub enum TypedExpr {
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
-    Error,
+    Error {
+        loc: Rc<SourceRef>,
+    },
+}
+
+impl TypedExpr {
+    pub fn is_error_expr(&self) -> bool {
+        match self {
+            Self::Error { .. } => true,
+            _ => false,
+        }
+    }
+
+    pub fn get_ty(&self) -> Rc<Ty> {
+        match self {
+            TypedExpr::UntypedInt { ty, .. }
+            | TypedExpr::SignedInt { ty, .. }
+            | TypedExpr::UnsignedInt { ty, .. }
+            | TypedExpr::Float { ty, .. }
+            | TypedExpr::CallFn { ty, .. }
+            | TypedExpr::UnaryOp { ty, .. }
+            | TypedExpr::BinOp { ty, .. }
+            | TypedExpr::Identifier { ty, .. }
+            | TypedExpr::Bool { ty, .. }
+            | TypedExpr::Str { ty, .. }
+            | TypedExpr::Char { ty, .. }
+            | TypedExpr::Optional { ty, .. } => ty.clone(),
+            TypedExpr::Error { loc } => Rc::new(Ty::ErrorType { loc: loc.clone() }),
+        }
+    }
 }
 
 pub enum TypedIns {

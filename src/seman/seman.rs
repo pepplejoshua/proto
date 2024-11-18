@@ -4,7 +4,7 @@ use std::{cell::Cell, collections::HashMap, rc::Rc};
 
 use crate::{
     parser::{
-        ast::{BinOpType, Expr, FnParam, Ins},
+        ast::{BinOpType, Expr, FnParam, Ins, UnaryOpType},
         type_signature::Ty,
     },
     source::{
@@ -597,37 +597,27 @@ impl SemanticAnalyzer {
         typed_program
     }
 
-    fn validate_expression(
-        &mut self,
-        expr: &Expr,
-        parent_ty: Option<&Rc<Ty>>,
-    ) -> (Rc<Ty>, TypedExpr) {
+    fn validate_expression(&mut self, expr: &Expr, parent_ty: Option<&Rc<Ty>>) -> TypedExpr {
         match expr {
             Expr::Integer { content, loc } => {
-                let (ty, typed_integer) = if let Some(parent_ty) = parent_ty {
+                let typed_integer = if let Some(parent_ty) = parent_ty {
                     match parent_ty.as_ref() {
                         Ty::SignedInt { size, is_int, .. } => {
                             if *is_int {
                                 let res = content.parse::<isize>();
                                 match res {
-                                    Ok(val) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::SignedInt {
-                                            value: SignedInteger::Int(val),
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(val) => TypedExpr::SignedInt {
+                                        value: SignedInteger::Int(val),
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::IntegerTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             } else {
@@ -635,14 +625,11 @@ impl SemanticAnalyzer {
                                     8 => {
                                         let res = content.parse::<i8>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::SignedInt {
-                                                    value: SignedInteger::I8(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::SignedInt {
+                                                value: SignedInteger::I8(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -651,24 +638,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     16 => {
                                         let res = content.parse::<i16>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::SignedInt {
-                                                    value: SignedInteger::I16(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::SignedInt {
+                                                value: SignedInteger::I16(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -677,24 +658,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     32 => {
                                         let res = content.parse::<i32>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::SignedInt {
-                                                    value: SignedInteger::I32(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::SignedInt {
+                                                value: SignedInteger::I32(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -703,24 +678,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     64 => {
                                         let res = content.parse::<i64>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::SignedInt {
-                                                    value: SignedInteger::I64(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::SignedInt {
+                                                value: SignedInteger::I64(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -729,10 +698,7 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
@@ -746,24 +712,18 @@ impl SemanticAnalyzer {
                             if *is_uint {
                                 let res = content.parse::<usize>();
                                 match res {
-                                    Ok(val) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::UnsignedInt {
-                                            value: UnsignedInteger::Uint(val),
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(val) => TypedExpr::UnsignedInt {
+                                        value: UnsignedInteger::Uint(val),
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::IntegerTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             } else {
@@ -771,14 +731,11 @@ impl SemanticAnalyzer {
                                     8 => {
                                         let res = content.parse::<u8>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::UnsignedInt {
-                                                    value: UnsignedInteger::U8(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::UnsignedInt {
+                                                value: UnsignedInteger::U8(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -787,24 +744,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     16 => {
                                         let res = content.parse::<u16>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::UnsignedInt {
-                                                    value: UnsignedInteger::U16(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::UnsignedInt {
+                                                value: UnsignedInteger::U16(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -813,24 +764,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     32 => {
                                         let res = content.parse::<u32>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::UnsignedInt {
-                                                    value: UnsignedInteger::U32(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::UnsignedInt {
+                                                value: UnsignedInteger::U32(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -839,24 +784,18 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
                                     64 => {
                                         let res = content.parse::<u64>();
                                         match res {
-                                            Ok(val) => (
-                                                parent_ty.clone(),
-                                                TypedExpr::UnsignedInt {
-                                                    value: UnsignedInteger::U64(val),
-                                                    ty: parent_ty.clone(),
-                                                    loc: loc.clone(),
-                                                },
-                                            ),
+                                            Ok(val) => TypedExpr::UnsignedInt {
+                                                value: UnsignedInteger::U64(val),
+                                                ty: parent_ty.clone(),
+                                                loc: loc.clone(),
+                                            },
                                             Err(_) => {
                                                 self.report_error(
                                                     SemanError::IntegerTypeCheckFailed {
@@ -865,10 +804,7 @@ impl SemanticAnalyzer {
                                                         given_type: parent_ty.as_str(),
                                                     },
                                                 );
-                                                (
-                                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                                    TypedExpr::Error,
-                                                )
+                                                TypedExpr::Error { loc: loc.clone() }
                                             }
                                         }
                                     }
@@ -882,48 +818,36 @@ impl SemanticAnalyzer {
                             32 => {
                                 let res = content.parse::<f32>();
                                 match res {
-                                    Ok(float) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::Float {
-                                            value: float as f64,
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(float) => TypedExpr::Float {
+                                        value: float as f64,
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::FloatTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             }
                             64 => {
                                 let res = content.parse::<f64>();
                                 match res {
-                                    Ok(float) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::Float {
-                                            value: float,
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(float) => TypedExpr::Float {
+                                        value: float,
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::FloatTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             }
@@ -937,10 +861,7 @@ impl SemanticAnalyzer {
                                         .into(),
                                 found: parent_ty.as_str(),
                             });
-                            (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            )
+                            TypedExpr::Error { loc: loc.clone() }
                         }
                     }
                 } else {
@@ -951,78 +872,60 @@ impl SemanticAnalyzer {
                                 literal: val,
                                 loc: loc.clone(),
                             });
-                            (
-                                untyped_int_ty.clone(),
-                                TypedExpr::UntypedInt {
-                                    value: val,
-                                    ty: untyped_int_ty,
-                                    loc: loc.clone(),
-                                },
-                            )
+                            TypedExpr::UntypedInt {
+                                value: val,
+                                ty: untyped_int_ty,
+                                loc: loc.clone(),
+                            }
                         }
                         Err(_) => {
                             self.report_error(SemanError::IntegerTypeDefaultInferenceFailed {
                                 loc: loc.clone(),
                                 number: content.to_string(),
                             });
-                            (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            )
+                            TypedExpr::Error { loc: loc.clone() }
                         }
                     }
                 };
-                (ty, typed_integer)
+                typed_integer
             }
             Expr::Float { content, loc } => {
-                let (ty, typed_float) = if let Some(parent_ty) = parent_ty {
+                let typed_float = if let Some(parent_ty) = parent_ty {
                     match parent_ty.as_ref() {
                         Ty::Float { size, .. } => match size {
                             32 => {
                                 let res = content.parse::<f32>();
                                 match res {
-                                    Ok(float) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::Float {
-                                            value: float as f64,
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(float) => TypedExpr::Float {
+                                        value: float as f64,
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::FloatTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             }
                             64 => {
                                 let res = content.parse::<f64>();
                                 match res {
-                                    Ok(float) => (
-                                        parent_ty.clone(),
-                                        TypedExpr::Float {
-                                            value: float,
-                                            ty: parent_ty.clone(),
-                                            loc: loc.clone(),
-                                        },
-                                    ),
+                                    Ok(float) => TypedExpr::Float {
+                                        value: float,
+                                        ty: parent_ty.clone(),
+                                        loc: loc.clone(),
+                                    },
                                     Err(_) => {
                                         self.report_error(SemanError::FloatTypeCheckFailed {
                                             loc: loc.clone(),
                                             number: content.to_string(),
                                             given_type: parent_ty.as_str(),
                                         });
-                                        (
-                                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                            TypedExpr::Error,
-                                        )
+                                        TypedExpr::Error { loc: loc.clone() }
                                     }
                                 }
                             }
@@ -1034,10 +937,7 @@ impl SemanticAnalyzer {
                                 expected: "a numerical type (f32 | f64).".into(),
                                 found: parent_ty.as_str(),
                             });
-                            (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            )
+                            TypedExpr::Error { loc: loc.clone() }
                         }
                     }
                 } else {
@@ -1047,60 +947,45 @@ impl SemanticAnalyzer {
                         loc: loc.clone(),
                     });
                     match res {
-                        Ok(val) => (
-                            f32_type.clone(),
-                            TypedExpr::Float {
-                                value: val as f64,
-                                ty: f32_type,
-                                loc: loc.clone(),
-                            },
-                        ),
+                        Ok(val) => TypedExpr::Float {
+                            value: val as f64,
+                            ty: f32_type,
+                            loc: loc.clone(),
+                        },
                         Err(_) => {
                             self.report_error(SemanError::FloatTypeDefaultInferenceFailed {
                                 loc: loc.clone(),
                                 number: content.to_string(),
                             });
-                            (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            )
+                            TypedExpr::Error { loc: loc.clone() }
                         }
                     }
                 };
-                (ty, typed_float)
+                typed_float
             }
             Expr::Str { content, loc } => {
                 let str_ty = Rc::new(Ty::Str { loc: loc.clone() });
-                (
-                    str_ty.clone(),
-                    TypedExpr::Str {
-                        value: content.to_string(),
-                        ty: str_ty,
-                        loc: loc.clone(),
-                    },
-                )
+                TypedExpr::Str {
+                    value: content.to_string(),
+                    ty: str_ty,
+                    loc: loc.clone(),
+                }
             }
             Expr::Char { content, loc } => {
                 let char_ty = Rc::new(Ty::Char { loc: loc.clone() });
-                (
-                    char_ty.clone(),
-                    TypedExpr::Char {
-                        value: content.chars().next().unwrap_or('\0'),
-                        ty: char_ty,
-                        loc: loc.clone(),
-                    },
-                )
+                TypedExpr::Char {
+                    value: content.chars().next().unwrap_or('\0'),
+                    ty: char_ty,
+                    loc: loc.clone(),
+                }
             }
             Expr::Bool { val, loc } => {
                 let bool_ty = Rc::new(Ty::Bool { loc: loc.clone() });
-                (
-                    bool_ty.clone(),
-                    TypedExpr::Bool {
-                        value: *val,
-                        ty: bool_ty,
-                        loc: loc.clone(),
-                    },
-                )
+                TypedExpr::Bool {
+                    value: *val,
+                    ty: bool_ty,
+                    loc: loc.clone(),
+                }
             }
             Expr::Tuple { items, loc } => todo!(),
             Expr::StaticArray { ty, items, loc } => todo!(),
@@ -1109,14 +994,11 @@ impl SemanticAnalyzer {
                 match self.lookup(name) {
                     Some(SymInfo::Variable { ty, ref_count, .. }) => {
                         ref_count.set(ref_count.get() + 1);
-                        (
-                            ty.clone(),
-                            TypedExpr::Identifier {
-                                name: name.to_string(),
-                                ty: ty.clone(),
-                                loc: loc.clone(),
-                            },
-                        )
+                        TypedExpr::Identifier {
+                            name: name.to_string(),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        }
                     }
                     Some(SymInfo::Fn {
                         params,
@@ -1134,14 +1016,11 @@ impl SemanticAnalyzer {
                             loc: loc.clone(),
                             is_const: true,
                         });
-                        (
-                            fn_ty.clone(),
-                            TypedExpr::Identifier {
-                                name: name.to_string(),
-                                ty: fn_ty,
-                                loc: loc.clone(),
-                            },
-                        )
+                        TypedExpr::Identifier {
+                            name: name.to_string(),
+                            ty: fn_ty,
+                            loc: loc.clone(),
+                        }
                     }
                     Some(SymInfo::TypeAlias {
                         target_ty,
@@ -1155,22 +1034,67 @@ impl SemanticAnalyzer {
                             loc: loc.clone(),
                             var_name: name.to_string(),
                         });
-                        (
-                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                            TypedExpr::Error,
-                        )
+                        TypedExpr::Error { loc: loc.clone() }
                     }
                 }
             }
-            Expr::UnaryOp { op, expr, loc } => todo!(),
+            Expr::UnaryOp { op, expr, loc } => {
+                let typed_expr = self.validate_expression(expr, None);
+                let expr_ty = typed_expr.get_ty();
+
+                match op {
+                    UnaryOpType::Not => {
+                        if expr_ty.is_bool_ty() {
+                        } else {
+                            self.report_error(SemanError::InvalidUseOfUnaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                operand_ty: expr_ty.as_str(),
+                                tip: Some(
+                                    "The logical not (!) operator works on operands of the 'bool' type."
+                                        .to_string(),
+                                ),
+                            });
+                        }
+                        todo!()
+                    }
+                    UnaryOpType::Negate => match expr_ty.as_ref() {
+                        Ty::SignedInt { .. } => {
+                            // signed integers can be negated directly
+                            TypedExpr::UnaryOp {
+                                op: *op,
+                                expr: Rc::new(typed_expr),
+                                ty: expr_ty.clone_loc(loc.clone()),
+                                loc: loc.clone(),
+                            }
+                        }
+                        Ty::Float { .. } => {
+                            todo!()
+                        }
+                        Ty::UntypedInt { literal, .. } => {
+                            todo!()
+                        }
+                        _ => {
+                            self.report_error(SemanError::InvalidUseOfUnaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                operand_ty: expr_ty.as_str(),
+                                tip: None,
+                            });
+                            TypedExpr::Error { loc: loc.clone() }
+                        }
+                    },
+                }
+            }
             Expr::BinOp {
                 op,
                 left,
                 right,
                 loc,
             } => {
-                let (left_ty, typed_left) = self.validate_expression(left, None);
-                let (right_ty, typed_right) = self.validate_expression(right, None);
+                let typed_left = self.validate_expression(left, None);
+                let typed_right = self.validate_expression(right, None);
+                let (left_ty, right_ty) = (typed_left.get_ty(), typed_right.get_ty());
 
                 match op {
                     BinOpType::Add
@@ -1188,19 +1112,16 @@ impl SemanticAnalyzer {
                                     expected: left_ty.as_str(),
                                     found: right_ty.as_str(),
                                 });
-                                return (validate_ty.clone_loc(loc.clone()), TypedExpr::Error);
+                                return TypedExpr::Error { loc: loc.clone() };
                             }
 
-                            (
-                                validate_ty.clone(),
-                                TypedExpr::BinOp {
-                                    op: *op,
-                                    left: Rc::new(typed_left),
-                                    right: Rc::new(typed_right),
-                                    ty: validate_ty,
-                                    loc: loc.clone(),
-                                },
-                            )
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty: validate_ty,
+                                loc: loc.clone(),
+                            }
                         }
                         (
                             Ty::UntypedInt { literal, .. },
@@ -1212,42 +1133,33 @@ impl SemanticAnalyzer {
                         }
                         (Ty::Char { .. }, Ty::Char { .. }) if matches!(op, BinOpType::Add) => {
                             let ty = Rc::new(Ty::Str { loc: loc.clone() });
-                            (
-                                ty.clone(),
-                                TypedExpr::BinOp {
-                                    op: *op,
-                                    left: Rc::new(typed_left),
-                                    right: Rc::new(typed_right),
-                                    ty,
-                                    loc: loc.clone(),
-                                },
-                            )
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty,
+                                loc: loc.clone(),
+                            }
                         }
                         (Ty::Str { .. }, Ty::Str { .. }) if matches!(op, BinOpType::Add) => {
                             let ty = Rc::new(Ty::Str { loc: loc.clone() });
-                            (
-                                ty.clone(),
-                                TypedExpr::BinOp {
-                                    op: *op,
-                                    left: Rc::new(typed_left),
-                                    right: Rc::new(typed_right),
-                                    ty,
-                                    loc: loc.clone(),
-                                },
-                            )
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty,
+                                loc: loc.clone(),
+                            }
                         }
                         (Ty::Str { .. }, Ty::Char { .. }) if matches!(op, BinOpType::Add) => {
                             let ty = Rc::new(Ty::Str { loc: loc.clone() });
-                            (
-                                ty.clone(),
-                                TypedExpr::BinOp {
-                                    op: *op,
-                                    left: Rc::new(typed_left),
-                                    right: Rc::new(typed_right),
-                                    ty,
-                                    loc: loc.clone(),
-                                },
-                            )
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty,
+                                loc: loc.clone(),
+                            }
                         }
                         _ => {
                             self.report_error(SemanError::InvalidUseOfBinaryOperator {
@@ -1256,14 +1168,21 @@ impl SemanticAnalyzer {
                                 left: left_ty.as_str(),
                                 right: right_ty.as_str(),
                             });
-                            (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            )
+                            TypedExpr::Error { loc: loc.clone() }
                         }
                     },
                     BinOpType::And | BinOpType::Or => {
-                        todo!()
+                        if left_ty.is_bool_ty() && right_ty.is_bool_ty() {
+                            todo!()
+                        } else {
+                            self.report_error(SemanError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: left_ty.as_str(),
+                                right: right_ty.as_str(),
+                            });
+                            TypedExpr::Error { loc: loc.clone() }
+                        }
                     }
                     BinOpType::Eq
                     | BinOpType::Neq
@@ -1282,9 +1201,9 @@ impl SemanticAnalyzer {
                 loc,
             } => todo!(),
             Expr::CallFn { func, args, loc } => {
-                let (func_ty, typed_func) = self.validate_expression(func, None);
+                let typed_func = self.validate_expression(func, None);
 
-                match func_ty.as_ref() {
+                match typed_func.get_ty().as_ref() {
                     Ty::Func {
                         params: param_tys,
                         ret: return_ty,
@@ -1297,23 +1216,20 @@ impl SemanticAnalyzer {
                                 given: args.len(),
                                 loc: loc.clone(),
                             });
-                            return (
-                                Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                TypedExpr::Error,
-                            );
+                            return TypedExpr::Error { loc: loc.clone() };
                         }
 
                         let mut typed_args = vec![];
                         for (arg_expr, param_ty) in args.iter().zip(param_tys.iter()) {
-                            let (arg_ty, typed_arg) =
-                                self.validate_expression(arg_expr, Some(param_ty));
+                            let typed_arg = self.validate_expression(arg_expr, Some(param_ty));
 
-                            let validated_ty = Self::type_check(&arg_ty, &param_ty, loc.clone());
+                            let validated_ty =
+                                Self::type_check(&param_ty, &typed_arg.get_ty(), loc.clone());
                             if let Ty::ErrorType { .. } = validated_ty.as_ref() {
                                 self.report_error(SemanError::TypeMismatch {
                                     loc: arg_expr.get_source_ref(),
                                     expected: param_ty.as_str(),
-                                    found: arg_ty.as_str(),
+                                    found: typed_arg.get_ty().as_str(),
                                 });
                             }
                             typed_args.push(Rc::new(typed_arg));
@@ -1325,17 +1241,14 @@ impl SemanticAnalyzer {
                             ty: return_ty.clone(),
                             loc: loc.clone(),
                         };
-                        (return_ty.clone(), typed_call_expr)
+                        typed_call_expr
                     }
                     _ => {
                         self.report_error(SemanError::ExpectedFunctionType {
-                            found: func_ty.as_str(),
+                            found: typed_func.get_ty().as_str(),
                             loc: func.get_source_ref(),
                         });
-                        (
-                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                            TypedExpr::Error,
-                        )
+                        TypedExpr::Error { loc: loc.clone() }
                     }
                 }
             }
@@ -1365,31 +1278,25 @@ impl SemanticAnalyzer {
         }
     }
 
-    fn validate_target_expression(&mut self, expr: &Expr) -> (Rc<Ty>, TypedExpr) {
+    fn validate_target_expression(&mut self, expr: &Expr) -> TypedExpr {
         match expr {
             Expr::Identifier { name, loc } => {
                 // Look up the identifier and update the reference number of the name
                 match self.lookup(name) {
                     Some(SymInfo::Variable { ty, ref_count, .. }) => {
                         ref_count.set(ref_count.get() + 1);
-                        (
-                            ty.clone(),
-                            TypedExpr::Identifier {
-                                name: name.to_string(),
-                                ty: ty.clone(),
-                                loc: loc.clone(),
-                            },
-                        )
+                        TypedExpr::Identifier {
+                            name: name.to_string(),
+                            ty: ty.clone(),
+                            loc: loc.clone(),
+                        }
                     }
                     _ => {
                         self.report_error(SemanError::ReferenceToUndefinedName {
                             loc: loc.clone(),
                             var_name: name.to_string(),
                         });
-                        (
-                            Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                            TypedExpr::Error,
-                        )
+                        TypedExpr::Error { loc: loc.clone() }
                     }
                 }
             }
@@ -1403,12 +1310,9 @@ impl SemanticAnalyzer {
                 self.report_error(SemanError::CannotAssignToTarget {
                     loc: expr.get_source_ref(),
                 });
-                (
-                    Rc::new(Ty::ErrorType {
-                        loc: expr.get_source_ref(),
-                    }),
-                    TypedExpr::Error,
-                )
+                TypedExpr::Error {
+                    loc: expr.get_source_ref(),
+                }
             }
         }
     }
@@ -1438,14 +1342,15 @@ impl SemanticAnalyzer {
                 if !is_mutable {
                     // constant variable
                     if let Some(init_expr) = init_val {
-                        let (init_ty, typed_init_value) = if let Some(var_ty) = ty {
+                        let typed_init_value = if let Some(var_ty) = ty {
                             self.validate_expression(init_expr, Some(var_ty))
                         } else {
                             self.validate_expression(init_expr, None)
                         };
+                        let init_ty = typed_init_value.get_ty();
 
                         match typed_init_value {
-                            TypedExpr::Error => TypedIns::Error,
+                            TypedExpr::Error { loc } => TypedIns::Error,
                             _ => {
                                 // add to current scope if we are in a local scope
                                 if self.current_scope_idx != 0 {
@@ -1486,9 +1391,9 @@ impl SemanticAnalyzer {
                     match (ty, init_val) {
                         (Some(var_ty), Some(init_expr)) => {
                             // has both type and initializer
-                            let (init_ty, typed_init) =
-                                self.validate_expression(init_expr, Some(var_ty));
-                            if matches!(typed_init, TypedExpr::Error) {
+                            let typed_init = self.validate_expression(init_expr, Some(var_ty));
+                            let init_ty = typed_init.get_ty();
+                            if typed_init.is_error_expr() {
                                 TypedIns::Error
                             } else {
                                 // add to current scope if we are in a local scope
@@ -1555,8 +1460,9 @@ impl SemanticAnalyzer {
                         }
                         (None, Some(init_expr)) => {
                             // type inference from initializer
-                            let (init_ty, typed_init) = self.validate_expression(init_expr, None);
-                            if matches!(typed_init, TypedExpr::Error) {
+                            let typed_init = self.validate_expression(init_expr, None);
+                            let init_ty = typed_init.get_ty();
+                            if typed_init.is_error_expr() {
                                 TypedIns::Error
                             } else {
                                 // add to current scope if we are in a local scope
@@ -1680,7 +1586,8 @@ impl SemanticAnalyzer {
             }
             Ins::AssignTo { target, value, loc } => {
                 // validate the target expression
-                let (target_ty, typed_target) = self.validate_target_expression(target);
+                let typed_target = self.validate_target_expression(target);
+                let target_ty = typed_target.get_ty();
 
                 // ensure the target is mutable
                 if !self.is_mutable_target(target) {
@@ -1693,7 +1600,8 @@ impl SemanticAnalyzer {
                 }
 
                 // validate the value expression
-                let (val_ty, typed_val) = self.validate_expression(value, Some(&target_ty));
+                let typed_val = self.validate_expression(value, Some(&target_ty));
+                let val_ty = typed_val.get_ty();
 
                 // ensure the types are compatible
                 let validated_ty = Self::type_check(&target_ty, &val_ty, loc.clone());
