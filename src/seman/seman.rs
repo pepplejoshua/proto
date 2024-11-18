@@ -1179,35 +1179,72 @@ impl SemanticAnalyzer {
                     | BinOpType::Div
                     | BinOpType::Mod => match (left_ty.as_ref(), right_ty.as_ref()) {
                         (Ty::SignedInt { .. }, Ty::SignedInt { .. })
-                        | (Ty::UnsignedInt { .. }, Ty::UnsignedInt { .. }) => {
+                        | (Ty::UnsignedInt { .. }, Ty::UnsignedInt { .. })
+                        | (Ty::Float { .. }, Ty::Float { .. }) => {
                             let validate_ty = Self::type_check(&left_ty, &right_ty, loc.clone());
                             if validate_ty.is_error_ty() {
                                 self.report_error(SemanError::TypeMismatch {
-                                    loc: right_ty.get_loc(),
+                                    loc: loc.clone(),
                                     expected: left_ty.as_str(),
                                     found: right_ty.as_str(),
                                 });
-                                return (validate_ty, TypedExpr::Error);
-                            }
-
-                            if !validate_ty.is_num_ty() {
-                                self.report_error(SemanError::Expected(
-                                    format!("a numerical type (i8..i64 | int, u8..u64 | uint, untyped_int, f32 | f64) but found '{}", validate_ty.as_str()),
-                                    loc.clone(),
-                                    None
-                                ));
-                                return (
-                                    Rc::new(Ty::ErrorType { loc: loc.clone() }),
-                                    TypedExpr::Error,
-                                );
+                                return (validate_ty.clone_loc(loc.clone()), TypedExpr::Error);
                             }
 
                             (
-                                validate_ty,
+                                validate_ty.clone(),
                                 TypedExpr::BinOp {
                                     op: *op,
                                     left: Rc::new(typed_left),
                                     right: Rc::new(typed_right),
+                                    ty: validate_ty,
+                                    loc: loc.clone(),
+                                },
+                            )
+                        }
+                        (
+                            Ty::UntypedInt { literal, .. },
+                            Ty::UntypedInt {
+                                literal: r_literal, ..
+                            },
+                        ) => {
+                            todo!()
+                        }
+                        (Ty::Char { .. }, Ty::Char { .. }) if matches!(op, BinOpType::Add) => {
+                            let ty = Rc::new(Ty::Str { loc: loc.clone() });
+                            (
+                                ty.clone(),
+                                TypedExpr::BinOp {
+                                    op: *op,
+                                    left: Rc::new(typed_left),
+                                    right: Rc::new(typed_right),
+                                    ty,
+                                    loc: loc.clone(),
+                                },
+                            )
+                        }
+                        (Ty::Str { .. }, Ty::Str { .. }) if matches!(op, BinOpType::Add) => {
+                            let ty = Rc::new(Ty::Str { loc: loc.clone() });
+                            (
+                                ty.clone(),
+                                TypedExpr::BinOp {
+                                    op: *op,
+                                    left: Rc::new(typed_left),
+                                    right: Rc::new(typed_right),
+                                    ty,
+                                    loc: loc.clone(),
+                                },
+                            )
+                        }
+                        (Ty::Str { .. }, Ty::Char { .. }) if matches!(op, BinOpType::Add) => {
+                            let ty = Rc::new(Ty::Str { loc: loc.clone() });
+                            (
+                                ty.clone(),
+                                TypedExpr::BinOp {
+                                    op: *op,
+                                    left: Rc::new(typed_left),
+                                    right: Rc::new(typed_right),
+                                    ty,
                                     loc: loc.clone(),
                                 },
                             )

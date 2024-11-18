@@ -56,12 +56,14 @@ pub enum TypedExpr {
     UnaryOp {
         op: UnaryOpType,
         expr: Rc<TypedExpr>,
+        ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     BinOp {
         op: BinOpType,
         left: Rc<TypedExpr>,
         right: Rc<TypedExpr>,
+        ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
     Identifier {
