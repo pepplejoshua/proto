@@ -20,16 +20,14 @@ pub enum Ty {
     //     literal: f64,
     //     loc: Rc<SourceRef>,
     // },
-    // i8, i16, int (platform-specific ptr size), i64
+    // i8, i16, i32, i64
     SignedInt {
         size: u8,
-        is_int: bool,
         loc: Rc<SourceRef>,
     },
-    // u8, u16, uint (platform-specific ptr size), u64
+    // u8, u16, u32, u64
     UnsignedInt {
         size: u8,
-        is_uint: bool,
         loc: Rc<SourceRef>,
     },
     // f32, f64
@@ -228,19 +226,11 @@ impl Ty {
             Ty::UntypedInt { literal, .. } => {
                 format!("untyped_int[{literal}]")
             }
-            Ty::SignedInt { size, is_int, .. } => {
-                if *is_int {
-                    "int".into()
-                } else {
-                    format!("i{size}")
-                }
+            Ty::SignedInt { size, .. } => {
+                format!("i{size}")
             }
-            Ty::UnsignedInt { size, is_uint, .. } => {
-                if *is_uint {
-                    "uint".into()
-                } else {
-                    format!("u{size}")
-                }
+            Ty::UnsignedInt { size, .. } => {
+                format!("u{size}")
             }
             Ty::Float { size, loc } => {
                 format!("f{size}")
@@ -295,7 +285,6 @@ impl Ty {
     pub fn get_int_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
         Rc::new(Ty::SignedInt {
             size: Ty::get_platform_size(),
-            is_int: true,
             loc,
         })
     }
@@ -303,7 +292,6 @@ impl Ty {
     pub fn get_uint_ty(loc: Rc<SourceRef>) -> Rc<Ty> {
         Rc::new(Ty::UnsignedInt {
             size: Ty::get_platform_size(),
-            is_uint: true,
             loc,
         })
     }

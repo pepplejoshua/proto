@@ -1,11 +1,11 @@
 struct Node {
-    val : int; next : ?*Node
+    val : i32 ; next : ?*Node
     fn init(v int, n ?*Node) void {
         self.val = v; self.next = n
     }
 }
 
-fn main() int {
+fn main() i32 {
     fifth := new(Node, 1, none); defer free(fifth)
     fourth := new(Node, 2, some fifth); defer free(fourth)
     third := new(Node, 3, some fourth); defer free(third)

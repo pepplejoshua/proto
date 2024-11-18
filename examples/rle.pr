@@ -4,9 +4,9 @@
 // consecutively.
 struct Pair {
     key : char
-    count : int
+    count : i32
 
-    fn init(k char, c int) void {
+    fn init(k char, c i32) void {
         self.key = k
         self.count = c
     }
@@ -20,7 +20,7 @@ fn compress(og str) [Pair] {
     compressed := new([Pair])
 
     count := 1
-    for (i : uint = 1; i < og.len(); i += 1) {
+    for (i : u32 = 1; i < og.len(); i += 1) {
         if og[i] == og[i - 1] {
             count += 1
         } else {
@@ -35,7 +35,7 @@ fn compress(og str) [Pair] {
 // decompress(): function takes the compressed data and reconstructs
 // the original string.
 fn decompress(compressed [Pair]) str {
-    dup :: \(c char, count int) str {
+    dup :: \(c char, count i32) str {
         s := ""
         i := 0
         for i < count : (i += 1) {
@@ -52,13 +52,13 @@ fn decompress(compressed [Pair]) str {
     return og
 }
 
-fn main() int {
+fn main() i32 {
     original := "AABBBCCCCDDDDD"
     println(`original: {original}`)
     compressed := compress(original)
 
     print("[")
-    i : uint = 0
+    i : u32 = 0
     for i < compressed.len() : (i += 1) {
         pair := compressed[i]
         print(`{pair.as_str()}`)

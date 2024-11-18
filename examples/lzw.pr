@@ -1,10 +1,10 @@
 // Lempel–Ziv–Welch compression/decompression algorithm
-fn compress(uncompressed str) [int] {
-    dict_size := 256; dict : {str, int} = {}
+fn compress(uncompressed str) [i32] {
+    dict_size := 256; dict : {str, i32} = {}
     for (i := 0; i < dict_size; i += 1) {
         dict.insert(`{make_char(i)}`, i)
     }
-    res := new([int]); w := ""
+    res := new([i32]); w := ""
     for ch in uncompressed {
         wc :: w + ch
         if dict.contains(wc) {
@@ -20,14 +20,14 @@ fn compress(uncompressed str) [int] {
     return res
 }
 
-fn decompress(compressed [int]) ?str {
-    dict_size := 256; dict : {int, str} = {}
+fn decompress(compressed [i32]) ?str {
+    dict_size := 256; dict : {i32, str} = {}
     for (i := 0; i < dict_size; i += 1) {
         dict.insert(i, `{make_char(i)}`)
     }
     w := `{make_char(compressed[0])}`;
     res := w
-    for (i : uint = 1; i < compressed.len(); i += 1) {
+    for (i : u32 = 1; i < compressed.len(); i += 1) {
         k :: compressed[i]
         entry := ""
         if dict.contains(k) {
@@ -47,7 +47,7 @@ fn decompress(compressed [int]) ?str {
     return some res
 }
 
-fn main() int {
+fn main() i32 {
     half :: "ABABABABABABABABABABABABABABABC"
     println(`{a.len()}`)
     uncompressed :: half + half

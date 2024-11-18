@@ -327,10 +327,6 @@ impl Lexer {
                 ty: TokenType::I64,
                 loc: combined_ref,
             }),
-            "int" => Ok(SrcToken {
-                ty: TokenType::Int,
-                loc: combined_ref,
-            }),
             "u8" => Ok(SrcToken {
                 ty: TokenType::U8,
                 loc: combined_ref,
@@ -345,10 +341,6 @@ impl Lexer {
             }),
             "u64" => Ok(SrcToken {
                 ty: TokenType::U64,
-                loc: combined_ref,
-            }),
-            "uint" => Ok(SrcToken {
-                ty: TokenType::UInt,
                 loc: combined_ref,
             }),
             "f32" => Ok(SrcToken {

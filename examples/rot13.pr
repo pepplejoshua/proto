@@ -33,7 +33,7 @@ fn rot13(reg str) str {
     return new_str
 }
 
-fn main() int {
+fn main() i32 {
     encrypted := rot13("My name is Joshua Pepple! Find me!")
     reg := rot13(encrypted)
     println(encrypted)

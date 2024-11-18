@@ -1,6 +1,6 @@
 a : i8 : 32;
 c := false;
-e : uint = 0;
+e : u32 = 0;
 
 fn main() void {
     b := a;
