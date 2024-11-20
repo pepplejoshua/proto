@@ -399,6 +399,10 @@ impl SourceReporter {
                 );
                 self.report_with_ref(&loc, msg, None, false);
             }
+            SemanError::DivisionByZero { loc } => {
+                let msg = format!("Division by Zero is not a valid operation.");
+                self.report_with_ref(&loc, msg, None, false);
+            }
             SemanError::ReferenceToUndefinedName { loc, var_name } => {
                 let msg = format!("Reference to an undefined name: '{}'.", var_name);
                 self.report_with_ref(&loc, msg, None, false);

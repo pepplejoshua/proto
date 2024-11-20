@@ -913,6 +913,12 @@ impl SemanticAnalyzer {
                 match op {
                     UnaryOpType::Not => {
                         if expr_ty.is_bool_ty() {
+                            TypedExpr::UnaryOp {
+                                op: *op,
+                                expr: Rc::new(typed_expr),
+                                ty: expr_ty.clone_loc(loc.clone()),
+                                loc: loc.clone(),
+                            }
                         } else {
                             self.report_error(SemanError::InvalidUseOfUnaryOperator {
                                 loc: loc.clone(),
@@ -923,8 +929,8 @@ impl SemanticAnalyzer {
                                         .to_string(),
                                 ),
                             });
+                            TypedExpr::Error { loc: loc.clone() }
                         }
-                        todo!()
                     }
                     UnaryOpType::Negate => match expr_ty.as_ref() {
                         Ty::SignedInt { .. } => {
@@ -949,8 +955,33 @@ impl SemanticAnalyzer {
                             if let Some(parent_ty) = parent_ty {
                                 // if parent type is provided, try to use it
                                 match parent_ty.as_ref() {
-                                    Ty::SignedInt { size, loc } => {
-                                        todo!()
+                                    Ty::SignedInt { size, .. } => {
+                                        // get min/max range for the target signed type
+                                        let (min, max) = match size {
+                                            8 => (i8::MIN as isize, i8::MAX as isize),
+                                            16 => (i16::MIN as isize, i16::MAX as isize),
+                                            32 => (i32::MIN as isize, i32::MAX as isize),
+                                            64 => (i64::MIN as isize, i64::MAX as isize),
+                                            _ => unreachable!("Unexpected signed integer size."),
+                                        };
+
+                                        // check if the negated value is within range
+                                        let negated = -(*literal as isize);
+                                        if negated >= min && negated <= max {
+                                            TypedExpr::UnaryOp {
+                                                op: *op,
+                                                expr: Rc::new(typed_expr),
+                                                ty: parent_ty.clone_loc(loc.clone()),
+                                                loc: loc.clone(),
+                                            }
+                                        } else {
+                                            self.report_error(SemanError::IntegerTypeCheckFailed {
+                                                loc: loc.clone(),
+                                                number: format!("-{literal}"),
+                                                given_type: parent_ty.as_str(),
+                                            });
+                                            TypedExpr::Error { loc: loc.clone() }
+                                        }
                                     }
                                     _ => {
                                         self.report_error(SemanError::TypeMismatch {
@@ -962,22 +993,46 @@ impl SemanticAnalyzer {
                                     }
                                 }
                             } else {
-                                // no parent type, default to int (isize)
-                                let int_ty = Ty::get_int_ty(loc.clone());
-
-                                if (*literal as isize) <= -(isize::MIN as isize) {
-                                    self.report_error(SemanError::IntegerTypeCheckFailed {
-                                        loc: loc.clone(),
-                                        number: format!("-{literal}"),
-                                        given_type: "int".into(),
-                                    });
-                                    TypedExpr::Error { loc: loc.clone() }
-                                } else {
-                                    TypedExpr::UnaryOp {
-                                        op: *op,
-                                        expr: Rc::new(typed_expr),
-                                        ty: int_ty,
-                                        loc: loc.clone(),
+                                // no parent type, default to platform max size (i32 or i64)
+                                match Ty::get_platform_size() {
+                                    32 => {
+                                        let negated = -(*literal as i32);
+                                        if negated >= i32::MIN && negated <= i32::MAX {
+                                            self.report_error(SemanError::IntegerTypeCheckFailed {
+                                                loc: loc.clone(),
+                                                number: format!("-{literal}"),
+                                                given_type: "int".into(),
+                                            });
+                                            TypedExpr::Error { loc: loc.clone() }
+                                        } else {
+                                            TypedExpr::UnaryOp {
+                                                op: *op,
+                                                expr: Rc::new(typed_expr),
+                                                ty: Ty::get_int_ty(loc.clone()),
+                                                loc: loc.clone(),
+                                            }
+                                        }
+                                    }
+                                    64 => {
+                                        let negated = -(*literal as i64);
+                                        if negated >= i64::MIN && negated <= i64::MAX {
+                                            self.report_error(SemanError::IntegerTypeCheckFailed {
+                                                loc: loc.clone(),
+                                                number: format!("-{literal}"),
+                                                given_type: "int".into(),
+                                            });
+                                            TypedExpr::Error { loc: loc.clone() }
+                                        } else {
+                                            TypedExpr::UnaryOp {
+                                                op: *op,
+                                                expr: Rc::new(typed_expr),
+                                                ty: Ty::get_int_ty(loc.clone()),
+                                                loc: loc.clone(),
+                                            }
+                                        }
+                                    }
+                                    _ => {
+                                        unreachable!("Unexpected platform size (not 32 or 64 bit).")
                                     }
                                 }
                             }
@@ -1037,7 +1092,82 @@ impl SemanticAnalyzer {
                                 literal: r_literal, ..
                             },
                         ) => {
-                            todo!()
+                            let result = match op {
+                                BinOpType::Add => literal + r_literal,
+                                BinOpType::Sub => {
+                                    todo!()
+                                }
+                                BinOpType::Mult => literal * r_literal,
+                                BinOpType::Div => {
+                                    if *r_literal == 0 {
+                                        self.report_error(SemanError::DivisionByZero {
+                                            loc: loc.clone(),
+                                        });
+                                        return TypedExpr::Error { loc: loc.clone() };
+                                    }
+                                    literal / r_literal
+                                }
+                                BinOpType::Mod => {
+                                    if *r_literal == 0 {
+                                        self.report_error(SemanError::DivisionByZero {
+                                            loc: loc.clone(),
+                                        });
+                                        return TypedExpr::Error { loc: loc.clone() };
+                                    }
+                                    literal % r_literal
+                                }
+                                _ => unreachable!("Unexpected binary operator '{}'", op.as_str()),
+                            };
+
+                            // if parent type is provided, try to use it
+                            if let Some(parent_ty) = parent_ty {
+                                todo!()
+                            }
+
+                            let result_ty = Rc::new(Ty::UntypedInt {
+                                literal: result,
+                                loc: loc.clone(),
+                            });
+
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty: result_ty,
+                                loc: loc.clone(),
+                            }
+                        }
+                        (Ty::UntypedInt { .. }, Ty::SignedInt { .. })
+                        | (Ty::UntypedInt { .. }, Ty::UnsignedInt { .. })
+                        | (Ty::SignedInt { .. }, Ty::UntypedInt { .. })
+                        | (Ty::UnsignedInt { .. }, Ty::UntypedInt { .. }) => {
+                            let left_is_untyped = left_ty.is_untyped_int_ty();
+                            // convert the untyped int to match concrete type
+                            let validated_ty = Self::type_check(&left_ty, &right_ty, loc.clone());
+                            if validated_ty.is_error_ty() {
+                                self.report_error(SemanError::TypeMismatch {
+                                    loc: loc.clone(),
+                                    expected: if left_is_untyped {
+                                        right_ty.as_str()
+                                    } else {
+                                        left_ty.as_str()
+                                    },
+                                    found: if left_is_untyped {
+                                        left_ty.as_str()
+                                    } else {
+                                        right_ty.as_str()
+                                    },
+                                });
+                                return TypedExpr::Error { loc: loc.clone() };
+                            }
+
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty: validated_ty,
+                                loc: loc.clone(),
+                            }
                         }
                         (Ty::Char { .. }, Ty::Char { .. }) if matches!(op, BinOpType::Add) => {
                             let ty = Rc::new(Ty::Str { loc: loc.clone() });

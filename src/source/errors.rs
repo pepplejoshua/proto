@@ -57,6 +57,9 @@ pub enum SemanError {
         number: String,
         given_type: String,
     },
+    DivisionByZero {
+        loc: Rc<SourceRef>,
+    },
     ReferenceToUndefinedName {
         loc: Rc<SourceRef>,
         var_name: String,
