@@ -1,11 +1,8 @@
 fn main() int {
-    var untyped_int_one = 1     // will be typed untyped_int(1)
-    var int_two int = 2         // will be typed signed_int
-    var later int = _           // will be typed signed_int
-
-    // add will receive both an untyped_int and strictly typed int and it should work just fine
-    var three = add(untyped_int_one, int_two)
-    // later will be set to the result of a regular addition
+    var one = 1
+    var two int = 2
+    var later int = _
+    var three = add(one, two)
     later = CONSTANT + three
     return 0
 }

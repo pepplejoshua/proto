@@ -1095,7 +1095,46 @@ impl SemanticAnalyzer {
                             let result = match op {
                                 BinOpType::Add => literal + r_literal,
                                 BinOpType::Sub => {
-                                    todo!()
+                                    if r_literal > literal {
+                                        // would result in a negative number
+                                        if let Some(parent_ty) = parent_ty {
+                                            match parent_ty.as_ref() {
+                                                Ty::SignedInt { size, .. } => {
+                                                    // check if result fits in parent signed type
+                                                    let diff = r_literal - literal;
+                                                    let max = match size {
+                                                        8 => i8::MAX as usize,
+                                                        16 => i16::MAX as usize,
+                                                        32 => i32::MAX as usize,
+                                                        64 => i64::MAX as usize,
+                                                        _ => {
+                                                            unreachable!("Unexpected integer size")
+                                                        }
+                                                    };
+
+                                                    if diff <= max {
+                                                        // result fits into parent type
+                                                        return TypedExpr::BinOp {
+                                                            op: *op,
+                                                            left: Rc::new(typed_left),
+                                                            right: Rc::new(typed_right),
+                                                            ty: parent_ty.clone_loc(loc.clone()),
+                                                            loc: loc.clone(),
+                                                        };
+                                                    }
+                                                }
+                                                _ => {}
+                                            }
+                                        }
+
+                                        self.report_error(SemanError::IntegerTypeCheckFailed {
+                                            loc: loc.clone(),
+                                            number: format!("{} - {}", literal, r_literal),
+                                            given_type: "untyped integer".into(),
+                                        });
+                                        return TypedExpr::Error { loc: loc.clone() };
+                                    }
+                                    literal - r_literal
                                 }
                                 BinOpType::Mult => literal * r_literal,
                                 BinOpType::Div => {
@@ -1121,9 +1160,51 @@ impl SemanticAnalyzer {
 
                             // if parent type is provided, try to use it
                             if let Some(parent_ty) = parent_ty {
-                                todo!()
+                                match parent_ty.as_ref() {
+                                    Ty::SignedInt { size, .. } => {
+                                        let max = match size {
+                                            8 => i8::MAX as usize,
+                                            16 => i16::MAX as usize,
+                                            32 => i32::MAX as usize,
+                                            64 => i64::MAX as usize,
+                                            _ => unreachable!("Unexpected integer size."),
+                                        };
+
+                                        if result <= max {
+                                            return TypedExpr::BinOp {
+                                                op: *op,
+                                                left: Rc::new(typed_left),
+                                                right: Rc::new(typed_right),
+                                                ty: parent_ty.clone_loc(loc.clone()),
+                                                loc: loc.clone(),
+                                            };
+                                        }
+                                    }
+                                    Ty::UnsignedInt { size, .. } => {
+                                        let max = match size {
+                                            8 => u8::MAX as usize,
+                                            16 => u16::MAX as usize,
+                                            32 => u32::MAX as usize,
+                                            64 => u64::MAX as usize,
+                                            _ => unreachable!("Unexpected integer size."),
+                                        };
+
+                                        if result <= max {
+                                            return TypedExpr::BinOp {
+                                                op: *op,
+                                                left: Rc::new(typed_left),
+                                                right: Rc::new(typed_right),
+                                                ty: parent_ty.clone_loc(loc.clone()),
+                                                loc: loc.clone(),
+                                            };
+                                        }
+                                    }
+                                    _ => {}
+                                }
                             }
 
+                            // no parent_ty or it doesn't fit properly into the parent type,
+                            // so keep it as an untyped int
                             let result_ty = Rc::new(Ty::UntypedInt {
                                 literal: result,
                                 loc: loc.clone(),
