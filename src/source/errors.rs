@@ -60,6 +60,11 @@ pub enum SemanError {
     DivisionByZero {
         loc: Rc<SourceRef>,
     },
+    ArithmeticOverflow {
+        loc: Rc<SourceRef>,
+        operation: String,
+        reason: String,
+    },
     ReferenceToUndefinedName {
         loc: Rc<SourceRef>,
         var_name: String,

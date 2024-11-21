@@ -403,6 +403,15 @@ impl SourceReporter {
                 let msg = format!("Division by Zero is not a valid operation.");
                 self.report_with_ref(&loc, msg, None, false);
             }
+            SemanError::ArithmeticOverflow {
+                loc,
+                operation,
+                reason,
+            } => {
+                let msg = format!("{operation} will fail at runtime because {reason}.");
+                self.report_with_ref(&loc, msg, None, false);
+                todo!()
+            }
             SemanError::ReferenceToUndefinedName { loc, var_name } => {
                 let msg = format!("Reference to an undefined name: '{}'.", var_name);
                 self.report_with_ref(&loc, msg, None, false);

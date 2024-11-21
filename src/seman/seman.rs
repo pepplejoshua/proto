@@ -525,6 +525,70 @@ impl SemanticAnalyzer {
         typed_program
     }
 
+    fn check_binary_arithmetic_overflow(
+        left: usize,
+        right: usize,
+        op: BinOpType,
+        loc: &Rc<SourceRef>,
+    ) -> Result<usize, SemanError> {
+        match op {
+            BinOpType::Add => left
+                .checked_add(right)
+                .ok_or(SemanError::ArithmeticOverflow {
+                    loc: loc.clone(),
+                    operation: format!("{left} + {right}"),
+                    reason: "addition will overflow".into(),
+                }),
+            BinOpType::Mult => left
+                .checked_mul(right)
+                .ok_or(SemanError::ArithmeticOverflow {
+                    loc: loc.clone(),
+                    operation: format!("{left} * {right}",),
+                    reason: "multiplication would overflow".into(),
+                }),
+            BinOpType::Sub => {
+                if right > left {
+                    // for subtraction that will result in a negative number,
+                    // it will be handled separately as it might be valid with a
+                    // signed type
+                    return Ok(0);
+                }
+                left.checked_sub(right)
+                    .ok_or(SemanError::ArithmeticOverflow {
+                        loc: loc.clone(),
+                        operation: format!("{left} - {right}"),
+                        reason: "subtraction would overflow".into(),
+                    })
+            }
+            BinOpType::Div => {
+                if right == 0 {
+                    return Err(SemanError::DivisionByZero { loc: loc.clone() });
+                }
+                left.checked_div(right)
+                    .ok_or(SemanError::ArithmeticOverflow {
+                        loc: loc.clone(),
+                        operation: format!("{left} / {right}"),
+                        reason: "division would overflow".into(),
+                    })
+            }
+            BinOpType::Mod => {
+                if right == 0 {
+                    return Err(SemanError::DivisionByZero { loc: loc.clone() });
+                }
+                left.checked_rem(right)
+                    .ok_or(SemanError::ArithmeticOverflow {
+                        loc: loc.clone(),
+                        operation: format!("{left} % {right}"),
+                        reason: "modulo would overflow".into(),
+                    })
+            }
+            _ => unreachable!(
+                "Unexpected binary operator for arithmetic '{}'.",
+                op.as_str()
+            ),
+        }
+    }
+
     fn validate_expression(&mut self, expr: &Expr, parent_ty: Option<&Rc<Ty>>) -> TypedExpr {
         match expr {
             Expr::Integer { content, loc } => {
@@ -1092,15 +1156,17 @@ impl SemanticAnalyzer {
                                 literal: r_literal, ..
                             },
                         ) => {
-                            let result = match op {
-                                BinOpType::Add => literal + r_literal,
-                                BinOpType::Sub => {
+                            let result = match Self::check_binary_arithmetic_overflow(
+                                *literal, *r_literal, *op, loc,
+                            ) {
+                                Ok(0) if matches!(op, BinOpType::Sub) => {
+                                    // special case: subtraction
                                     if r_literal > literal {
-                                        // would result in a negative number
+                                        // would result in a negative number so we see if it can
+                                        // be coerced into a contextual parent_ty
                                         if let Some(parent_ty) = parent_ty {
                                             match parent_ty.as_ref() {
                                                 Ty::SignedInt { size, .. } => {
-                                                    // check if result fits in parent signed type
                                                     let diff = r_literal - literal;
                                                     let max = match size {
                                                         8 => i8::MAX as usize,
@@ -1108,12 +1174,11 @@ impl SemanticAnalyzer {
                                                         32 => i32::MAX as usize,
                                                         64 => i64::MAX as usize,
                                                         _ => {
-                                                            unreachable!("Unexpected integer size")
+                                                            unreachable!("Unexpected integer size.")
                                                         }
                                                     };
 
                                                     if diff <= max {
-                                                        // result fits into parent type
                                                         return TypedExpr::BinOp {
                                                             op: *op,
                                                             left: Rc::new(typed_left),
@@ -1121,41 +1186,63 @@ impl SemanticAnalyzer {
                                                             ty: parent_ty.clone_loc(loc.clone()),
                                                             loc: loc.clone(),
                                                         };
+                                                    } else {
+                                                        self.report_error(
+                                                            SemanError::IntegerTypeCheckFailed {
+                                                                loc: loc.clone(),
+                                                                number: format!(
+                                                                    "{} - {}",
+                                                                    literal, r_literal
+                                                                ),
+                                                                given_type: parent_ty.as_str(),
+                                                            },
+                                                        );
+                                                        return TypedExpr::Error {
+                                                            loc: loc.clone(),
+                                                        };
                                                     }
                                                 }
-                                                _ => {}
+                                                _ => {
+                                                    self.report_error(
+                                                        SemanError::IntegerTypeCheckFailed {
+                                                            loc: loc.clone(),
+                                                            number: format!(
+                                                                "{} - {}",
+                                                                literal, r_literal
+                                                            ),
+                                                            given_type: parent_ty.as_str(),
+                                                        },
+                                                    );
+                                                    return TypedExpr::Error { loc: loc.clone() };
+                                                }
                                             }
-                                        }
+                                        } else {
+                                            // no parent type and result would be negative
+                                            // so we will coerce it into a signed integer
+                                            // type of the current platform size
+                                            let platform_signed_ty = Rc::new(Ty::SignedInt {
+                                                size: Ty::get_platform_size(),
+                                                loc: loc.clone(),
+                                            });
 
-                                        self.report_error(SemanError::IntegerTypeCheckFailed {
-                                            loc: loc.clone(),
-                                            number: format!("{} - {}", literal, r_literal),
-                                            given_type: "untyped integer".into(),
-                                        });
-                                        return TypedExpr::Error { loc: loc.clone() };
+                                            return TypedExpr::BinOp {
+                                                op: *op,
+                                                left: Rc::new(typed_left),
+                                                right: Rc::new(typed_right),
+                                                ty: platform_signed_ty,
+                                                loc: loc.clone(),
+                                            };
+                                        }
+                                    } else {
+                                        // resilt is really 0
+                                        0
                                     }
-                                    literal - r_literal
                                 }
-                                BinOpType::Mult => literal * r_literal,
-                                BinOpType::Div => {
-                                    if *r_literal == 0 {
-                                        self.report_error(SemanError::DivisionByZero {
-                                            loc: loc.clone(),
-                                        });
-                                        return TypedExpr::Error { loc: loc.clone() };
-                                    }
-                                    literal / r_literal
+                                Ok(result) => result,
+                                Err(err) => {
+                                    self.report_error(err);
+                                    return TypedExpr::Error { loc: loc.clone() };
                                 }
-                                BinOpType::Mod => {
-                                    if *r_literal == 0 {
-                                        self.report_error(SemanError::DivisionByZero {
-                                            loc: loc.clone(),
-                                        });
-                                        return TypedExpr::Error { loc: loc.clone() };
-                                    }
-                                    literal % r_literal
-                                }
-                                _ => unreachable!("Unexpected binary operator '{}'", op.as_str()),
                             };
 
                             // if parent type is provided, try to use it
