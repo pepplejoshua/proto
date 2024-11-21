@@ -122,6 +122,7 @@ pub struct SemanticAnalyzer {
     current_scope_idx: usize,
     errors: Vec<SemanError>,
     main_src_file: SourceFile,
+    current_fn_ret_ty: Option<Rc<Ty>>,
 }
 
 impl SemanticAnalyzer {
@@ -132,6 +133,7 @@ impl SemanticAnalyzer {
             current_scope_idx: 0,
             errors: vec![],
             main_src_file,
+            current_fn_ret_ty: None,
         }
     }
 
@@ -367,7 +369,7 @@ impl SemanticAnalyzer {
             }
 
             // case 3: type mismatch
-            _ => todo!(),
+            _ => Rc::new(Ty::ErrorType { loc }),
         }
     }
 
@@ -470,7 +472,7 @@ impl SemanticAnalyzer {
             Ty::ErrorType { loc } => {
                 unreachable!("Trying to make default value for error type [get_default_value()]")
             }
-            Ty::NamedType { name, loc } => todo!(),
+            Ty::NamedType { name, loc } => todo!("NamedType {{ {name} }}"),
         }
     }
 
@@ -997,17 +999,8 @@ impl SemanticAnalyzer {
                         }
                     }
                     UnaryOpType::Negate => match expr_ty.as_ref() {
-                        Ty::SignedInt { .. } => {
+                        Ty::SignedInt { .. } | Ty::Float { .. } => {
                             // signed integers can be negated directly
-                            TypedExpr::UnaryOp {
-                                op: *op,
-                                expr: Rc::new(typed_expr),
-                                ty: expr_ty.clone_loc(loc.clone()),
-                                loc: loc.clone(),
-                            }
-                        }
-                        Ty::Float { .. } => {
-                            // floats can be negated directly
                             TypedExpr::UnaryOp {
                                 op: *op,
                                 expr: Rc::new(typed_expr),
@@ -1058,46 +1051,29 @@ impl SemanticAnalyzer {
                                 }
                             } else {
                                 // no parent type, default to platform max size (i32 or i64)
-                                match Ty::get_platform_size() {
-                                    32 => {
-                                        let negated = -(*literal as i32);
-                                        if negated >= i32::MIN && negated <= i32::MAX {
-                                            self.report_error(SemanError::IntegerTypeCheckFailed {
-                                                loc: loc.clone(),
-                                                number: format!("-{literal}"),
-                                                given_type: "int".into(),
-                                            });
-                                            TypedExpr::Error { loc: loc.clone() }
-                                        } else {
-                                            TypedExpr::UnaryOp {
-                                                op: *op,
-                                                expr: Rc::new(typed_expr),
-                                                ty: Ty::get_int_ty(loc.clone()),
-                                                loc: loc.clone(),
-                                            }
-                                        }
-                                    }
-                                    64 => {
-                                        let negated = -(*literal as i64);
-                                        if negated >= i64::MIN && negated <= i64::MAX {
-                                            self.report_error(SemanError::IntegerTypeCheckFailed {
-                                                loc: loc.clone(),
-                                                number: format!("-{literal}"),
-                                                given_type: "int".into(),
-                                            });
-                                            TypedExpr::Error { loc: loc.clone() }
-                                        } else {
-                                            TypedExpr::UnaryOp {
-                                                op: *op,
-                                                expr: Rc::new(typed_expr),
-                                                ty: Ty::get_int_ty(loc.clone()),
-                                                loc: loc.clone(),
-                                            }
-                                        }
-                                    }
+                                let (min, max) = match Ty::get_platform_size() {
+                                    32 => (i32::MIN as isize, i32::MAX as isize),
+                                    64 => (i64::MIN as isize, i64::MAX as isize),
                                     _ => {
                                         unreachable!("Unexpected platform size (not 32 or 64 bit).")
                                     }
+                                };
+
+                                let negated = -(*literal as isize);
+                                if negated >= min && negated <= max {
+                                    TypedExpr::UnaryOp {
+                                        op: *op,
+                                        expr: Rc::new(typed_expr),
+                                        ty: Ty::get_int_ty(loc.clone()),
+                                        loc: loc.clone(),
+                                    }
+                                } else {
+                                    self.report_error(SemanError::IntegerTypeCheckFailed {
+                                        loc: loc.clone(),
+                                        number: format!("-{literal}"),
+                                        given_type: format!("i{}", Ty::get_platform_size()),
+                                    });
+                                    TypedExpr::Error { loc: loc.clone() }
                                 }
                             }
                         }
@@ -1738,6 +1714,7 @@ impl SemanticAnalyzer {
                 }
 
                 self.enter_scope();
+                // set the return type expected for this function
                 for param in params {
                     if let Expr::Identifier {
                         name: param_name, ..
@@ -1759,7 +1736,10 @@ impl SemanticAnalyzer {
                         }
                     }
                 }
+
+                let prev_ret_ty = self.current_fn_ret_ty.replace(ret_ty.clone());
                 let typed_body = self.validate_instruction(body);
+                self.current_fn_ret_ty = prev_ret_ty;
                 self.exit_scope();
 
                 TypedIns::DeclFunc {
@@ -1831,7 +1811,51 @@ impl SemanticAnalyzer {
                 conds_and_code,
                 loc,
             } => todo!(),
-            Ins::Return { expr, loc } => todo!(),
+            Ins::Return { expr, loc } => match self.current_fn_ret_ty.clone() {
+                Some(expected_ty) => match expr {
+                    Some(return_expr) => {
+                        // return with value
+                        let typed_expr = self.validate_expression(return_expr, Some(&expected_ty));
+                        let expr_ty = typed_expr.get_ty();
+
+                        let validated_ty = Self::type_check(&expected_ty, &expr_ty, loc.clone());
+                        if validated_ty.is_error_ty() {
+                            self.report_error(SemanError::MismatchingReturnType {
+                                exp: expected_ty.as_str(),
+                                given: expr_ty.as_str(),
+                                loc_given: loc.clone(),
+                            });
+                            TypedIns::Error
+                        } else {
+                            TypedIns::Return {
+                                expr: Some(typed_expr),
+                                loc: loc.clone(),
+                            }
+                        }
+                    }
+                    None => {
+                        // empty return
+                        if matches!(expected_ty.as_ref(), Ty::Void { .. }) {
+                            TypedIns::Return {
+                                expr: None,
+                                loc: loc.clone(),
+                            }
+                        } else {
+                            self.report_error(SemanError::MismatchingReturnType {
+                                exp: expected_ty.as_str(),
+                                given: "void".into(),
+                                loc_given: loc.clone(),
+                            });
+                            TypedIns::Error
+                        }
+                    }
+                },
+                None => {
+                    // return statement outside of function context
+                    self.report_error(SemanError::ReturnOutsideFunction { loc: loc.clone() });
+                    TypedIns::Error
+                }
+            },
             Ins::SingleLineComment { content, loc } => todo!(),
             Ins::PrintIns {
                 is_println,
@@ -1877,9 +1901,9 @@ impl SemanticAnalyzer {
         if !analyzer.errors.is_empty() {
             return Err(analyzer.errors);
         }
-        for (name, name_info) in analyzer.scopes[0].symbols.iter() {
-            println!("{name}: {}", name_info.as_str())
-        }
+        // for (name, name_info) in analyzer.scopes[0].symbols.iter() {
+        //     println!("{name}: {}", name_info.as_str())
+        // }
 
         // pass 2: validate everything in the program
         let typed_program = analyzer.validate_program(program);

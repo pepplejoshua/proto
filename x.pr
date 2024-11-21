@@ -1,14 +1,16 @@
-fn main() int {
+fn main() i32 {
     var one = 1
-    var two int = 2
-    var later int = _
-    var three = add(one, two)
-    later = CONSTANT + three
-    return 0
+    var two = 2
+    var later i32 = _
+    var three = one + two
+    later = add(CONSTANT, three)
+
+    var zero = three - three
+    return zero
 }
 
-fn add(a int, b int) int {
+fn add(a i32, b i32) i32 {
     return a + b
 }
 
-const CONSTANT int = 4_17
+const CONSTANT i32 = 4_17

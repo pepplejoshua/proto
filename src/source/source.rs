@@ -303,11 +303,6 @@ impl SourceReporter {
                 let tip = "Pub declarations are only applicable to named declarations, like functions, variables, constants, named types and aliases.".to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
             }
-            ParseError::ReusedOfIdentifier(src) => {
-                let msg =
-                    "This identifier has already been defined at this scope level.".to_string();
-                self.report_with_ref(&src, msg, None, false);
-            }
             ParseError::CannotParseAnExpression(src) => {
                 let msg = "An expression was required at this point of the program but couldn't find any.".to_string();
                 self.report_with_ref(&src, msg, None, false);
@@ -325,10 +320,6 @@ impl SourceReporter {
                 let tip =
                     "Errors might be cascading. Try fixing some error and recompiling.".to_string();
                 self.report_with_ref(&src, msg, Some(tip), false);
-            }
-            ParseError::CyclicalDependencyBetweenNodes { cycle, src } => {
-                let msg = format!("Cyclical dependency detected: '{}'.", cycle);
-                self.report_with_ref(&src, msg, None, false);
             }
             ParseError::ParsedInstructionIsNotAllowedAtThisLevel { level, src } => {
                 let msg = format!("This instruction is not allowed at this level ({level}).");
@@ -463,6 +454,10 @@ impl SourceReporter {
                     if is_const { "constant" } else { "variable" },
                     name
                 );
+                self.report_with_ref(&loc, msg, None, false);
+            }
+            SemanError::ReturnOutsideFunction { loc } => {
+                let msg = format!("Return instruction used outside a function's scope.");
                 self.report_with_ref(&loc, msg, None, false);
             }
             SemanError::MismatchingReturnType {

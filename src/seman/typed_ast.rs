@@ -15,7 +15,17 @@ pub enum SignedInteger {
     I16(i16),
     I32(i32),
     I64(i64),
-    Int(isize),
+}
+
+impl SignedInteger {
+    pub fn as_str(&self) -> String {
+        match self {
+            SignedInteger::I8(val) => format!("{val}"),
+            SignedInteger::I16(val) => format!("{val}"),
+            SignedInteger::I32(val) => format!("{val}"),
+            SignedInteger::I64(val) => format!("{val}"),
+        }
+    }
 }
 
 pub enum UnsignedInteger {
@@ -23,7 +33,17 @@ pub enum UnsignedInteger {
     U16(u16),
     U32(u32),
     U64(u64),
-    Uint(usize),
+}
+
+impl UnsignedInteger {
+    pub fn as_str(&self) -> String {
+        match self {
+            UnsignedInteger::U8(val) => format!("{val}"),
+            UnsignedInteger::U16(val) => format!("{val}"),
+            UnsignedInteger::U32(val) => format!("{val}"),
+            UnsignedInteger::U64(val) => format!("{val}"),
+        }
+    }
 }
 
 pub enum TypedExpr {
@@ -121,6 +141,44 @@ impl TypedExpr {
             TypedExpr::Error { loc } => Rc::new(Ty::ErrorType { loc: loc.clone() }),
         }
     }
+
+    pub fn as_str(&self) -> String {
+        match self {
+            TypedExpr::UntypedInt { value, .. } => {
+                format!("{value}")
+            }
+            TypedExpr::SignedInt { value, .. } => {
+                format!("{}", value.as_str())
+            }
+            TypedExpr::UnsignedInt { value, .. } => {
+                format!("{}", value.as_str())
+            }
+            TypedExpr::Float { value, .. } => {
+                format!("{value}")
+            }
+            TypedExpr::CallFn { func, args, .. } => {
+                let args_str: Vec<String> = args.iter().map(|arg| arg.as_str()).collect();
+                let args_str = args_str.join(", ");
+                format!("{}({args_str})", func.as_str())
+            }
+            TypedExpr::UnaryOp { op, expr, .. } => format!("{}{}", op.as_str(), expr.as_str()),
+            TypedExpr::BinOp {
+                op, left, right, ..
+            } => format!("[{} {} {}]", left.as_str(), op.as_str(), right.as_str()),
+            TypedExpr::Identifier { name, .. } => format!("{name}"),
+            TypedExpr::Bool { value, .. } => format!("{value}"),
+            TypedExpr::Str { value, .. } => format!("\"{value}\""),
+            TypedExpr::Char { value, .. } => format!("'{value}'"),
+            TypedExpr::Optional { value, .. } => {
+                if let Some(value) = value {
+                    format!("some {}", value.as_str())
+                } else {
+                    "none".into()
+                }
+            }
+            TypedExpr::Error { .. } => format!("ErrorExpr"),
+        }
+    }
 }
 
 pub enum TypedIns {
@@ -147,5 +205,73 @@ pub enum TypedIns {
         code: Vec<TypedIns>,
         loc: Rc<SourceRef>,
     },
+    Return {
+        expr: Option<TypedExpr>,
+        loc: Rc<SourceRef>,
+    },
     Error,
+}
+
+impl TypedIns {
+    pub fn as_str(&self) -> String {
+        match self {
+            TypedIns::DeclFunc {
+                name,
+                params,
+                ret_ty,
+                body,
+                ..
+            } => {
+                let params_str: Vec<String> = params
+                    .iter()
+                    .map(|fn_param| {
+                        format!(
+                            "{}{} {}",
+                            if fn_param.is_comptime {
+                                "comptime "
+                            } else if fn_param.is_mutable {
+                                "var "
+                            } else {
+                                ""
+                            },
+                            fn_param.name.as_str(),
+                            fn_param.given_ty.as_str()
+                        )
+                    })
+                    .collect();
+                let params_str = params_str.join(", ");
+
+                format!(
+                    "fn {name}({params_str}) {}\n{}",
+                    ret_ty.as_str(),
+                    body.as_str()
+                )
+            }
+            TypedIns::DeclVariable {
+                name,
+                ty,
+                init_value,
+                is_mutable,
+                ..
+            } => {
+                let mutable = if *is_mutable { "var" } else { "const" };
+                let init_val = init_value.as_str();
+                let ty_str = ty.as_str();
+                format!("{mutable} {name} {ty_str} = {init_val}")
+            }
+            TypedIns::AssignTo { target, value, .. } => {
+                format!("{} = {}", target.as_str(), value.as_str())
+            }
+            TypedIns::Block { code, .. } => code
+                .iter()
+                .map(|ins| ins.as_str())
+                .collect::<Vec<String>>()
+                .join("\n"),
+            TypedIns::Return { expr, .. } => match expr {
+                Some(val) => format!("return {}", val.as_str()),
+                None => "return".into(),
+            },
+            TypedIns::Error => "ErrorIns".into(),
+        }
+    }
 }

@@ -229,7 +229,11 @@ impl Workspace {
 
         let res = SemanticAnalyzer::analyze_program(&program, src);
         match res {
-            Ok(_) => todo!(),
+            Ok(typed_code) => {
+                for code in typed_code.iter() {
+                    println!("{}\n", code.as_str())
+                }
+            }
             Err(seman_errs) => {
                 for err in seman_errs {
                     reporter.report_seman_error(err);

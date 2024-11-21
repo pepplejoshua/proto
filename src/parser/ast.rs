@@ -510,7 +510,6 @@ impl Ins {
                     format!("{public}{mutable} {} = {init_val}", name.as_str(),)
                 }
             }
-
             Ins::DeclTypeAlias {
                 name,
                 ty,
@@ -539,6 +538,8 @@ impl Ins {
                             "{}{} {}",
                             if fn_param.is_comptime {
                                 "comptime "
+                            } else if fn_param.is_mutable {
+                                "var "
                             } else {
                                 ""
                             },

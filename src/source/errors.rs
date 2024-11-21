@@ -21,10 +21,8 @@ pub enum ParseError {
     ConstantDeclarationNeedsTypeOrInitValue(Rc<SourceRef>),
     CannotParseAnExpression(Rc<SourceRef>),
     MalformedDeclaration(String, Rc<SourceRef>),
-    ReusedOfIdentifier(Rc<SourceRef>),
     UnterminatedCodeBlock(Rc<SourceRef>, Option<String>),
     MalformedPubDeclaration { src: Rc<SourceRef> },
-    CyclicalDependencyBetweenNodes { cycle: String, src: Rc<SourceRef> },
     ParsedInstructionIsNotAllowedAtThisLevel { level: String, src: Rc<SourceRef> },
     TooManyErrors(Rc<SourceRef>),
 }
@@ -93,6 +91,9 @@ pub enum SemanError {
     NameAlreadyDefined {
         loc: Rc<SourceRef>,
         name: String,
+    },
+    ReturnOutsideFunction {
+        loc: Rc<SourceRef>,
     },
     UseOfUninitializedVariable {
         loc: Rc<SourceRef>,
