@@ -2,6 +2,7 @@
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
+    f32::consts::PI,
     rc::Rc,
 };
 
@@ -10,14 +11,17 @@ use crate::{
         lexer::Lexer,
         token::{SrcToken, TokenType},
     },
-    parser::{ast::UnaryOpType, type_signature::Ty},
+    parser::{
+        ast::{ModulePathPart, UnaryOpType},
+        type_signature::Ty,
+    },
     source::{
         errors::{LexError, ParseError},
         source::{SourceRef, SourceReporter},
     },
 };
 
-use super::ast::{BinOpType, Expr, FnParam, Ins};
+use super::ast::{BinOpType, Expr, FnParam, Ins, ModulePath, UseItem};
 
 pub struct Parser {
     pub lexer: Lexer,
@@ -77,7 +81,7 @@ impl Parser {
         }
     }
 
-    fn expected_err_token(&mut self, err_expected_msg: &str) {
+    fn expected_err_cur_token(&mut self, err_expected_msg: &str) {
         self.report_err(ParseError::Expected(
             format!("{err_expected_msg}"),
             self.cur_token().get_source_ref(),
@@ -85,7 +89,7 @@ impl Parser {
         ));
     }
 
-    fn expected_err_parse(&mut self, err_expected_msg: &str, loc: Rc<SourceRef>) {
+    fn expected_err_at_loc(&mut self, err_expected_msg: &str, loc: Rc<SourceRef>) {
         self.report_err(ParseError::Expected(
             format!("{err_expected_msg}"),
             loc,
@@ -98,7 +102,7 @@ impl Parser {
             self.advance();
             true
         } else {
-            self.expected_err_token(err_expected_msg);
+            self.expected_err_cur_token(err_expected_msg);
             false
         }
     }
@@ -196,6 +200,78 @@ impl Parser {
             }
         }
         ins
+    }
+
+    fn parse_module_decl(&mut self) -> Ins {
+        todo!()
+    }
+
+    fn parse_use_decl(&mut self) -> Ins {
+        todo!()
+    }
+
+    fn parse_module_path(&mut self) -> ModulePath {
+        let start_tok = self.cur_token();
+        let mut span = start_tok.get_source_ref();
+        let mut parts = vec![];
+
+        // handle root/parent/current module indiciators
+        match start_tok.ty {
+            TokenType::Root => {
+                parts.push(ModulePathPart::Root);
+                self.advance();
+            }
+            TokenType::Dot => {
+                self.advance();
+                if self.cur_token().ty == TokenType::Dot {
+                    // found '..'
+                    self.advance();
+                    parts.push(ModulePathPart::Parent);
+                } else {
+                    // found a single '.'
+                    parts.push(ModulePathPart::Current);
+                }
+            }
+            TokenType::Identifier => {
+                let name = self.cur_token().as_str(&self.lexer.src);
+                parts.push(ModulePathPart::Name(name));
+                self.advance();
+            }
+            _ => {
+                self.expected_err_cur_token(
+                    "a module path starting with 'root', '.', '..' or an identifier",
+                );
+                return ModulePath {
+                    parts: vec![],
+                    loc: span,
+                };
+            }
+        }
+
+        // parse subsequent parts (if any)
+        while self.cur_token().ty == TokenType::Dot {
+            self.advance(); // consume dot
+
+            if !matches!(self.cur_token().ty, TokenType::Identifier) {
+                self.expected_err_cur_token("an identifier after '.' in module path");
+                break;
+            }
+
+            let name = self.cur_token().as_str(&self.lexer.src);
+            span = span.combine(self.cur_token().get_source_ref());
+            parts.push(ModulePathPart::Name(name));
+            self.advance();
+        }
+
+        ModulePath { parts, loc: span }
+    }
+
+    fn parse_use_item(&mut self) -> UseItem {
+        todo!()
+    }
+
+    fn parse_use_group(&mut self) -> Vec<(String, Option<String>)> {
+        todo!()
     }
 
     fn parse_variable_decl(&mut self, is_mutable: bool) -> Ins {
@@ -308,13 +384,13 @@ impl Parser {
                 let loop_var = self.next_ins(false);
                 if let Ins::DeclVariable { is_mutable, .. } = loop_var {
                     if !is_mutable {
-                        self.expected_err_parse(
+                        self.expected_err_at_loc(
                             "a variable declaration instruction for the loop variable.",
                             loop_var.get_source_ref(),
                         );
                     }
                 } else {
-                    self.expected_err_parse(
+                    self.expected_err_at_loc(
                         "a variable declaration instruction for the loop variable.",
                         loop_var.get_source_ref(),
                     );
@@ -579,7 +655,7 @@ impl Parser {
             TokenType::Void => Ty::Void { loc: loc.clone() },
             TokenType::Bool => Ty::Bool { loc: loc.clone() },
             _ => {
-                self.expected_err_token("a type.");
+                self.expected_err_cur_token("a type.");
                 Ty::ErrorType { loc: loc.clone() }
             }
         };

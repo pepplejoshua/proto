@@ -251,6 +251,10 @@ impl Lexer {
                 ty: TokenType::As,
                 loc: combined_ref,
             }),
+            "root" => Ok(SrcToken {
+                ty: TokenType::Root,
+                loc: combined_ref,
+            }),
             "pub" => Ok(SrcToken {
                 ty: TokenType::Pub,
                 loc: combined_ref,

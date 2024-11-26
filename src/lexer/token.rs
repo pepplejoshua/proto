@@ -29,6 +29,7 @@ pub enum TokenType {
     Use,
     Module,
     As,
+    Root,
 
     // operators
     BackSlash,

@@ -348,26 +348,53 @@ pub struct FnParam {
 
 #[derive(Debug, Clone)]
 pub enum ModulePathPart {
-    Root,
-    Parent,
-    Name(String),
+    Root,         // the 'root' keyword for project root
+    Parent,       // '..' for one level up
+    Current,      // '.' for current module directory
+    Name(String), // regular path component
 }
 
 #[derive(Debug, Clone)]
 pub struct ModulePath {
-    parts: Vec<ModulePathPart>,
-    loc: Rc<SourceRef>,
+    pub parts: Vec<ModulePathPart>,
+    pub loc: Rc<SourceRef>,
+}
+
+impl ModulePath {
+    pub fn as_str(&self) -> String {
+        self.parts
+            .iter()
+            .map(|part| match part {
+                ModulePathPart::Root => "root".to_string(),
+                ModulePathPart::Parent => "..".to_string(),
+                ModulePathPart::Current => ".".to_string(),
+                ModulePathPart::Name(s) => s.clone(),
+            })
+            .collect::<Vec<String>>()
+            .join(".")
+    }
 }
 
 #[derive(Debug, Clone)]
-pub struct UseDecl {
+pub enum UseKind {
+    Simple,                               // use foo.bar
+    Aliased(String),                      // use foo.bar as baz
+    Group(Vec<(String, Option<String>)>), // use foo.{bar, baz as b}
+}
+
+#[derive(Debug, Clone)]
+pub struct UseItem {
     path: ModulePath,
-    alias: Option<String>,
+    kind: UseKind,
     loc: Rc<SourceRef>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Ins {
+    DeclUse {
+        items: Vec<UseItem>,
+        loc: Rc<SourceRef>,
+    },
     DeclModule {
         name: ModulePath,
         loc: Rc<SourceRef>,
@@ -476,6 +503,8 @@ impl Ins {
         match self {
             Ins::DeclVariable { loc, .. }
             | Ins::DeclFunc { loc, .. }
+            | Ins::DeclUse { loc, .. }
+            | Ins::DeclModule { loc, .. }
             | Ins::DeclTypeAlias { loc, .. }
             | Ins::Block { loc, .. }
             | Ins::AssignTo { loc, .. }
@@ -509,6 +538,33 @@ impl Ins {
 
     pub fn as_str(&self) -> String {
         match self {
+            Ins::DeclUse { items, .. } => items
+                .iter()
+                .map(|item| match &item.kind {
+                    UseKind::Simple => {
+                        format!("use {}", item.path.as_str())
+                    }
+                    UseKind::Aliased(alias) => {
+                        format!("use {} as {}", item.path.as_str(), alias)
+                    }
+                    UseKind::Group(names) => {
+                        let group = names
+                            .iter()
+                            .map(|(name, alias)| {
+                                if let Some(alias) = alias {
+                                    format!("{} as {}", name, alias)
+                                } else {
+                                    name.clone()
+                                }
+                            })
+                            .collect::<Vec<String>>()
+                            .join(", ");
+                        format!("use {}.{{{}}}", item.path.as_str(), group)
+                    }
+                })
+                .collect::<Vec<String>>()
+                .join("\n"),
+            Ins::DeclModule { name, .. } => format!("module {}", name.as_str()),
             Ins::DeclVariable {
                 name,
                 ty,
