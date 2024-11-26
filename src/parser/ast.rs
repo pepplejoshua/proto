@@ -591,13 +591,13 @@ impl Ins {
                                 seen_if = true;
                             } else {
                                 buf.push_str(&format!(
-                                    "else if {}:\n{}",
+                                    "\nelse if {}:\n{}",
                                     cond.as_str(),
                                     body.as_str()
                                 ));
                             }
                         }
-                        None => buf.push_str(&format!("else:\n{}", body.as_str())),
+                        None => buf.push_str(&format!("\nelse:\n{}", body.as_str())),
                     }
                 }
                 buf

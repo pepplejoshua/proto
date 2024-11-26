@@ -1,9 +1,16 @@
 fn main() i32 {
     var one = 1
     var two = 2
+
     var later i32 = _
     var three = one + two
     later = add(CONSTANT, three)
+
+    if true {
+        later = 123
+    } else {
+        later = 0
+    }
 
     var zero = (three - three)
     return zero

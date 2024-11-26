@@ -228,6 +228,14 @@ pub enum TypedIns {
         value: TypedExpr,
         loc: Rc<SourceRef>,
     },
+    ExprIns {
+        expr: TypedExpr,
+        loc: Rc<SourceRef>,
+    },
+    IfConditional {
+        conds_and_code: Vec<(Option<TypedExpr>, TypedIns)>,
+        loc: Rc<SourceRef>,
+    },
     Block {
         code: Vec<TypedIns>,
         loc: Rc<SourceRef>,
@@ -242,6 +250,9 @@ pub enum TypedIns {
 impl TypedIns {
     pub fn as_str(&self) -> String {
         match self {
+            TypedIns::ExprIns { expr, .. } => {
+                format!("{}", expr.as_str())
+            }
             TypedIns::DeclFunc {
                 name,
                 params,
@@ -288,6 +299,28 @@ impl TypedIns {
             }
             TypedIns::AssignTo { target, value, .. } => {
                 format!("{} = {}", target.as_str(), value.as_str())
+            }
+            TypedIns::IfConditional { conds_and_code, .. } => {
+                let mut buf = String::new();
+                let mut seen_if = false;
+                for (cond, body) in conds_and_code.iter() {
+                    match cond {
+                        Some(cond) => {
+                            if !seen_if {
+                                buf.push_str(&format!("if {}:\n{}", cond.as_str(), body.as_str()));
+                                seen_if = true;
+                            } else {
+                                buf.push_str(&format!(
+                                    "\nelse if {}:\n{}",
+                                    cond.as_str(),
+                                    body.as_str()
+                                ));
+                            }
+                        }
+                        None => buf.push_str(&format!("\nelse:\n{}", body.as_str())),
+                    }
+                }
+                buf
             }
             TypedIns::Block { code, .. } => code
                 .iter()

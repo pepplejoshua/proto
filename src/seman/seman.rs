@@ -1896,11 +1896,35 @@ impl SemanticAnalyzer {
                     loc: loc.clone(),
                 }
             }
-            Ins::ExprIns { expr, loc } => todo!(),
+            Ins::ExprIns { expr, loc } => {
+                let typed_expr = self.validate_expression(expr, None);
+                TypedIns::ExprIns {
+                    expr: typed_expr,
+                    loc: loc.clone(),
+                }
+            }
             Ins::IfConditional {
                 conds_and_code,
                 loc,
-            } => todo!(),
+            } => {
+                let mut typed_conds_and_code = vec![];
+                for (cond, code) in conds_and_code {
+                    let typed_cond = if let Some(cond) = cond {
+                        Some(self.validate_expression(cond, None))
+                    } else {
+                        None
+                    };
+
+                    let typed_code = self.validate_instruction(code);
+
+                    typed_conds_and_code.push((typed_cond, typed_code));
+                }
+
+                TypedIns::IfConditional {
+                    conds_and_code: typed_conds_and_code,
+                    loc: loc.clone(),
+                }
+            }
             Ins::Return { expr, loc } => match self.current_fn_ret_ty.clone() {
                 Some(expected_ty) => match expr {
                     Some(return_expr) => {
