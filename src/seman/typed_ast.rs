@@ -93,6 +93,10 @@ pub enum TypedExpr {
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
+    GroupedExpr {
+        inner: Rc<TypedExpr>,
+        loc: Rc<SourceRef>,
+    },
     Identifier {
         name: String,
         ty: Rc<Ty>,
@@ -147,6 +151,7 @@ impl TypedExpr {
             | TypedExpr::Char { ty, .. }
             | TypedExpr::Optional { ty, .. } => ty.clone(),
             TypedExpr::Error { loc } => Rc::new(Ty::ErrorType { loc: loc.clone() }),
+            TypedExpr::GroupedExpr { inner, .. } => inner.get_ty(),
         }
     }
 
@@ -186,6 +191,7 @@ impl TypedExpr {
                     otherwise.as_str()
                 )
             }
+            TypedExpr::GroupedExpr { inner, .. } => format!("({})", inner.as_str()),
             TypedExpr::Identifier { name, .. } => format!("{name}"),
             TypedExpr::Bool { value, .. } => format!("{value}"),
             TypedExpr::Str { value, .. } => format!("\"{value}\""),

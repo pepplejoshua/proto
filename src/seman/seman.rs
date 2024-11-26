@@ -1519,7 +1519,11 @@ impl SemanticAnalyzer {
                 }
             }
             Expr::GroupedExpr { inner, loc } => {
-                todo!()
+                let typed_inner = self.validate_expression(inner, parent_ty);
+                TypedExpr::GroupedExpr {
+                    inner: Rc::new(typed_inner),
+                    loc: loc.clone(),
+                }
             }
             Expr::IndexInto { target, index, loc } => todo!(),
             Expr::MakeSlice {
