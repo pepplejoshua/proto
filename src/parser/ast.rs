@@ -347,7 +347,31 @@ pub struct FnParam {
 }
 
 #[derive(Debug, Clone)]
+pub enum ModulePathPart {
+    Root,
+    Parent,
+    Name(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct ModulePath {
+    parts: Vec<ModulePathPart>,
+    loc: Rc<SourceRef>,
+}
+
+#[derive(Debug, Clone)]
+pub struct UseDecl {
+    path: ModulePath,
+    alias: Option<String>,
+    loc: Rc<SourceRef>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Ins {
+    DeclModule {
+        name: ModulePath,
+        loc: Rc<SourceRef>,
+    },
     DeclVariable {
         name: Expr,
         ty: Option<Rc<Ty>>, // might be provided, or not

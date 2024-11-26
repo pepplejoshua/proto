@@ -239,6 +239,18 @@ impl Lexer {
         let id = &self.src.text[combined_ref.flat_start..combined_ref.flat_end];
         // check if the identifier is a keyword
         match id {
+            "use" => Ok(SrcToken {
+                ty: TokenType::Use,
+                loc: combined_ref,
+            }),
+            "module" => Ok(SrcToken {
+                ty: TokenType::Module,
+                loc: combined_ref,
+            }),
+            "as" => Ok(SrcToken {
+                ty: TokenType::As,
+                loc: combined_ref,
+            }),
             "pub" => Ok(SrcToken {
                 ty: TokenType::Pub,
                 loc: combined_ref,

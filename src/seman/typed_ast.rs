@@ -209,6 +209,10 @@ impl TypedExpr {
 }
 
 pub enum TypedIns {
+    SingleLineComment {
+        content: Rc<String>,
+        loc: Rc<SourceRef>,
+    },
     DeclFunc {
         name: String,
         params: Vec<FnParam>,
@@ -250,6 +254,7 @@ pub enum TypedIns {
 impl TypedIns {
     pub fn as_str(&self) -> String {
         match self {
+            TypedIns::SingleLineComment { content, .. } => content.to_string(),
             TypedIns::ExprIns { expr, .. } => {
                 format!("{}", expr.as_str())
             }

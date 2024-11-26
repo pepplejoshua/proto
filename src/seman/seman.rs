@@ -1919,7 +1919,6 @@ impl SemanticAnalyzer {
 
                     typed_conds_and_code.push((typed_cond, typed_code));
                 }
-
                 TypedIns::IfConditional {
                     conds_and_code: typed_conds_and_code,
                     loc: loc.clone(),
@@ -1970,7 +1969,10 @@ impl SemanticAnalyzer {
                     TypedIns::Error
                 }
             },
-            Ins::SingleLineComment { content, loc } => todo!(),
+            Ins::SingleLineComment { content, loc } => TypedIns::SingleLineComment {
+                content: content.clone(),
+                loc: loc.clone(),
+            },
             Ins::PrintIns {
                 is_println,
                 output,

@@ -26,6 +26,9 @@ pub enum TokenType {
     Defer,
     Const,
     Comptime,
+    Use,
+    Module,
+    As,
 
     // operators
     BackSlash,
@@ -116,6 +119,9 @@ impl SrcToken {
 
     pub fn as_str(self: &SrcToken, src: &SourceFile) -> String {
         match self.ty {
+            TokenType::As => "as".to_string(),
+            TokenType::Module => "module".to_string(),
+            TokenType::Use => "use".to_string(),
             TokenType::Pub => "pub".to_string(),
             TokenType::Comptime => "comptime".to_string(),
             TokenType::Fn => "fn".to_string(),
