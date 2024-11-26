@@ -1372,7 +1372,52 @@ impl SemanticAnalyzer {
                     | BinOpType::Lt
                     | BinOpType::GtEq
                     | BinOpType::LtEq => {
-                        todo!()
+                        let validated_ty = Self::type_check(&left_ty, &right_ty, loc.clone());
+                        if validated_ty.is_error_ty() {
+                            self.report_error(SemanError::TypeMismatch {
+                                loc: loc.clone(),
+                                expected: left_ty.as_str(),
+                                found: right_ty.as_str(),
+                            });
+                        }
+
+                        let op_check_cond = if matches!(*op, BinOpType::Eq | BinOpType::Neq) {
+                            // comparison operations can be performed between:
+                            // - numerical values of the same type
+                            // - string values
+                            // - character values
+                            // - boolean values
+                            validated_ty.is_num_ty()
+                                || matches!(
+                                    validated_ty.as_ref(),
+                                    Ty::Str { .. } | Ty::Char { .. } | Ty::Bool { .. }
+                                )
+                        } else {
+                            // ordering operations can be performed between:
+                            // - numerical values of the same type
+                            // - string values
+                            // - character values
+                            validated_ty.is_num_ty()
+                                || matches!(validated_ty.as_ref(), Ty::Str { .. } | Ty::Char { .. })
+                        };
+
+                        if !op_check_cond {
+                            self.report_error(SemanError::InvalidUseOfBinaryOperator {
+                                loc: loc.clone(),
+                                op: op.as_str(),
+                                left: left_ty.as_str(),
+                                right: right_ty.as_str(),
+                            });
+                            TypedExpr::Error { loc: loc.clone() }
+                        } else {
+                            TypedExpr::BinOp {
+                                op: *op,
+                                left: Rc::new(typed_left),
+                                right: Rc::new(typed_right),
+                                ty: Rc::new(Ty::Bool { loc: loc.clone() }),
+                                loc: loc.clone(),
+                            }
+                        }
                     }
                 }
             }
@@ -1385,7 +1430,7 @@ impl SemanticAnalyzer {
                 let typed_cond = self.validate_expression(cond, None);
                 let cond_ty = typed_cond.get_ty();
 
-                if !cond_ty.is_bool_ty() {
+                if !cond_ty.is_error_ty() && !cond_ty.is_bool_ty() {
                     self.report_error(SemanError::TypeMismatch {
                         loc: cond.get_source_ref(),
                         expected: "bool".into(),

@@ -111,7 +111,10 @@ impl Ty {
 
     pub fn is_num_ty(&self) -> bool {
         match self {
-            Ty::SignedInt { .. } | Ty::UnsignedInt { .. } | Ty::UntypedInt { .. } => true,
+            Ty::SignedInt { .. }
+            | Ty::UnsignedInt { .. }
+            | Ty::UntypedInt { .. }
+            | Ty::Float { .. } => true,
             _ => false,
         }
     }
