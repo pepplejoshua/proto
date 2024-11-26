@@ -5,7 +5,7 @@ fn main() i32 {
     var three = one + two
     later = add(CONSTANT, three)
 
-    var zero = three - three
+    var zero = three - three == 0 ? 0 : 1
     return zero
 }
 

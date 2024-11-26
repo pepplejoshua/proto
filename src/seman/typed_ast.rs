@@ -86,6 +86,13 @@ pub enum TypedExpr {
         ty: Rc<Ty>,
         loc: Rc<SourceRef>,
     },
+    ConditionalExpr {
+        cond: Rc<TypedExpr>,
+        then: Rc<TypedExpr>,
+        otherwise: Rc<TypedExpr>,
+        ty: Rc<Ty>,
+        loc: Rc<SourceRef>,
+    },
     Identifier {
         name: String,
         ty: Rc<Ty>,
@@ -133,6 +140,7 @@ impl TypedExpr {
             | TypedExpr::CallFn { ty, .. }
             | TypedExpr::UnaryOp { ty, .. }
             | TypedExpr::BinOp { ty, .. }
+            | TypedExpr::ConditionalExpr { ty, .. }
             | TypedExpr::Identifier { ty, .. }
             | TypedExpr::Bool { ty, .. }
             | TypedExpr::Str { ty, .. }
@@ -165,6 +173,19 @@ impl TypedExpr {
             TypedExpr::BinOp {
                 op, left, right, ..
             } => format!("[{} {} {}]", left.as_str(), op.as_str(), right.as_str()),
+            TypedExpr::ConditionalExpr {
+                cond,
+                then,
+                otherwise,
+                ..
+            } => {
+                format!(
+                    "{} ? {} : {}",
+                    cond.as_str(),
+                    then.as_str(),
+                    otherwise.as_str()
+                )
+            }
             TypedExpr::Identifier { name, .. } => format!("{name}"),
             TypedExpr::Bool { value, .. } => format!("{value}"),
             TypedExpr::Str { value, .. } => format!("\"{value}\""),

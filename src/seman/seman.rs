@@ -1381,7 +1381,46 @@ impl SemanticAnalyzer {
                 then,
                 otherwise,
                 loc,
-            } => todo!(),
+            } => {
+                let typed_cond = self.validate_expression(cond, None);
+                let cond_ty = typed_cond.get_ty();
+
+                if !cond_ty.is_bool_ty() {
+                    self.report_error(SemanError::TypeMismatch {
+                        loc: cond.get_source_ref(),
+                        expected: "bool".into(),
+                        found: cond_ty.as_str(),
+                    });
+
+                    // still check the body since there might be errors
+                    // with a mismatch of the branch expression types
+                }
+
+                let typed_then = self.validate_expression(then, None);
+                let then_ty = typed_then.get_ty();
+                let typed_otherwise = self.validate_expression(otherwise, None);
+                let otherwise_ty = typed_otherwise.get_ty();
+
+                let validated_ty = Self::type_check(&then_ty, &otherwise_ty, loc.clone());
+
+                if validated_ty.is_error_ty() {
+                    self.report_error(SemanError::TypeMismatch {
+                        loc: loc.clone(),
+                        expected: then_ty.as_str(),
+                        found: otherwise_ty.as_str(),
+                    });
+
+                    return TypedExpr::Error { loc: loc.clone() };
+                }
+
+                TypedExpr::ConditionalExpr {
+                    cond: Rc::new(typed_cond),
+                    then: Rc::new(typed_then),
+                    otherwise: Rc::new(typed_otherwise),
+                    ty: validated_ty,
+                    loc: loc.clone(),
+                }
+            }
             Expr::CallFn { func, args, loc } => {
                 let typed_func = self.validate_expression(func, None);
 
@@ -1434,7 +1473,9 @@ impl SemanticAnalyzer {
                     }
                 }
             }
-            Expr::GroupedExpr { inner, loc } => todo!(),
+            Expr::GroupedExpr { inner, loc } => {
+                todo!()
+            }
             Expr::IndexInto { target, index, loc } => todo!(),
             Expr::MakeSlice {
                 target,
