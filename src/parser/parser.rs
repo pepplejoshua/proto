@@ -236,7 +236,7 @@ impl Parser {
         }
     }
 
-    fn parse_module_path(&mut self, is_use_module_path: bool) -> ModulePath {
+    fn parse_module_path(&mut self, is_use_path: bool) -> ModulePath {
         let start_tok = self.cur_token();
         let mut span = start_tok.get_source_ref();
         let mut parts = vec![];
@@ -247,7 +247,11 @@ impl Parser {
                 parts.push(ModulePathPart::Root);
                 self.advance();
             }
-            TokenType::Dot if is_use_module_path => {
+            TokenType::Dot => {
+                if !is_use_path {
+                    self.expected_err_cur_token("an identifier since module declarations cannot use relative paths (. or ..)");
+                }
+
                 self.advance();
                 if self.cur_token().ty == TokenType::Dot {
                     // found '..'
@@ -257,6 +261,16 @@ impl Parser {
                     // found a single '.'
                     parts.push(ModulePathPart::Current);
                 }
+
+                if self.cur_token().ty == TokenType::Identifier {
+                    let name = self.cur_token().as_str(&self.lexer.src);
+                    parts.push(ModulePathPart::Name(name));
+                    self.advance();
+                } else {
+                    self.expected_err_cur_token(
+                        "an identifier after '.' in module path declaration",
+                    );
+                }
             }
             TokenType::Identifier => {
                 let name = self.cur_token().as_str(&self.lexer.src);
@@ -264,9 +278,11 @@ impl Parser {
                 self.advance();
             }
             _ => {
-                self.expected_err_cur_token(
-                    "a module path starting with 'root', '.', '..' or an identifier",
-                );
+                self.expected_err_cur_token(if is_use_path {
+                    "a module path starting with 'root', '.', '..' or an identifier"
+                } else {
+                    "a module path starting with 'root' or an identifier"
+                });
                 return ModulePath {
                     parts: vec![],
                     loc: span,
@@ -279,7 +295,7 @@ impl Parser {
             self.advance(); // consume dot
 
             // Check if we're about to start a group
-            if self.cur_token().ty == TokenType::LCurly && is_use_module_path {
+            if self.cur_token().ty == TokenType::LCurly && is_use_path {
                 break; // Exit the loop without consuming the '{'
             }
 

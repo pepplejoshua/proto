@@ -1,13 +1,12 @@
-module .a
-module a.{a}
+module main
 
 use root.math.{
     vector as vec,
     matrix,
     quaternion
 }
-// use ..parentDir
-// use .currentDir
+use ..parentDir
+use .currentDir
 use root.math.vector as vec
 
 fn main() i32 {

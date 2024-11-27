@@ -362,16 +362,34 @@ pub struct ModulePath {
 
 impl ModulePath {
     pub fn as_str(&self) -> String {
-        self.parts
-            .iter()
-            .map(|part| match part {
-                ModulePathPart::Root => "root".to_string(),
-                ModulePathPart::Parent => "..".to_string(),
-                ModulePathPart::Current => ".".to_string(),
-                ModulePathPart::Name(s) => s.clone(),
-            })
-            .collect::<Vec<String>>()
-            .join(".")
+        let mut buf = String::new();
+        let mut prev_was_dot = true;
+        for part in self.parts.iter() {
+            match part {
+                ModulePathPart::Root => {
+                    buf.push_str("root");
+                    prev_was_dot = false;
+                }
+                ModulePathPart::Parent => {
+                    buf.push_str("..");
+                    prev_was_dot = true;
+                }
+                ModulePathPart::Current => {
+                    buf.push_str(".");
+                    prev_was_dot = true;
+                }
+                ModulePathPart::Name(name) => {
+                    if prev_was_dot {
+                        buf.push_str(&name);
+                    } else {
+                        buf.push('.');
+                        buf.push_str(&name);
+                        prev_was_dot = false;
+                    }
+                }
+            }
+        }
+        buf
     }
 }
 
