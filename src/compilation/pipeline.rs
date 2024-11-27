@@ -3,7 +3,7 @@ use std::{collections::HashMap, env, fs, path::PathBuf};
 use crate::{
     lexer::{lexer::Lexer, token::TokenType},
     parser::parser::Parser,
-    seman::seman::SemanticAnalyzer,
+    // seman::seman::SemanticAnalyzer,
     source::source::{SourceFile, SourceReporter},
 };
 
@@ -227,18 +227,18 @@ impl Workspace {
             return;
         }
 
-        let res = SemanticAnalyzer::analyze_program(&program, src);
-        match res {
-            Ok(typed_code) => {
-                for code in typed_code.iter() {
-                    println!("{}\n", code.as_str())
-                }
-            }
-            Err(seman_errs) => {
-                for err in seman_errs {
-                    reporter.report_seman_error(err);
-                }
-            }
-        }
+        // let res = SemanticAnalyzer::analyze_program(&program, src);
+        // match res {
+        //     Ok(typed_code) => {
+        //         for code in typed_code.iter() {
+        //             println!("{}\n", code.as_str())
+        //         }
+        //     }
+        //     Err(seman_errs) => {
+        //         for err in seman_errs {
+        //             reporter.report_seman_error(err);
+        //         }
+        //     }
+        // }
     }
 }

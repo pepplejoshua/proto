@@ -184,7 +184,7 @@ impl SourceRef {
         )
     }
 
-    pub fn combine(&self, other: Rc<SourceRef>) -> Rc<SourceRef> {
+    pub fn combine(&self, other: &Rc<SourceRef>) -> Rc<SourceRef> {
         let (start_line, start_col) = if self.start_line < other.start_line {
             (self.start_line, self.start_col)
         } else if self.start_line == other.start_line {

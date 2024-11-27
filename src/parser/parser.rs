@@ -12,7 +12,7 @@ use crate::{
         token::{SrcToken, TokenType},
     },
     parser::{
-        ast::{ModulePathPart, UnaryOpType},
+        ast::{ModulePathPart, UnaryOpType, UseKind},
         type_signature::Ty,
     },
     source::{
@@ -112,7 +112,15 @@ impl Parser {
         while !self.is_at_eof() {
             let ins = self.next_ins(false);
 
-            if ins.get_id(&self.lexer.src).is_some() {
+            if matches!(
+                ins,
+                Ins::DeclVariable { .. }
+                    | Ins::DeclFunc { .. }
+                    | Ins::DeclTypeAlias { .. }
+                    | Ins::DeclModule { .. }
+                    | Ins::DeclUse { .. }
+                    | Ins::SingleLineComment { .. }
+            ) {
                 instructions.push(ins);
             } else {
                 self.report_err(ParseError::ParsedInstructionIsNotAllowedAtThisLevel {
@@ -129,6 +137,14 @@ impl Parser {
         let token = self.cur_token();
         let mut check_terminator = false;
         let ins = match token.ty {
+            TokenType::Module => {
+                check_terminator = true;
+                self.parse_module_decl()
+            }
+            TokenType::Use => {
+                check_terminator = true;
+                self.parse_use_decl()
+            }
             TokenType::Identifier => {
                 self.advance();
                 let cur = self.cur_token();
@@ -148,8 +164,14 @@ impl Parser {
             TokenType::Pub => {
                 self.advance();
                 let mut ins = self.next_ins(require_terminator);
-                let loc = token.loc.combine(ins.get_source_ref());
-                if ins.get_id(&self.lexer.src).is_none() {
+                let loc = token.loc.combine(&ins.get_source_ref());
+                if !matches!(
+                    ins,
+                    Ins::DeclVariable { .. }
+                        | Ins::DeclFunc { .. }
+                        | Ins::DeclTypeAlias { .. }
+                        | Ins::DeclUse { .. }
+                ) {
                     self.report_err(ParseError::MalformedPubDeclaration { src: loc.clone() });
                 }
                 ins.make_public();
@@ -203,14 +225,18 @@ impl Parser {
     }
 
     fn parse_module_decl(&mut self) -> Ins {
-        todo!()
+        let start_loc = self.cur_token().get_source_ref();
+        self.advance(); // consume 'module' keyword
+
+        let module_path = self.parse_module_path(false);
+
+        Ins::DeclModule {
+            loc: start_loc.combine(&module_path.loc.clone()),
+            name: module_path,
+        }
     }
 
-    fn parse_use_decl(&mut self) -> Ins {
-        todo!()
-    }
-
-    fn parse_module_path(&mut self) -> ModulePath {
+    fn parse_module_path(&mut self, is_use_module_path: bool) -> ModulePath {
         let start_tok = self.cur_token();
         let mut span = start_tok.get_source_ref();
         let mut parts = vec![];
@@ -221,7 +247,7 @@ impl Parser {
                 parts.push(ModulePathPart::Root);
                 self.advance();
             }
-            TokenType::Dot => {
+            TokenType::Dot if is_use_module_path => {
                 self.advance();
                 if self.cur_token().ty == TokenType::Dot {
                     // found '..'
@@ -252,13 +278,18 @@ impl Parser {
         while self.cur_token().ty == TokenType::Dot {
             self.advance(); // consume dot
 
+            // Check if we're about to start a group
+            if self.cur_token().ty == TokenType::LCurly && is_use_module_path {
+                break; // Exit the loop without consuming the '{'
+            }
+
             if !matches!(self.cur_token().ty, TokenType::Identifier) {
                 self.expected_err_cur_token("an identifier after '.' in module path");
                 break;
             }
 
             let name = self.cur_token().as_str(&self.lexer.src);
-            span = span.combine(self.cur_token().get_source_ref());
+            span = span.combine(&self.cur_token().get_source_ref());
             parts.push(ModulePathPart::Name(name));
             self.advance();
         }
@@ -266,12 +297,112 @@ impl Parser {
         ModulePath { parts, loc: span }
     }
 
+    fn parse_use_decl(&mut self) -> Ins {
+        let mut span = self.cur_token().get_source_ref();
+        self.advance(); // consume 'use' keyword
+
+        let mut items = vec![];
+
+        // parse first item
+        let item = self.parse_use_item();
+        span = span.combine(&item.loc);
+        items.push(item);
+
+        // parse additional items if there are any (comma-separated)
+        while self.cur_token().ty == TokenType::Comma {
+            self.advance(); // consume commma
+            let item = self.parse_use_item();
+            span = span.combine(&item.loc);
+            items.push(item);
+        }
+
+        Ins::DeclUse {
+            items,
+            loc: span,
+            is_public: false,
+        }
+    }
+
     fn parse_use_item(&mut self) -> UseItem {
-        todo!()
+        let mut span = self.cur_token().get_source_ref();
+
+        // parse the module path
+        let path = self.parse_module_path(true);
+        span = span.combine(&path.loc);
+
+        // check for different use kinds
+        let kind = if self.cur_token().ty == TokenType::As {
+            span = span.combine(&self.cur_token().get_source_ref());
+            self.advance(); // consume 'as'
+            if self.cur_token().ty != TokenType::Identifier {
+                self.expected_err_cur_token("an identifier to serve as alias after 'as'");
+                UseKind::Simple
+            } else {
+                let alias = self.cur_token().as_str(&self.lexer.src);
+                span = span.combine(&path.loc.clone());
+                self.advance();
+                UseKind::Aliased(alias)
+            }
+        } else if self.cur_token().ty == TokenType::LCurly {
+            self.advance(); // consume '{'
+            let group = self.parse_use_group();
+            self.consume(
+                TokenType::RCurly,
+                "a right curly brace (}) to close grouped imports",
+            );
+            UseKind::Group(group)
+        } else {
+            UseKind::Simple
+        };
+
+        UseItem {
+            path,
+            kind,
+            loc: span,
+        }
     }
 
     fn parse_use_group(&mut self) -> Vec<(String, Option<String>)> {
-        todo!()
+        let mut items = vec![];
+
+        loop {
+            if self.cur_token().ty == TokenType::RCurly {
+                break;
+            }
+
+            // parse name
+            if self.cur_token().ty != TokenType::Identifier {
+                self.expected_err_cur_token("an identifier in import group");
+                break;
+            }
+
+            let name = self.cur_token().as_str(&self.lexer.src);
+            self.advance();
+
+            // check for alias
+            let alias = if self.cur_token().ty == TokenType::As {
+                self.advance(); // consume 'as'
+                if self.cur_token().ty != TokenType::Identifier {
+                    self.expected_err_cur_token("an identifier to serve as alias after 'as'");
+                    None
+                } else {
+                    let alias = self.cur_token().as_str(&self.lexer.src);
+                    self.advance();
+                    Some(alias)
+                }
+            } else {
+                None
+            };
+
+            items.push((name, alias));
+
+            // check for comma
+            if self.cur_token().ty == TokenType::Comma {
+                self.advance(); // consume comma
+            }
+        }
+
+        items
     }
 
     fn parse_variable_decl(&mut self, is_mutable: bool) -> Ins {
@@ -303,12 +434,12 @@ impl Parser {
                     self.cur_token().get_source_ref(),
                 ));
             }
-            loc = loc.combine(self.cur_token().loc);
+            loc = loc.combine(&self.cur_token().loc);
             self.advance();
             None
         } else {
             let val = self.parse_expr(None);
-            loc = loc.combine(val.get_source_ref());
+            loc = loc.combine(&val.get_source_ref());
             Some(val)
         };
 
@@ -327,11 +458,11 @@ impl Parser {
         self.advance();
         let cur = self.cur_token();
         if matches!(cur.ty, TokenType::Semicolon) {
-            loc = loc.combine(cur.get_source_ref());
+            loc = loc.combine(&cur.get_source_ref());
             Ins::Return { expr: None, loc }
         } else {
             let val = self.parse_expr(None);
-            loc = loc.combine(val.get_source_ref());
+            loc = loc.combine(&val.get_source_ref());
             Ins::Return {
                 expr: Some(val),
                 loc,
@@ -356,7 +487,7 @@ impl Parser {
             code.push(ins);
         }
 
-        loc = loc.combine(self.cur_token().loc);
+        loc = loc.combine(&self.cur_token().loc);
         self.consume(
             TokenType::RCurly,
             "a right curly brace (}) to terminate the body of the block instruction.",
@@ -372,7 +503,7 @@ impl Parser {
             // infinite loop
             TokenType::LCurly => {
                 let block = self.parse_ins_block();
-                loc = loc.combine(block.get_source_ref());
+                loc = loc.combine(&block.get_source_ref());
                 Ins::InfiniteLoop {
                     block: Box::new(block),
                     loc,
@@ -407,7 +538,7 @@ impl Parser {
                 );
                 let body = self.parse_ins_block();
 
-                loc = loc.combine(body.get_source_ref());
+                loc = loc.combine(&body.get_source_ref());
                 Ins::RegLoop {
                     init: Box::new(loop_var),
                     loop_cond,
@@ -424,7 +555,7 @@ impl Parser {
                         self.advance();
                         let loop_target = self.parse_expr(None);
                         let body = self.parse_ins_block();
-                        loc = loc.combine(body.get_source_ref());
+                        loc = loc.combine(&body.get_source_ref());
                         Ins::ForInLoop {
                             loop_var: target_expr,
                             loop_target,
@@ -445,7 +576,7 @@ impl Parser {
                             "a right parenthesis [)] to terminate the loop post-instruction.",
                         );
                         let body = self.parse_ins_block();
-                        loc = loc.combine(body.get_source_ref());
+                        loc = loc.combine(&body.get_source_ref());
                         Ins::WhileLoop {
                             cond: target_expr,
                             post_code: Some(Box::new(post_code)),
@@ -455,7 +586,7 @@ impl Parser {
                     }
                     _ => {
                         let body = self.parse_ins_block();
-                        loc = loc.combine(body.get_source_ref());
+                        loc = loc.combine(&body.get_source_ref());
                         Ins::WhileLoop {
                             cond: target_expr,
                             post_code: None,
@@ -495,7 +626,7 @@ impl Parser {
             }
         }
 
-        loc = loc.combine(conds_and_code.last().unwrap().1.get_source_ref());
+        loc = loc.combine(&conds_and_code.last().unwrap().1.get_source_ref());
 
         Ins::IfConditional {
             conds_and_code,
@@ -514,7 +645,7 @@ impl Parser {
         );
 
         let output = self.parse_expr(None);
-        loc = loc.combine(self.cur_token().loc);
+        loc = loc.combine(&self.cur_token().loc);
         self.consume(
             TokenType::RParen,
             "a right parenthesis [)] to terminate argument list.",
@@ -549,7 +680,7 @@ impl Parser {
                     self.advance();
                     let sub_ty = self.parse_type();
                     let end_loc = sub_ty.get_loc();
-                    let loc = start_loc.combine(end_loc);
+                    let loc = start_loc.combine(&end_loc);
 
                     return Rc::new(Ty::Slice { sub_ty, loc });
                 } else {
@@ -559,7 +690,7 @@ impl Parser {
 
                     let sub_ty = self.parse_type();
                     let end_loc = sub_ty.get_loc();
-                    let loc = start_loc.combine(end_loc);
+                    let loc = start_loc.combine(&end_loc);
 
                     return Rc::new(Ty::StaticArray { sub_ty, size, loc });
                 }
@@ -568,7 +699,7 @@ impl Parser {
                 self.advance();
                 let ty = self.parse_type();
                 Rc::new(Ty::Optional {
-                    loc: cur.get_source_ref().combine(ty.get_loc()),
+                    loc: cur.get_source_ref().combine(&ty.get_loc()),
                     sub_ty: ty,
                 })
             }
@@ -576,7 +707,7 @@ impl Parser {
                 self.advance();
                 let ty = self.parse_type();
                 Rc::new(Ty::Pointer {
-                    loc: cur.get_source_ref().combine(ty.get_loc()),
+                    loc: cur.get_source_ref().combine(&ty.get_loc()),
                     sub_ty: ty,
                 })
             }
@@ -591,7 +722,7 @@ impl Parser {
                     while self.cur_token().ty == TokenType::Dot {
                         self.advance();
                         let member = self.parse_identifier();
-                        let loc = current.get_loc().combine(member.get_source_ref());
+                        let loc = current.get_loc().combine(&member.get_source_ref());
                         current = Ty::AccessMemberType {
                             target: Rc::new(current),
                             mem: Rc::new(Ty::NamedType {
@@ -669,7 +800,7 @@ impl Parser {
             TokenType::Assign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr,
                     value: val,
@@ -679,7 +810,7 @@ impl Parser {
             TokenType::PlusAssign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr.clone(),
                     value: Expr::BinOp {
@@ -694,7 +825,7 @@ impl Parser {
             TokenType::MinusAssign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr.clone(),
                     value: Expr::BinOp {
@@ -709,7 +840,7 @@ impl Parser {
             TokenType::StarAssign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr.clone(),
                     value: Expr::BinOp {
@@ -724,7 +855,7 @@ impl Parser {
             TokenType::SlashAssign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr.clone(),
                     value: Expr::BinOp {
@@ -739,7 +870,7 @@ impl Parser {
             TokenType::ModuloAssign => {
                 self.advance();
                 let val = self.parse_expr(None);
-                let span = expr.get_source_ref().combine(val.get_source_ref());
+                let span = expr.get_source_ref().combine(&val.get_source_ref());
                 Ins::AssignTo {
                     target: expr.clone(),
                     value: Expr::BinOp {
@@ -767,7 +898,7 @@ impl Parser {
             "an assignment token (=) to separate type alias name and type.",
         );
         let ty = self.parse_type();
-        loc = loc.combine(ty.get_loc());
+        loc = loc.combine(&ty.get_loc());
         Ins::DeclTypeAlias {
             name: alias_name,
             ty,
@@ -787,7 +918,7 @@ impl Parser {
         let fn_params = self.parse_fn_params();
         let ret_type = self.parse_type();
         let body = self.parse_ins_block();
-        loc = loc.combine(body.get_source_ref());
+        loc = loc.combine(&body.get_source_ref());
         Ins::DeclFunc {
             name: fn_name,
             params: fn_params,
@@ -824,7 +955,7 @@ impl Parser {
             let is_self = param_name.as_str() == "self";
             let param_ty = self.parse_type();
 
-            let loc = param_name.get_source_ref().combine(param_ty.get_loc());
+            let loc = param_name.get_source_ref().combine(&param_ty.get_loc());
             params.push(FnParam {
                 name: param_name,
                 given_ty: param_ty,
@@ -881,7 +1012,7 @@ impl Parser {
                 self.advance();
             }
         }
-        let loc = dot.combine(self.cur_token().loc);
+        let loc = dot.combine(&self.cur_token().loc);
         self.consume(
             TokenType::RCurly,
             "a right curly brace (}) to terminate the initializer list.",
@@ -898,7 +1029,7 @@ impl Parser {
                 let params = self.parse_fn_params();
                 let ret_type = self.parse_type();
                 let body = self.parse_ins_block();
-                let loc = cur.get_source_ref().combine(body.get_source_ref());
+                let loc = cur.get_source_ref().combine(&body.get_source_ref());
 
                 Expr::Lambda {
                     params,
@@ -923,7 +1054,7 @@ impl Parser {
                 self.advance();
                 let val = self.parse_expr(None);
                 Expr::OptionalExpr {
-                    loc: cur.get_source_ref().combine(val.get_source_ref()),
+                    loc: cur.get_source_ref().combine(&val.get_source_ref()),
                     val: Some(Box::new(val)),
                 }
             }
@@ -937,7 +1068,9 @@ impl Parser {
             TokenType::Comptime => {
                 self.advance();
                 let comptime_expr = self.parse_ternary(None);
-                let loc = cur.get_source_ref().combine(comptime_expr.get_source_ref());
+                let loc = cur
+                    .get_source_ref()
+                    .combine(&comptime_expr.get_source_ref());
                 Expr::ComptimeExpr {
                     val: Box::new(comptime_expr),
                     loc,
@@ -959,7 +1092,7 @@ impl Parser {
             );
             let otherwise = self.parse_expr(None);
             return Expr::ConditionalExpr {
-                loc: lhs.get_source_ref().combine(otherwise.get_source_ref()),
+                loc: lhs.get_source_ref().combine(&otherwise.get_source_ref()),
                 cond: Box::new(lhs),
                 then: Box::new(then),
                 otherwise: Box::new(otherwise),
@@ -974,7 +1107,7 @@ impl Parser {
         while matches!(self.cur_token().ty, TokenType::Or) {
             self.advance();
             let rhs = self.parse_and(None);
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op: BinOpType::Or,
                 left: Box::new(lhs),
@@ -991,7 +1124,7 @@ impl Parser {
         while matches!(self.cur_token().ty, TokenType::And) {
             self.advance();
             let rhs = self.parse_equality(None);
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op: BinOpType::And,
                 left: Box::new(lhs),
@@ -1013,7 +1146,7 @@ impl Parser {
             };
             self.advance();
             let rhs = self.parse_comparison(None);
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
                 left: Box::new(lhs),
@@ -1040,7 +1173,7 @@ impl Parser {
             };
             self.advance();
             let rhs = self.parse_term(None);
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
                 left: Box::new(lhs),
@@ -1062,7 +1195,7 @@ impl Parser {
             };
             self.advance();
             let rhs = self.parse_factor(None);
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
                 left: Box::new(lhs),
@@ -1092,7 +1225,7 @@ impl Parser {
             };
             self.advance();
             let rhs = self.parse_unary();
-            let loc = lhs.get_source_ref().combine(rhs.get_source_ref());
+            let loc = lhs.get_source_ref().combine(&rhs.get_source_ref());
             lhs = Expr::BinOp {
                 op,
                 left: Box::new(lhs),
@@ -1109,7 +1242,7 @@ impl Parser {
             TokenType::Minus | TokenType::Not => {
                 self.advance();
                 let rhs = self.parse_unary();
-                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                let loc = op.get_source_ref().combine(&rhs.get_source_ref());
                 let op = if op.ty == TokenType::Minus {
                     UnaryOpType::Negate
                 } else {
@@ -1131,7 +1264,7 @@ impl Parser {
             TokenType::Star => {
                 self.advance();
                 let rhs = self.parse_ptr_deref_or_addr_of();
-                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                let loc = op.get_source_ref().combine(&rhs.get_source_ref());
                 Expr::DerefPtr {
                     loc,
                     target: Box::new(rhs),
@@ -1140,7 +1273,7 @@ impl Parser {
             TokenType::Ampersand => {
                 self.advance();
                 let rhs = self.parse_index_expr(None);
-                let loc = op.get_source_ref().combine(rhs.get_source_ref());
+                let loc = op.get_source_ref().combine(&rhs.get_source_ref());
                 Expr::MakePtrFromAddrOf {
                     loc,
                     target: Box::new(rhs),
@@ -1187,10 +1320,10 @@ impl Parser {
                     let args = self.parse_comma_sep_exprs(TokenType::RParen);
                     let loc = if args.is_empty() {
                         op.get_source_ref()
-                            .combine(self.cur_token().get_source_ref())
+                            .combine(&self.cur_token().get_source_ref())
                     } else {
                         op.get_source_ref()
-                            .combine(args.last().unwrap().get_source_ref())
+                            .combine(&args.last().unwrap().get_source_ref())
                     };
                     self.consume(
                         TokenType::RParen,
@@ -1213,7 +1346,7 @@ impl Parser {
                                 Some(Box::new(end))
                             }
                         };
-                        let loc = op.loc.combine(self.cur_token().loc);
+                        let loc = op.loc.combine(&self.cur_token().loc);
                         self.consume(
                             TokenType::RBracket,
                             "a right bracket (]) to terminate the slice expression.",
@@ -1232,7 +1365,7 @@ impl Parser {
 
                     match self.cur_token().ty {
                         TokenType::RBracket => {
-                            loc = loc.combine(self.cur_token().loc);
+                            loc = loc.combine(&self.cur_token().loc);
                             self.advance();
                             lhs = Expr::IndexInto {
                                 target: Box::new(lhs),
@@ -1249,7 +1382,7 @@ impl Parser {
                                     Some(Box::new(end))
                                 }
                             };
-                            loc = loc.combine(self.cur_token().loc);
+                            loc = loc.combine(&self.cur_token().loc);
                             self.consume(
                                 TokenType::RBracket,
                                 "a right parenthesis (]) to terminate the slice expression.",
@@ -1263,7 +1396,7 @@ impl Parser {
                         }
                         _ => {
                             self.consume(TokenType::RBracket, concat!("a right bracket (]) to terminate index expression or a colon to ", "separate start and exclusive end of the slice expression."));
-                            loc = loc.combine(index_expr.get_source_ref());
+                            loc = loc.combine(&index_expr.get_source_ref());
                             lhs = Expr::IndexInto {
                                 target: Box::new(lhs),
                                 index: Box::new(index_expr),
@@ -1278,7 +1411,7 @@ impl Parser {
                         return lhs;
                     } else {
                         let member = self.parse_primary();
-                        let loc = op.loc.combine(member.get_source_ref());
+                        let loc = op.loc.combine(&member.get_source_ref());
                         lhs = Expr::AccessMember {
                             target: Box::new(lhs),
                             mem: Box::new(member),
@@ -1369,7 +1502,7 @@ impl Parser {
                     let mut exprs = self.parse_comma_sep_exprs(TokenType::RParen);
                     let loc = cur
                         .get_source_ref()
-                        .combine(self.cur_token().get_source_ref());
+                        .combine(&self.cur_token().get_source_ref());
                     self.consume(
                         TokenType::RParen,
                         "a right parenthesis [)] to terminate the tuple expression.",
@@ -1379,7 +1512,7 @@ impl Parser {
                 } else {
                     let loc = cur
                         .get_source_ref()
-                        .combine(self.cur_token().get_source_ref());
+                        .combine(&self.cur_token().get_source_ref());
                     self.consume(
                         TokenType::RParen,
                         "a right parenthesis [)] to terminate the grouped expression.",

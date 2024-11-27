@@ -39,7 +39,7 @@ impl Lexer {
 
         while !self.src.is_eof() {
             let cur = self.src.cur_char();
-            span = span.combine(self.src.get_ref());
+            span = span.combine(&self.src.get_ref());
             self.src.next_char();
             if cur != '\n' {
                 continue;
@@ -95,7 +95,7 @@ impl Lexer {
             _ => {
                 self.src.next_char(); // try to keep lexing
                 let err = Err(LexError::InvalidCharacter(
-                    c_ref.combine(self.src.get_ref()),
+                    c_ref.combine(&self.src.get_ref()),
                 ));
                 err
             }
@@ -111,7 +111,7 @@ impl Lexer {
     fn lex_interpolated_string(&mut self) -> Result<SrcToken, LexError> {
         let mut span = self.src.get_ref();
         self.src.next_char(); // consume initial backtick
-        span = span.combine(self.src.get_ref());
+        span = span.combine(&self.src.get_ref());
         let bt = SrcToken {
             ty: TokenType::BackTick,
             loc: span.clone(),
@@ -126,7 +126,7 @@ impl Lexer {
                 '`' => {
                     span = self.src.get_ref();
                     self.src.next_char();
-                    span = span.combine(self.src.get_ref());
+                    span = span.combine(&self.src.get_ref());
                     if buf_span.flat_end - buf_span.flat_start > 1 {
                         parts.push(SrcToken {
                             ty: TokenType::InterpolatedStringFragment,
@@ -144,12 +144,12 @@ impl Lexer {
                         // we can escape the { character and add it to the buf
                         self.src.next_char();
                         self.src.next_char();
-                        buf_span = buf_span.combine(self.src.get_ref());
+                        buf_span = buf_span.combine(&self.src.get_ref());
                         continue;
                     }
 
                     // store whatever we have in buf and reset it
-                    span = span.combine(self.src.get_ref());
+                    span = span.combine(&self.src.get_ref());
                     if buf_span.flat_end - buf_span.flat_start > 1 {
                         parts.push(SrcToken {
                             ty: TokenType::InterpolatedStringFragment,
@@ -159,7 +159,7 @@ impl Lexer {
 
                     let mut lcurly_span = self.src.get_ref();
                     self.src.next_char();
-                    lcurly_span = lcurly_span.combine(self.src.get_ref());
+                    lcurly_span = lcurly_span.combine(&self.src.get_ref());
                     let lcurly = SrcToken {
                         ty: TokenType::LCurly,
                         loc: lcurly_span,
@@ -172,7 +172,7 @@ impl Lexer {
                     let mut num_of_lcurly = 1;
                     while !self.src.is_eof() {
                         if let Ok(tok) = self.next_token() {
-                            span = span.combine(tok.get_source_ref());
+                            span = span.combine(&tok.get_source_ref());
                             let saw_lcurly = matches!(tok.ty, TokenType::LCurly);
                             if saw_lcurly {
                                 // we have nested interpolated strings with code sections
@@ -199,7 +199,7 @@ impl Lexer {
                 }
                 _ => {
                     self.src.next_char();
-                    buf_span = buf_span.combine(self.src.get_ref());
+                    buf_span = buf_span.combine(&self.src.get_ref());
                 }
             }
         }
@@ -235,7 +235,7 @@ impl Lexer {
             }
         }
 
-        let combined_ref = c_ref.combine(end_ref);
+        let combined_ref = c_ref.combine(&end_ref);
         let id = &self.src.text[combined_ref.flat_start..combined_ref.flat_end];
         // check if the identifier is a keyword
         match id {
@@ -427,13 +427,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::PlusAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Plus,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '-' => {
@@ -443,13 +443,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::MinusAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Minus,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '*' => {
@@ -459,13 +459,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::StarAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Star,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '/' => {
@@ -479,13 +479,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::SlashAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Slash,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '%' => {
@@ -495,13 +495,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::ModuloAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Modulo,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
 
@@ -509,7 +509,7 @@ impl Lexer {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::At,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '!' => {
@@ -519,20 +519,20 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::NotEqual,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Not,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '&' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Ampersand,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '=' => {
@@ -542,13 +542,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::Equal,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Assign,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '<' => {
@@ -558,13 +558,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::LessEqual,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Less,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '>' => {
@@ -574,13 +574,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::GreaterEqual,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Greater,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             ':' => {
@@ -590,97 +590,97 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::DoubleColon,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 } else if c == '=' {
                     self.src.next_char();
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::ColonAssign,
-                        loc: cur_ref.combine(self.src.get_ref()),
+                        loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Colon,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '(' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::LParen,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             ')' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::RParen,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '{' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::LCurly,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '}' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::RCurly,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '[' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::LBracket,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             ']' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::RBracket,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             ',' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Comma,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '.' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Dot,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             ';' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::Semicolon,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '?' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::QuestionMark,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             '\\' => {
                 self.src.next_char();
                 return Ok(SrcToken {
                     ty: TokenType::BackSlash,
-                    loc: cur_ref.combine(self.src.get_ref()),
+                    loc: cur_ref.combine(&self.src.get_ref()),
                 });
             }
             _ => unreachable!("invalid operator character: '{}' at {:?}", cur, cur_ref),
@@ -695,13 +695,13 @@ impl Lexer {
         // if a \ is encountered, read the next character
         while !self.src.is_eof() {
             let c = self.src.next_char();
-            span = span.combine(self.src.get_ref());
+            span = span.combine(&self.src.get_ref());
             if c == '"' || c == '\n' {
                 break;
             } else if c == '\\' {
                 // if the next character is a ", add it to the content
                 self.src.next_char();
-                span = span.combine(self.src.get_ref());
+                span = span.combine(&self.src.get_ref());
             }
         }
 
@@ -710,7 +710,7 @@ impl Lexer {
             Err(LexError::UnterminatedStringLiteral(span))
         } else {
             self.src.next_char();
-            span = span.combine(self.src.get_ref());
+            span = span.combine(&self.src.get_ref());
             Ok(SrcToken {
                 ty: TokenType::String,
                 loc: span,
@@ -723,25 +723,25 @@ impl Lexer {
         let mut span = self.src.get_ref();
         // read single character
         let c = self.src.next_char();
-        span = span.combine(self.src.get_ref());
+        span = span.combine(&self.src.get_ref());
 
         // if the next character is a ', return an error
         if c == '\'' {
             return Err(LexError::EmptyCharacterLiteral(span));
         } else if c == '\\' {
             // if the next character is a ', add it to the content
-            span = span.combine(self.src.get_ref());
+            span = span.combine(&self.src.get_ref());
         }
 
         // if the next character is not a ', return an error
         let c = self.src.next_char();
-        span = span.combine(self.src.get_ref());
+        span = span.combine(&self.src.get_ref());
         if c != '\'' {
             return Err(LexError::UnterminatedCharacterLiteral(span));
         }
 
         self.src.next_char();
-        span = span.combine(self.src.get_ref());
+        span = span.combine(&self.src.get_ref());
         Ok(SrcToken {
             ty: TokenType::Character,
             loc: span,
@@ -770,7 +770,7 @@ impl Lexer {
         // TODO: there is bug where a user can enter a decimal with no mantissa
         // provided: `12323.`
 
-        let combined_ref = cur_ref.combine(end_ref);
+        let combined_ref = cur_ref.combine(&end_ref);
         if decimal_point_count == 0 {
             return Ok(SrcToken {
                 ty: TokenType::Integer,

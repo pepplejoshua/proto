@@ -7,7 +7,7 @@ mod compilation;
 mod lexer;
 mod parser;
 mod pastel;
-mod seman;
+// mod seman;
 mod source;
 
 const USAGE: &str = "

@@ -1,3 +1,15 @@
+module .a
+module a.{a}
+
+use root.math.{
+    vector as vec,
+    matrix,
+    quaternion
+}
+// use ..parentDir
+// use .currentDir
+use root.math.vector as vec
+
 fn main() i32 {
     var one = 1
     var two = 2

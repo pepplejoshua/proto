@@ -384,14 +384,15 @@ pub enum UseKind {
 
 #[derive(Debug, Clone)]
 pub struct UseItem {
-    path: ModulePath,
-    kind: UseKind,
-    loc: Rc<SourceRef>,
+    pub path: ModulePath,
+    pub kind: UseKind,
+    pub loc: Rc<SourceRef>,
 }
 
 #[derive(Debug, Clone)]
 pub enum Ins {
     DeclUse {
+        is_public: bool,
         items: Vec<UseItem>,
         loc: Rc<SourceRef>,
     },
@@ -490,15 +491,6 @@ pub enum Ins {
 }
 
 impl Ins {
-    pub fn get_id(&self, src: &SourceFile) -> Option<String> {
-        match self {
-            Ins::DeclVariable { name, .. }
-            | Ins::DeclFunc { name, .. }
-            | Ins::DeclTypeAlias { name, .. } => Some(name.as_str()),
-            _ => None,
-        }
-    }
-
     pub fn get_source_ref(&self) -> Rc<SourceRef> {
         match self {
             Ins::DeclVariable { loc, .. }
@@ -528,7 +520,8 @@ impl Ins {
         match self {
             Ins::DeclVariable { is_public, .. }
             | Ins::DeclFunc { is_public, .. }
-            | Ins::DeclTypeAlias { is_public, .. } => {
+            | Ins::DeclTypeAlias { is_public, .. }
+            | Ins::DeclUse { is_public, .. } => {
                 *is_public = true;
                 true
             }
@@ -643,7 +636,7 @@ impl Ins {
                 for instruc in code {
                     buf.push_str(&(instruc.as_str() + "\n"));
                 }
-                format!("{{\n{buf}}}")
+                format!("{buf}")
             }
             Ins::AssignTo { target, value, .. } => {
                 format!("{} = {}", target.as_str(), value.as_str())

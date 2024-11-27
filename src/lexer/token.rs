@@ -120,6 +120,7 @@ impl SrcToken {
 
     pub fn as_str(self: &SrcToken, src: &SourceFile) -> String {
         match self.ty {
+            TokenType::Root => "root".to_string(),
             TokenType::As => "as".to_string(),
             TokenType::Module => "module".to_string(),
             TokenType::Use => "use".to_string(),
