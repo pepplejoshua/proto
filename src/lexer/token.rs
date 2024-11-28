@@ -27,7 +27,6 @@ pub enum TokenType {
     Const,
     Comptime,
     Use,
-    Module,
     As,
     Root,
 
@@ -122,7 +121,6 @@ impl SrcToken {
         match self.ty {
             TokenType::Root => "root".to_string(),
             TokenType::As => "as".to_string(),
-            TokenType::Module => "module".to_string(),
             TokenType::Use => "use".to_string(),
             TokenType::Pub => "pub".to_string(),
             TokenType::Comptime => "comptime".to_string(),

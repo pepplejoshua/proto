@@ -1,16 +1,15 @@
 Targets:
 **Module System Requirements**
-- Support flexible module organization:
-  - Implicit module names from file paths (default)
-  - Optional explicit module declarations
-  - Optional mod.pr for module reorganization
+- Support simple module organization:
+  - Module names from file paths
+  - Optional mod.pr for module reorganization (future)
 - Module file organization:
-  - Regular .pr files become their path-based modules
-  - Optional mod.pr for module grouping and re-exports
-  - Support multiple files contributing to same module
-- Support file-based modules with explicit/implicit module declarations
+  - Each .pr file is a module based on its path
+  - Optional mod.pr for module grouping (future)
+  - Re-exports via 'pub use' statements
+- Support file-based modules with path-based naming
 - Import syntax: `use module.{symbol}` and `use module as alias`
-- Relative imports: `./../module`
+- Relative imports: `..module` and `.module`
 - Public/private visibility control with `pub` keyword
 - Hierarchical module namespacing
 - Prevent circular dependencies
@@ -20,15 +19,16 @@ Targets:
 - Proper error handling for missing/incompatible modules
 
 **Symbol Resolution**
-- Support both qualified (math.vector.dot) and unqualified (dot) names
+- Support both qualified (math.vector.dot) and unqualified (dot) names.
+  Example: src/math/vector.pr exports dot -> math.vector.dot
 - Handle name conflicts across modules
 - Track symbol visibility (public/private)
-- Support re-exports of symbols
+- Support re-exports of symbols through 'pub use'
 - Maintain debugging information for symbols
 - Handle cross-module type checking
 
 **Build System**
-- Construct and validate dependency graph
+- Construct dependency graph from file paths and use statements
 - Support parallel compilation of independent modules
 - Implement incremental compilation
 - Cache build artifacts
@@ -38,9 +38,10 @@ Targets:
 
 **Compilation Pipeline**
 1. Module Resolution:
-   - Find all source files
-   - Build dependency graph
-   - Validate module structure
+   - Scan project directory for .pr files
+   - Map file paths to module names
+   - Build dependency graph from 'use' statements
+   - Validate imports and re-exports
 
 2. Parsing & Analysis:
    - Parse source to AST
@@ -79,7 +80,7 @@ Targets:
 - Clear module-related error messages
 - Cycle detection in imports
 - Type mismatch across modules
-- Missing dependencies
+- Missing imported files
 - Version conflicts
 - Invalid visibility usage
 - Platform-specific errors
@@ -95,21 +96,50 @@ Targets:
 
 
 Phases for Targets:
-**Phase 1: Basic Module Discovery and Loading**
-1. Modify Workspace to:
-   - Track module hierarchy
-   - Maintain module dependency graph
-   - Handle file path resolution
-   - Detect circular dependencies
-   - Map file paths to module names
-   - Handle mod.pr special cases
-   - Support module merging
-2. Add module syntax:
-   - `use` statement parsing
-   - Module path resolution
-   - Public/private visibility
-   - Re-export syntax parsing
-   - Module grouping through mod.pr
+**Phase 1 Plan - Basic Module Discovery and Loading**
+1. First: Script Mode Infrastructure
+   - Create CompileContext struct to track compilation state
+   - Support script-mode import resolution
+   - Track dependencies starting from main script
+   - Load and parse imported files
+   - Handle relative paths (. and ..)
+
+2. Then: Project Mode Infrastructure
+   - Add project.pr file parsing
+   - Define project structure conventions (src/ etc)
+   - Map project paths to module names
+   - Support project-wide dependency tracking
+
+3. Shared Module System Components:
+   - Module dependency graph building
+   - Circular dependency detection
+   - File path to module name mapping
+   - Module symbol visibility tracking
+   - Import resolution and validation
+
+4. Processing Flow:
+```
+Script Mode:
+script.pr -> find imports -> resolve paths -> load files -> parse -> dependency graph
+
+Project Mode:
+project.pr -> find src/ -> scan for .pr files -> build module tree -> parse -> dependency graph
+```
+
+5. Key Components Needed:
+   - CompileContext: Tracks overall compilation state
+   - ModuleLoader: Handles file loading and path resolution
+   - DependencyGraph: Tracks module relationships
+   - ModuleResolver: Maps between file paths and module names
+   - ImportResolver: Handles use statements and visibility
+
+6. Error Handling:
+   - Missing files
+   - Invalid imports
+   - Circular dependencies
+   - Visibility violations
+   - Path resolution errors
+
 
 **Phase 2: Symbol Management**
 1. Enhance symbol table to:
@@ -278,3 +308,11 @@ Future Considerations:
   - Compile-time evaluation cache
   - Cross-build caching
   - Distributed build cache
+
+**Future mod.pr Support**
+- Module documentation and metadata
+- Module-level initialization
+- Conditional exports based on features
+- Module-level attributes
+- Bulk re-exports
+- Module-level constants and configuration

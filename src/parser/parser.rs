@@ -2,7 +2,6 @@
 
 use std::{
     collections::{HashMap, HashSet, VecDeque},
-    f32::consts::PI,
     rc::Rc,
 };
 
@@ -28,6 +27,7 @@ pub struct Parser {
     pub lex_errs: Vec<LexError>,
     pub parse_errs: Vec<ParseError>,
     pub last_token: Option<SrcToken>,
+    pub use_declarations: Vec<Ins>,
 }
 
 impl Parser {
@@ -37,6 +37,7 @@ impl Parser {
             lex_errs: vec![],
             parse_errs: vec![],
             last_token: None,
+            use_declarations: vec![],
         };
         p.advance();
         p
@@ -137,13 +138,11 @@ impl Parser {
         let token = self.cur_token();
         let mut check_terminator = false;
         let ins = match token.ty {
-            TokenType::Module => {
-                check_terminator = true;
-                self.parse_module_decl()
-            }
             TokenType::Use => {
                 check_terminator = true;
-                self.parse_use_decl()
+                let use_decl = self.parse_use_decl();
+                self.use_declarations.push(use_decl.clone());
+                use_decl
             }
             TokenType::Identifier => {
                 self.advance();
@@ -224,19 +223,7 @@ impl Parser {
         ins
     }
 
-    fn parse_module_decl(&mut self) -> Ins {
-        let start_loc = self.cur_token().get_source_ref();
-        self.advance(); // consume 'module' keyword
-
-        let module_path = self.parse_module_path(false);
-
-        Ins::DeclModule {
-            loc: start_loc.combine(&module_path.loc.clone()),
-            name: module_path,
-        }
-    }
-
-    fn parse_module_path(&mut self, is_use_path: bool) -> ModulePath {
+    fn parse_module_path(&mut self) -> ModulePath {
         let start_tok = self.cur_token();
         let mut span = start_tok.get_source_ref();
         let mut parts = vec![];
@@ -248,10 +235,6 @@ impl Parser {
                 self.advance();
             }
             TokenType::Dot => {
-                if !is_use_path {
-                    self.expected_err_cur_token("an identifier since module declarations cannot use relative paths (. or ..)");
-                }
-
                 self.advance();
                 if self.cur_token().ty == TokenType::Dot {
                     // found '..'
@@ -278,11 +261,9 @@ impl Parser {
                 self.advance();
             }
             _ => {
-                self.expected_err_cur_token(if is_use_path {
-                    "a module path starting with 'root', '.', '..' or an identifier"
-                } else {
-                    "a module path starting with 'root' or an identifier"
-                });
+                self.expected_err_cur_token(
+                    "a module path starting with 'root', '.', '..' or an identifier",
+                );
                 return ModulePath {
                     parts: vec![],
                     loc: span,
@@ -295,7 +276,7 @@ impl Parser {
             self.advance(); // consume dot
 
             // Check if we're about to start a group
-            if self.cur_token().ty == TokenType::LCurly && is_use_path {
+            if self.cur_token().ty == TokenType::LCurly {
                 break; // Exit the loop without consuming the '{'
             }
 
@@ -343,7 +324,7 @@ impl Parser {
         let mut span = self.cur_token().get_source_ref();
 
         // parse the module path
-        let path = self.parse_module_path(true);
+        let path = self.parse_module_path();
         span = span.combine(&path.loc);
 
         // check for different use kinds

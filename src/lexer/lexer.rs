@@ -243,10 +243,6 @@ impl Lexer {
                 ty: TokenType::Use,
                 loc: combined_ref,
             }),
-            "module" => Ok(SrcToken {
-                ty: TokenType::Module,
-                loc: combined_ref,
-            }),
             "as" => Ok(SrcToken {
                 ty: TokenType::As,
                 loc: combined_ref,
