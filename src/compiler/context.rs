@@ -41,6 +41,7 @@ enum ModuleSymbol {
 /// Represents a module's compilation state
 struct Module {
     path: PathBuf,
+    instructions: Vec<Ins>,
     symbols: HashMap<String, ModuleSymbol>,
     is_compiled: bool,
 }
@@ -61,7 +62,7 @@ pub struct CompileContext {
     entry_point: PathBuf,
 
     /// Track loaded modules
-    loaded_modules: HashMap<PathBuf, Vec<Ins>>,
+    modules: HashMap<PathBuf, Module>,
 
     /// Track module dependencies
     dependencies: HashMap<PathBuf, HashSet<PathBuf>>,
@@ -87,7 +88,7 @@ impl CompileContext {
             },
             root_dir,
             entry_point: script_path,
-            loaded_modules: HashMap::new(),
+            modules: HashMap::new(),
             dependencies: HashMap::new(),
         })
     }
@@ -118,7 +119,7 @@ impl CompileContext {
             },
             root_dir: project_dir,
             entry_point,
-            loaded_modules: HashMap::new(),
+            modules: HashMap::new(),
             dependencies: HashMap::new(),
         })
     }
@@ -273,7 +274,7 @@ impl CompileContext {
 
     fn load_and_parse_file(&mut self, path: &PathBuf) -> Result<(), CompileError> {
         // don't load if already loaded
-        if self.loaded_modules.contains_key(path) {
+        if self.modules.contains_key(path) {
             return Ok(());
         }
 
@@ -282,6 +283,14 @@ impl CompileContext {
         let mut parser = Parser::new(lexer);
 
         let instructions = parser.parse_file();
+
+        // create new module with parsed instructions
+        let module = Module {
+            path: path.clone(),
+            instructions,
+            symbols: HashMap::new(),
+            is_compiled: false,
+        };
 
         // track dependencies from 'use' statements
         let mut deps = HashSet::new();
@@ -297,7 +306,7 @@ impl CompileContext {
             }
         }
 
-        self.loaded_modules.insert(path.clone(), instructions);
+        self.modules.insert(path.clone(), module);
         self.dependencies.insert(path.clone(), deps);
 
         Ok(())
@@ -362,11 +371,6 @@ impl CompileContext {
         }
     }
 
-    fn compile_module(&mut self, module_path: &PathBuf) -> Result<(), CompileError> {
-        // TODO: implement module compilation
-        Ok(())
-    }
-
     fn compile_script(&mut self) -> Result<(), CompileError> {
         // load and parse the main script
         self.load_and_parse_file(&self.entry_point.clone())?;
@@ -379,6 +383,68 @@ impl CompileContext {
             self.compile_module(&module_path)?;
         }
 
+        Ok(())
+    }
+
+    fn compile_module(&mut self, module_path: &PathBuf) -> Result<(), CompileError> {
+        let module = self.modules.get_mut(module_path).ok_or_else(|| {
+            CompileError::LoadError(module_path.clone(), "Module not loaded".into())
+        })?;
+
+        // collect module's symbols
+        for ins in &module.instructions {
+            match ins {
+                Ins::DeclVariable {
+                    name,
+                    ty,
+                    is_mutable,
+                    is_public,
+                    ..
+                } => {
+                    let var_name = name.as_str();
+                    let symbol = ModuleSymbol::Variable {
+                        name: var_name.clone(),
+                        ty: ty.clone().unwrap(), // TODO: check for explicit type
+                        is_mutable: *is_mutable,
+                        is_public: *is_public,
+                    };
+                    module.symbols.insert(var_name, symbol);
+                }
+                Ins::DeclFunc {
+                    name,
+                    params,
+                    ret_ty,
+                    is_public,
+                    ..
+                } => {
+                    let func_name = name.as_str();
+                    let symbol = ModuleSymbol::Function {
+                        name: func_name.clone(),
+                        params: params.clone(),
+                        return_ty: ret_ty.clone(),
+                        is_public: *is_public,
+                    };
+                    module.symbols.insert(func_name, symbol);
+                }
+                Ins::DeclTypeAlias {
+                    name,
+                    ty,
+                    is_public,
+                    ..
+                } => {
+                    let alias = name.as_str();
+                    let symbol = ModuleSymbol::Type {
+                        name: alias.clone(),
+                        ty: ty.clone(),
+                        is_public: *is_public,
+                    };
+                    module.symbols.insert(alias, symbol);
+                }
+                _ => {}
+            }
+        }
+
+        module.is_compiled = true;
         Ok(())
     }
 
