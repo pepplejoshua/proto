@@ -386,11 +386,7 @@ impl CompileContext {
         Ok(())
     }
 
-    fn compile_module(&mut self, module_path: &PathBuf) -> Result<(), CompileError> {
-        let module = self.modules.get_mut(module_path).ok_or_else(|| {
-            CompileError::LoadError(module_path.clone(), "Module not loaded".into())
-        })?;
-
+    fn collect_module_symbols(&mut self, module: &mut Module) -> Result<(), CompileError> {
         // collect module's symbols
         for ins in &module.instructions {
             match ins {
@@ -408,7 +404,11 @@ impl CompileContext {
                         is_mutable: *is_mutable,
                         is_public: *is_public,
                     };
-                    module.symbols.insert(var_name, symbol);
+
+                    // check for duplicate symbols
+                    if module.symbols.insert(var_name, symbol).is_some() {
+                        return Err(CompileError::DuplicateSymbol(var_name));
+                    }
                 }
                 Ins::DeclFunc {
                     name,
@@ -443,6 +443,20 @@ impl CompileContext {
                 _ => {}
             }
         }
+
+        Ok(())
+    }
+
+    fn compile_module(&mut self, module_path: &PathBuf) -> Result<(), CompileError> {
+        let module = self.modules.get_mut(module_path).ok_or_else(|| {
+            CompileError::LoadError(module_path.clone(), "Module not loaded".into())
+        })?;
+
+        // First pass: collect all symbols
+        self.collect_module_symbols(module)?;
+
+        // Second pass: validate declarations and uses
+        self.validate_module_declarations(module_path)?;
 
         module.is_compiled = true;
         Ok(())
