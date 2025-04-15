@@ -1,102 +1,90 @@
 use std::env;
 
-use compiler::CompileContext;
-
-mod compiler;
 mod lexer;
 mod parser;
 mod pastel;
 mod source;
 
 const USAGE: &str = "
-Usage: proto [command | filename.pr]
+proto v0.1
+usage: proto <command> [arguments]
 
-commands:
-    - r | run path
-    - b | build path
-    - h | help: show this help message.
+Commands:
+    compile <file.pr>     Compile a single file
+    run <file.pr>         Compile and run a file
+    help                  Show this help message
 ";
 
-fn show_help() {
-    println!("{}", USAGE);
+#[derive(Debug)]
+enum Command {
+    Compile(String), // path to file
+    Run(String),     // path to file
+    Help,
+}
+
+fn parse_args() -> Result<Command, String> {
+    let args: Vec<String> = env::args().collect();
+
+    if args.len() < 2 {
+        return Ok(Command::Help);
+    }
+
+    match args[1].as_str() {
+        "help" | "--help" | "-h" => Ok(Command::Help),
+
+        "compile" | "c" => {
+            if args.len() < 3 {
+                return Err("Missing file argument for compile command".into());
+            }
+            let path = &args[2];
+            if !path.ends_with(".pr") {
+                return Err("Source file must have .pr extension".into());
+            }
+            Ok(Command::Compile(path.clone()))
+        }
+
+        "run" | "r" => {
+            if args.len() < 3 {
+                return Err("Missing file argument for run command".into());
+            }
+            let path = &args[2];
+            if !path.ends_with(".pr") {
+                return Err("Source file must have .pr extension".into());
+            }
+            Ok(Command::Run(path.clone()))
+        }
+
+        _ => Err("Unknown command. Use 'proto help' for usage information.".into()),
+    }
 }
 
 fn main() {
-    let args = env::args().collect::<Vec<String>>();
+    match parse_args() {
+        Ok(command) => match command {
+            Command::Help => {
+                println!("{}", USAGE);
+            }
 
-    if args.len() < 2 {
-        show_help();
-        return;
-    }
-
-    // get the command / filename, which is the first argument
-    // after program name
-    match args[1].as_str() {
-        "h" | "help" => {
-            show_help();
-        }
-        "r" | "run" => {
-            // run project mode: proto run PROJECT_PATH
-            let project_path = if let Some(project_path) = args.get(2) {
-                if project_path == "." {
-                    std::env::current_dir().unwrap()
-                } else {
-                    project_path.into()
-                }
-            } else {
-                std::env::current_dir().unwrap()
-            };
-
-            match CompileContext::new_project(project_path, true) {
-                Ok(mut ctx) => {
-                    if let Err(e) = ctx.compile() {
-                        eprintln!("Compilation error: {:?}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to create project context: {:?}", e);
+            Command::Compile(file) => {
+                println!("Compiling {}", file);
+                match compiler::compile_file(&file, false) {
+                    Ok(_) => println!("Compilation successful"),
+                    Err(e) => eprintln!("Compilation failed: {}", e),
                 }
             }
-        }
-        "b" | "build" => {
-            // build project mode: proto build PROJECT_PATH
-            let project_path = if let Some(project_path) = args.get(2) {
-                if project_path == "." {
-                    std::env::current_dir().unwrap()
-                } else {
-                    project_path.into()
-                }
-            } else {
-                std::env::current_dir().unwrap()
-            };
 
-            match CompileContext::new_project(project_path, false) {
-                Ok(mut ctx) => {
-                    if let Err(e) = ctx.compile() {
-                        eprintln!("Compilation error: {:?}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to create project context: {:?}", e);
+            Command::Run(file) => {
+                println!("Running {}", file);
+                match compiler::compile_file(&file, true) {
+                    Ok(_) => (), // program has run
+                    Err(e) => eprintln!("Execution failed: {}", e),
                 }
             }
-        }
-        filename if filename.ends_with(".pr") => {
-            // script mode: proto script.pr
-            match CompileContext::new_script(filename.into()) {
-                Ok(mut ctx) => {
-                    if let Err(e) = ctx.compile() {
-                        eprintln!("Compilation error: {:?}", e);
-                    }
-                }
-                Err(e) => {
-                    eprintln!("Failed to create project context: {:?}", e);
-                }
-            }
-        }
-        _ => {
-            eprintln!("Error: Unknown command or invalid file name");
-            show_help();
+        },
+
+        Err(error) => {
+            eprintln!("Error: {}", error);
+            println!("\n{}", USAGE);
         }
     }
 }

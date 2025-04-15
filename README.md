@@ -231,19 +231,68 @@ std.alloc   // Memory allocation
 
 ### Phase 1: Core Language
 1. Lexer and Parser
+  - Basic tokens (keywords, operators, literals)
+  - Function declarations
+  - Variable declarations (mut/let)
+  - Basic expressions
+  - Control flow structures (if, while, for)
 2. Basic Type System
+  - Primitive types (i32, f64, bool, etc.)
+  - Basic type checking
+  - Function signatures
+  - Variable type inference
 3. Memory management
+  - Allocator interface
+  - Basic ownership tracking
+  - Reference handling (&T, &mut T)
+  - Pointer operations (*T)
 4. Error handling
+  - Error type
+  - Try/catch mechanism
+  - Error propagation (!)
 5. Functions and Control Flow
+  - Function calls
+  - Return values
+  - Basic control structures
+  - Defer statement
+
 
 ### Phase 2: Type System
 1. Enums and pattern matching
+  - Enum declarations with payloads
+  - Match expressions
+  - Option(T) implementation
+  - Result(T, E) implementation
 2. Generics
+  - Generic type parameters
+  - Generic functions
+  - Generic structs
+  - Type constraints (if needed for v0.1)
 3. User-defined Types
+  - Struct definitions
+  - Field access
+  - Struct initialization
+  - Struct methods (if needed for v0.1)
 4. Type Inference
+  - Local variable type inference
+  - Function return type inference
+  - Generic type inference
+
 
 ### Phase 3: Standard Library
 1. Core types implementation
+  - Option(T)
+  - Result(T, E)
+  - Basic collections (if needed)
 2. Basic I/O
+  - File operations
+  - Standard input/output
+  - Basic formatting
 3. Memory Allocator
+  - General purpose allocator
+  - Arena allocator
+  - Allocation tracking
 4. Formatting utilities
+  - String formatting
+  - Number formatting
+  - Error formatting
