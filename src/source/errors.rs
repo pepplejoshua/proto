@@ -27,162 +27,126 @@ pub enum ParseError {
     TooManyErrors(Rc<SourceRef>),
 }
 
-#[derive(Debug, Clone)]
-pub enum SemanError {
-    NoMainFunctionProvided {
-        filename: Rc<String>,
-    },
-    TypeMismatch {
-        loc: Rc<SourceRef>,
-        expected: String,
-        found: String,
-    },
-    IntegerTypeDefaultInferenceFailed {
-        loc: Rc<SourceRef>,
-        number: String,
-    },
-    FloatTypeDefaultInferenceFailed {
-        loc: Rc<SourceRef>,
-        number: String,
-    },
-    IntegerTypeCheckFailed {
-        loc: Rc<SourceRef>,
-        number: String,
-        given_type: String,
-    },
-    FloatTypeCheckFailed {
-        loc: Rc<SourceRef>,
-        number: String,
-        given_type: String,
-    },
-    DivisionByZero {
-        loc: Rc<SourceRef>,
-    },
-    ArithmeticOverflow {
-        loc: Rc<SourceRef>,
-        operation: String,
-        reason: String,
-    },
-    ReferenceToUndefinedName {
-        loc: Rc<SourceRef>,
-        var_name: String,
-    },
-    InvalidUseOfBinaryOperator {
-        loc: Rc<SourceRef>,
-        op: String,
-        left: String,
-        right: String,
-    },
-    InvalidUseOfUnaryOperator {
-        loc: Rc<SourceRef>,
-        op: String,
-        operand_ty: String,
-        tip: Option<String>,
-    },
-    InvalidType {
-        loc: Rc<SourceRef>,
-        type_name: String,
-    },
-    IncompleteType {
-        loc: Rc<SourceRef>,
-        type_name: String,
-    },
-    // TODO: track the location of the previous definition
-    NameAlreadyDefined {
-        loc: Rc<SourceRef>,
-        name: String,
-    },
-    ReturnOutsideFunction {
-        loc: Rc<SourceRef>,
-    },
-    UseOfUninitializedVariable {
-        loc: Rc<SourceRef>,
-        name: String,
-    },
-    UseOfErroredVariableOrConstant {
-        is_const: bool,
-        loc: Rc<SourceRef>,
-        name: String,
-    },
-    ExpectedFunctionType {
-        found: String,
-        loc: Rc<SourceRef>,
-    },
-    MismatchingReturnType {
-        exp: String,
-        given: String,
-        loc_given: Rc<SourceRef>,
-    },
-    IncorrectFunctionArity {
-        expected: usize,
-        given: usize,
-        loc: Rc<SourceRef>,
-    },
-    CannotInferTypeOfEmptyArray {
-        loc: Rc<SourceRef>,
-    },
-    MismatchingStaticArrayItemTypes {
-        expected_ty: String,
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    StaticArrayTypeCheckFailed {
-        given_ty: String,
-        arr_loc: Rc<SourceRef>,
-    },
-    OptionalTypeInferenceFailed {
-        given_ty: String,
-        opt_loc: Rc<SourceRef>,
-    },
-    OptionalTypeInferenceFailedWithoutContextualTy {
-        opt_loc: Rc<SourceRef>,
-    },
-    NonConstantNumberSizeForStaticArray {
-        loc: Rc<SourceRef>,
-    },
-    MismismatchStaticArrayLength {
-        exp: String,
-        given: String,
-        arr_loc: Rc<SourceRef>,
-    },
-    ExpectedArrayOrSlice {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    PrintRequiresAStringArg {
-        is_println: bool,
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    IndexIntoOpRequiresArraySliceOrString {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    Expected(String, Rc<SourceRef>, Option<String>),
-    AccessMemberOpCannotBePerformedOnType {
-        given_ty: String,
-        loc: Rc<SourceRef>,
-    },
-    MemberDoesNotExist {
-        given_ty: String,
-        mem: String,
-        loc: Rc<SourceRef>,
-    },
-    CannotAssignToTarget {
-        loc: Rc<SourceRef>,
-    },
-    CannotAssignToImmutableTarget {
-        target: String,
-        loc: Rc<SourceRef>,
-    },
-    CannotAccessNonConstFuncOnConstTarget {
-        loc: Rc<SourceRef>,
-    },
-    CannotReturnFromInsideADeferIns {
-        loc: Rc<SourceRef>,
-    },
-    FunctionInDeferShouldReturnVoid {
-        loc: Rc<SourceRef>,
-    },
-    TooManyErrors,
+#[derive(Debug)]
+pub enum CompileError {
+    FileError(String, String), // (path, error message)
+    LexicalErrors(Vec<crate::source::errors::LexError>),
+    ParsingErrors(Vec<crate::source::errors::ParseError>),
+    TypeError(String),      // Will expand this later
+    CodegenError(String),   // Will expand this later
+    ExecutionError(String), // Will expand this later
+}
+
+impl std::fmt::Display for CompileError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            CompileError::FileError(path, msg) => {
+                write!(f, "Error reading file '{}': {}", path, msg)
+            }
+            CompileError::LexicalErrors(errors) => {
+                writeln!(f, "Lexical errors:")?;
+                for err in errors {
+                    writeln!(f, "  {:?}", err)?;
+                }
+                Ok(())
+            }
+            CompileError::ParsingErrors(errors) => {
+                writeln!(f, "Parsing errors:")?;
+                for err in errors {
+                    writeln!(f, "  {:?}", err)?;
+                }
+                Ok(())
+            }
+            CompileError::TypeError(msg) => write!(f, "Type error: {}", msg),
+            CompileError::CodegenError(msg) => write!(f, "Code generation error: {}", msg),
+            CompileError::ExecutionError(msg) => write!(f, "Execution error: {}", msg),
+        }
+    }
+}
+
+impl std::error::Error for CompileError {}
+
+// Will add more error conversions as needed
+impl From<std::io::Error> for CompileError {
+    fn from(err: std::io::Error) -> Self {
+        CompileError::FileError("".to_string(), err.to_string())
+    }
+}
+
+// Display implementations for LexError and ParseError
+impl std::fmt::Display for LexError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            LexError::InvalidCharacter(src) => write!(f, "Invalid character at {}", src.as_str()),
+            LexError::CannotMakeSignedNumber(src) => {
+                write!(f, "Cannot make signed number at {}", src.as_str())
+            }
+            LexError::CannotMakeUnsignedNumber(src) => {
+                write!(f, "Cannot make unsigned number at {}", src.as_str())
+            }
+            LexError::EmptyCharacterLiteral(src) => {
+                write!(f, "Empty character literal at {}", src.as_str())
+            }
+            LexError::UnterminatedCharacterLiteral(src) => {
+                write!(f, "Unterminated character literal at {}", src.as_str())
+            }
+            LexError::UnterminatedStringLiteral(src) => {
+                write!(f, "Unterminated string literal at {}", src.as_str())
+            }
+            LexError::DecimalLiteralWithMultipleDecimalPoints(src) => {
+                write!(
+                    f,
+                    "Decimal literal with multiple decimal points at {}",
+                    src.as_str()
+                )
+            }
+        }
+    }
+}
+
+impl std::fmt::Display for ParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            ParseError::Expected(expected, src, found) => {
+                write!(
+                    f,
+                    "Expected {} at {}, found {:?}",
+                    expected,
+                    src.as_str(),
+                    found
+                )
+            }
+            ParseError::ConstantDeclarationNeedsTypeOrInitValue(src) => write!(
+                f,
+                "Constant declaration needs type or init value at {}",
+                src.as_str()
+            ),
+            ParseError::CannotParseAnExpression(src) => {
+                write!(f, "Cannot parse expression at {}", src.as_str())
+            }
+            ParseError::MalformedDeclaration(msg, src) => {
+                write!(f, "Malformed declaration: {} at {}", msg, src.as_str())
+            }
+            ParseError::UnterminatedCodeBlock(src, ctx) => {
+                write!(
+                    f,
+                    "Unterminated code block at {} (context: {:?})",
+                    src.as_str(),
+                    ctx
+                )
+            }
+            ParseError::MalformedPubDeclaration { src } => {
+                write!(f, "Malformed pub declaration at {}", src.as_str())
+            }
+            ParseError::ParsedInstructionIsNotAllowedAtThisLevel { level, src } => {
+                write!(
+                    f,
+                    "{} is not allowed at this level at {}",
+                    level,
+                    src.as_str()
+                )
+            }
+            ParseError::TooManyErrors(src) => write!(f, "Too many errors at {}", src.as_str()),
+        }
+    }
 }

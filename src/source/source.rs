@@ -5,6 +5,8 @@ use std::{
     rc::Rc,
 };
 
+use super::errors::CompileError;
+
 #[allow(dead_code)]
 #[derive(Debug, Clone)]
 pub struct SourceFile {
@@ -19,19 +21,36 @@ pub struct SourceFile {
 #[allow(dead_code)]
 impl SourceFile {
     // new source file from a path
-    pub fn new(path: String) -> SourceFile {
-        let path = Path::new(&path);
-        let full_path = fs::canonicalize(&path).unwrap();
+    pub fn new<P: AsRef<Path>>(path: P) -> Result<SourceFile, CompileError> {
+        let path = path.as_ref();
+        let full_path = fs::canonicalize(path).map_err(|e| {
+            CompileError::FileError(
+                path.to_string_lossy().into(),
+                format!("Failed to resolve path: {}", e),
+            )
+        })?;
+
         let mut src_file = SourceFile {
-            path: Rc::new(full_path.to_str().unwrap().to_string()),
+            path: Rc::new(
+                full_path
+                    .to_str()
+                    .ok_or_else(|| {
+                        CompileError::FileError(
+                            path.to_string_lossy().into(),
+                            "Path contains invalid Unicode".into(),
+                        )
+                    })?
+                    .to_string(),
+            ),
             text: Rc::new(String::new()),
             flat_index: 0,
             col: 0,
             line: 0,
             lines: vec![],
         };
-        src_file.read_file();
-        src_file
+
+        src_file.read_file()?;
+        Ok(src_file)
     }
 
     // get a reference to the current position in the source file
@@ -108,21 +127,21 @@ impl SourceFile {
         self.text.chars().nth(self.flat_index).unwrap()
     }
 
-    fn read_file(&mut self) {
-        let file_not_found = format!("{}: file not found.", self.path);
-        let mut file = File::open(self.path.as_ref()).expect(&file_not_found);
-        let read_error = format!(
-            "{}: something went wrong trying to read the file.",
-            self.path
-        );
-        let mut text = String::new();
-        file.read_to_string(&mut text).expect(&read_error);
-        let t_lines = text.split('\n').collect::<Vec<_>>();
-        for line in t_lines {
-            self.lines.push(line.into());
-        }
+    fn read_file(&mut self) -> Result<(), CompileError> {
+        let mut file = File::open(self.path.as_ref()).map_err(|e| {
+            CompileError::FileError(self.path.to_string(), format!("Failed to open file: {}", e))
+        })?;
 
+        let mut text = String::new();
+        file.read_to_string(&mut text).map_err(|e| {
+            CompileError::FileError(self.path.to_string(), format!("Failed to read file: {}", e))
+        })?;
+
+        let t_lines = text.split('\n').collect::<Vec<_>>();
+        self.lines = t_lines.iter().map(|&s| s.to_string()).collect();
         self.text = Rc::new(text);
+
+        Ok(())
     }
 }
 
@@ -237,7 +256,7 @@ pub struct SourceReporter {
 
 use crate::pastel::pastel;
 
-use super::errors::{LexError, ParseError, SemanError};
+use super::errors::{LexError, ParseError};
 
 #[allow(dead_code)]
 impl SourceReporter {
@@ -324,262 +343,6 @@ impl SourceReporter {
             ParseError::ParsedInstructionIsNotAllowedAtThisLevel { level, src } => {
                 let msg = format!("This instruction is not allowed at this level ({level}).");
                 self.report_with_ref(&src, msg, None, false);
-            }
-        }
-    }
-
-    pub fn report_seman_error(&self, ce: SemanError) {
-        match ce {
-            SemanError::NoMainFunctionProvided { filename } => {
-                let msg = "No main function provided.".to_string();
-                let tip = "The main function serves as the entry point of the program.".to_string();
-                self.report_no_ref(filename, msg, Some(tip));
-            }
-            SemanError::InvalidType { loc, type_name } => {
-                let msg = format!("Invalid type: '{}'.", type_name);
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::IncompleteType { loc, type_name } => {
-                let msg = format!("Incomplete type: '{}'.", type_name);
-                let tip = format!(
-                    "If it is an array, make sure to specify the size, or use a slice of the same type instead."
-                );
-                self.report_with_ref(&loc, msg, Some(tip), false);
-            }
-            SemanError::TypeMismatch {
-                loc,
-                expected,
-                found,
-            } => {
-                let msg = format!(
-                    "Type mismatch. Expected a value of type: `{}` but found a value of type: `{}`",
-                    expected, found
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::IntegerTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!(
-                    "Failed to convert integer literal '{}' to 'int' type.",
-                    number
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::FloatTypeDefaultInferenceFailed { loc, number } => {
-                let msg = format!("Failed to convert '{}' to f32.", number);
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::IntegerTypeCheckFailed {
-                loc,
-                number,
-                given_type,
-            } => {
-                let msg = format!(
-                    "Number '{}' is not compatible with the given type '{}'.",
-                    number, given_type
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::FloatTypeCheckFailed {
-                loc,
-                number,
-                given_type,
-            } => {
-                let msg = format!(
-                    "Decimal '{}' is not compatible with the given type '{}'.",
-                    number, given_type
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::DivisionByZero { loc } => {
-                let msg = format!("Division by Zero is not a valid operation.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::ArithmeticOverflow {
-                loc,
-                operation,
-                reason,
-            } => {
-                let msg = format!("{operation} will fail at runtime because {reason}.");
-                self.report_with_ref(&loc, msg, None, false);
-                todo!()
-            }
-            SemanError::ReferenceToUndefinedName { loc, var_name } => {
-                let msg = format!("Reference to an undefined name: '{}'.", var_name);
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::InvalidUseOfBinaryOperator {
-                loc,
-                op,
-                left,
-                right,
-            } => {
-                let msg = format!(
-                    "Invalid use of binary operator '{}'. It cannot be applied to values of types '{}' and '{}'.",
-                    op, left, right
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::InvalidUseOfUnaryOperator {
-                loc,
-                op,
-                operand_ty,
-                tip,
-            } => {
-                let msg = format!(
-                    "Invalid use of unary operator '{op}'. It cannot be applied to a value of type '{operand_ty}'.",
-                );
-                self.report_with_ref(&loc, msg, tip, false);
-            }
-            SemanError::TooManyErrors => {
-                let msg = format!("Too many errors during semantic analysis. Stopping.");
-                let tip =
-                    "Errors might be cascading. Try fixing some error and recompiling.".to_string();
-                self.report_with_ref(&SourceRef::dud(), msg, Some(tip), false);
-            }
-            SemanError::NameAlreadyDefined { loc, name } => {
-                let msg = format!("'{name}' is already defined.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::UseOfUninitializedVariable { loc, name } => {
-                let msg = format!("Use of uninitialized variable: '{}'.", name);
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::UseOfErroredVariableOrConstant {
-                is_const,
-                loc,
-                name,
-            } => {
-                let msg = format!(
-                    "Use of errored {} '{}'.",
-                    if is_const { "constant" } else { "variable" },
-                    name
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::ReturnOutsideFunction { loc } => {
-                let msg = format!("Return instruction used outside a function's scope.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::MismatchingReturnType {
-                exp,
-                given,
-                loc_given,
-            } => {
-                let msg = format!("Function expects a return type of '{exp}' but a value of type '{given}' was returned.");
-                self.report_with_ref(&loc_given, msg, None, false);
-            }
-            SemanError::IncorrectFunctionArity {
-                expected,
-                given,
-                loc,
-            } => {
-                let msg = format!("Expected {expected} arguments for function call but was called with {given} arguments.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::ExpectedFunctionType { found, loc } => {
-                let msg = format!(
-                    "value has type '{found}' which is not a function and cannot be called."
-                );
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotInferTypeOfEmptyArray { loc } => {
-                let msg = "Unable to infer type of empty static array without context.".to_string();
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::MismatchingStaticArrayItemTypes {
-                expected_ty,
-                given_ty,
-                loc,
-            } => {
-                let msg = format!("Static array has an inferred type of '{expected_ty}' and this item has a type of '{given_ty}'.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::StaticArrayTypeCheckFailed { given_ty, arr_loc } => {
-                let msg =
-                    format!("Static Array type is incompatible with the given type '{given_ty}'");
-                self.report_with_ref(&arr_loc, msg, None, false);
-            }
-            SemanError::NonConstantNumberSizeForStaticArray { loc } => {
-                let msg =
-                    "Static Arrays require a constant usize number as its size or _ to infer the size."
-                        .to_string();
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::MismismatchStaticArrayLength {
-                exp,
-                given,
-                arr_loc,
-            } => {
-                let msg = format!(
-                    "Static array was expected to have at most {exp} items but got {given} items."
-                );
-                self.report_with_ref(&arr_loc, msg, None, false);
-            }
-            SemanError::ExpectedArrayOrSlice { given_ty, loc } => {
-                let msg = format!("The target of a slice operation should be an array or another slice was expected. The target has type '{given_ty}'.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::PrintRequiresAStringArg {
-                is_println,
-                given_ty,
-                loc,
-            } => {
-                let msg = format!("{} takes an argument of type 'str' but was given an argument of type '{given_ty}'.", if is_println {
-                    "Println"
-                } else {
-                    "Print"
-                });
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::IndexIntoOpRequiresArraySliceOrString { given_ty, loc } => {
-                let msg = format!("Arrays, Slices and Strings are the only types that support the indexing into operation. The target has type '{given_ty}'");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::OptionalTypeInferenceFailed { given_ty, opt_loc } => {
-                let msg =
-                    format!("Optional's type is incompatible with the given type '{given_ty}'");
-                self.report_with_ref(&opt_loc, msg, None, false);
-            }
-            SemanError::OptionalTypeInferenceFailedWithoutContextualTy { opt_loc } => {
-                let msg =
-                    format!("Inferring optional's type failed without contextual information.");
-                self.report_with_ref(&opt_loc, msg, None, false);
-            }
-            SemanError::Expected(msg, loc, tip) => {
-                self.report_with_ref(&loc, msg, tip, false);
-            }
-            SemanError::AccessMemberOpCannotBePerformedOnType { given_ty, loc } => {
-                let msg = format!("Accessing members is not valid for type '{given_ty}'.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::MemberDoesNotExist { given_ty, mem, loc } => {
-                let msg = format!("Type '{given_ty}' does not have a member named '{mem}'.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotAssignToTarget { loc } => {
-                let msg = format!("Target cannot be assigned to.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotAssignToImmutableTarget { target, loc } => {
-                let msg = format!("'{target}' is immutable and cannot be assigned to.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::CannotAccessNonConstFuncOnConstTarget { loc } => {
-                let msg = format!(
-                    "The target of this method access is a const, while the method is non-const."
-                );
-                let tip =
-                    "Mark the method as const if it does not mutate the instance.".to_string();
-                self.report_with_ref(&loc, msg, Some(tip), false);
-            }
-            SemanError::CannotReturnFromInsideADeferIns { loc } => {
-                let msg = format!("Returning from inside a defer instruction is not allowed.");
-                self.report_with_ref(&loc, msg, None, false);
-            }
-            SemanError::FunctionInDeferShouldReturnVoid { loc } => {
-                let msg =
-                    format!("Function definitions inside a defer instruction should return void.");
-                self.report_with_ref(&loc, msg, None, false);
             }
         }
     }

@@ -1,5 +1,6 @@
 use std::env;
 
+mod compiler;
 mod lexer;
 mod parser;
 mod pastel;

@@ -798,7 +798,7 @@ fn test_lexer() {
     insta::glob!("lexer_inputs/*.pr", |path| {
         // build the SourceFile from the proto file
         let path = path.to_str().unwrap().to_string();
-        let src: SourceFile = SourceFile::new(path);
+        let src: SourceFile = SourceFile::new(path).unwrap();
 
         // build the lexer
         let mut lexer = Lexer::new(src);

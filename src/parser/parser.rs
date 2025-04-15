@@ -1558,7 +1558,7 @@ fn test_parser() {
     insta::glob!("parser_inputs/*.pr", |path| {
         // build the SourceFile from the proto file path
         let path = path.to_str().unwrap().to_string();
-        let src = SourceFile::new(path);
+        let src = SourceFile::new(path).unwrap();
 
         // build the lexer
         let lexer = Lexer::new(src);
