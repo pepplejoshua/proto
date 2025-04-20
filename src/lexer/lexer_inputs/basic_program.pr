@@ -1,0 +1,18 @@
+fn main() void {
+    let x = 42
+    mut y = 10
+
+    // Basic arithmetic
+    let z = x + y
+    y *= 2
+
+    // Reference example
+    let p = &x
+    mut q = &mut y
+
+    // Match expression
+    match y {
+        0 => x,
+        _ => 0,
+    }
+}

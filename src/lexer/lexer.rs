@@ -275,10 +275,6 @@ impl Lexer {
                 ty: TokenType::In,
                 loc: combined_ref,
             }),
-            "var" => Ok(SrcToken {
-                ty: TokenType::Var,
-                loc: combined_ref,
-            }),
             "true" => Ok(SrcToken {
                 ty: TokenType::True,
                 loc: combined_ref,
@@ -299,16 +295,12 @@ impl Lexer {
                 ty: TokenType::Return,
                 loc: combined_ref,
             }),
-            "const" => Ok(SrcToken {
-                ty: TokenType::Const,
+            "let" => Ok(SrcToken {
+                ty: TokenType::Let,
                 loc: combined_ref,
             }),
-            "print" => Ok(SrcToken {
-                ty: TokenType::Print,
-                loc: combined_ref,
-            }),
-            "println" => Ok(SrcToken {
-                ty: TokenType::Println,
+            "mut" => Ok(SrcToken {
+                ty: TokenType::Mut,
                 loc: combined_ref,
             }),
             "none" => Ok(SrcToken {
@@ -393,10 +385,6 @@ impl Lexer {
             }),
             "or" => Ok(SrcToken {
                 ty: TokenType::Or,
-                loc: combined_ref,
-            }),
-            "comptime" => Ok(SrcToken {
-                ty: TokenType::Comptime,
                 loc: combined_ref,
             }),
             "_" => Ok(SrcToken {
@@ -501,13 +489,6 @@ impl Lexer {
                 });
             }
 
-            '@' => {
-                self.src.next_char();
-                return Ok(SrcToken {
-                    ty: TokenType::At,
-                    loc: cur_ref.combine(&self.src.get_ref()),
-                });
-            }
             '!' => {
                 let c = self.src.peek_char();
                 if c == '=' {
@@ -538,6 +519,13 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::Equal,
+                        loc: cur_ref.combine(&self.src.get_ref()),
+                    });
+                } else if c == '>' {
+                    self.src.next_char();
+                    self.src.next_char();
+                    return Ok(SrcToken {
+                        ty: TokenType::FatArrow,
                         loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }
@@ -586,13 +574,6 @@ impl Lexer {
                     self.src.next_char();
                     return Ok(SrcToken {
                         ty: TokenType::DoubleColon,
-                        loc: cur_ref.combine(&self.src.get_ref()),
-                    });
-                } else if c == '=' {
-                    self.src.next_char();
-                    self.src.next_char();
-                    return Ok(SrcToken {
-                        ty: TokenType::ColonAssign,
                         loc: cur_ref.combine(&self.src.get_ref()),
                     });
                 }

@@ -1,6 +1,5 @@
 use crate::{
     lexer::lexer::Lexer,
-    parser::parser::Parser,
     source::{errors::CompileError, source::SourceFile},
 };
 
@@ -9,10 +8,10 @@ pub fn compile_file(path: &str, run: bool) -> Result<(), CompileError> {
     let source = SourceFile::new(path.to_string())?;
 
     // 2. Create lexer
-    let lexer = Lexer::new(source);
+    let _lexer = Lexer::new(source);
 
     // 3. Create parser
-    let mut parser = Parser::new(lexer);
+    // let mut parser = Parser::new(lexer);
 
     // 4. Parse the file
     // let ast = parser.parse_file()?;
