@@ -310,26 +310,23 @@ fn find_split_spans(text: &String) -> Vec<(usize, (usize, usize), usize)> {
 #[test]
 fn test_find_split_spans() {
     let text = "Some Random Text\n*[*, l_white:d_magenta]This is a test of Pastel's parser.[/]";
-    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
-    ---
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r"
     - - 17
       - - 19
         - 39
       - 77
-    "###);
+    ");
 
     let text = "*[*]Bolden and *[_]underline[/][/]";
-    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
-    ---
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r"
     - - 0
       - - 2
         - 3
       - 31
-    "###);
+    ");
 
     let text = "*[*]Bolden[/]*[_]underline[/]";
-    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r###"
-    ---
+    insta::assert_yaml_snapshot!(find_split_spans(&text.to_string()), @r"
     - - 0
       - - 2
         - 3
@@ -338,7 +335,7 @@ fn test_find_split_spans() {
       - - 15
         - 16
       - 29
-    "###);
+    ");
 }
 
 pub fn parse(text: &str) -> Vec<SliceOf> {
@@ -423,8 +420,7 @@ pub fn parse(text: &str) -> Vec<SliceOf> {
 #[test]
 fn test_pastel_parse() {
     let text = "Some Random Text\n*[*, l_white:d_magenta]This is a test of Pastel's parser.[/]";
-    insta::assert_yaml_snapshot!(parse(text), @r###"
-    ---
+    insta::assert_yaml_snapshot!(parse(text), @r#"
     - RegText: "Some Random Text\n"
     - AugText:
         - "This is a test of Pastel's parser."
@@ -433,11 +429,10 @@ fn test_pastel_parse() {
           fore_color: l_white
           back_color: d_magenta
     - RegText: ""
-    "###);
+    "#);
 
     let text = "Some Random Text\n*[*, l_white:d_magenta]Magenta![/]\nAnother line\n*[*, _, l_white:d_red]Red![/]";
-    insta::assert_yaml_snapshot!(parse(text), @r###"
-    ---
+    insta::assert_yaml_snapshot!(parse(text), @r#"
     - RegText: "Some Random Text\n"
     - AugText:
         - Magenta!
@@ -453,11 +448,10 @@ fn test_pastel_parse() {
           fore_color: l_white
           back_color: d_red
     - RegText: ""
-    "###);
+    "#);
 
     let text = "*[*]Bolden and *[_]underline[/][/]";
-    insta::assert_yaml_snapshot!(parse(text), @r###"
-    ---
+    insta::assert_yaml_snapshot!(parse(text), @r#"
     - AugText:
         - "Bolden and *[_]underline"
         - bold: true
@@ -465,7 +459,7 @@ fn test_pastel_parse() {
           fore_color: ~
           back_color: ~
     - RegText: "[/]"
-    "###);
+    "#);
 }
 
 // TODO:

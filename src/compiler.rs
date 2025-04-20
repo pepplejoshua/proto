@@ -33,9 +33,9 @@ pub fn compile_file(path: &str, run: bool) -> Result<(), CompileError> {
     // let code = codegen::generate(typed_ast)?;
 
     // 7. If run=true, execute the code (will implement later)
-    // if run {
-    //     execute::run(code)?;
-    // }
+    if run {
+        //     execute::run(code)?;
+    }
 
     Ok(())
 }

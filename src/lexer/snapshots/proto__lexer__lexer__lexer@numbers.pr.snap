@@ -1,0 +1,17 @@
+---
+source: src/lexer/lexer.rs
+expression: res
+input_file: src/lexer/lexer_inputs/numbers.pr
+---
+stringified_tokens:
+  - "128 at [start_line:0 start_col:0 end_line:0 end_col:3 flat_start:0 flat_end:3]"
+  - "127 at [start_line:0 start_col:4 end_line:0 end_col:7 flat_start:4 flat_end:7]"
+  - "32_768 at [start_line:0 start_col:8 end_line:0 end_col:14 flat_start:8 flat_end:14]"
+  - "32_767 at [start_line:0 start_col:15 end_line:0 end_col:21 flat_start:15 flat_end:21]"
+  - "2_147_483_648 at [start_line:0 start_col:22 end_line:0 end_col:35 flat_start:22 flat_end:35]"
+  - "2_147_483_647 at [start_line:0 start_col:36 end_line:0 end_col:49 flat_start:36 flat_end:49]"
+  - "9_223_372_036_854_775_808 at [start_line:0 start_col:50 end_line:0 end_col:75 flat_start:50 flat_end:75]"
+  - "9_223_372_036_854_775_807 at [start_line:0 start_col:76 end_line:0 end_col:101 flat_start:76 flat_end:101]"
+  - "18_446_744_073_709_551_615 at [start_line:0 start_col:102 end_line:0 end_col:128 flat_start:102 flat_end:128]"
+  - "123_456_789.987_654_321_0 at [start_line:1 start_col:0 end_line:1 end_col:25 flat_start:129 flat_end:154]"
+  - "3.141_592_653_589_793_2 at [start_line:1 start_col:26 end_line:1 end_col:49 flat_start:155 flat_end:178]"

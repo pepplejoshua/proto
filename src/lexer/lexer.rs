@@ -698,27 +698,31 @@ impl Lexer {
     // try to lex a character
     fn lex_char(&mut self) -> Result<SrcToken, LexError> {
         let mut span = self.src.get_ref();
-        // read single character
-        let c = self.src.next_char();
+        // skip opening quote
+        self.src.next_char();
         span = span.combine(&self.src.get_ref());
 
-        // if the next character is a ', return an error
-        if c == '\'' {
+        // if we see a backslash, consume the escape sequence
+        if self.src.cur_char() == '\'' {
+            self.src.next_char();
             return Err(LexError::EmptyCharacterLiteral(span));
-        } else if c == '\\' {
-            // if the next character is a ', add it to the content
-            span = span.combine(&self.src.get_ref());
+        } else if self.src.cur_char() == '\\' {
+            self.src.next_char(); // consume backslash
+            self.src.next_char(); // consume escaped char
+        } else {
+            // consume regular char
+            self.src.next_char();
         }
 
-        // if the next character is not a ', return an error
-        let c = self.src.next_char();
-        span = span.combine(&self.src.get_ref());
-        if c != '\'' {
+        // Check for closing quote
+        if self.src.cur_char() != '\'' {
             return Err(LexError::UnterminatedCharacterLiteral(span));
         }
 
+        // consume closing quote
         self.src.next_char();
         span = span.combine(&self.src.get_ref());
+
         Ok(SrcToken {
             ty: TokenType::Character,
             loc: span,
