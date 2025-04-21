@@ -174,11 +174,23 @@ fn process() !void {
 }
 
 // Loops
+// Iterator loop (v0.1)
 for items |item, index| {
     // ...
 }
 
-while condition {
+// C style loop (v0.1)
+for (mut i = 0; i < 10; i = i + 2) {
+    // ...
+}
+
+// Whle loop (v0.1)
+for condition {
+    // ...
+}
+
+// While loop with post code per loop (later)
+for condition : { condition = update_condition() } {
     // ...
 }
 ```
